@@ -1,2 +1,5 @@
 group_quarters/data/seed_*
+group_quarters/output
 households/data/seed_*
+households/output
+mysql*

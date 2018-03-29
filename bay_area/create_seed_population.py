@@ -13,7 +13,7 @@ Columns used:
 - ESR (person), Employment Status Recode, to count workers per housing record
 - SERIALNO (hh and person), to group persons to housing record, to count workers per housing record
 - ADJINC and HINCP (hh), used to adjust household income to 2010 dollars
-- NP (housing), to filter out vacant units
+- NP (housing), to filter out vacant unitsf
 - TYPE (housing), to filter to households and non-institutional group quarters
 - MIL (person), to inform GQTYPE for group quarters persons
 - SCHG (person), to inform GQTYPE for group quarters persons
@@ -21,7 +21,7 @@ Columns used:
 New columns in housing records file:
 - hh_workers_from_esr: count of employed persons in household
 - hh_income_2010     : household income in 2010 dollars, based on HINCP and ADJINC
-- hh_unique_id       : integer unique id for housing unit, starting with 1
+- unique_hh_id       : integer unique id for housing unit, starting with 1
 - GQTYPE             : for group quarters file only, 1 is college student, 2 is military, 3 is other
 - PWGT               : for group quarters file only, transfered from person records
 New columns in person records file:
