@@ -127,8 +127,8 @@ run_list:
     - meta_control_factoring
     - final_seed_balancing
     - integerize_final_seed_weights
-    - sub_balancing.geography=MAZ
     - sub_balancing.geography=TAZ
+    - sub_balancing.geography=MAZ
     - expand_households
     - summarize
     - write_tables
