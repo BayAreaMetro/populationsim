@@ -56,7 +56,7 @@ def summarize_geography(geography, weight_col,
         zone_row_map = results_df[geography] == zone_id
         zone_weights = results_df[zone_row_map]
 
-        incidence = incidence_df.loc[zone_weights.hh_id]
+        incidence = incidence_df.loc[zone_weights[setting('household_id_col')]]
 
         weights = zone_weights[weight_col].tolist()
         x = [(incidence[c] * weights).sum() for c in control_names]
@@ -131,7 +131,7 @@ def meta_summary(incidence_df, control_spec, top_geography, top_id, sub_geograph
 
         sub_weights = sub_weights[sub_weights[top_geography] == top_id]
 
-        sub_weights = sub_weights[['hh_id'] + sub_weight_cols].groupby('hh_id').sum()
+        sub_weights = sub_weights[[setting('household_id_col')] + sub_weight_cols].groupby(setting('household_id_col')).sum()
 
         for c in sub_weight_cols:
             summary['%s_%s' % (g, c)] = \
