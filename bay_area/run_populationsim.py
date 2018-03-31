@@ -1,9 +1,12 @@
+"""
+From population\\bay_area, run the following:
+
+  python run_populationsim.py --config households\configs     --output households\output     --data households\data
+  python run_populationsim.py --config group_quarters\configs --output group_quarters\output --data group_quarters\data
+
+"""
 import os
 import logging
-
-os.chdir("households")
-if not os.path.exists("output"): os.mkdir("output")
-print os.getcwd()
 
 from activitysim.core import inject_defaults
 from populationsim import steps
