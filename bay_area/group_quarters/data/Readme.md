@@ -1,10 +1,10 @@
 # Control Files
 
-* 2010_regionData.csv
-* 2010_mazData.csv
-  * Exported from PopSyn3 mysql database tables `control_totals_[meta,maz]_gq_year_2010`
+* 20[00,05,10,15]_regionData.csv
+* 20[00,05,10,15]_mazData.csv
+  * Exported from PopSyn3 mysql database tables `control_totals_[meta,maz]_gq_year_20[00,05,10,15]`
   * Created by [`popsyn3\scripts\buildControls2010.R`](https://github.com/BayAreaMetro/popsyn3/blob/master/scripts/buildControls2010.R) and [`popsyn3\scripts\Step 03 Controls to Database.R`](https://github.com/BayAreaMetro/popsyn3/blob/master/scripts/Step%2003%20Controls%20to%20Database.R)
-  * Note that the popsyn3 setup uses counties rather than PUMAs as the seed geography but calls them counties so the 2010_mazData.csv has the PUMA column renamed to COUNTY and a new *real* PUMA column added
+  * Note that the popsyn3 setup uses counties rather than PUMAs as the seed geography but calls them counties so the 20[00,05,10,15]_mazData.csv has the PUMA column renamed to COUNTY and a new *real* PUMA column added
 
 # Geographic Crosswalk
 

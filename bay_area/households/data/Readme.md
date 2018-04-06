@@ -1,10 +1,10 @@
 # Control Files
 
-* 2010_countyData.csv
-* 2010_tazData.csv
-* 2010_mazData.csv
-  * Exported from PopSyn3 mysql database tables `control_totals_[meta,taz,maz]_year_2010`
-  * Created by [`popsyn3\scripts\buildControls2010.R`](https://github.com/BayAreaMetro/popsyn3/blob/master/scripts/buildControls2010.R) and [`popsyn3\scripts\Step 03 Controls to Database.R`](https://github.com/BayAreaMetro/popsyn3/blob/master/scripts/Step%2003%20Controls%20to%20Database.R)
+* 20[00,05,10,15]_countyData.csv
+* 20[00,05,10,15]_tazData.csv
+* 20[00,05,10,15]_mazData.csv
+  * Exported from PopSyn3 mysql database tables `control_totals_[meta,taz,maz]_year_20[00,05,10,15]`
+  * Created by [`popsyn3\scripts\buildControls2010.R`](https://github.com/BayAreaMetro/popsyn3/blob/master/scripts/buildControls2010.R) and [`popsyn3\scripts\Step 03 Controls to Database.R`](https://github.com/BayAreaMetro/popsyn3/blob/master/scripts/Step%2003%20Controls%20to%20Database.R) (adjust for correct year)
 
 # Geographic Crosswalk
 
