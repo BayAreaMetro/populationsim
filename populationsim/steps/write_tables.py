@@ -3,6 +3,7 @@
 
 import logging
 import os
+import pandas as pd
 
 from activitysim.core import pipeline
 from activitysim.core import inject
@@ -76,8 +77,12 @@ def write_tables(output_dir):
     elif action == 'skip':
         output_tables_list = [t for t in output_tables_list if t not in tables]
 
+    logger.debug("output_tables_list: %s" % str(output_tables_list))
     # should provide option to also write checkpoints?
     # output_tables_list.append("checkpoints.csv")
+
+    # columns: geography, id, variable, control, result, diff
+    summary_melt_df = pd.DataFrame()
 
     for table_name in output_tables_list:
         table = inject.get_table(table_name, None)
@@ -92,3 +97,34 @@ def write_tables(output_dir):
         file_path = os.path.join(output_dir, file_name)
         write_index = df.index.name is not None
         df.to_csv(file_path, index=write_index)
+
+        try:
+            # create the melt
+            # find the control variables
+            control_vars = []
+            for column in list(df.columns.values):
+                if column[-8:] == "_control": control_vars.append(column[:-8])
+            logger.debug("control variables for melt %s" % str(control_vars))
+
+            control_col_names = list("%s_control" % cv for cv in control_vars)
+            result_col_names  = list("%s_result"  % cv for cv in control_vars)
+            diff_col_names    = list("%s_diff"    % cv for cv in control_vars)
+
+            control_melt_df = df.melt(id_vars=["geography","id"], value_vars=control_col_names, value_name="control").replace(to_replace=dict(zip(control_col_names, control_vars)) )
+            result_melt_df  = df.melt(id_vars=["geography","id"], value_vars=result_col_names,  value_name="result" ).replace(to_replace=dict(zip(result_col_names,  control_vars)) )
+            diff_melt_df    = df.melt(id_vars=["geography","id"], value_vars=diff_col_names,    value_name="diff"   ).replace(to_replace=dict(zip(diff_col_names,    control_vars)) )
+
+            melt_df = pd.merge(left=control_melt_df, right=result_melt_df, how="left", on=["geography","id","variable"])
+            melt_df = pd.merge(left=melt_df,         right=diff_melt_df,   how="left", on=["geography","id","variable"])
+            summary_melt_df = summary_melt_df.append(melt_df)
+
+        except:
+            # if something doesn't work, it's ok
+            pass
+
+    if len(summary_melt_df) > 0:
+        file_name = "summary_melt.csv"
+        logger.info("writing output file %s" % file_name)
+        file_path = os.path.join(output_dir, file_name)
+        write_index = df.index.name is not None
+        summary_melt_df.to_csv(file_path, index=write_index)
