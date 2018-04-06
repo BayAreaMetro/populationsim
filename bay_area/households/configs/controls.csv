@@ -16,8 +16,8 @@ pers_age_00_19,TAZ,persons,1000,Age_00_19,(persons.AGEP >= 0) & (persons.AGEP <=
 pers_age_20_39,TAZ,persons,1000,Age_20_34,(persons.AGEP >= 20) & (persons.AGEP <= 39)
 pers_age_35_64,TAZ,persons,1000,Age_35_64,(persons.AGEP >= 40) & (persons.AGEP <= 64)
 pers_age_65_plus,TAZ,persons,1000,Age_65_up,(persons.AGEP >= 65) & (persons.AGEP <= np.inf)
-hh_with_kids,TAZ,households,1000,WI_KIDS,(households.HUPAC >= 1) & (households.HUPAC <= 3)
-hh_no_kids,TAZ,households,1000,WO_KIDS,households.HUPAC == 4
+hh_kids_yes,TAZ,households,1000,WI_KIDS,(households.HUPAC >= 1) & (households.HUPAC <= 3)
+hh_kids_no,TAZ,households,1000,WO_KIDS,households.HUPAC == 4
 pers_occ_management,COUNTY,persons,500,occupation_management,persons.occupation == 1
 pers_occ_professional,COUNTY,persons,500,occupation_professional,persons.occupation == 2
 pers_occ_services,COUNTY,persons,500,occupation_services,persons.occupation == 3
