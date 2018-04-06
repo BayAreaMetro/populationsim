@@ -57,11 +57,11 @@ input_table_list:
     # exported from popsyn3 mysql table control_totals_maz_year_2010
     # todo: clean-up and standardize the production of this table
   - tablename: MAZ_control_data
-    filename : 2010_mazData.csv
+    filename : model_year_mazData.csv
     # exported from popsyn3 mysql table control_totals_meta_year_2010
     # todo: clean-up and standardize the production of this table
   - tablename: REGION_control_data
-    filename : 2010_regionData.csv
+    filename : model_year_regionData.csv
 
 
 # Reserved Column Names

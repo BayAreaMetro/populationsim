@@ -39,7 +39,7 @@ def input_pre_processor():
     +--------------+----------------------------------------------------------+
     | key          | description                                              |
     +==============+=========================================+================+
-    | tablename    |  ame of pipeline table in which to store dataframe       |
+    | tablename    | name of pipeline table in which to store dataframe       |
     +--------------+----------------------------------------------------------+
     | filename     | name of csv file to read (in data_dir)                   |
     +--------------+----------------------------------------------------------+
@@ -58,6 +58,8 @@ def input_pre_processor():
     assert table_list is not None, "table list '%s' not in settings." % table_list_name
 
     data_dir = data_dir_from_settings()
+    model_year = inject.get_injectable("model_year", default=None)
+    logger.info("model_year: %s" % model_year)
 
     for table_info in table_list:
 
@@ -68,6 +70,9 @@ def input_pre_processor():
         # read the csv file
         data_filename = table_info.get('filename', None)
         data_file_path = os.path.join(data_dir, data_filename)
+        # replace "model_year" with string if it's defined
+        if model_year: data_file_path = data_file_path.replace("model_year", model_year)
+
         if not os.path.exists(data_file_path):
             raise RuntimeError("input_pre_processor %s - input file not found: %s"
                                % (tablename, data_file_path, ))

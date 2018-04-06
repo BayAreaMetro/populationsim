@@ -1,12 +1,9 @@
 """
-From population\\bay_area, run the following:
 
-  python run_populationsim.py --config households\configs     --output households\output     --data households\data
-  python run_populationsim.py --config group_quarters\configs --output group_quarters\output --data group_quarters\data
+See run_populationsim.bat for typical usage.
 
 """
-import os
-import logging
+import argparse,os,logging,sys
 
 from activitysim.core import inject_defaults
 from populationsim import steps
@@ -22,7 +19,9 @@ from populationsim.util import setting
 from populationsim import lp
 from populationsim import multi_integerizer
 
-
+# handle model year as argument
+parser = argparse.ArgumentParser()
+parser.add_argument("-y","--model_year",help="model year")
 
 # Add (and handle) 'standard' activitysim arguments:
 #     --config : specify path to config_dir
@@ -30,7 +29,8 @@ from populationsim import multi_integerizer
 #     --data   : specify path to data_dir
 #     --models : specify run_list name
 #     --resume : resume_after
-handle_standard_args()
+args = handle_standard_args(parser)
+inject.add_injectable("model_year", args.model_year)
 
 tracing.config_logger()
 

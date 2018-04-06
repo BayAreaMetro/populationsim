@@ -59,15 +59,15 @@ input_table_list:
     # exported from popsyn3 mysql table control_totals_taz_year_2010
     # todo: clean-up and standardize the production of this table
   - tablename: TAZ_control_data
-    filename : 2010_tazData.csv
+    filename : model_year_tazData.csv
     # exported from popsyn3 mysql table control_totals_maz_year_2010
     # todo: clean-up and standardize the production of this table
   - tablename: MAZ_control_data
-    filename : 2010_mazData.csv
+    filename : model_year_mazData.csv
     # exported from popsyn3 mysql table control_totals_meta_year_2010
     # todo: clean-up and standardize the production of this table
   - tablename: COUNTY_control_data
-    filename : 2010_countyData.csv
+    filename : model_year_countyData.csv
 
 
 # Reserved Column Names
@@ -92,7 +92,7 @@ output_tables:
   tables:
     - summary_MAZ
     - summary_TAZ
-    - summary_TAZ_PUMA
+    - summary_COUNTY
     - expanded_household_ids
 
 
