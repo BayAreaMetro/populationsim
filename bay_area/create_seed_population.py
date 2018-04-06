@@ -50,6 +50,7 @@ PUMS_HOUSING_RECORD_COLUMNS = [
     "HHT",                  # Household/family type
     "HINCP",                # Household income (past 12 months)
     "HUPAC",                # HH presence and age of children
+    "NPF",                  # Number of persons in family (unweighted)
     "TEN",                  # Tenure
     "VEH",                  # Vehicles available
 ]
@@ -86,6 +87,10 @@ PUMS_PERSON_RECORD_COLUMNS = [
     "POWPUMA",              # Place of work PUMA
     "socp00",               # SOC 2000 Occupation code
     "socp10",               # SOC 2010 Occupation code
+    "indp02",               # Industry 2002 recode
+    "indp07",               # Industry 2007 recode
+    "occp02",               # Occupation 2002 recode
+    "occp10",               # Occupation 2010 recode
 ]
 
 # columns added by this script

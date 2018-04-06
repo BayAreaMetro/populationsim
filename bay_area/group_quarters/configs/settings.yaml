@@ -98,22 +98,18 @@ output_synthetic_population:
   households:
     filename: synthetic_households.csv
     columns:
-      - RT                      # Record Type
       - SERIALNO                # Housing unit/GQ person serial number
-      - DIVISION                # Division code
       - PUMA                    # Public use microdata area code
-      - REGION                  # Region code
-      - ST                      # State code
       - ADJINC                  # Adjustment factor for income and earnings dollar amounts
       - WGTP                    # Housing weight
       - NP                      # Number of person records following this housing record
       - TYPE                    # Type of unit
       - ACR                     # Lot size
-      - BDS                     # Number of bedrooms
       - BLD                     # Units in structure
       - HHT                     # Household/family type
       - HINCP                   # Household income (past 12 months)
       - HUPAC                   # HH presence and age of children
+      - NPF                     # Number of persons in family (unweighted)
       - TEN                     # Tenure
       - VEH                     # Vehicles available
       - hh_workers_from_esr     # count of employed persons in household
@@ -122,11 +118,9 @@ output_synthetic_population:
   persons:
     filename: synthetic_persons.csv
     columns:
-      - RT                   # Record Type
       - SERIALNO             # Housing unit/GQ person serial number
       - SPORDER              # Person number
       - PUMA                 # Public use microdata area code
-      - ST                   # State code
       - PWGTP                # Person's weight
       - AGEP                 # Age
       - COW                  # Class of worker
@@ -144,6 +138,11 @@ output_synthetic_population:
       - POWPUMA              # Place of work PUMA
       - socp00               # SOC 2000 Occupation code
       - socp10               # SOC 2010 Occupation code
+      - indp02               # Industry 2002 recode
+      - indp07               # Industry 2007 recode
+      - occp02               # Occupation 2002 recode
+      - occp10               # Occupation 2010 recode
+      - employed             # 0 or 1, based on ESR (from create_seed_population.py)
 
 # Steps for base mode
 # ------------------------------------------------------------------
