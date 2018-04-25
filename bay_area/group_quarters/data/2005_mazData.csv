@@ -1,4 +1,4 @@
-MAZ,maz_seq1,taz_seq1,TAZ,COUNTYFP,mtc_county_id,county_name,PUMA,region,univ,mil,othnon,popgq,PUMA
+MAZ,maz_seq1,taz_seq1,TAZ,COUNTYFP,mtc_county_id,county_name,COUNTY,region,univ,mil,othnon,popgq,PUMA
 10001,1,56,56,75,1,San Francisco,1,1,0,0,0,0,2204
 10002,2,56,56,75,1,San Francisco,1,1,0,0,0,0,2204
 10003,3,10,10,75,1,San Francisco,1,1,0,0,0,0,2204
