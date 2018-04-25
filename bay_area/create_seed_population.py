@@ -44,8 +44,6 @@ PUMS_HOUSING_RECORD_COLUMNS = [
     "WGTP",                 # Housing weight
     "NP",                   # Number of person records following this housing record
     "TYPE",                 # Type of unit
-    "ACR",                  # Lot size
-    "BDS",                  # Number of bedrooms
     "BLD",                  # Units in structure
     "HHT",                  # Household/family type
     "HINCP",                # Household income (past 12 months)
