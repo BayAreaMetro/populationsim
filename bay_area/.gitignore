@@ -3,3 +3,4 @@ group_quarters/output*
 households/data/seed_*
 households/output*
 mysql*
+output_*

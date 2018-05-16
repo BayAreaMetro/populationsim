@@ -139,7 +139,9 @@ class SimulIntegerizer(object):
             np.maximum(parent_max_possible_control_values, parent_lp_right_hand_side)
 
         # how could this not be the case?
-        assert (parent_hh_constraint_ge_bound == parent_max_possible_control_values).all()
+        # print (parent_hh_constraint_ge_bound - parent_max_possible_control_values)
+        np.testing.assert_array_almost_equal(parent_hh_constraint_ge_bound,
+            parent_max_possible_control_values, decimal=4)
 
         integerizer_func = get_simul_integerizer()
 
