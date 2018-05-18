@@ -1,19 +1,61 @@
 USAGE="""
 Create baseyear controls for MTC Bay Area populationsim.
 
-TBD
+This script does the following:
+
+1) Downloads the relevant Census tables to a local cache specified by CensusFetcher.LOCAL_CACHE_FOLDER,
+   one table per file in CSV format.  These files are the raw tables at a census geography appropriate
+   for the control geographies in this script, although the column headers have additional variables
+   that are more descriptive of what the columns mean.
+
+   To re-download the data using the Census API, remove the cache file.
+
+2) It then combines the columns in the Census tables to match the control definitions in the
+   CONTROLS structure in the script.
+
+3) Finally, it transforms the control tables from the Census geographies to the desired control
+   geography using the MAZ_TAZ_DEF_FILE, which defines MAZs and TAZs as unions of Census blocks.
+
+   For controls derived from census data which is available at smaller geographies, this is a
+   simple aggregation.
+
+   However, for controls derived from census data which is not available at smaller geographies,
+   it is assumed that the smaller geography's total (e.g. households) are apportioned similarly
+   to it's census geography, and the controls are tallied that way.
+
+4) It joins the MAZ_TAZ_DEF_FILE to the 2010 Census Tract to 2010 PUMA relationship file
+   (TRACT_PUMA_FILE) and saves these crosswalks as well.
+
+   Outputs: households    /data/[model_year]_[maz,taz,county]_controls.csv
+            households    /data/geo_cross_walk.csv
+            group_quarters/data/[model_year]_maz_controls.csv
+            group_quarters/data/geo_cross_walk.csv
+
+            create_baseyear_controls_[model_year].log
 """
 
 import argparse, collections, logging, os, sys
 import census, us
-import pandas
+import numpy, pandas
 
-MAZ_TAZ_DEFINITION = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
-AGE_MAX = 130 # max person age
+MAZ_TAZ_DEF_FILE = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
+TRACT_PUMA_FILE  = "M:\\Data\\Census\\Geography\\tl_2010_06_puma10\\2010_Census_Tract_to_2010_PUMA.txt"
+AGE_MAX  = 130 # max person age
 NKID_MAX = 10 # max number of kids
 NPER_MAX = 10 # max number of persons
 NWOR_MAX = 10 # max number of workers
 HINC_MAX = 2000000
+
+# COUNTY coding - census to our county code
+COUNTY_RECODE = pandas.DataFrame([{"GEOID_county":"06001", "COUNTY":4, "county_name":"Alameda"      },
+                                  {"GEOID_county":"06013", "COUNTY":5, "county_name":"Contra Costa" },
+                                  {"GEOID_county":"06041", "COUNTY":9, "county_name":"Marin"        },
+                                  {"GEOID_county":"06055", "COUNTY":7, "county_name":"Napa"         },
+                                  {"GEOID_county":"06075", "COUNTY":1, "county_name":"San Francisco"},
+                                  {"GEOID_county":"06081", "COUNTY":2, "county_name":"San Mateo"    },
+                                  {"GEOID_county":"06085", "COUNTY":3, "county_name":"Santa Clara"  },
+                                  {"GEOID_county":"06095", "COUNTY":6, "county_name":"Solano"       },
+                                  {"GEOID_county":"06097", "COUNTY":8, "county_name":"Sonoma"       }])
 
 class CensusFetcher:
     """
@@ -30,15 +72,15 @@ class CensusFetcher:
     CA_STATE_FIPS   = "06"
 
     BAY_AREA_COUNTY_FIPS  = collections.OrderedDict([
-        ("Alameda"      ,"01"),
-        ("Contra Costa" ,"13"),
-        ("Marin"        ,"41"),
-        ("Napa"         ,"55"),
-        ("San Francisco","75"),
-        ("San Mateo"    ,"81"),
-        ("Santa Clara"  ,"85"),
-        ("Solano"       ,"95"),
-        ("Sonoma"       ,"97"),
+        ("Alameda"      ,"001"),
+        ("Contra Costa" ,"013"),
+        ("Marin"        ,"041"),
+        ("Napa"         ,"055"),
+        ("San Francisco","075"),
+        ("San Mateo"    ,"081"),
+        ("Santa Clara"  ,"085"),
+        ("Solano"       ,"095"),
+        ("Sonoma"       ,"097"),
     ])
 
     # https://api.census.gov/data/2011/acs/acs5/variables.html
@@ -455,14 +497,13 @@ def census_col_is_in_control(param_dict, control_dict):
 
     return True
 
-
 def create_control_table(control_name, control_dict_list, census_table_name, census_table_df):
     """
     Given a control list of ordered dictionary (e.g. [{"pers_min":1, "pers_max":NPER_MAX}]) for a specific control,
     returns a version of the census table with just the relevant column.
     """
     logging.info("Creating control table for {}".format(control_name))
-    logging.debug(census_table_df.head())
+    logging.debug("\n{}".format(census_table_df.head()))
 
     # construct a new dataframe to return with same index as census_table_df
     control_df = pandas.DataFrame(index=census_table_df.index, columns=[control_name], data=0)
@@ -484,7 +525,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
     prev_sum = 0
     for control_dict in control_dict_list:
         logging.info("  Control definition:")
-        for cname,cval in control_dict.iteritems(): logging.info("    {:>10}:{}".format(cname, cval))
+        for cname,cval in control_dict.iteritems(): logging.info("      {:15} {}".format(cname, cval))
 
         # find the relevant column, if there is one
         for colnum in range(len(census_table_df.columns.levels[0])):
@@ -502,8 +543,8 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
 
             # Is this single column sufficient?
             if param_dict == control_dict:
-                logging.info("    Found a single matching column: {}".format(variable_name))
-                for pname,pval in param_dict.iteritems(): logging.info("      {:>10}:{}".format(pname, pval))
+                logging.info("    Found a single matching column: [{}]".format(variable_name))
+                for pname,pval in param_dict.iteritems(): logging.info("      {:15} {}".format(pname, pval))
 
                 control_df["temp"] = census_table_df[variable_name]
                 control_df[control_name] = census_table_df[variable_name]
@@ -512,30 +553,118 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
 
             # Otherwise, if it's in the range, add it in
             if census_col_is_in_control(param_dict, control_dict):
-                logging.info("    Adding column: {}".format(variable_name))
-                for pname,pval in param_dict.iteritems(): logging.info("      {:>10}:{}".format(pname, pval))
+                logging.info("    Adding column [{}]".format(variable_name))
+                for pname,pval in param_dict.iteritems(): logging.info("      {:15} {}".format(pname, pval))
 
                 control_df["temp"] = census_table_df[variable_name]
                 control_df[control_name] = control_df[control_name] + control_df["temp"]
                 control_df.drop(columns="temp", inplace=True)
 
-        # assume each control dict needs to find something
+        # assume each control dict needs to find *something*
         new_sum = control_df[control_name].sum()
-        logging.info("Total added: {}".format(new_sum - prev_sum))
+        logging.info("  => Total added: {}".format(new_sum - prev_sum))
         assert( new_sum > prev_sum)
         prev_sum = new_sum
 
-
-    logging.debug(control_df.head())
-    logging.debug(control_df.sum())
     return control_df
 
+def match_control_to_geography(control_name, control_table_df, control_geography, census_geography, maz_taz_def_df, temp_controls):
+    """
+    Given a control table in the given census geography, this method will transform the table to the appropriate
+    control geography and return it.
+    """
+    if control_geography not in ["MAZ","TAZ","COUNTY"]:
+        raise ValueError("match_control_to_geography passed unsupported control geography {}".format(control_geography))
+    if census_geography not in ["block","block group","tract","county"]:
+        raise ValueError("match_control_to_geography passed unsupported census geography {}".format(census_geography))
+
+    # to verify we kept the totals
+    variable_total = control_table_df[control_name].sum()
+
+    GEO_HIERARCHY = { 'MAZ'   :['block','MAZ','block group','tract','county'],
+                      'TAZ'   :['block',      'TAZ',        'tract','county'],
+                      'COUNTY':['block',      'block group','tract','county','COUNTY']}
+
+    control_geo_index = GEO_HIERARCHY[control_geography].index(control_geography)
+    try:
+        census_geo_index = GEO_HIERARCHY[control_geography].index(census_geography)
+    except:
+        census_geo_index = -1
+
+    # consolidate geography columns
+    control_table_df.reset_index(drop=False, inplace=True)
+    if census_geography=="block":
+        control_table_df["GEOID_block"] = control_table_df["state"] + control_table_df["county"] + control_table_df["tract"] + control_table_df["block"]
+    elif census_geography=="block group":
+        control_table_df["GEOID_block group"] = control_table_df["state"] + control_table_df["county"] + control_table_df["tract"] + control_table_df["block group"]
+    elif census_geography=="tract":
+        control_table_df["GEOID_tract"] = control_table_df["state"] + control_table_df["county"] + control_table_df["tract"]
+    elif ceneus_geography=="county":
+        control_table_df["GEOID_county"] = control_table_df["state"] + control_table_df["county"]
+    # drop the others
+    control_table_df = control_table_df[["GEOID_{}".format(census_geography), control_name]]
+
+    # if this is a temp, don't go further -- we'll use it later
+    if control_name.startswith("temp_"):
+        return control_table_df
+
+    # if the census geography is smaller than the target geography, this is a simple aggregation
+    if census_geo_index >= 0 and census_geo_index < control_geo_index:
+        logging.info("Simple aggregation from {} to {}".format(census_geography, control_geography))
+        # we really only need these columns - control geography and the census geography
+        geo_mapping_df   = maz_taz_def_df[[control_geography, "GEOID_{}".format(census_geography)]].drop_duplicates()
+        control_table_df = pandas.merge(left=control_table_df, right=geo_mapping_df, how="left")
+
+        # aggregate now
+        final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
+        # verify the totals didn't change
+        assert(final_df[control_name].sum() == variable_total)
+        return final_df
+
+    # this is more complicated -- by convention, the first one will be at the block (smaller geo) level
+    # and the last one will be at the same level as this one so we'll use to proportion
+    # e.g. hh_inc_15_prop = hh_inc_15 / temp_num_hh_bg   (at block group)
+    #      then multiply this by the households at the block level to get hh_inc_15 for blocks (these will be floats)
+    #      and aggregate to control geo (e.g. TAZ)
+
+    # verify the last one matches our geography
+    same_geo_total_name = temp_controls.keys()[-1]
+    same_geo_total_df   = temp_controls[same_geo_total_name]
+    assert(len(same_geo_total_df) == len(control_table_df))
+
+    proportion_df = pandas.merge(left=control_table_df, right=same_geo_total_df, how="left")
+    proportion_var = "{} proportion".format(control_name)
+    proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[same_geo_total_name]
+    logging.debug("Create proportion {} at {} geography using {}/{}\n{}".format(proportion_var, control_geography,
+                  control_name, same_geo_total_name, proportion_df.head()))
+
+    # join this to the maz_taz_definition - it'll be the lowest level
+    block_prop_df = pandas.merge(left=maz_taz_def_df, right=proportion_df, how="left")
+    # and again to the first temp table
+    block_total_name = temp_controls.keys()[0]
+    block_total_df   = temp_controls[block_total_name]
+    block_prop_df    = pandas.merge(left=block_prop_df, right=block_total_df, how="left")
+
+    # now multiply to get total at block level
+    block_prop_df[control_name] = block_prop_df[proportion_var]*block_prop_df[block_total_name]
+    logging.debug("Proportion at block level:\n{}".format(block_prop_df.head()))
+
+    # NOW aggregate
+    final_df = block_prop_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
+    # this won't be exact but hopefully close
+    logging.info("Proportionally-derived Total added: {}".format(final_df[control_name].sum()))
+    return final_df
+
 if __name__ == '__main__':
-    pandas.options.display.width    = 180
+    pandas.options.display.width    = 500
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=USAGE)
     parser.add_argument("model_year", type=int)
     args = parser.parse_args()
+
+    # for now, we only do 2010
+    if args.model_year not in [2010]:
+        raise ValueError("Model year {} not supported yet".format(args.model_year))
 
     LOG_FILE = "create_baseyear_controls_{0}.log".format(args.model_year)
 
@@ -553,8 +682,8 @@ if __name__ == '__main__':
     fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p'))
     logger.addHandler(fh)
 
-    HH_CONTROLS = collections.OrderedDict()
-    HH_CONTROLS['MAZ'] = collections.OrderedDict([
+    CONTROLS = collections.OrderedDict()
+    CONTROLS['MAZ'] = collections.OrderedDict([
         ('num_hh'        ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
         ('hh_size_1'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',1       ) ])] )),
         ('hh_size_2'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])] )),
@@ -567,23 +696,31 @@ if __name__ == '__main__':
         ('gq_type_othnon',('sf1',2010,'P43','block',[collections.OrderedDict([                ('inst','Noninst'), ('subcategory','Other'   ) ]),
                                                      collections.OrderedDict([                ('inst','Inst'   ), ('subcategory','All'     ) ])] )),         
     ])
-    HH_CONTROLS['TAZ'] = collections.OrderedDict([
+    CONTROLS['TAZ'] = collections.OrderedDict([
+        ('temp_num_hh_b'   ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
+
+        ('temp_num_hhinc'  ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',    0), ('hhinc_max',HINC_MAX) ])] )),
         ('hh_inc_15'       ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',    0), ('hhinc_max',   14999) ])] )),
         ('hh_inc_15_30'    ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',15000), ('hhinc_max',   29999) ])] )),
         ('hh_inc_30_60'    ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',30000), ('hhinc_max',   59999) ])] )),
         ('hh_inc_60_plus'  ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',60000), ('hhinc_max',HINC_MAX) ])] )),
+
+        ('temp_num_hh_wrks',('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),        
         ('hh_wrks_0'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',       0), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
         ('hh_wrks_1'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',1), ('workers_max',       1), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
         ('hh_wrks_2'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',2), ('workers_max',       2), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
         ('hh_wrks_3_plus'  ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',3), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
+
         ('pers_age_00_19'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',     19) ])] )),
         ('pers_age_20_39'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',20), ('age_max',     34) ])] )),
         ('pers_age_35_64'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',35), ('age_max',     64) ])] )),
         ('pers_age_65_plus',('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',65), ('age_max',AGE_MAX) ])] )),
+
+        ('temp_num_hh_kids',('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max', NKID_MAX)])] )),
         ('hh_kids_no'      ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max',        0)])] )),
         ('hh_kids_yes'     ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 1), ('num_kids_max', NKID_MAX)])] )),
     ])
-    HH_CONTROLS['COUNTY'] = collections.OrderedDict([
+    CONTROLS['COUNTY'] = collections.OrderedDict([
         # this one is more complicated since the categories are nominal
         ('pers_occ_management'  ,('acs5',2012,'C2401', 'tract', [
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Management, business, and financial'                 ), ('occ_cat3','Management'                        ) ]),
@@ -622,14 +759,23 @@ if __name__ == '__main__':
         ] )),
     ])
 
-    geo_hierarchy = { 'MAZ': ['block','MAZ','block group','tract','county'],
-                      'TAZ': ['block',      'TAZ',        'tract','county'] }
-
-    maz_taz_def_df = pandas.read_csv(MAZ_TAZ_DEFINITION)
-    logging.debug(maz_taz_def_df.head())
+    maz_taz_def_df = pandas.read_csv(MAZ_TAZ_DEF_FILE)
+    # we use MAZ, TAZ not maz,taz; use GEOID_BLOCK
+    maz_taz_def_df.rename(columns={"maz":"MAZ", "taz":"TAZ"}, inplace=True)
+    maz_taz_def_df["GEOID_block"] = "0" + maz_taz_def_df["GEOID10"].astype(str)
+    # add county, tract, block group GEOID
+    maz_taz_def_df["GEOID_county"     ] = maz_taz_def_df["GEOID_block"].str[:5 ]
+    maz_taz_def_df["GEOID_tract"      ] = maz_taz_def_df["GEOID_block"].str[:11]
+    maz_taz_def_df["GEOID_block group"] = maz_taz_def_df["GEOID_block"].str[:12]
+    maz_taz_def_df.drop("GEOID10", axis="columns", inplace=True)
+    # add COUNTY
+    maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
 
     cf = CensusFetcher()
-    for control_geo, control_dict in HH_CONTROLS.iteritems():
+
+    final_control_dfs = {} # control geography => dataframe
+    for control_geo, control_dict in CONTROLS.iteritems():
+        temp_controls = collections.OrderedDict()
         for control_name, control_def in control_dict.iteritems():
             census_table_df = cf.get_census_data(dataset=control_def[0],
                                                  year   =control_def[1],
@@ -638,12 +784,70 @@ if __name__ == '__main__':
 
             control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
 
-            # target_geo_index = geo_hierarchy[control_geo].index(control_geo)
-            # census_geo_index = geo_hierarchy[control_geo].index(control_def[3])
+            final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3], maz_taz_def_df, temp_controls)
 
-            # print(census_table_df.head())
-            # print(target_geo_index)
-            # print(census_geo_index)
+            # the temp control tables are special -- they're intermediate for matching
+            if control_name.startswith("temp_"):
+                temp_controls[control_name] = final_df
+                continue
 
-            # if the census geography is smaller than the target geography, this is a simple aggregation
+            # save it
+            if control_geo not in final_control_dfs:
+                final_control_dfs[control_geo] = final_df
+            else:
+                final_control_dfs[control_geo] = pandas.merge(left       =final_control_dfs[control_geo],
+                                                              right      =final_df,
+                                                              how        ="left",
+                                                              left_index =True,
+                                                              right_index=True)
 
+        # Write the controls file for this geography
+        logging.info("Preparing final controls files")
+        out_df = final_control_dfs[control_geo]  # easier to reference
+        out_df.reset_index(drop=False, inplace=True)
+
+        # for county, add readable county name
+        if control_geo=="COUNTY":
+            out_df = pandas.merge(left=COUNTY_RECODE[["COUNTY","county_name"]], right=out_df, how="right")
+
+        # First, log and drop control=0 if necessary
+        if len(out_df.loc[ out_df[control_geo]==0]) > 0:
+            logging.info("Dropping {}=0\n{}".format(control_geo, out_df.loc[ out_df[control_geo]==0,:].T.squeeze()))
+            out_df = out_df.loc[out_df[control_geo]>0, :]
+
+        # Controls start with gq_ are group quarters
+        hh_control_names = []
+        gq_control_names = []
+        for control_name in list(out_df.columns):
+            if control_name == control_geo: continue
+            if control_name.startswith("gq_"):
+                gq_control_names.append(control_name)
+            else:
+                hh_control_names.append(control_name)
+
+        hh_control_df   = out_df[[control_geo] + hh_control_names]
+        hh_control_file = os.path.join("households", "data", "{}_{}_controls.csv".format(args.model_year, control_geo))
+        hh_control_df.to_csv(hh_control_file, index=False, float_format="%.2f")
+        logging.info("Wrote control file {}".format(hh_control_file))
+
+        if len(gq_control_names) > 0:
+            gq_control_df   = out_df[[control_geo] + gq_control_names]
+            gq_control_file = os.path.join("group_quarters", "data", "{}_{}_controls.csv".format(args.model_year, control_geo))
+            gq_control_df.to_csv(gq_control_file, index=False, float_format="%.2f")
+            logging.info("Wrote control file {}".format(gq_control_file))
+
+
+    # finally, save the cross walk file
+    tract_puma_df = pandas.read_csv(TRACT_PUMA_FILE, dtype=str)
+    tract_puma_df["GEOID_tract"] = tract_puma_df["STATEFP"] + tract_puma_df["COUNTYFP"] + tract_puma_df["TRACTCE"]
+    tract_puma_df.rename(columns={"PUMA5CE":"PUMA"}, inplace=True)
+
+    crosswalk_df = pandas.merge(left=maz_taz_def_df, right=tract_puma_df[["GEOID_tract", "PUMA"]], how="left")
+    crosswalk_df = crosswalk_df.loc[ crosswalk_df["MAZ"] > 0] # drop MAZ=0
+
+    crosswalk_df = crosswalk_df[["MAZ","TAZ","PUMA","COUNTY","county_name"]].drop_duplicates()
+    crosswalk_df.sort_values(by="MAZ", inplace=True)
+    for hh_gq in ["households","group_quarters"]:
+        crosswalk_file = os.path.join(hh_gq, "data", "geo_cross_walk.csv")
+        crosswalk_df.to_csv(crosswalk_file, index=False)
+        logging.info("Wrote geographic cross walk file {}".format(crosswalk_file))
