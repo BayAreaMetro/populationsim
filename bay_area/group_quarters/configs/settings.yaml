@@ -15,7 +15,7 @@ max_expansion_factor: 30
 
 # Geographic Settings
 # ------------------------------------------------------------------
-geographies: [REGION, PUMA, MAZ]
+geographies: [COUNTY, PUMA, MAZ]
 seed_geography: PUMA
 
 
@@ -37,38 +37,28 @@ input_table_list:
   - tablename: households
     filename : seed_households.csv
     index_col: unique_hh_id
-    column_map:
-      hhnum: unique_hh_id
   - tablename: persons
-    # expression_filename: seed_persons_expressions.csv
     filename : seed_persons.csv
-    column_map:
-      hhnum: unique_hh_id
     # drop mixed type fields that appear to have been incorrectly generated
     # drop_columns:
     #  - indp02
   - tablename: geo_cross_walk
-    # todo: update this. It's based on 
-    # Box\Modeling and Surveys\Development\Travel Model Two Development\Population Synthesis\Application\GeographicXWalk\geographicCWalk.csv
-    filename : geographicCWalk.csv
-    column_map:
-      MTCCountyID: COUNTY
-      PUMA5CE00: PUMA
-    # exported from popsyn3 mysql table control_totals_maz_year_2010
-    # todo: clean-up and standardize the production of this table
+    filename : geo_cross_walk.csv
+    # created by create_baseyear_controls.py
   - tablename: MAZ_control_data
-    filename : model_year_mazData.csv
-    # exported from popsyn3 mysql table control_totals_meta_year_2010
-    # todo: clean-up and standardize the production of this table
-  - tablename: REGION_control_data
-    filename : model_year_regionData.csv
-
+    filename : model_year_MAZ_controls.csv
+    # created by create_baseyear_controls.py
+    # - tablename: REGION_control_data
+    #   filename : model_year_regionData.csv
+  - tablename: COUNTY_control_data
+    filename : model_year_COUNTY_controls.csv
+    # created by create_baseyear_controls.py
 
 # Reserved Column Names
 # ------------------------------------------------------------------
 household_weight_col: PWGTP
 household_id_col: unique_hh_id
-total_hh_control: num_hh
+total_hh_control: gq_num_hh
 
 
 # Control Specification File Name
@@ -86,6 +76,7 @@ output_tables:
   tables:
     - summary_MAZ
     - summary_MAZ_PUMA
+    - summary_COUNTY
     - expanded_household_ids
 
 

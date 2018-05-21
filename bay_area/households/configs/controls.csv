@@ -1,26 +1,26 @@
 target,geography,seed_table,importance,control_field,expression
-num_hh,MAZ,households,1000000000,households,(households.WGTP > 0) & (households.WGTP < np.inf)
-hh_size_1,MAZ,households,100000,HHSize1,households.NP == 1
-hh_size_2,MAZ,households,100000,HHSize2,households.NP == 2
-hh_size_3,MAZ,households,100000,HHSize3,households.NP == 3
-hh_size_4_plus,MAZ,households,100000,HHSize4p,households.NP >= 4
-hh_inc_15,TAZ,households,10000,INC00_30,(households.hh_income_2010 > -999999999) & (households.hh_income_2010 <= 30000)
-hh_inc_15_30,TAZ,households,10000,INC30_60,(households.hh_income_2010 >30000) & (households.hh_income_2010 <= 60000)
-hh_inc_30_60,TAZ,households,10000,INC60_100,(households.hh_income_2010 > 60000) & (households.hh_income_2010 <= 100000)
-hh_inc_60_plus,TAZ,households,10000,INC100p,(households.hh_income_2010 > 100000) & (households.hh_income_2010 <= 999999999)
-hh_wrks_0,TAZ,households,10000,WORKERS0,households.hh_workers_from_esr == 0
-hh_wrks_1,TAZ,households,10000,WORKERS1,households.hh_workers_from_esr == 1
-hh_wrks_2,TAZ,households,10000,WORKERS2,households.hh_workers_from_esr == 2
-hh_wrks_3_plus,TAZ,households,10000,WORKERS3,households.hh_workers_from_esr >= 3
-pers_age_00_19,TAZ,persons,1000,Age_00_19,(persons.AGEP >= 0) & (persons.AGEP <= 19)
-pers_age_20_39,TAZ,persons,1000,Age_20_34,(persons.AGEP >= 20) & (persons.AGEP <= 39)
-pers_age_35_64,TAZ,persons,1000,Age_35_64,(persons.AGEP >= 40) & (persons.AGEP <= 64)
-pers_age_65_plus,TAZ,persons,1000,Age_65_up,(persons.AGEP >= 65) & (persons.AGEP <= np.inf)
-hh_kids_yes,TAZ,households,1000,WI_KIDS,(households.HUPAC >= 1) & (households.HUPAC <= 3)
-hh_kids_no,TAZ,households,1000,WO_KIDS,households.HUPAC == 4
-pers_occ_management,COUNTY,persons,500,occupation_management,persons.occupation == 1
-pers_occ_professional,COUNTY,persons,500,occupation_professional,persons.occupation == 2
-pers_occ_services,COUNTY,persons,500,occupation_services,persons.occupation == 3
-pers_occ_retail,COUNTY,persons,500,occupation_retail,persons.occupation == 4
-pers_occ_manual,COUNTY,persons,500,occupation_manual,persons.occupation == 5
-pers_occ_military,COUNTY,persons,500,occupation_military,persons.occupation == 6
+num_hh,MAZ,households,1000000000,num_hh,(households.WGTP > 0) & (households.WGTP < np.inf)
+hh_size_1,MAZ,households,100000,hh_size_1,households.NP == 1
+hh_size_2,MAZ,households,100000,hh_size_2,households.NP == 2
+hh_size_3,MAZ,households,100000,hh_size_3,households.NP == 3
+hh_size_4_plus,MAZ,households,100000,hh_size_4_plus,households.NP >= 4
+hh_inc_30,TAZ,households,10000,hh_inc_30,(households.hh_income_2010 > -999999999) & (households.hh_income_2010 <= 30000)
+hh_inc_30_60,TAZ,households,10000,hh_inc_30_60,(households.hh_income_2010 >30000) & (households.hh_income_2010 <= 60000)
+hh_inc_60_100,TAZ,households,10000,hh_inc_60_100,(households.hh_income_2010 > 60000) & (households.hh_income_2010 <= 100000)
+hh_inc_100_plus,TAZ,households,10000,hh_inc_100_plus,(households.hh_income_2010 > 100000) & (households.hh_income_2010 <= 999999999)
+hh_wrks_0,TAZ,households,10000,hh_wrks_0,households.hh_workers_from_esr == 0
+hh_wrks_1,TAZ,households,10000,hh_wrks_1,households.hh_workers_from_esr == 1
+hh_wrks_2,TAZ,households,10000,hh_wrks_2,households.hh_workers_from_esr == 2
+hh_wrks_3_plus,TAZ,households,10000,hh_wrks_3_plus,households.hh_workers_from_esr >= 3
+pers_age_00_19,TAZ,persons,1000,pers_age_00_19,(persons.AGEP >= 0) & (persons.AGEP <= 19)
+pers_age_20_34,TAZ,persons,1000,pers_age_20_34,(persons.AGEP >= 20) & (persons.AGEP <= 34)
+pers_age_35_64,TAZ,persons,1000,pers_age_35_64,(persons.AGEP >= 35) & (persons.AGEP <= 64)
+pers_age_65_plus,TAZ,persons,1000,pers_age_65_plus,(persons.AGEP >= 65) & (persons.AGEP <= np.inf)
+hh_kids_yes,TAZ,households,1000,hh_kids_yes,(households.HUPAC >= 1) & (households.HUPAC <= 3)
+hh_kids_no,TAZ,households,1000,hh_kids_no,households.HUPAC == 4
+pers_occ_management,COUNTY,persons,500,pers_occ_management,persons.occupation == 1
+pers_occ_professional,COUNTY,persons,500,pers_occ_professional,persons.occupation == 2
+pers_occ_services,COUNTY,persons,500,pers_occ_services,persons.occupation == 3
+pers_occ_retail,COUNTY,persons,500,pers_occ_retail,persons.occupation == 4
+pers_occ_manual,COUNTY,persons,500,pers_occ_manual,persons.occupation == 5
+pers_occ_military,COUNTY,persons,500,pers_occ_military,persons.occupation == 6

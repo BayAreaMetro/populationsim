@@ -23,8 +23,8 @@ This script does the following:
    it is assumed that the smaller geography's total (e.g. households) are apportioned similarly
    to it's census geography, and the controls are tallied that way.
 
-4) It joins the MAZ_TAZ_DEF_FILE to the 2010 Census Tract to 2010 PUMA relationship file
-   (TRACT_PUMA_FILE) and saves these crosswalks as well.
+4) It joins the MAZs and TAZs to the 2000 PUMAs (used in the 2007-2011 PUMS, which is
+   used by create_seed_population.py) and saves these crosswalks as well.
 
    Outputs: households    /data/[model_year]_[maz,taz,county]_controls.csv
             households    /data/geo_cross_walk.csv
@@ -36,10 +36,10 @@ This script does the following:
 
 import argparse, collections, logging, os, sys
 import census, us
-import numpy, pandas
+import numpy, pandas, simpledbf
 
-MAZ_TAZ_DEF_FILE = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
-TRACT_PUMA_FILE  = "M:\\Data\\Census\\Geography\\tl_2010_06_puma10\\2010_Census_Tract_to_2010_PUMA.txt"
+MAZ_TAZ_DEF_FILE   = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
+MAZ_TAZ_PUMA_FILE  = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_TM2_v2_2_intersect_puma2000.dbf"  # NOTE these are PUMA 2000
 AGE_MAX  = 130 # max person age
 NKID_MAX = 10 # max number of kids
 NPER_MAX = 10 # max number of persons
@@ -89,6 +89,7 @@ class CensusFetcher:
 
     CENSUS_DEFINITIONS = {
         "H13":[  # sf1, H13. Household Size [8]
+            # Universe: Occupied housing units
             ["variable","pers_min", "pers_max"],
             ["H0130001",         1,   NPER_MAX], # Occupied housing units
             ["H0130002",         1,          1], #  1-person household
@@ -100,6 +101,7 @@ class CensusFetcher:
             ["H0130008",         7,   NPER_MAX], #  7-or-more-person household
         ],
         "P12":[  # sf1, P12. Sex By Age [49]
+            # Universe: Total population
             ["variable", "sex", "age_min", "age_max"],
             ["P0120001", "All",         0,   AGE_MAX],        # Total population
             ["P0120002", "Male",        0,   AGE_MAX],        # Male:
@@ -151,7 +153,8 @@ class CensusFetcher:
             ["P0120048", "Female",     80,        84],        # Female: 80 to 84 years",
             ["P0120049", "Female",     85,   AGE_MAX],        # Female: 85 years and over",
         ],
-        "P43":[  # sf1, P43. GROUP QUARTERS POPULATION BY SEX BY AGE BY GROUP QUARTERS TYPE [63]
+        "P43":[  # sf1, P43. GROUP QUARTERS POPULATION BY SEX BY AGE BY GROUP QUARTERS TYPE [63]  
+            # Universe: Population in group quarters
             ["variable", "sex",  "age_min", "age_max",     "inst","subcategory"  ],
             ["P0430001", "All",          0,       130,      "All", "All"         ],
             ["P0430002", "Male",         0,       130,      "All", "All"         ],
@@ -218,6 +221,7 @@ class CensusFetcher:
             ["P0430063", "Female",      65,       130,  "Noninst", "Other"       ], # Noninstitutionalized population (501, 601-602, 701-702, 704, 706, 801-802, 900-901, 903-904): - Other noninstitutional facilities (701-702, 704, 706, 801-802, 900-901, 903-904)
         ],
         "PCT16":[ # sf1, PCT16. HOUSEHOLD TYPE BY NUMBER OF PEOPLE UNDER 18 YEARS (EXCLUDING HOUSEHOLDERS, SPOUSES, AND UNMARRIED PARTNERS) [26]
+            # Universe: Households
             ["variable",   "family",   "famtype", "num_kids_min", "num_kids_max"],
             ["PCT0160001", "All",      "All",                  0,       NKID_MAX], # Total
             ["PCT0160002", "Family",   "All",                  0,       NKID_MAX], # Family households:
@@ -247,6 +251,7 @@ class CensusFetcher:
             ["PCT0160026", "Nonfamily","All",                  4,       NKID_MAX], # Nonfamily households: - With four or more children under 18 years
         ],
         "B08202":[ # acs5, B08202. HOUSEHOLD SIZE BY NUMBER OF WORKERS IN HOUSEHOLD
+            # Universe: Households
             ["variable",   "workers_min","workers_max","persons_min","persons_max"],
             ["B08202_001E",            0,     NWOR_MAX,            0,     NPER_MAX], # Estimate; Total:
             ["B08202_002E",            0,            0,            0,     NPER_MAX], # Estimate; Total: - No workers
@@ -562,16 +567,18 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
 
         # assume each control dict needs to find *something*
         new_sum = control_df[control_name].sum()
-        logging.info("  => Total added: {}".format(new_sum - prev_sum))
+        logging.info("  => Total added: {:,}".format(new_sum - prev_sum))
         assert( new_sum > prev_sum)
         prev_sum = new_sum
 
     return control_df
 
-def match_control_to_geography(control_name, control_table_df, control_geography, census_geography, maz_taz_def_df, temp_controls):
+def match_control_to_geography(control_name, control_table_df, control_geography, census_geography, maz_taz_def_df, temp_controls, full_region):
     """
     Given a control table in the given census geography, this method will transform the table to the appropriate
     control geography and return it.
+
+    Pass full_region=False if this is a test subset so the control totals don't need to add up to the census table total.
     """
     if control_geography not in ["MAZ","TAZ","COUNTY"]:
         raise ValueError("match_control_to_geography passed unsupported control geography {}".format(control_geography))
@@ -618,7 +625,7 @@ def match_control_to_geography(control_name, control_table_df, control_geography
         # aggregate now
         final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
         # verify the totals didn't change
-        assert(final_df[control_name].sum() == variable_total)
+        if full_region: assert(final_df[control_name].sum() == variable_total)
         return final_df
 
     # this is more complicated -- by convention, the first one will be at the block (smaller geo) level
@@ -637,6 +644,8 @@ def match_control_to_geography(control_name, control_table_df, control_geography
     proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[same_geo_total_name]
     logging.debug("Create proportion {} at {} geography using {}/{}\n{}".format(proportion_var, control_geography,
                   control_name, same_geo_total_name, proportion_df.head()))
+    logging.debug("Sums:\n{}".format(proportion_df[[control_name, same_geo_total_name]].sum()))
+    logging.debug("Mean:\n{}".format(proportion_df[[proportion_var]].mean()))
 
     # join this to the maz_taz_definition - it'll be the lowest level
     block_prop_df = pandas.merge(left=maz_taz_def_df, right=proportion_df, how="left")
@@ -652,14 +661,16 @@ def match_control_to_geography(control_name, control_table_df, control_geography
     # NOW aggregate
     final_df = block_prop_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
     # this won't be exact but hopefully close
-    logging.info("Proportionally-derived Total added: {}".format(final_df[control_name].sum()))
+    logging.info("Proportionally-derived Total added: {:,}".format(final_df[control_name].sum()))
     return final_df
 
 if __name__ == '__main__':
-    pandas.options.display.width    = 500
+    pandas.set_option("display.width", 500)
+    pandas.set_option("display.float_format", "{:,.2f}".format)
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=USAGE)
     parser.add_argument("model_year", type=int)
+    parser.add_argument("--test_PUMA", type=str, help="Pass PUMA to output controls only for geographies relevant to a single PUMA, for testing")
     args = parser.parse_args()
 
     # for now, we only do 2010
@@ -689,34 +700,33 @@ if __name__ == '__main__':
         ('hh_size_2'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])] )),
         ('hh_size_3'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',3), ('pers_max',3       ) ])] )),
         ('hh_size_4_plus',('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',4), ('pers_max',NPER_MAX) ])] )),
-        # group quarters
-        ('gq_num_hh'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('sex','All'), ('inst','All'    ), ('subcategory','All'     ) ])] )),
-        ('gq_type_univ'  ,('sf1',2010,'P43','block',[collections.OrderedDict([                ('inst','Noninst'), ('subcategory','College' ) ])] )),
-        ('gq_type_mil'   ,('sf1',2010,'P43','block',[collections.OrderedDict([                ('inst','Noninst'), ('subcategory','Military') ])] )),
-        ('gq_type_othnon',('sf1',2010,'P43','block',[collections.OrderedDict([                ('inst','Noninst'), ('subcategory','Other'   ) ]),
-                                                     collections.OrderedDict([                ('inst','Inst'   ), ('subcategory','All'     ) ])] )),         
+        # group quarters -- include non institutional only
+        ('gq_num_hh'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','All'     ) ])] )),
+        ('gq_type_univ'  ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','College' ) ])] )),
+        ('gq_type_mil'   ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
+        ('gq_type_othnon',('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Other'   ) ])] )),
     ])
     CONTROLS['TAZ'] = collections.OrderedDict([
         ('temp_num_hh_b'   ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
 
-        ('temp_num_hhinc'  ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',    0), ('hhinc_max',HINC_MAX) ])] )),
-        ('hh_inc_15'       ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',    0), ('hhinc_max',   14999) ])] )),
-        ('hh_inc_15_30'    ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',15000), ('hhinc_max',   29999) ])] )),
-        ('hh_inc_30_60'    ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',30000), ('hhinc_max',   59999) ])] )),
-        ('hh_inc_60_plus'  ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',60000), ('hhinc_max',HINC_MAX) ])] )),
+        ('temp_num_hhinc'  ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',     0), ('hhinc_max',HINC_MAX) ])] )),
+        ('hh_inc_30'       ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',     0), ('hhinc_max',   29999) ])] )),
+        ('hh_inc_30_60'    ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min', 30000), ('hhinc_max',   59999) ])] )),
+        ('hh_inc_60_100'   ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min', 60000), ('hhinc_max',   99999) ])] )),
+        ('hh_inc_100_plus' ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',100000), ('hhinc_max',HINC_MAX) ])] )),
 
-        ('temp_num_hh_wrks',('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),        
+        ('temp_num_hh_wrks',('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
         ('hh_wrks_0'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',       0), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
         ('hh_wrks_1'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',1), ('workers_max',       1), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
         ('hh_wrks_2'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',2), ('workers_max',       2), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
         ('hh_wrks_3_plus'  ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',3), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
 
         ('pers_age_00_19'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',     19) ])] )),
-        ('pers_age_20_39'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',20), ('age_max',     34) ])] )),
+        ('pers_age_20_34'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',20), ('age_max',     34) ])] )),
         ('pers_age_35_64'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',35), ('age_max',     64) ])] )),
         ('pers_age_65_plus',('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',65), ('age_max',AGE_MAX) ])] )),
 
-        ('temp_num_hh_kids',('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max', NKID_MAX)])] )),
+        ('temp_num_hh_kids',('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max', NKID_MAX), ('family','All'), ('famtype','All') ])] )),
         ('hh_kids_no'      ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max',        0)])] )),
         ('hh_kids_yes'     ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 1), ('num_kids_max', NKID_MAX)])] )),
     ])
@@ -757,6 +767,8 @@ if __name__ == '__main__':
             collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Transportation'                                       ), ('occ_cat3','All') ]),
             collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Material moving'                                      ), ('occ_cat3','All') ]),
         ] )),
+        ('pers_occ_military'    ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
+        ('gq_num_hh_county'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','All'     ) ])] )),
     ])
 
     maz_taz_def_df = pandas.read_csv(MAZ_TAZ_DEF_FILE)
@@ -771,6 +783,22 @@ if __name__ == '__main__':
     # add COUNTY
     maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
 
+    # and PUMA 
+    maz_puma_dbf   = simpledbf.Dbf5(MAZ_TAZ_PUMA_FILE)
+    maz_puma_df    = maz_puma_dbf.to_dataframe()
+    # since this is an intersect, there may be multiple PUMAs per maz
+    # remedy this by picking the one with the biggest calc_area -- the sort will put that one last
+    maz_puma_df    = maz_puma_df[["maz","taz","PUMA","calc_area"]].sort_values(by=["maz","taz","calc_area"])
+    maz_puma_df    = maz_puma_df.drop_duplicates(subset=["maz","taz"], keep="last")
+    maz_puma_df.rename(columns={"maz":"MAZ"}, inplace=True)
+    maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=maz_puma_df[["MAZ", "PUMA"]], how="left")
+
+    if args.test_PUMA:
+        logging.info("test_PUMA {} passed -- ZEROING OUT MAZ, TAZ, COUNTY for other PUMAs".format(args.test_PUMA))
+        maz_taz_def_df.loc[ maz_taz_def_df.PUMA != args.test_PUMA, "MAZ"   ] = 0
+        maz_taz_def_df.loc[ maz_taz_def_df.PUMA != args.test_PUMA, "TAZ"   ] = 0
+        maz_taz_def_df.loc[ maz_taz_def_df.PUMA != args.test_PUMA, "COUNTY"] = 0
+
     cf = CensusFetcher()
 
     final_control_dfs = {} # control geography => dataframe
@@ -784,7 +812,7 @@ if __name__ == '__main__':
 
             control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
 
-            final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3], maz_taz_def_df, temp_controls)
+            final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3], maz_taz_def_df, temp_controls, full_region=(args.test_PUMA==None))
 
             # the temp control tables are special -- they're intermediate for matching
             if control_name.startswith("temp_"):
@@ -838,12 +866,7 @@ if __name__ == '__main__':
 
 
     # finally, save the cross walk file
-    tract_puma_df = pandas.read_csv(TRACT_PUMA_FILE, dtype=str)
-    tract_puma_df["GEOID_tract"] = tract_puma_df["STATEFP"] + tract_puma_df["COUNTYFP"] + tract_puma_df["TRACTCE"]
-    tract_puma_df.rename(columns={"PUMA5CE":"PUMA"}, inplace=True)
-
-    crosswalk_df = pandas.merge(left=maz_taz_def_df, right=tract_puma_df[["GEOID_tract", "PUMA"]], how="left")
-    crosswalk_df = crosswalk_df.loc[ crosswalk_df["MAZ"] > 0] # drop MAZ=0
+    crosswalk_df = maz_taz_def_df.loc[ maz_taz_def_df["MAZ"] > 0] # drop MAZ=0
 
     crosswalk_df = crosswalk_df[["MAZ","TAZ","PUMA","COUNTY","county_name"]].drop_duplicates()
     crosswalk_df.sort_values(by="MAZ", inplace=True)
