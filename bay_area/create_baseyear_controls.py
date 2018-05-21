@@ -297,7 +297,7 @@ class CensusFetcher:
             ["B19001_016E",     150000,      199999], # Households $150,000 to $199,999
             ["B19001_017E",     200000,    HINC_MAX], # Households $200,000 or more
         ],
-        "C2401":[ # acs5, C2401. SEX BY OCCUPATION FOR THE CIVILIAN EMPLOYED POPULATION 16 YEARS AND OVER
+        "C24010":[ # acs5, C24010. SEX BY OCCUPATION FOR THE CIVILIAN EMPLOYED POPULATION 16 YEARS AND OVER
             ["variable",    "sex",    "occ_cat1",                                         "occ_cat2",                                             "occ_cat3"                                                          ],
             ["C24010_001E", "All",    "All",                                              "All",                                                  "All"                                                               ],
             ["C24010_002E", "Male",   "All",                                              "All",                                                  "All"                                                               ],
@@ -732,11 +732,11 @@ if __name__ == '__main__':
     ])
     CONTROLS['COUNTY'] = collections.OrderedDict([
         # this one is more complicated since the categories are nominal
-        ('pers_occ_management'  ,('acs5',2012,'C2401', 'tract', [
+        ('pers_occ_management'  ,('acs5',2012,'C24010', 'tract', [
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Management, business, and financial'                 ), ('occ_cat3','Management'                        ) ]),
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Management, business, and financial'                 ), ('occ_cat3','Business and financial operations' ) ]),
         ] )),
-        ('pers_occ_professional',('acs5',2012,'C2401', 'tract', [
+        ('pers_occ_professional',('acs5',2012,'C24010', 'tract', [
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Computer, engineering, and science'                  ), ('occ_cat3','Computer and mathematical'                                       ) ]),
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Computer, engineering, and science'                  ), ('occ_cat3','Architecture and engineering'                                    ) ]),
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Computer, engineering, and science'                  ), ('occ_cat3','Life, physical, and social science'                              ) ]),
@@ -745,7 +745,7 @@ if __name__ == '__main__':
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Healthcare practitioners and technical'              ), ('occ_cat3','Health diagnosing and treating practitioners and other technical') ]),
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Healthcare practitioners and technical'              ), ('occ_cat3','Health technologists and technicians'                            ) ]),
         ] )),
-        ('pers_occ_services'    ,('acs5',2012,'C2401', 'tract', [
+        ('pers_occ_services'    ,('acs5',2012,'C24010', 'tract', [
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Education, legal, community service, arts, and media'), ('occ_cat3','Community and social service'                                      ) ]),
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Education, legal, community service, arts, and media'), ('occ_cat3','Arts, design, entertainment, sports, and media'                    ) ]),
             collections.OrderedDict([ ('occ_cat1','Service'                                          ), ('occ_cat2','Healthcare support'                                  ), ('occ_cat3','All'                                                               ) ]),
@@ -754,11 +754,11 @@ if __name__ == '__main__':
             collections.OrderedDict([ ('occ_cat1','Service'                                          ), ('occ_cat2','Personal care and service'                           ), ('occ_cat3','All'                                                               ) ]),
             collections.OrderedDict([ ('occ_cat1','Sales and office'                                 ), ('occ_cat2','Office and administrative support'                   ), ('occ_cat3','All'                                                               ) ]),
         ] )),
-        ('pers_occ_retail'      ,('acs5',2012,'C2401', 'tract', [
+        ('pers_occ_retail'      ,('acs5',2012,'C24010', 'tract', [
             collections.OrderedDict([ ('occ_cat1','Service'                                          ), ('occ_cat2','Food preparation and serving related'                ), ('occ_cat3','All') ]),
             collections.OrderedDict([ ('occ_cat1','Sales and office'                                 ), ('occ_cat2','Sales and related'                                   ), ('occ_cat3','All') ]),
         ] )),
-        ('pers_occ_manual'      ,('acs5',2012,'C2401', 'tract', [
+        ('pers_occ_manual'      ,('acs5',2012,'C24010', 'tract', [
             collections.OrderedDict([ ('occ_cat1','Service'                                         ), ('occ_cat2','Building and grounds cleaning and maintenance'        ), ('occ_cat3','All') ]),
             collections.OrderedDict([ ('occ_cat1','Natural resources, construction, and maintenance'), ('occ_cat2','Farming, fishing, and forestry'                       ), ('occ_cat3','All') ]),
             collections.OrderedDict([ ('occ_cat1','Natural resources, construction, and maintenance'), ('occ_cat2','Construction and extraction'                          ), ('occ_cat3','All') ]),
@@ -784,14 +784,14 @@ if __name__ == '__main__':
     maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
 
     # and PUMA 
-    maz_puma_dbf   = simpledbf.Dbf5(MAZ_TAZ_PUMA_FILE)
-    maz_puma_df    = maz_puma_dbf.to_dataframe()
-    # since this is an intersect, there may be multiple PUMAs per maz
+    taz_puma_dbf   = simpledbf.Dbf5(MAZ_TAZ_PUMA_FILE)
+    taz_puma_df    = taz_puma_dbf.to_dataframe()
+    # since this is an intersect, there may be multiple PUMAs per taz
     # remedy this by picking the one with the biggest calc_area -- the sort will put that one last
-    maz_puma_df    = maz_puma_df[["maz","taz","PUMA","calc_area"]].sort_values(by=["maz","taz","calc_area"])
-    maz_puma_df    = maz_puma_df.drop_duplicates(subset=["maz","taz"], keep="last")
-    maz_puma_df.rename(columns={"maz":"MAZ"}, inplace=True)
-    maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=maz_puma_df[["MAZ", "PUMA"]], how="left")
+    taz_puma_df    = taz_puma_df[["taz","PUMA","calc_area"]].sort_values(by=["taz","calc_area"])
+    taz_puma_df    = taz_puma_df.drop_duplicates(subset=["taz"], keep="last")
+    taz_puma_df.rename(columns={"taz":"TAZ"}, inplace=True)
+    maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=taz_puma_df[["TAZ", "PUMA"]], how="left")
 
     if args.test_PUMA:
         logging.info("test_PUMA {} passed -- ZEROING OUT MAZ, TAZ, COUNTY for other PUMAs".format(args.test_PUMA))
