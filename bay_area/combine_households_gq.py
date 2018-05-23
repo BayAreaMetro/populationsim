@@ -60,17 +60,20 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
     description=USAGE)
   parser.add_argument("model_year", type=int)
+  parser.add_argument("--test_PUMA", type=str, help="Pass PUMA to output controls only for geographies relevant to a single PUMA, for testing")
   args = parser.parse_args()
 
   # create output dir if needed
   COMBINED_OUT_DIR = "output_%d" % args.model_year
+  if args.test_PUMA: COMBINED_OUT_DIR = "%s_puma%s" % (COMBINED_OUT_DIR, args.test_PUMA)
+
   if not os.path.exists(COMBINED_OUT_DIR):
     os.mkdir(COMBINED_OUT_DIR)
     print "Created %s" % COMBINED_OUT_DIR
 
   for filename in ["synthetic_households.csv", "synthetic_persons.csv", "summary_melt.csv"]:
-    table_hh = pandas.read_csv(os.path.join("households",     "output_%d" % args.model_year, filename))
-    table_gq = pandas.read_csv(os.path.join("group_quarters", "output_%d" % args.model_year, filename))
+    table_hh = pandas.read_csv(os.path.join("households",     COMBINED_OUT_DIR, filename))
+    table_gq = pandas.read_csv(os.path.join("group_quarters", COMBINED_OUT_DIR, filename))
 
     print table_hh.head()
     print table_gq.head()
