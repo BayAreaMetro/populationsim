@@ -79,7 +79,15 @@ output_tables:
   tables:
     - summary_MAZ
     - summary_TAZ
-    - summary_COUNTY
+    - summary_COUNTY_1
+    - summary_COUNTY_2
+    - summary_COUNTY_3
+    - summary_COUNTY_4
+    - summary_COUNTY_5
+    - summary_COUNTY_6
+    - summary_COUNTY_7
+    - summary_COUNTY_8
+    - summary_COUNTY_9
     - expanded_household_ids
 
 
