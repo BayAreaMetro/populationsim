@@ -47,15 +47,15 @@ NWOR_MAX = 10 # max number of workers
 HINC_MAX = 2000000
 
 # COUNTY coding - census to our county code
-COUNTY_RECODE = pandas.DataFrame([{"GEOID_county":"06001", "COUNTY":4, "county_name":"Alameda"      },
-                                  {"GEOID_county":"06013", "COUNTY":5, "county_name":"Contra Costa" },
-                                  {"GEOID_county":"06041", "COUNTY":9, "county_name":"Marin"        },
-                                  {"GEOID_county":"06055", "COUNTY":7, "county_name":"Napa"         },
-                                  {"GEOID_county":"06075", "COUNTY":1, "county_name":"San Francisco"},
-                                  {"GEOID_county":"06081", "COUNTY":2, "county_name":"San Mateo"    },
-                                  {"GEOID_county":"06085", "COUNTY":3, "county_name":"Santa Clara"  },
-                                  {"GEOID_county":"06095", "COUNTY":6, "county_name":"Solano"       },
-                                  {"GEOID_county":"06097", "COUNTY":8, "county_name":"Sonoma"       }])
+COUNTY_RECODE = pandas.DataFrame([{"GEOID_county":"06001", "COUNTY":4, "county_name":"Alameda"      , "REGION":1},
+                                  {"GEOID_county":"06013", "COUNTY":5, "county_name":"Contra Costa" , "REGION":1},
+                                  {"GEOID_county":"06041", "COUNTY":9, "county_name":"Marin"        , "REGION":1},
+                                  {"GEOID_county":"06055", "COUNTY":7, "county_name":"Napa"         , "REGION":1},
+                                  {"GEOID_county":"06075", "COUNTY":1, "county_name":"San Francisco", "REGION":1},
+                                  {"GEOID_county":"06081", "COUNTY":2, "county_name":"San Mateo"    , "REGION":1},
+                                  {"GEOID_county":"06085", "COUNTY":3, "county_name":"Santa Clara"  , "REGION":1},
+                                  {"GEOID_county":"06095", "COUNTY":6, "county_name":"Solano"       , "REGION":1},
+                                  {"GEOID_county":"06097", "COUNTY":8, "county_name":"Sonoma"       , "REGION":1}])
 
 class CensusFetcher:
     """
@@ -580,7 +580,7 @@ def match_control_to_geography(control_name, control_table_df, control_geography
 
     Pass full_region=False if this is a test subset so the control totals don't need to add up to the census table total.
     """
-    if control_geography not in ["MAZ","TAZ","COUNTY"]:
+    if control_geography not in ["MAZ","TAZ","COUNTY","REGION"]:
         raise ValueError("match_control_to_geography passed unsupported control geography {}".format(control_geography))
     if census_geography not in ["block","block group","tract","county"]:
         raise ValueError("match_control_to_geography passed unsupported census geography {}".format(census_geography))
@@ -590,7 +590,8 @@ def match_control_to_geography(control_name, control_table_df, control_geography
 
     GEO_HIERARCHY = { 'MAZ'   :['block','MAZ','block group','tract','county'],
                       'TAZ'   :['block',      'TAZ',        'tract','county'],
-                      'COUNTY':['block',      'block group','tract','county','COUNTY']}
+                      'COUNTY':['block',      'block group','tract','county','COUNTY'],
+                      'REGION':['block',      'block group','tract','county','REGION']}
 
     control_geo_index = GEO_HIERARCHY[control_geography].index(control_geography)
     try:
@@ -767,7 +768,12 @@ if __name__ == '__main__':
             collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Transportation'                                       ), ('occ_cat3','All') ]),
             collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Material moving'                                      ), ('occ_cat3','All') ]),
         ] )),
+        # TODO - these folks are in group quarters so they shouldn't be included
+        # Perhaps use acs5 2012 Table B23025. EMPLOYMENT STATUS FOR THE POPULATION 16 YEARS AND OVER - Armed Forces
+        # minus the group quarters military
         ('pers_occ_military'    ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
+    ])
+    CONTROLS['REGION'] = collections.OrderedDict([
         ('gq_num_hh_county'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','All'     ) ])] )),
     ])
 
@@ -780,10 +786,10 @@ if __name__ == '__main__':
     maz_taz_def_df["GEOID_tract"      ] = maz_taz_def_df["GEOID_block"].str[:11]
     maz_taz_def_df["GEOID_block group"] = maz_taz_def_df["GEOID_block"].str[:12]
     maz_taz_def_df.drop("GEOID10", axis="columns", inplace=True)
-    # add COUNTY
+    # add COUNTY and REGION
     maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
 
-    # and PUMA 
+    # and PUMA
     taz_puma_dbf   = simpledbf.Dbf5(MAZ_TAZ_PUMA_FILE)
     taz_puma_df    = taz_puma_dbf.to_dataframe()
     # since this is an intersect, there may be multiple PUMAs per taz
@@ -853,10 +859,11 @@ if __name__ == '__main__':
             else:
                 hh_control_names.append(control_name)
 
-        hh_control_df   = out_df[[control_geo] + hh_control_names]
-        hh_control_file = os.path.join("households", "data", "{}_{}_controls.csv".format(args.model_year, control_geo))
-        hh_control_df.to_csv(hh_control_file, index=False, float_format="%.2f")
-        logging.info("Wrote control file {}".format(hh_control_file))
+        if len(hh_control_names) > 0:
+            hh_control_df   = out_df[[control_geo] + hh_control_names]
+            hh_control_file = os.path.join("households", "data", "{}_{}_controls.csv".format(args.model_year, control_geo))
+            hh_control_df.to_csv(hh_control_file, index=False, float_format="%.2f")
+            logging.info("Wrote control file {}".format(hh_control_file))
 
         if len(gq_control_names) > 0:
             gq_control_df   = out_df[[control_geo] + gq_control_names]
@@ -868,7 +875,7 @@ if __name__ == '__main__':
     # finally, save the cross walk file
     crosswalk_df = maz_taz_def_df.loc[ maz_taz_def_df["MAZ"] > 0] # drop MAZ=0
 
-    crosswalk_df = crosswalk_df[["MAZ","TAZ","PUMA","COUNTY","county_name"]].drop_duplicates()
+    crosswalk_df = crosswalk_df[["MAZ","TAZ","PUMA","COUNTY","county_name","REGION"]].drop_duplicates()
     crosswalk_df.sort_values(by="MAZ", inplace=True)
     for hh_gq in ["households","group_quarters"]:
         crosswalk_file = os.path.join(hh_gq, "data", "geo_cross_walk.csv")

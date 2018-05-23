@@ -1,6 +1,6 @@
 # Control Files
 
-* 20[00,05,10,15]_[COUNTY,MAZ,TAZ]_controls.csv
+* 20[00,05,10,15]_[REGION,COUNTY,MAZ,TAZ]_controls.csv
   * Created by [`create_baseyear_controls.py`](../../create_baseyear_controls.py)
 
 # Geographic Crosswalk
