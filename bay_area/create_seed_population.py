@@ -54,6 +54,7 @@ PUMS_HOUSING_RECORD_COLUMNS = [
 ]
 # columns added by this script
 NEW_HOUSING_RECORD_COLUMNS = [
+    "COUNTY",               # MTC county code
     "hh_workers_from_esr",  # count of employed persons in household
     "hh_income_2010",       # household income in 2010 dollars, based on HINCP and ADJINC
     "unique_hh_id",         # integer unique id for housing unit, starting with 1
@@ -93,6 +94,7 @@ PUMS_PERSON_RECORD_COLUMNS = [
 
 # columns added by this script
 NEW_PERSON_RECORD_COLUMNS = [
+    "COUNTY",               # MTC county code
     "employed",             # 0 or 1, based on ESR
     "soc",                  # 2 digit code, based on first two characters of socp00 or socp10
     "occupation",           # 0 is N/A, 1 is management, 2 is professional, 3 is services, 4 is retail, 5 is manual, 6 is military. based on socp00 or socp10
@@ -107,15 +109,63 @@ import numpy, pandas
 PUMS_INPUT_DIR      = "M:\Data\Census\PUMS\PUMS 2007-11\CSV"
 PUMS_HOUSEHOLD_FILE = "ss11hca.csv"
 PUMS_PERSON_FILE    = "ss11pca.csv"
-# these are PUMS 2000
-BAY_AREA_PUMA5CE00  = [
-    1000, 1101, 1102, 1103, 1201, 1202, 1301, 1302, 1303, 2101,
-    2102, 2103, 2104, 2105, 2106, 2107, 2108, 2201, 2202, 2203,
-    2204, 2205, 2206, 2207, 2301, 2302, 2303, 2304, 2305, 2306,
-    2401, 2402, 2403, 2404, 2405, 2406, 2407, 2408, 2409, 2410,
-    2701, 2702, 2703, 2704, 2705, 2706, 2707, 2708, 2709, 2710,
-    2711, 2712, 2713, 2714
-]
+
+BAY_AREA_PUMA2000_COUNTY = pandas.DataFrame([
+    {"PUMA":1000, "COUNTY":7, "county_name":"Napa"         },
+    {"PUMA":1101, "COUNTY":8, "county_name":"Sonoma"       },
+    {"PUMA":1102, "COUNTY":8, "county_name":"Sonoma"       },
+    {"PUMA":1103, "COUNTY":8, "county_name":"Sonoma"       },
+    {"PUMA":1201, "COUNTY":9, "county_name":"Marin"        },
+    {"PUMA":1202, "COUNTY":9, "county_name":"Marin"        },
+    {"PUMA":1301, "COUNTY":6, "county_name":"Solano"       },
+    {"PUMA":1302, "COUNTY":6, "county_name":"Solano"       },
+    {"PUMA":1303, "COUNTY":6, "county_name":"Solano"       },
+    {"PUMA":2101, "COUNTY":5, "county_name":"Contra Costa" },
+    {"PUMA":2102, "COUNTY":5, "county_name":"Contra Costa" },
+    {"PUMA":2103, "COUNTY":5, "county_name":"Contra Costa" },
+    {"PUMA":2104, "COUNTY":5, "county_name":"Contra Costa" },
+    {"PUMA":2105, "COUNTY":5, "county_name":"Contra Costa" },
+    {"PUMA":2106, "COUNTY":5, "county_name":"Contra Costa" },
+    {"PUMA":2107, "COUNTY":5, "county_name":"Contra Costa" },
+    {"PUMA":2108, "COUNTY":5, "county_name":"Contra Costa" },
+    {"PUMA":2201, "COUNTY":1, "county_name":"San Francisco"},
+    {"PUMA":2202, "COUNTY":1, "county_name":"San Francisco"},
+    {"PUMA":2203, "COUNTY":1, "county_name":"San Francisco"},
+    {"PUMA":2204, "COUNTY":1, "county_name":"San Francisco"},
+    {"PUMA":2205, "COUNTY":1, "county_name":"San Francisco"},
+    {"PUMA":2206, "COUNTY":1, "county_name":"San Francisco"},
+    {"PUMA":2207, "COUNTY":1, "county_name":"San Francisco"},
+    {"PUMA":2301, "COUNTY":2, "county_name":"San Mateo"    },
+    {"PUMA":2302, "COUNTY":2, "county_name":"San Mateo"    },
+    {"PUMA":2303, "COUNTY":2, "county_name":"San Mateo"    },
+    {"PUMA":2304, "COUNTY":2, "county_name":"San Mateo"    },
+    {"PUMA":2305, "COUNTY":2, "county_name":"San Mateo"    },
+    {"PUMA":2306, "COUNTY":2, "county_name":"San Mateo"    },
+    {"PUMA":2401, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2402, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2403, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2404, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2405, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2406, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2407, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2408, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2409, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2410, "COUNTY":4, "county_name":"Alameda"      },
+    {"PUMA":2701, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2702, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2703, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2704, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2705, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2706, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2707, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2708, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2709, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2710, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2711, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2712, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2713, "COUNTY":3, "county_name":"Santa Clara"  },
+    {"PUMA":2714, "COUNTY":3, "county_name":"Santa Clara"  }])
+
 
 # First two characters of socp00 or socp10 to occupation code
 OCCUPATION = pandas.DataFrame(data=
@@ -164,10 +214,15 @@ if __name__ == '__main__':
     # print pums_pers_df.dtypes
 
     # filter to bay area
-    pums_hu_df   = pums_hu_df.loc[pums_hu_df.PUMA.isin(BAY_AREA_PUMA5CE00), :]
+    local_pumas  = BAY_AREA_PUMA2000_COUNTY.PUMA.tolist()
+    pums_hu_df   = pums_hu_df.loc[pums_hu_df.PUMA.isin(local_pumas), :]
     print "Filtered to %7d housing records in the bay area" % len(pums_hu_df)
-    pums_pers_df = pums_pers_df.loc[pums_pers_df.PUMA.isin(BAY_AREA_PUMA5CE00), :]
+    pums_pers_df = pums_pers_df.loc[pums_pers_df.PUMA.isin(local_pumas), :]
     print "Filtered to %7d person  records in the bay area" % len(pums_pers_df)
+
+    # add COUNTY
+    pums_hu_df   = pandas.merge(left=pums_hu_df,   right=BAY_AREA_PUMA2000_COUNTY[["PUMA","COUNTY"]], how="left")
+    pums_pers_df = pandas.merge(left=pums_pers_df, right=BAY_AREA_PUMA2000_COUNTY[["PUMA","COUNTY"]], how="left")
 
     # compute number of workers in the housing unit
     # Employment status recode
