@@ -774,7 +774,7 @@ if __name__ == '__main__':
         ('pers_occ_military'    ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
     ])
     CONTROLS['REGION'] = collections.OrderedDict([
-        ('gq_num_hh_county'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','All'     ) ])] )),
+        ('gq_num_hh_region'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','All'     ) ])] )),
     ])
 
     maz_taz_def_df = pandas.read_csv(MAZ_TAZ_DEF_FILE)
