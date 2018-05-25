@@ -100,6 +100,13 @@ class CensusFetcher:
             ["H0130007",         6,          6], #  6-person household
             ["H0130008",         7,   NPER_MAX], #  7-or-more-person household
         ],
+        "P16":[  # sf1, P16. POPULATION IN HOUSEHOLDS BY AGE
+            # Universe: Population in households
+            ["variable", "age_min", "age_max"],
+            ["P0160001",         0,   AGE_MAX], # Population in households
+            ["P0160002",         0,        17], # Under 18 years
+            ["P0160003",        18,   AGE_MAX], # 18 years and over
+        ],
         "P12":[  # sf1, P12. Sex By Age [49]
             # Universe: Total population
             ["variable", "sex", "age_min", "age_max"],
@@ -573,12 +580,15 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
 
     return control_df
 
-def match_control_to_geography(control_name, control_table_df, control_geography, census_geography, maz_taz_def_df, temp_controls, full_region):
+def match_control_to_geography(control_name, control_table_df, control_geography, census_geography,
+                               maz_taz_def_df, temp_controls, full_region, scale_by_temp=False):
     """
     Given a control table in the given census geography, this method will transform the table to the appropriate
     control geography and return it.
 
     Pass full_region=False if this is a test subset so the control totals don't need to add up to the census table total.
+    Pass scale_by_temp=True if scaling isn't required (e.g. the census_geography is smaller than the control_geography)
+                            but you want to force scaling anyway because the universe isn't correct.
     """
     if control_geography not in ["MAZ","TAZ","COUNTY","REGION"]:
         raise ValueError("match_control_to_geography passed unsupported control geography {}".format(control_geography))
@@ -614,19 +624,39 @@ def match_control_to_geography(control_name, control_table_df, control_geography
 
     # if this is a temp, don't go further -- we'll use it later
     if control_name.startswith("temp_"):
+        logging.info("Total for {} {:,}".format(control_name, control_table_df[control_name].sum()))
         return control_table_df
 
     # if the census geography is smaller than the target geography, this is a simple aggregation
     if census_geo_index >= 0 and census_geo_index < control_geo_index:
         logging.info("Simple aggregation from {} to {}".format(census_geography, control_geography))
+
+        if scale_by_temp:
+            # by convention, numerator then denominator
+            scale_name_numer = temp_controls.keys()[-2]
+            scale_name_denom = temp_controls.keys()[-1]
+            assert(len(temp_controls[scale_name_numer]) == len(control_table_df))
+            assert(len(temp_controls[scale_name_denom]) == len(control_table_df))
+            logging.info("  Scaling by {}/{}".format(scale_name_numer,scale_name_denom))
+
+            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_name_numer], how="left")
+            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_name_denom], how="left")
+            control_table_df[control_name] = control_table_df[control_name] * control_table_df[scale_name_numer]/control_table_df[scale_name_denom]
+            control_table_df.fillna(0, inplace=True)
+
+            variable_total = variable_total * temp_controls[scale_name_numer][scale_name_numer].sum()/temp_controls[scale_name_denom][scale_name_denom].sum()
+
         # we really only need these columns - control geography and the census geography
         geo_mapping_df   = maz_taz_def_df[[control_geography, "GEOID_{}".format(census_geography)]].drop_duplicates()
         control_table_df = pandas.merge(left=control_table_df, right=geo_mapping_df, how="left")
 
         # aggregate now
         final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
+
         # verify the totals didn't change
-        if full_region: assert(final_df[control_name].sum() == variable_total)
+        if full_region and not scale_by_temp: assert(final_df[control_name].sum() == variable_total)
+
+        logging.info("  => Total for {} {:,}".format(control_name, final_df[control_name].sum()))
         return final_df
 
     # this is more complicated -- by convention, the first one will be at the block (smaller geo) level
@@ -722,6 +752,9 @@ if __name__ == '__main__':
         ('hh_wrks_2'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',2), ('workers_max',       2), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
         ('hh_wrks_3_plus'  ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',3), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
 
+        # temp tables needed because P12 is All persons but we want only persons in households so we'll force scaling via the scale_by_temp to match_control_to_geography()
+        ('temp_num_pers_hh',('sf1', 2010,'P16',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',AGE_MAX) ])] )),                    # numerator
+        ('temp_num_pers   ',('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',AGE_MAX), ('sex', 'All') ])] )),    # denominator
         ('pers_age_00_19'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',     19) ])] )),
         ('pers_age_20_34'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',20), ('age_max',     34) ])] )),
         ('pers_age_35_64'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',35), ('age_max',     64) ])] )),
@@ -818,7 +851,9 @@ if __name__ == '__main__':
 
             control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
 
-            final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3], maz_taz_def_df, temp_controls, full_region=(args.test_PUMA==None))
+            final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3],
+                                                  maz_taz_def_df, temp_controls, full_region=(args.test_PUMA==None),
+                                                  scale_by_temp=True if control_name.startswith("pers_age") else False)
 
             # the temp control tables are special -- they're intermediate for matching
             if control_name.startswith("temp_"):
