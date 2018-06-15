@@ -86,6 +86,8 @@ class CensusFetcher:
     # https://api.census.gov/data/2011/acs/acs5/variables.html
     # https://api.census.gov/data/2012/acs5/variables.html
     # https://api.census.gov/data/2010/sf1/variables.html
+    # https://api.census.gov/data/2015/acs5/variables.html
+    # https://api.census.gov/data/2015/acs1/variables.html
 
     CENSUS_DEFINITIONS = {
         "H13":[  # sf1, H13. Household Size [8]
@@ -304,6 +306,27 @@ class CensusFetcher:
             ["B19001_016E",     150000,      199999], # Households $150,000 to $199,999
             ["B19001_017E",     200000,    HINC_MAX], # Households $200,000 or more
         ],
+        "B25009":[ #acs1, B25001. TENURE BY HOUSEHOLD SIZE
+            # Universe: Occupied housing units
+            ["variable",    "tenure", "pers_min", "pers_max"],
+            ["B25009_001E", "All",             0,   NPER_MAX], # Total
+            ["B25009_002E", "Owner",           0,   NPER_MAX], # Owner occupied
+            ["B25009_003E", "Owner",           1,          1], # Owner occupied 1-person household
+            ["B25009_004E", "Owner",           2,          2], # Owner occupied 2-person household
+            ["B25009_005E", "Owner",           3,          3], # Owner occupied 3-person household
+            ["B25009_006E", "Owner",           4,          4], # Owner occupied 4-person household
+            ["B25009_007E", "Owner",           5,          5], # Owner occupied 5-person household
+            ["B25009_008E", "Owner",           6,          6], # Owner occupied 6-person household
+            ["B25009_009E", "Owner",           7,   NPER_MAX], # Owner occupied 7-or-more person household
+            ["B25009_010E", "Renter",          0,   NPER_MAX], # Renter occupied
+            ["B25009_011E", "Renter",          1,          1], # Renter occupied 1-person household
+            ["B25009_012E", "Renter",          2,          2], # Renter occupied 2-person household
+            ["B25009_013E", "Renter",          3,          3], # Renter occupied 3-person household
+            ["B25009_014E", "Renter",          4,          4], # Renter occupied 4-person household
+            ["B25009_015E", "Renter",          5,          5], # Renter occupied 5-person household
+            ["B25009_016E", "Renter",          6,          6], # Renter occupied 6-person household
+            ["B25009_017E", "Renter",          7,   NPER_MAX], # Renter occupied 7-or-more person household
+        ]
         "C24010":[ # acs5, C24010. SEX BY OCCUPATION FOR THE CIVILIAN EMPLOYED POPULATION 16 YEARS AND OVER
             ["variable",    "sex",    "occ_cat1",                                         "occ_cat2",                                             "occ_cat3"                                                          ],
             ["C24010_001E", "All",    "All",                                              "All",                                                  "All"                                                               ],
@@ -705,7 +728,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # for now, we only do 2010
-    if args.model_year not in [2010]:
+    if args.model_year not in [2010, 2015]:
         raise ValueError("Model year {} not supported yet".format(args.model_year))
 
     LOG_FILE = "create_baseyear_controls_{0}.log".format(args.model_year)
@@ -724,8 +747,11 @@ if __name__ == '__main__':
     fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p'))
     logger.addHandler(fh)
 
-    CONTROLS = collections.OrderedDict()
-    CONTROLS['MAZ'] = collections.OrderedDict([
+    CONTROLS = {
+        2010: collections.OrderedDict(),
+        2015: collections.OrderedDict()
+    }
+    CONTROLS[2010]['MAZ'] = collections.OrderedDict([
         ('num_hh'        ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
         ('hh_size_1'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',1       ) ])] )),
         ('hh_size_2'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])] )),
@@ -737,7 +763,22 @@ if __name__ == '__main__':
         ('gq_type_mil'   ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
         ('gq_type_othnon',('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Other'   ) ])] )),
     ])
-    CONTROLS['TAZ'] = collections.OrderedDict([
+    CONTROLS[2015]['MAZ'] = collections.OrderedDict([
+        ('temp_num_hh_b' ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
+        
+        "B25009":[ #acs1, B25001. TENURE BY HOUSEHOLD SIZE
+            # Universe: Occupied housing units
+            ["variable",    "tenure", "pers_min", "pers_max"],
+            ["B25009_001E", "All",             0,   NPER_MAX], # Total
+            ["B25009_002E", "Owner",           0,   NPER_MAX], # Owner occupied
+
+        ('temp_num_hh'   ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
+        ('hh_size_1'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',1       ) ])] )),
+        ('hh_size_2'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])] )),
+        ('hh_size_3'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',3), ('pers_max',3       ) ])] )),
+        ('hh_size_4_plus',('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',4), ('pers_max',NPER_MAX) ])] )),                                                    
+    ])
+    CONTROLS[2010]['TAZ'] = collections.OrderedDict([
         ('temp_num_hh_b'   ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
 
         ('temp_num_hhinc'  ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',     0), ('hhinc_max',HINC_MAX) ])] )),
@@ -764,7 +805,7 @@ if __name__ == '__main__':
         ('hh_kids_no'      ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max',        0)])] )),
         ('hh_kids_yes'     ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 1), ('num_kids_max', NKID_MAX)])] )),
     ])
-    CONTROLS['COUNTY'] = collections.OrderedDict([
+    CONTROLS[2010]['COUNTY'] = collections.OrderedDict([
         # this one is more complicated since the categories are nominal
         ('pers_occ_management'  ,('acs5',2012,'C24010', 'tract', [
             collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Management, business, and financial'                 ), ('occ_cat3','Management'                        ) ]),
@@ -806,7 +847,7 @@ if __name__ == '__main__':
         # minus the group quarters military
         ('pers_occ_military'    ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
     ])
-    CONTROLS['REGION'] = collections.OrderedDict([
+    CONTROLS[2010]['REGION'] = collections.OrderedDict([
         ('gq_num_hh_region'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','All'     ) ])] )),
     ])
 
@@ -841,7 +882,7 @@ if __name__ == '__main__':
     cf = CensusFetcher()
 
     final_control_dfs = {} # control geography => dataframe
-    for control_geo, control_dict in CONTROLS.iteritems():
+    for control_geo, control_dict in CONTROLS[args.model_year].iteritems():
         temp_controls = collections.OrderedDict()
         for control_name, control_def in control_dict.iteritems():
             census_table_df = cf.get_census_data(dataset=control_def[0],
