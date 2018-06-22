@@ -229,6 +229,11 @@ class CensusFetcher:
             ["P0430062", "Female",      65,       130,  "Noninst", "Military"    ], # Noninstitutionalized population (501, 601-602, 701-702, 704, 706, 801-802, 900-901, 903-904): - Military quarters (601-602)
             ["P0430063", "Female",      65,       130,  "Noninst", "Other"       ], # Noninstitutionalized population (501, 601-602, 701-702, 704, 706, 801-802, 900-901, 903-904): - Other noninstitutional facilities (701-702, 704, 706, 801-802, 900-901, 903-904)
         ],
+        "B26001":[ # acs5, B26001. GROUP QUARTERS POPULATION
+            # Universe: Population in group quarters
+            ["variable"   ],
+            ["B26001_001E"], # Estimate: Total
+        ],
         "PCT16":[ # sf1, PCT16. HOUSEHOLD TYPE BY NUMBER OF PEOPLE UNDER 18 YEARS (EXCLUDING HOUSEHOLDERS, SPOUSES, AND UNMARRIED PARTNERS) [26]
             # Universe: Households
             ["variable",   "family",   "famtype", "num_kids_min", "num_kids_max"],
@@ -262,30 +267,51 @@ class CensusFetcher:
         "B08202":[ # acs5, B08202. HOUSEHOLD SIZE BY NUMBER OF WORKERS IN HOUSEHOLD
             # Universe: Households
             ["variable",   "workers_min","workers_max","persons_min","persons_max"],
-            ["B08202_001E",            0,     NWOR_MAX,            0,     NPER_MAX], # Estimate; Total:
-            ["B08202_002E",            0,            0,            0,     NPER_MAX], # Estimate; Total: - No workers
-            ["B08202_003E",            1,            1,            0,     NPER_MAX], # Estimate; Total: - 1 worker
-            ["B08202_004E",            2,            2,            0,     NPER_MAX], # Estimate; Total: - 2 workers
-            ["B08202_005E",            3,     NWOR_MAX,            0,     NPER_MAX], # Estimate; Total: - 3 or more workers
-            ["B08202_006E",            0,     NWOR_MAX,            1,            1], # Estimate; Total: - 1-person household:
-            ["B08202_007E",            0,            0,            1,            1], # Estimate; Total: - 1-person household: - No workers
-            ["B08202_008E",            1,            1,            1,            1], # Estimate; Total: - 1-person household: - 1 worker
-            ["B08202_009E",            0,     NWOR_MAX,            2,            2], # Estimate; Total: - 2-person household:
-            ["B08202_010E",            0,            0,            2,            2], # Estimate; Total: - 2-person household: - No workers
-            ["B08202_011E",            1,            1,            2,            2], # Estimate; Total: - 2-person household: - 1 worker
-            ["B08202_012E",            2,            2,            2,            2], # Estimate; Total: - 2-person household: - 2 workers
-            ["B08202_013E",            0,     NWOR_MAX,            3,            3], # Estimate; Total: - 3-person household:
-            ["B08202_014E",            0,            0,            3,            3], # Estimate; Total: - 3-person household: - No workers
-            ["B08202_015E",            1,            1,            3,            3], # Estimate; Total: - 3-person household: - 1 worker
-            ["B08202_016E",            2,            2,            3,            3], # Estimate; Total: - 3-person household: - 2 workers
-            ["B08202_017E",            3,            3,            3,            3], # Estimate; Total: - 3-person household: - 3 workers
-            ["B08202_018E",            0,     NWOR_MAX,            4,     NPER_MAX], # Estimate; Total: - 4-or-more-person household:
-            ["B08202_019E",            0,            0,            4,     NPER_MAX], # Estimate; Total: - 4-or-more-person household: - No workers
-            ["B08202_020E",            1,            1,            4,     NPER_MAX], # Estimate; Total: - 4-or-more-person household: - 1 worker
-            ["B08202_021E",            2,            2,            4,     NPER_MAX], # Estimate; Total: - 4-or-more-person household: - 2 workers
-            ["B08202_022E",            3,     NWOR_MAX,            4,     NPER_MAX], # Estimate; Total: - 4-or-more-person household: - 3 or more workers
+            ["B08202_001E",            0,     NWOR_MAX,            0,     NPER_MAX], # Total:
+            ["B08202_002E",            0,            0,            0,     NPER_MAX], # Total: - No workers
+            ["B08202_003E",            1,            1,            0,     NPER_MAX], # Total: - 1 worker
+            ["B08202_004E",            2,            2,            0,     NPER_MAX], # Total: - 2 workers
+            ["B08202_005E",            3,     NWOR_MAX,            0,     NPER_MAX], # Total: - 3 or more workers
+            ["B08202_006E",            0,     NWOR_MAX,            1,            1], # Total: - 1-person household:
+            ["B08202_007E",            0,            0,            1,            1], # Total: - 1-person household: - No workers
+            ["B08202_008E",            1,            1,            1,            1], # Total: - 1-person household: - 1 worker
+            ["B08202_009E",            0,     NWOR_MAX,            2,            2], # Total: - 2-person household:
+            ["B08202_010E",            0,            0,            2,            2], # Total: - 2-person household: - No workers
+            ["B08202_011E",            1,            1,            2,            2], # Total: - 2-person household: - 1 worker
+            ["B08202_012E",            2,            2,            2,            2], # Total: - 2-person household: - 2 workers
+            ["B08202_013E",            0,     NWOR_MAX,            3,            3], # Total: - 3-person household:
+            ["B08202_014E",            0,            0,            3,            3], # Total: - 3-person household: - No workers
+            ["B08202_015E",            1,            1,            3,            3], # Total: - 3-person household: - 1 worker
+            ["B08202_016E",            2,            2,            3,            3], # Total: - 3-person household: - 2 workers
+            ["B08202_017E",            3,            3,            3,            3], # Total: - 3-person household: - 3 workers
+            ["B08202_018E",            0,     NWOR_MAX,            4,     NPER_MAX], # Total: - 4-or-more-person household:
+            ["B08202_019E",            0,            0,            4,     NPER_MAX], # Total: - 4-or-more-person household: - No workers
+            ["B08202_020E",            1,            1,            4,     NPER_MAX], # Total: - 4-or-more-person household: - 1 worker
+            ["B08202_021E",            2,            2,            4,     NPER_MAX], # Total: - 4-or-more-person household: - 2 workers
+            ["B08202_022E",            3,     NWOR_MAX,            4,     NPER_MAX], # Total: - 4-or-more-person household: - 3 or more workers
         ],
-        "B19001":[ # acs5, B19001. HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2010 INFLATION-ADJUSTED DOLLARS): 
+        "B11016":[ # acs5, B11016. HOUSEHOLD TYPE BY HOUSEHOLD SIZE
+            # Universe: Households
+            ["variable",    "family",    "pers_min", "pers_max"],
+            ["B11016_001E", "All",                0,   NPER_MAX], # Total
+            ["B11016_002E", "Family",             0,   NPER_MAX], # Family households
+            ["B11016_003E", "Family",             2,          2], # Family households, 2-person household
+            ["B11016_004E", "Family",             3,          3], # Family households, 3-person household
+            ["B11016_005E", "Family",             4,          4], # Family households, 4-person household
+            ["B11016_006E", "Family",             5,          5], # Family households, 5-person household
+            ["B11016_007E", "Family",             6,          6], # Family households, 6-person household
+            ["B11016_008E", "Family",             7,   NPER_MAX], # Family households, 7-or-more person household
+            ["B11016_009E", "Nonfamily",          0,   NPER_MAX], # Nonfamily households
+            ["B11016_010E", "Nonfamily",          1,          1], # Nonfamily households, 1-person household
+            ["B11016_011E", "Nonfamily",          2,          2], # Nonfamily households, 2-person household
+            ["B11016_012E", "Nonfamily",          3,          3], # Nonfamily households, 3-person household
+            ["B11016_013E", "Nonfamily",          4,          4], # Nonfamily households, 4-person household
+            ["B11016_014E", "Nonfamily",          5,          5], # Nonfamily households, 5-person household
+            ["B11016_015E", "Nonfamily",          6,          6], # Nonfamily households, 6-person household
+            ["B11016_016E", "Nonfamily",          7,   NPER_MAX], # Nonfamily households, 7-or-more person household
+        ],
+        "B19001":[ # acs5, B19001. HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2010 INFLATION-ADJUSTED DOLLARS):
+            # Universe: Households
             # USE acs 2006-2010 https://api.census.gov/data/2010/acs5/variables.html for 2010 dollars
             ["variable",   "hhinc_min", "hhinc_max"],
             ["B19001_001E",          0,    HINC_MAX], # Households
@@ -306,28 +332,8 @@ class CensusFetcher:
             ["B19001_016E",     150000,      199999], # Households $150,000 to $199,999
             ["B19001_017E",     200000,    HINC_MAX], # Households $200,000 or more
         ],
-        "B25009":[ #acs1, B25001. TENURE BY HOUSEHOLD SIZE
-            # Universe: Occupied housing units
-            ["variable",    "tenure", "pers_min", "pers_max"],
-            ["B25009_001E", "All",             0,   NPER_MAX], # Total
-            ["B25009_002E", "Owner",           0,   NPER_MAX], # Owner occupied
-            ["B25009_003E", "Owner",           1,          1], # Owner occupied 1-person household
-            ["B25009_004E", "Owner",           2,          2], # Owner occupied 2-person household
-            ["B25009_005E", "Owner",           3,          3], # Owner occupied 3-person household
-            ["B25009_006E", "Owner",           4,          4], # Owner occupied 4-person household
-            ["B25009_007E", "Owner",           5,          5], # Owner occupied 5-person household
-            ["B25009_008E", "Owner",           6,          6], # Owner occupied 6-person household
-            ["B25009_009E", "Owner",           7,   NPER_MAX], # Owner occupied 7-or-more person household
-            ["B25009_010E", "Renter",          0,   NPER_MAX], # Renter occupied
-            ["B25009_011E", "Renter",          1,          1], # Renter occupied 1-person household
-            ["B25009_012E", "Renter",          2,          2], # Renter occupied 2-person household
-            ["B25009_013E", "Renter",          3,          3], # Renter occupied 3-person household
-            ["B25009_014E", "Renter",          4,          4], # Renter occupied 4-person household
-            ["B25009_015E", "Renter",          5,          5], # Renter occupied 5-person household
-            ["B25009_016E", "Renter",          6,          6], # Renter occupied 6-person household
-            ["B25009_017E", "Renter",          7,   NPER_MAX], # Renter occupied 7-or-more person household
-        ]
         "C24010":[ # acs5, C24010. SEX BY OCCUPATION FOR THE CIVILIAN EMPLOYED POPULATION 16 YEARS AND OVER
+            # Universe: Civilian employed population 16 years and over
             ["variable",    "sex",    "occ_cat1",                                         "occ_cat2",                                             "occ_cat3"                                                          ],
             ["C24010_001E", "All",    "All",                                              "All",                                                  "All"                                                               ],
             ["C24010_002E", "Male",   "All",                                              "All",                                                  "All"                                                               ],
@@ -419,11 +425,11 @@ class CensusFetcher:
         """
         Dataset is one of "sf1" or "ac5"
         Year is a number for the table
-        Geo is one of "block", "block group", "tract", or "county"
+        Geo is one of "block", "block group", "tract", "county subdivision" or "county"
         """
         if dataset not in ["sf1","acs5"]:
             raise ValueError("get_census_data only supports datasets 'sf1' and 'acs5'")
-        if geo not in ["block", "block group", "tract", "county"]:
+        if geo not in ["block", "block group", "tract", "county subdivision", "county"]:
             raise ValueError("get_census_data received unsupported geo {0}".format(geo))
         if table not in CensusFetcher.CENSUS_DEFINITIONS.keys():
             raise ValueError("get_census_data received unsupported table {0}".format(table))
@@ -442,6 +448,8 @@ class CensusFetcher:
             geo_index = ["state","county","tract","block group"]
         elif geo=="tract":
             geo_index = ["state","county","tract"]
+        elif geo=="county subdivision":
+            geo_index = ["state","county","county subdivision"]
         elif geo=="county":
             geo_index = ["state","county"]
 
@@ -472,14 +480,25 @@ class CensusFetcher:
 
             # fetch for one county at a time
             df = pandas.DataFrame()
-            for county_code in CensusFetcher.BAY_AREA_COUNTY_FIPS.values():
-                geo_dict = {'for':'{0}:*'.format(geo),
-                            'in':'state:{0} county:{1}'.format(CensusFetcher.CA_STATE_FIPS, county_code)}
+
+            # loop through counties (unless getting at county level)
+            county_codes = CensusFetcher.BAY_AREA_COUNTY_FIPS.values()
+            if geo=="county": county_codes = ["do_once"]
+
+            for county_code in county_codes:
+                if geo == "county":
+                    geo_dict = {'for':'{0}:*'.format(geo), 'in':'state:{0}'.format(CensusFetcher.CA_STATE_FIPS)}
+                else:
+                    geo_dict = {'for':'{0}:*'.format(geo),
+                                'in':'state:{0} county:{1}'.format(CensusFetcher.CA_STATE_FIPS, county_code)}
 
                 if dataset == "sf1":
                     county_df = pandas.DataFrame.from_records(self.census.sf1.get(census_col[0], geo_dict, year=year)).set_index(geo_index)
                 elif dataset == "acs5":
                     county_df = pandas.DataFrame.from_records(self.census.acs5.get(census_col[0], geo_dict, year=year)).set_index(geo_index)
+
+                # force the data column to be a float -- sometimes they're objects which won't work
+                county_df = county_df.astype(float)
 
                 df = df.append(county_df)
 
@@ -491,6 +510,12 @@ class CensusFetcher:
 
             # note column defs
             multi_col_def.append(census_col)
+
+        if geo=="county":
+            # if we fetched for county then we have all counties -- restrict to just the counties we care about
+            county_tuples = [(CensusFetcher.CA_STATE_FIPS, x) for x in CensusFetcher.BAY_AREA_COUNTY_FIPS.values()]
+            full_df = full_df.loc[county_tuples]
+            # logging.debug(full_df.head())
 
         # now we have the table with multiple columns -- name the columns with decoded names
         full_df.columns = pandas.MultiIndex.from_tuples(multi_col_def, names=table_cols)
@@ -559,41 +584,49 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
     # the control_dict_list is a list of dictionaries -- iterate through them
     prev_sum = 0
     for control_dict in control_dict_list:
-        logging.info("  Control definition:")
-        for cname,cval in control_dict.iteritems(): logging.info("      {:15} {}".format(cname, cval))
 
-        # find the relevant column, if there is one
-        for colnum in range(len(census_table_df.columns.levels[0])):
-            param_dict = collections.OrderedDict()
-            # level 0 is the Census variable name, e.g. H0130001
-            variable_name = census_table_df.columns.get_level_values(0)[colnum]
+        # if there's only one column and no attributes are expected then we're done
+        if len(control_dict) == 0 and len(census_table_df.columns.values) == 1:
+            variable_name = census_table_df.columns.values[0]
+            logging.info("No attributes specified; single column identified: {}".format(variable_name))
+            control_df[control_name] = census_table_df[variable_name]
 
-            for paramnum in range(1, len(census_table_df.columns.names)):
-                param = census_table_df.columns.names[paramnum]
-                try: # assume this is an int but fall back if it's nominal
-                    param_dict[param] = int(census_table_df.columns.get_level_values(paramnum)[colnum])
-                except:
-                    param_dict[param] = census_table_df.columns.get_level_values(paramnum)[colnum]
-            # logging.debug(param_dict)
+        else:
+            logging.info("  Control definition:")
+            for cname,cval in control_dict.iteritems(): logging.info("      {:15} {}".format(cname, cval))
 
-            # Is this single column sufficient?
-            if param_dict == control_dict:
-                logging.info("    Found a single matching column: [{}]".format(variable_name))
-                for pname,pval in param_dict.iteritems(): logging.info("      {:15} {}".format(pname, pval))
+            # find the relevant column, if there is one
+            for colnum in range(len(census_table_df.columns.levels[0])):
+                param_dict = collections.OrderedDict()
+                # level 0 is the Census variable name, e.g. H0130001
+                variable_name = census_table_df.columns.get_level_values(0)[colnum]
 
-                control_df["temp"] = census_table_df[variable_name]
-                control_df[control_name] = census_table_df[variable_name]
-                control_df.drop(columns="temp", inplace=True)
-                break  # stop iterating through columns
+                for paramnum in range(1, len(census_table_df.columns.names)):
+                    param = census_table_df.columns.names[paramnum]
+                    try: # assume this is an int but fall back if it's nominal
+                        param_dict[param] = int(census_table_df.columns.get_level_values(paramnum)[colnum])
+                    except:
+                        param_dict[param] = census_table_df.columns.get_level_values(paramnum)[colnum]
+                # logging.debug(param_dict)
 
-            # Otherwise, if it's in the range, add it in
-            if census_col_is_in_control(param_dict, control_dict):
-                logging.info("    Adding column [{}]".format(variable_name))
-                for pname,pval in param_dict.iteritems(): logging.info("      {:15} {}".format(pname, pval))
+                # Is this single column sufficient?
+                if param_dict == control_dict:
+                    logging.info("    Found a single matching column: [{}]".format(variable_name))
+                    for pname,pval in param_dict.iteritems(): logging.info("      {:15} {}".format(pname, pval))
 
-                control_df["temp"] = census_table_df[variable_name]
-                control_df[control_name] = control_df[control_name] + control_df["temp"]
-                control_df.drop(columns="temp", inplace=True)
+                    control_df["temp"] = census_table_df[variable_name]
+                    control_df[control_name] = census_table_df[variable_name]
+                    control_df.drop(columns="temp", inplace=True)
+                    break  # stop iterating through columns
+
+                # Otherwise, if it's in the range, add it in
+                if census_col_is_in_control(param_dict, control_dict):
+                    logging.info("    Adding column [{}]".format(variable_name))
+                    for pname,pval in param_dict.iteritems(): logging.info("      {:15} {}".format(pname, pval))
+
+                    control_df["temp"] = census_table_df[variable_name]
+                    control_df[control_name] = control_df[control_name] + control_df["temp"]
+                    control_df.drop(columns="temp", inplace=True)
 
         # assume each control dict needs to find *something*
         new_sum = control_df[control_name].sum()
@@ -604,27 +637,27 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
     return control_df
 
 def match_control_to_geography(control_name, control_table_df, control_geography, census_geography,
-                               maz_taz_def_df, temp_controls, full_region, scale_by_temp=False):
+                               maz_taz_def_df, temp_controls, full_region, 
+                               scale_numerator, scale_denominator):
     """
     Given a control table in the given census geography, this method will transform the table to the appropriate
     control geography and return it.
 
     Pass full_region=False if this is a test subset so the control totals don't need to add up to the census table total.
-    Pass scale_by_temp=True if scaling isn't required (e.g. the census_geography is smaller than the control_geography)
-                            but you want to force scaling anyway because the universe isn't correct.
+    Pass scale_numerator and scale_denominator to scale numbers by scale_numerator/scale_denominator, where those are temp tables.
     """
     if control_geography not in ["MAZ","TAZ","COUNTY","REGION"]:
         raise ValueError("match_control_to_geography passed unsupported control geography {}".format(control_geography))
-    if census_geography not in ["block","block group","tract","county"]:
+    if census_geography not in ["block","block group","tract","county subdivision","county"]:
         raise ValueError("match_control_to_geography passed unsupported census geography {}".format(census_geography))
 
     # to verify we kept the totals
     variable_total = control_table_df[control_name].sum()
 
-    GEO_HIERARCHY = { 'MAZ'   :['block','MAZ','block group','tract','county'],
-                      'TAZ'   :['block',      'TAZ',        'tract','county'],
-                      'COUNTY':['block',      'block group','tract','county','COUNTY'],
-                      'REGION':['block',      'block group','tract','county','REGION']}
+    GEO_HIERARCHY = { 'MAZ'   :['block','MAZ','block group','tract','county subdivision','county'],
+                      'TAZ'   :['block',      'TAZ',        'tract','county subdivision','county'],
+                      'COUNTY':['block',      'block group','tract','county subdivision','county','COUNTY'],
+                      'REGION':['block',      'block group','tract','county subdivision','county','REGION']}
 
     control_geo_index = GEO_HIERARCHY[control_geography].index(control_geography)
     try:
@@ -640,7 +673,7 @@ def match_control_to_geography(control_name, control_table_df, control_geography
         control_table_df["GEOID_block group"] = control_table_df["state"] + control_table_df["county"] + control_table_df["tract"] + control_table_df["block group"]
     elif census_geography=="tract":
         control_table_df["GEOID_tract"] = control_table_df["state"] + control_table_df["county"] + control_table_df["tract"]
-    elif ceneus_geography=="county":
+    elif census_geography=="county":
         control_table_df["GEOID_county"] = control_table_df["state"] + control_table_df["county"]
     # drop the others
     control_table_df = control_table_df[["GEOID_{}".format(census_geography), control_name]]
@@ -654,20 +687,17 @@ def match_control_to_geography(control_name, control_table_df, control_geography
     if census_geo_index >= 0 and census_geo_index < control_geo_index:
         logging.info("Simple aggregation from {} to {}".format(census_geography, control_geography))
 
-        if scale_by_temp:
-            # by convention, numerator then denominator
-            scale_name_numer = temp_controls.keys()[-2]
-            scale_name_denom = temp_controls.keys()[-1]
-            assert(len(temp_controls[scale_name_numer]) == len(control_table_df))
-            assert(len(temp_controls[scale_name_denom]) == len(control_table_df))
-            logging.info("  Scaling by {}/{}".format(scale_name_numer,scale_name_denom))
+        if scale_numerator and scale_denominator:
+            assert(len(temp_controls[scale_numerator  ]) == len(control_table_df))
+            assert(len(temp_controls[scale_denominator]) == len(control_table_df))
+            logging.info("  Scaling by {}/{}".format(scale_numerator,scale_denominator))
 
-            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_name_numer], how="left")
-            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_name_denom], how="left")
-            control_table_df[control_name] = control_table_df[control_name] * control_table_df[scale_name_numer]/control_table_df[scale_name_denom]
+            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_numerator  ], how="left")
+            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
+            control_table_df[control_name] = control_table_df[control_name] * control_table_df[scale_numerator]/control_table_df[scale_denominator]
             control_table_df.fillna(0, inplace=True)
 
-            variable_total = variable_total * temp_controls[scale_name_numer][scale_name_numer].sum()/temp_controls[scale_name_denom][scale_name_denom].sum()
+            variable_total = variable_total * temp_controls[scale_numerator][scale_numerator].sum()/temp_controls[scale_denominator][scale_denominator].sum()
 
         # we really only need these columns - control geography and the census geography
         geo_mapping_df   = maz_taz_def_df[[control_geography, "GEOID_{}".format(census_geography)]].drop_duplicates()
@@ -677,40 +707,50 @@ def match_control_to_geography(control_name, control_table_df, control_geography
         final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
 
         # verify the totals didn't change
-        if full_region and not scale_by_temp: assert(final_df[control_name].sum() == variable_total)
+        if full_region and not scale_numerator: assert(final_df[control_name].sum() == variable_total)
 
         logging.info("  => Total for {} {:,}".format(control_name, final_df[control_name].sum()))
         return final_df
 
-    # this is more complicated -- by convention, the first one will be at the block (smaller geo) level
-    # and the last one will be at the same level as this one so we'll use to proportion
+    # the census geography is larger than the target geography => proportional scaling is required
+    # proportion = column / scale_denominator  (these should be at the same geography)
+    # and then multiply by the scale_numerator (which should be at a smaller geography)
+
     # e.g. hh_inc_15_prop = hh_inc_15 / temp_num_hh_bg   (at block group)
     #      then multiply this by the households at the block level to get hh_inc_15 for blocks (these will be floats)
     #      and aggregate to control geo (e.g. TAZ)
 
+    if scale_numerator == None or scale_denominator == None:
+        msg = "Cannot go from larger census geography {} without numerator and denominator specified".format(census_geography)
+        logging.fatal(msg)
+        raise ValueError(msg)
+
+    logging.info("scale_numerator={}  scale_denominator={}".format(scale_numerator, scale_denominator))
+
     # verify the last one matches our geography
-    same_geo_total_name = temp_controls.keys()[-1]
-    same_geo_total_df   = temp_controls[same_geo_total_name]
+    same_geo_total_df   = temp_controls[scale_denominator]
     assert(len(same_geo_total_df) == len(control_table_df))
 
     proportion_df = pandas.merge(left=control_table_df, right=same_geo_total_df, how="left")
     proportion_var = "{} proportion".format(control_name)
-    proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[same_geo_total_name]
-    logging.debug("Create proportion {} at {} geography using {}/{}\n{}".format(proportion_var, control_geography,
-                  control_name, same_geo_total_name, proportion_df.head()))
-    logging.debug("Sums:\n{}".format(proportion_df[[control_name, same_geo_total_name]].sum()))
-    logging.debug("Mean:\n{}".format(proportion_df[[proportion_var]].mean()))
+    proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[scale_denominator]
+    logging.info("Create proportion {} at {} geography via {} using {}/{}\n{}".format(
+                  proportion_var, control_geography, census_geography,
+                  control_name, scale_denominator, proportion_df.head()))
+    logging.info("Sums:\n{}".format(proportion_df[[control_name, scale_denominator]].sum()))
+    logging.info("Mean:\n{}".format(proportion_df[[proportion_var]].mean()))
 
     # join this to the maz_taz_definition - it'll be the lowest level
     block_prop_df = pandas.merge(left=maz_taz_def_df, right=proportion_df, how="left")
-    # and again to the first temp table
-    block_total_name = temp_controls.keys()[0]
-    block_total_df   = temp_controls[block_total_name]
-    block_prop_df    = pandas.merge(left=block_prop_df, right=block_total_df, how="left")
+    # this is the first temp table, our multiplier
+    block_total_df   = temp_controls[scale_numerator]
+    block_prop_df = pandas.merge(left=block_prop_df, right=block_total_df, how="left")
 
     # now multiply to get total at block level
-    block_prop_df[control_name] = block_prop_df[proportion_var]*block_prop_df[block_total_name]
-    logging.debug("Proportion at block level:\n{}".format(block_prop_df.head()))
+    block_prop_df[control_name] = block_prop_df[proportion_var]*block_prop_df[scale_numerator]
+    logging.info("Multiplying proportion {}/{} (at {}) x {}\n{}".format(
+                  control_name, scale_denominator, census_geography,
+                  scale_numerator,  block_prop_df.head()))
 
     # NOW aggregate
     final_df = block_prop_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
@@ -752,6 +792,7 @@ if __name__ == '__main__':
         2015: collections.OrderedDict()
     }
     CONTROLS[2010]['MAZ'] = collections.OrderedDict([
+        # Simple aggregation from block to MAZ
         ('num_hh'        ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
         ('hh_size_1'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',1       ) ])] )),
         ('hh_size_2'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])] )),
@@ -764,46 +805,86 @@ if __name__ == '__main__':
         ('gq_type_othnon',('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Other'   ) ])] )),
     ])
     CONTROLS[2015]['MAZ'] = collections.OrderedDict([
-        ('temp_num_hh_b' ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
-        
-        "B25009":[ #acs1, B25001. TENURE BY HOUSEHOLD SIZE
-            # Universe: Occupied housing units
-            ["variable",    "tenure", "pers_min", "pers_max"],
-            ["B25009_001E", "All",             0,   NPER_MAX], # Total
-            ["B25009_002E", "Owner",           0,   NPER_MAX], # Owner occupied
+        # 2015 doesn't have block-level data, only block group
+        # so we'll take 2010 block data x pct change in block group
+        ('temp_base_num_hh_b' ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
 
-        ('temp_num_hh'   ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
-        ('hh_size_1'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',1       ) ])] )),
-        ('hh_size_2'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])] )),
-        ('hh_size_3'     ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',3), ('pers_max',3       ) ])] )),
-        ('hh_size_4_plus',('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',4), ('pers_max',NPER_MAX) ])] )),                                                    
+        # Create proportion hh_scale = (hh_2015/hh_2010) for each block group
+        # And aggregate for each block: temp_base_num_hh_b x hh_scale
+        ('temp_base_num_hh_bg',('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
+        ('num_hh',             ('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])], 'temp_base_num_hh_b','temp_base_num_hh_bg')),
+
+        # Create proportion hh scale = (hhX_2015/hhX_2010) for each block group
+        # And aggregate for each block by multiplying by base
+        ('temp_base_hh1_b'    ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',1       ) ])] )),
+        ('temp_base_hh1_bg'   ,('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',1       ) ])] )),
+        ('hh_size_1'          ,('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',1       ) ])], 'temp_base_hh1_b','temp_base_hh1_bg')),
+
+        ('temp_base_hh2_b'    ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])] )),
+        ('temp_base_hh2_bg'   ,('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])] )),
+        ('hh_size_2'          ,('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',2), ('pers_max',2       ) ])], 'temp_base_hh2_b','temp_base_hh2_bg')),
+
+        ('temp_base_hh3_b'    ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',3), ('pers_max',3       ) ])] )),
+        ('temp_base_hh3_bg'   ,('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',3), ('pers_max',3       ) ])] )),
+        ('hh_size_3'          ,('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',3), ('pers_max',3       ) ])], 'temp_base_hh3_b','temp_base_hh3_bg')),
+
+        ('temp_base_hh4_b'    ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',4), ('pers_max',NPER_MAX) ])] )),
+        ('temp_base_hh4_bg'   ,('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',4), ('pers_max',NPER_MAX) ])] )),
+        ('hh_size_4_plus'     ,('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',4), ('pers_max',NPER_MAX) ])], 'temp_base_hh4_b','temp_base_hh4_bg')),
+
+        # Group quarters - start with 2010
+        ('temp_base_gq_num_hh_b',('sf1',2010,'P43','block', [collections.OrderedDict([                ('inst','Noninst'), ('subcategory','All') ])] )),
+        ('temp_base_gq_all_co'  ,('sf1',2010,'P43','county',[collections.OrderedDict([ ('sex','All'), ('inst','All'    ), ('subcategory','All') ])] )),
+
+        # Create proportion gq growth = (gq_2015/gq_2010) for each county (note this is all, not just non institutional)
+        # And apply growth to 2010 non-institional group quarters
+        ('gq_num_hh'            ,('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_num_hh_b','temp_base_gq_all_co')),
+
+        # Do these the same way
+        ('temp_base_gq_type_univ_b'  ,('sf1', 2010,'P43',   'block', [collections.OrderedDict([ ('inst','Noninst'), ('subcategory','College' ) ])] )),
+        ('gq_type_univ'              ,('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_type_univ_b','temp_base_gq_all_co')),
+
+        ('temp_base_gq_type_mil_b'   ,('sf1', 2010,'P43',   'block', [collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
+        ('gq_type_mil'               ,('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_type_mil_b','temp_base_gq_all_co')),
+
+        ('temp_base_gq_type_othnon_b',('sf1', 2010,'P43',   'block', [collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Other'   ) ])] )),
+        ('gq_type_othnon'            ,('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_type_othnon_b','temp_base_gq_all_co')),
+
     ])
     CONTROLS[2010]['TAZ'] = collections.OrderedDict([
         ('temp_num_hh_b'   ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
 
+        # Block groups don't nest neatly into TAZ so this will
+        # Create proportions hh_inc proportion = (hh_inc_XX/temp_num_hhinc) for each block group
+        # And aggregate for each block: temp_num_hh_b x hh_inc proportion
         ('temp_num_hhinc'  ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',     0), ('hhinc_max',HINC_MAX) ])] )),
-        ('hh_inc_30'       ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',     0), ('hhinc_max',   29999) ])] )),
-        ('hh_inc_30_60'    ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min', 30000), ('hhinc_max',   59999) ])] )),
-        ('hh_inc_60_100'   ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min', 60000), ('hhinc_max',   99999) ])] )),
-        ('hh_inc_100_plus' ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',100000), ('hhinc_max',HINC_MAX) ])] )),
+        ('hh_inc_30'       ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',     0), ('hhinc_max',   29999) ])], 'temp_num_hh_b', 'temp_num_hhinc')), # scale by 1/denom x num
+        ('hh_inc_30_60'    ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min', 30000), ('hhinc_max',   59999) ])], 'temp_num_hh_b', 'temp_num_hhinc')),
+        ('hh_inc_60_100'   ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min', 60000), ('hhinc_max',   99999) ])], 'temp_num_hh_b', 'temp_num_hhinc')),
+        ('hh_inc_100_plus' ,('acs5',2010,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',100000), ('hhinc_max',HINC_MAX) ])], 'temp_num_hh_b', 'temp_num_hhinc')),
 
+        # Tracts don't nest neatly into TAZ so this will
+        # Create proportions hh_wkrs proportion = (hh_wrks_XX/temp_num_hh_wrks) for each tract
+        # And aggregate for each block: temp_num_hh_b x hh_wkrs proportion
         ('temp_num_hh_wrks',('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
-        ('hh_wrks_0'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',       0), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
-        ('hh_wrks_1'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',1), ('workers_max',       1), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
-        ('hh_wrks_2'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',2), ('workers_max',       2), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
-        ('hh_wrks_3_plus'  ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',3), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
+        ('hh_wrks_0'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',       0), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_b','temp_num_hh_wrks')),
+        ('hh_wrks_1'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',1), ('workers_max',       1), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_b','temp_num_hh_wrks')),
+        ('hh_wrks_2'       ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',2), ('workers_max',       2), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_b','temp_num_hh_wrks')),
+        ('hh_wrks_3_plus'  ,('acs5',2012,'B08202','tract',      [collections.OrderedDict([ ('workers_min',3), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_b','temp_num_hh_wrks')),
 
-        # temp tables needed because P12 is All persons but we want only persons in households so we'll force scaling via the scale_by_temp to match_control_to_geography()
-        ('temp_num_pers_hh',('sf1', 2010,'P16',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',AGE_MAX) ])] )),                    # numerator
-        ('temp_num_pers   ',('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',AGE_MAX), ('sex', 'All') ])] )),    # denominator
-        ('pers_age_00_19'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',     19) ])] )),
-        ('pers_age_20_34'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',20), ('age_max',     34) ])] )),
-        ('pers_age_35_64'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',35), ('age_max',     64) ])] )),
-        ('pers_age_65_plus',('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',65), ('age_max',AGE_MAX) ])] )),
+        # Would be a simple aggregation from block to TAZ
+        # temp tables needed because P12 is All persons but we want only persons in households so we'll configure scaling to match_control_to_geography()
+        # so pers_age_XXX = pers_age_XXX x (temp_num_pers_hh/temp_num_pers) = pers_age_XXX x (pop in households/total pop)
+        ('temp_num_pers_hh',('sf1', 2010,'P16',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',AGE_MAX)                 ])] )),    # numerator:   population in households
+        ('temp_num_pers'   ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',AGE_MAX), ('sex', 'All') ])] )),    # denominator: total population
+        ('pers_age_00_19'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',     19) ])], 'temp_num_pers_hh','temp_num_pers')),  # scale by num/denom
+        ('pers_age_20_34'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',20), ('age_max',     34) ])], 'temp_num_pers_hh','temp_num_pers')),  # scale by num/denom
+        ('pers_age_35_64'  ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',35), ('age_max',     64) ])], 'temp_num_pers_hh','temp_num_pers')),  # scale by num/denom
+        ('pers_age_65_plus',('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('age_min',65), ('age_max',AGE_MAX) ])], 'temp_num_pers_hh','temp_num_pers')),  # scale by num/denom
 
         ('temp_num_hh_kids',('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max', NKID_MAX), ('family','All'), ('famtype','All') ])] )),
-        ('hh_kids_no'      ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max',        0)])] )),
-        ('hh_kids_yes'     ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 1), ('num_kids_max', NKID_MAX)])] )),
+        ('hh_kids_no'      ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max',        0)])], 'temp_num_hh_b', 'temp_num_hh_kids')),
+        ('hh_kids_yes'     ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 1), ('num_kids_max', NKID_MAX)])], 'temp_num_hh_b', 'temp_num_hh_kids')),
     ])
     CONTROLS[2010]['COUNTY'] = collections.OrderedDict([
         # this one is more complicated since the categories are nominal
@@ -892,9 +973,15 @@ if __name__ == '__main__':
 
             control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
 
+            scale_numerator    = None
+            scale_denominator = None
+            if len(control_def) > 5:
+                scale_numerator   = control_def[5]
+                scale_denominator = control_def[6]
+
             final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3],
                                                   maz_taz_def_df, temp_controls, full_region=(args.test_PUMA==None),
-                                                  scale_by_temp=True if control_name.startswith("pers_age") else False)
+                                                  scale_numerator=scale_numerator, scale_denominator=scale_denominator)
 
             # the temp control tables are special -- they're intermediate for matching
             if control_name.startswith("temp_"):
