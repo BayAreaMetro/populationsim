@@ -886,6 +886,16 @@ if __name__ == '__main__':
         ('hh_kids_no'      ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 0), ('num_kids_max',        0)])], 'temp_num_hh_b', 'temp_num_hh_kids')),
         ('hh_kids_yes'     ,('sf1', 2010,'PCT16', 'tract',      [collections.OrderedDict([ ('num_kids_min', 1), ('num_kids_max', NKID_MAX)])], 'temp_num_hh_b', 'temp_num_hh_kids')),
     ])
+    CONTROLS[2015]['TAZ'] = collections.OrderedDict([
+        # 2015 doesn't have block-level data, only block group
+        # so we'll take 2010 block data x pct change in block group
+        ('temp_base_num_hh_b' ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
+
+        # Create proportion hh_scale = (hh_2015/hh_2010) for each block group
+        # And aggregate for each block: temp_base_num_hh_b x hh_scale
+        ('temp_base_num_hh_bg',('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
+        ('num_hh',             ('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])], 'temp_base_num_hh_b','temp_base_num_hh_bg')),
+    ])
     CONTROLS[2010]['COUNTY'] = collections.OrderedDict([
         # this one is more complicated since the categories are nominal
         ('pers_occ_management'  ,('acs5',2012,'C24010', 'tract', [
