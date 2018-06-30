@@ -527,6 +527,15 @@ class CensusFetcher:
 
         return full_df
 
+def add_aggregate_geography_colums(table_df):
+    """
+    Given a table with column GEOID_block, creates columns for GEOID_[county,tract,block group]
+    """
+    table_df["GEOID_county"     ] = table_df["GEOID_block"].str[:5 ]
+    table_df["GEOID_tract"      ] = table_df["GEOID_block"].str[:11]
+    table_df["GEOID_block group"] = table_df["GEOID_block"].str[:12]
+    # this will raise an exception if GEOID_block isn't a column
+
 def census_col_is_in_control(param_dict, control_dict):
     """
     param_dict is from  CENSUS_DEFINITIONS,   e.g. OrderedDict([('pers_min',4), ('pers_max', 4)])
@@ -680,7 +689,50 @@ def match_control_to_geography(control_name, control_table_df, control_geography
 
     # if this is a temp, don't go further -- we'll use it later
     if control_name.startswith("temp_"):
-        logging.info("Total for {} {:,}".format(control_name, control_table_df[control_name].sum()))
+        logging.info("Temporary Total for {} ({} rows) {:,}".format(control_name, len(control_table_df), control_table_df[control_name].sum()))
+        logging.debug("head:\n{}".format(control_table_df.head()))
+
+        if scale_numerator or scale_denominator:
+            scale_numerator_geometry   = temp_controls[scale_numerator].columns[0]
+            scale_denominator_geometry = temp_controls[scale_denominator].columns[0]
+            # join to the one that's the same length
+            logging.debug("Temp with numerator {} denominator {}".format(scale_numerator, scale_denominator))
+            logging.debug("  {} has geometry {} and  length {}".format(scale_numerator,
+                          scale_numerator_geometry, len(temp_controls[scale_numerator])))
+            logging.debug("  Head:\n{}".format(temp_controls[scale_numerator].head()))
+            logging.debug("  {} has geometry {} and length {}".format(scale_denominator,
+                          scale_denominator_geometry, len(temp_controls[scale_denominator])))
+            logging.debug("  Head:\n{}".format(temp_controls[scale_denominator].head()))
+
+            # one should match -- try denom
+            if len(temp_controls[scale_denominator]) == len(control_table_df):
+                control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
+                control_table_df["temp_fraction"] = control_table_df[control_name] / control_table_df[scale_denominator]
+
+                # if the denom is 0, warn and convert infinite fraction to zero
+                zero_denom_df = control_table_df.loc[control_table_df["temp_fraction"]==numpy.inf].copy()
+                if len(zero_denom_df) > 0:
+                    logging.warn("  DROPPING Inf (sum {}):\n{}".format(zero_denom_df[control_name].sum(), str(zero_denom_df)))
+                    control_table_df.loc[control_table_df["temp_fraction"]==numpy.inf, "temp_fraction"] = 0
+
+                logging.debug("Divided by {}  temp_fraction mean:{}  Head:\n{}".format(scale_denominator, control_table_df["temp_fraction"].mean(), control_table_df.head()))
+
+                # but return table at numerator geography
+                numerator_df = temp_controls[scale_numerator].copy()
+                add_aggregate_geography_colums(numerator_df)
+                control_table_df = pandas.merge(left=numerator_df, right=control_table_df, how="left")
+                logging.debug("Joined with num ({} rows) :\n{}".format(len(control_table_df), control_table_df.head()))
+                control_table_df[control_name] = control_table_df["temp_fraction"] * control_table_df[scale_numerator]
+                # keep only geometry column name and control
+                control_table_df = control_table_df[[scale_numerator_geometry, control_name]]
+                logging.debug("Final Total: {:,}  ({} rows)  Head:\n{}".format(control_table_df[control_name].sum(),
+                              len(control_table_df), control_table_df.head()))
+
+            elif len(temp_controls[scale_numerator]) == len(control_table_df):
+                raise NotImplementedError("Temp scaling by numerator of same geography not implemented yet")
+
+            else:
+                raise ValueError("Temp scaling requires numerator or denominator geography to match")
         return control_table_df
 
     # if the census geography is smaller than the target geography, this is a simple aggregation
@@ -894,7 +946,18 @@ if __name__ == '__main__':
         # Create proportion hh_scale = (hh_2015/hh_2010) for each block group
         # And aggregate for each block: temp_base_num_hh_b x hh_scale
         ('temp_base_num_hh_bg',('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
-        ('num_hh',             ('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])], 'temp_base_num_hh_b','temp_base_num_hh_bg')),
+        ('temp_num_hh_bg_to_b',('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])], 'temp_base_num_hh_b','temp_base_num_hh_bg')),
+
+        # Tracts don't nest neatly into TAZ so this will
+        # Create proportions hh_wkrs proportion = (hh_wrks_XX/temp_num_hh_wrks) for each tract
+        # And aggregate for each block: temp_num_hh_bg_to_b x hh_wkrs proportion
+        ('temp_num_hh_wrks',('acs5',2016,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])] )),
+        ('hh_wrks_0'       ,('acs5',2016,'B08202','tract',      [collections.OrderedDict([ ('workers_min',0), ('workers_max',       0), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
+        ('hh_wrks_1'       ,('acs5',2016,'B08202','tract',      [collections.OrderedDict([ ('workers_min',1), ('workers_max',       1), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
+        ('hh_wrks_2'       ,('acs5',2016,'B08202','tract',      [collections.OrderedDict([ ('workers_min',2), ('workers_max',       2), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
+        ('hh_wrks_3_plus'  ,('acs5',2016,'B08202','tract',      [collections.OrderedDict([ ('workers_min',3), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
+
+        # for persons by age, use B01001
     ])
     CONTROLS[2010]['COUNTY'] = collections.OrderedDict([
         # this one is more complicated since the categories are nominal
@@ -947,9 +1010,7 @@ if __name__ == '__main__':
     maz_taz_def_df.rename(columns={"maz":"MAZ", "taz":"TAZ"}, inplace=True)
     maz_taz_def_df["GEOID_block"] = "0" + maz_taz_def_df["GEOID10"].astype(str)
     # add county, tract, block group GEOID
-    maz_taz_def_df["GEOID_county"     ] = maz_taz_def_df["GEOID_block"].str[:5 ]
-    maz_taz_def_df["GEOID_tract"      ] = maz_taz_def_df["GEOID_block"].str[:11]
-    maz_taz_def_df["GEOID_block group"] = maz_taz_def_df["GEOID_block"].str[:12]
+    add_aggregate_geography_colums(maz_taz_def_df)
     maz_taz_def_df.drop("GEOID10", axis="columns", inplace=True)
     # add COUNTY and REGION
     maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
