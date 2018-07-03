@@ -162,6 +162,71 @@ class CensusFetcher:
             ["P0120048", "Female",     80,        84],        # Female: 80 to 84 years",
             ["P0120049", "Female",     85,   AGE_MAX],        # Female: 85 years and over",
         ],
+        "B01001":[ # acs5, B01001. SEX BY AGE
+            # Universe: Total population
+            ["variable",    "sex",   "age_min", "age_max"],
+            ["B01001_001E", "All",           0,   AGE_MAX],  # Total population
+            ["B01001_002E", "Male",          0,   AGE_MAX],  # Male
+            ["B01001_003E", "Male",          0,         4],  # Male Under 5 years
+            ["B01001_004E", "Male",          5,         9],  # Male 5 to 9 years
+            ["B01001_005E", "Male",         10,        14],  # Male 10 to 14 years
+            ["B01001_006E", "Male",         15,        17],  # Male 15 to 17 years
+            ["B01001_007E", "Male",         18,        19],  # Male 18 and 19 years
+            ["B01001_008E", "Male",         20,        20],  # Male 20 years
+            ["B01001_009E", "Male",         21,        21],  # Male 21 years
+            ["B01001_010E", "Male",         22,        24],  # Male 22 to 24 years
+            ["B01001_011E", "Male",         25,        29],  # Male 25 to 29 years
+            ["B01001_012E", "Male",         30,        34],  # Male 30 to 34 years
+            ["B01001_013E", "Male",         35,        39],  # Male 35 to 39 years
+            ["B01001_014E", "Male",         40,        44],  # Male 40 to 44 years
+            ["B01001_015E", "Male",         45,        49],  # Male 45 to 49 years
+            ["B01001_016E", "Male",         50,        54],  # Male 50 to 54 years
+            ["B01001_017E", "Male",         55,        59],  # Male 55 to 59 years
+            ["B01001_018E", "Male",         60,        61],  # Male 60 and 61 years
+            ["B01001_019E", "Male",         62,        64],  # Male 62 to 64 years
+            ["B01001_020E", "Male",         65,        66],  # Male 65 and 66 years
+            ["B01001_021E", "Male",         67,        69],  # Male 67 to 69 years
+            ["B01001_022E", "Male",         70,        74],  # Male 70 to 74 years
+            ["B01001_023E", "Male",         75,        79],  # Male 75 to 79 years
+            ["B01001_024E", "Male",         80,        84],  # Male 80 to 84 years
+            ["B01001_025E", "Male",         85,   AGE_MAX],  # Male 85 years and over
+            ["B01001_026E", "Female",        0,   AGE_MAX],  # Female
+            ["B01001_027E", "Female",        0,         4],  # Female Under 5 years
+            ["B01001_028E", "Female",        5,         9],  # Female 5 to 9 years
+            ["B01001_029E", "Female",       10,        14],  # Female 10 to 14 years
+            ["B01001_030E", "Female",       15,        17],  # Female 15 to 17 years
+            ["B01001_031E", "Female",       18,        19],  # Female 18 and 19 years
+            ["B01001_032E", "Female",       20,        20],  # Female 20 years
+            ["B01001_033E", "Female",       21,        21],  # Female 21 years
+            ["B01001_034E", "Female",       22,        24],  # Female 22 to 24 years
+            ["B01001_035E", "Female",       25,        29],  # Female 25 to 29 years
+            ["B01001_036E", "Female",       30,        34],  # Female 30 to 34 years
+            ["B01001_037E", "Female",       35,        39],  # Female 35 to 39 years
+            ["B01001_038E", "Female",       40,        44],  # Female 40 to 44 years
+            ["B01001_039E", "Female",       45,        49],  # Female 45 to 49 years
+            ["B01001_040E", "Female",       50,        54],  # Female 50 to 54 years
+            ["B01001_041E", "Female",       55,        59],  # Female 55 to 59 years
+            ["B01001_042E", "Female",       60,        61],  # Female 60 and 61 years
+            ["B01001_043E", "Female",       62,        64],  # Female 62 to 64 years
+            ["B01001_044E", "Female",       65,        66],  # Female 65 and 66 years
+            ["B01001_045E", "Female",       67,        69],  # Female 67 to 69 years
+            ["B01001_046E", "Female",       70,        74],  # Female 70 to 74 years
+            ["B01001_047E", "Female",       75,        79],  # Female 75 to 79 years
+            ["B01001_048E", "Female",       80,        84],  # Female 80 to 84 years
+            ["B01001_049E", "Female",       85,   AGE_MAX],  # Female 85 years and over
+        ],
+        "B11002":[ # acs5, B11002. HOUSEHOLD TYPE BY RELATIVES AND NONRELATIVES FOR POPULATION IN HOUSEHOLDS
+            # Universe: Population in households
+            ["variable"  ],
+            ["B11002_001E"], # Estimate: Total
+        ],
+        "B11005":[ # B11005. acs5, HOUSEHOLDS BY PRESENCE OF PEOPLE UNDER 18 YEARS BY HOUSEHOLD TYPE
+            # Universe: Households
+            ["variable",   "family",   "famtype", "num_kids_min", "num_kids_max"],
+            ["B11005_002E","All",      "All",                  1,       NKID_MAX], # Households with one or more people under 18 years
+            ["B11005_011E","All",      "All",                  0,              0], # Households with no people under 18 years
+
+        ],
         "P43":[  # sf1, P43. GROUP QUARTERS POPULATION BY SEX BY AGE BY GROUP QUARTERS TYPE [63]  
             # Universe: Population in group quarters
             ["variable", "sex",  "age_min", "age_max",     "inst","subcategory"  ],
@@ -228,6 +293,17 @@ class CensusFetcher:
             ["P0430061", "Female",      65,       130,  "Noninst", "College"     ], # Noninstitutionalized population (501, 601-602, 701-702, 704, 706, 801-802, 900-901, 903-904): - College/University student housing (5
             ["P0430062", "Female",      65,       130,  "Noninst", "Military"    ], # Noninstitutionalized population (501, 601-602, 701-702, 704, 706, 801-802, 900-901, 903-904): - Military quarters (601-602)
             ["P0430063", "Female",      65,       130,  "Noninst", "Other"       ], # Noninstitutionalized population (501, 601-602, 701-702, 704, 706, 801-802, 900-901, 903-904): - Other noninstitutional facilities (701-702, 704, 706, 801-802, 900-901, 903-904)
+        ],
+        "B23025":[ # acs5, B23025. EMPLOYMENT STATUS FOR THE POPULATION 16 YEARS AND OVER
+            # Universe: Population 16 years and over
+            ["variable",    "inlaborforce", "type",         "employed"  ],
+            ["B23025_001E", "All",          "All",          "All"       ], # Total
+            ["B23025_002E", "Yes",          "All",          "All"       ], # In labor force
+            ["B23025_003E", "Yes",          "Civilian",     "All"       ], # In labor force, Civilian labor force
+            ["B23025_004E", "Yes",          "Civilian",     "Employed"  ], # In labor force, Civilian labor force, Employed
+            ["B23025_005E", "Yes",          "Civilian",     "Unemployed"], # In labor force, Civilian labor force, Unemployed
+            ["B23025_006E", "Yes",          "Armed Forces", "Employed"  ], # In labor force, Armed Forces
+            ["B23025_007E", "No",           "All",          "All"       ], # Not in labor force
         ],
         "B26001":[ # acs5, B26001. GROUP QUARTERS POPULATION
             # Universe: Population in group quarters
@@ -531,10 +607,10 @@ def add_aggregate_geography_colums(table_df):
     """
     Given a table with column GEOID_block, creates columns for GEOID_[county,tract,block group]
     """
-    table_df["GEOID_county"     ] = table_df["GEOID_block"].str[:5 ]
-    table_df["GEOID_tract"      ] = table_df["GEOID_block"].str[:11]
-    table_df["GEOID_block group"] = table_df["GEOID_block"].str[:12]
-    # this will raise an exception if GEOID_block isn't a column
+    if "GEOID_block" in table_df.columns:
+        table_df["GEOID_county"     ] = table_df["GEOID_block"].str[:5 ]
+        table_df["GEOID_tract"      ] = table_df["GEOID_block"].str[:11]
+        table_df["GEOID_block group"] = table_df["GEOID_block"].str[:12]
 
 def census_col_is_in_control(param_dict, control_dict):
     """
@@ -647,13 +723,14 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
 
 def match_control_to_geography(control_name, control_table_df, control_geography, census_geography,
                                maz_taz_def_df, temp_controls, full_region, 
-                               scale_numerator, scale_denominator):
+                               scale_numerator, scale_denominator, subtract_table):
     """
     Given a control table in the given census geography, this method will transform the table to the appropriate
     control geography and return it.
 
     Pass full_region=False if this is a test subset so the control totals don't need to add up to the census table total.
     Pass scale_numerator and scale_denominator to scale numbers by scale_numerator/scale_denominator, where those are temp tables.
+    Or pass subtract_table to subtract out a temp table.
     """
     if control_geography not in ["MAZ","TAZ","COUNTY","REGION"]:
         raise ValueError("match_control_to_geography passed unsupported control geography {}".format(control_geography))
@@ -662,6 +739,7 @@ def match_control_to_geography(control_name, control_table_df, control_geography
 
     # to verify we kept the totals
     variable_total = control_table_df[control_name].sum()
+    logger.debug("Variable_total: {:,}".format(variable_total))
 
     GEO_HIERARCHY = { 'MAZ'   :['block','MAZ','block group','tract','county subdivision','county'],
                       'TAZ'   :['block',      'TAZ',        'tract','county subdivision','county'],
@@ -751,6 +829,15 @@ def match_control_to_geography(control_name, control_table_df, control_geography
 
             variable_total = variable_total * temp_controls[scale_numerator][scale_numerator].sum()/temp_controls[scale_denominator][scale_denominator].sum()
 
+        if subtract_table:
+            assert(len(temp_controls[subtract_table]) == len(control_table_df))
+            logging.info("  Initial total {:,}".format(control_table_df[control_name].sum()))
+            logging.info("  Subtracting out {} with sum {:,}".format(subtract_table, temp_controls[subtract_table][subtract_table].sum()))
+            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[subtract_table], how="left")
+            control_table_df[control_name] = control_table_df[control_name] - control_table_df[subtract_table]
+
+            variable_total = variable_total - temp_controls[subtract_table][subtract_table].sum()
+
         # we really only need these columns - control geography and the census geography
         geo_mapping_df   = maz_taz_def_df[[control_geography, "GEOID_{}".format(census_geography)]].drop_duplicates()
         control_table_df = pandas.merge(left=control_table_df, right=geo_mapping_df, how="left")
@@ -759,7 +846,8 @@ def match_control_to_geography(control_name, control_table_df, control_geography
         final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
 
         # verify the totals didn't change
-        if full_region and not scale_numerator: assert(final_df[control_name].sum() == variable_total)
+        logging.debug("total at the end: {:,}".format(final_df[control_name].sum()))
+        if full_region and not scale_numerator: assert(abs(final_df[control_name].sum() - variable_total) < 0.5)
 
         logging.info("  => Total for {} {:,}".format(control_name, final_df[control_name].sum()))
         return final_df
@@ -843,6 +931,17 @@ if __name__ == '__main__':
         2010: collections.OrderedDict(),
         2015: collections.OrderedDict()
     }
+    # TODO: Could probably make this more readable than a tuple
+    # control name ->
+    #  ( dataset (e.g. 'sf1', 'acs5),
+    #    year for dataset,
+    #    table name within dataset,
+    #    level of geography to use,
+    #    columns filter (as an ordered dict),
+    #    scale_numerator - name of table to multiply this by
+    #    scale_denominator - name of table to divide this by
+    #    subtract - name of table to subtract from this
+    # )
     CONTROLS[2010]['MAZ'] = collections.OrderedDict([
         # Simple aggregation from block to MAZ
         ('num_hh'        ,('sf1',2010,'H13','block',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
@@ -940,13 +1039,12 @@ if __name__ == '__main__':
     ])
     CONTROLS[2015]['TAZ'] = collections.OrderedDict([
         # 2015 doesn't have block-level data, only block group
-        # so we'll take 2010 block data x pct change in block group
-        ('temp_base_num_hh_b' ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
 
-        # Create proportion hh_scale = (hh_2015/hh_2010) for each block group
-        # And aggregate for each block: temp_base_num_hh_b x hh_scale
+        # for 2015 households, take 2010 persons in households (at block) and scale up by 2015 change (at block group)
+        ('temp_base_num_hh_b' ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
         ('temp_base_num_hh_bg',('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
-        ('temp_num_hh_bg_to_b',('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])], 'temp_base_num_hh_b','temp_base_num_hh_bg')),
+        # temp_num_hh_bg_to_b = (B11016 / H13) at block group   x H13 at block
+        ('temp_num_hh_bg_to_b',('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])], 'temp_base_num_hh_b','temp_base_num_hh_bg')), # at block level
 
         # Tracts don't nest neatly into TAZ so this will
         # Create proportions hh_wkrs proportion = (hh_wrks_XX/temp_num_hh_wrks) for each tract
@@ -957,7 +1055,24 @@ if __name__ == '__main__':
         ('hh_wrks_2'       ,('acs5',2016,'B08202','tract',      [collections.OrderedDict([ ('workers_min',2), ('workers_max',       2), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
         ('hh_wrks_3_plus'  ,('acs5',2016,'B08202','tract',      [collections.OrderedDict([ ('workers_min',3), ('workers_max',NWOR_MAX), ('persons_min',0), ('persons_max', NPER_MAX) ])], 'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
 
-        # for persons by age, use B01001
+        # for persons by age, we first need persons in households
+        # take 2010 persons in households (at block) and scale up by 2015 change (at block group)
+        ('temp_base_num_pers_hh_b',  ('sf1', 2010,'P16',   'block',      [collections.OrderedDict([ ('age_min', 0), ('age_max',AGE_MAX)                 ])] )),
+        ('temp_base_num_pers_hh_bg', ('sf1', 2010,'P16',   'block group',[collections.OrderedDict([ ('age_min', 0), ('age_max',AGE_MAX)                 ])] )),
+        # temp_num_pers_hh_bg_to_b = (B11002 / P16)  x P16 at block
+        ('temp_num_pers_hh_bg_to_b', ('acs5',2016,'B11002','block group',[collections.OrderedDict([])], 'temp_base_num_pers_hh_b', 'temp_base_num_pers_hh_bg')),  # at block level
+
+        ('temp_num_pers'   ,('acs5',2016,'B01001','block group', [collections.OrderedDict([])] )), # total persons (in households and not)
+        ('pers_age_00_19'  ,('acs5',2016,'B01001','block group', [collections.OrderedDict([('age_min', 0),('age_max',     19)])], 'temp_num_pers_hh_bg_to_b','temp_num_pers')),
+        ('pers_age_20_34'  ,('acs5',2016,'B01001','block group', [collections.OrderedDict([('age_min',20),('age_max',     34)])], 'temp_num_pers_hh_bg_to_b','temp_num_pers')),
+        ('pers_age_35_64'  ,('acs5',2016,'B01001','block group', [collections.OrderedDict([('age_min',35),('age_max',     64)])], 'temp_num_pers_hh_bg_to_b','temp_num_pers')),
+        ('pers_age_65_plus',('acs5',2016,'B01001','block group', [collections.OrderedDict([('age_min',65),('age_max',AGE_MAX)])], 'temp_num_pers_hh_bg_to_b','temp_num_pers')),
+
+        # apply proportion of households without and with kids (at block group) to number of households (at block)
+        ('temp_num_hh_kids',('acs5',2016,'B11005','block group', [collections.OrderedDict([('num_kids_min', 0), ('num_kids_max',NKID_MAX)])] )),
+        ('hh_kids_no'      ,('acs5',2016,'B11005','block group', [collections.OrderedDict([('num_kids_min', 0), ('num_kids_max',        0)])], 'temp_num_hh_bg_to_b', 'temp_num_hh_kids')),
+        ('hh_kids_yes'     ,('acs5',2016,'B11005','block group', [collections.OrderedDict([('num_kids_min', 1), ('num_kids_max', NKID_MAX)])], 'temp_num_hh_bg_to_b', 'temp_num_hh_kids')),
+
     ])
     CONTROLS[2010]['COUNTY'] = collections.OrderedDict([
         # this one is more complicated since the categories are nominal
@@ -996,13 +1111,51 @@ if __name__ == '__main__':
             collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Transportation'                                       ), ('occ_cat3','All') ]),
             collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Material moving'                                      ), ('occ_cat3','All') ]),
         ] )),
-        # TODO - these folks are in group quarters so they shouldn't be included
-        # Perhaps use acs5 2012 Table B23025. EMPLOYMENT STATUS FOR THE POPULATION 16 YEARS AND OVER - Armed Forces
-        # minus the group quarters military
-        ('pers_occ_military'    ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
+        # These folks are in group quarters so they shouldn't be included
+        # Use acs5 2012 Table B23025. EMPLOYMENT STATUS FOR THE POPULATION 16 YEARS AND OVER - Armed Forces
+        # MINUS the group quarters military
+        ('temp_gq_type_mil' ,('sf1', 2010,'P43',   'tract',[collections.OrderedDict([('inst','Noninst'), ('subcategory','Military') ])] )),
+        ('pers_occ_military',('acs5',2012,'B23025','tract',[collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces') ])], None, None, 'temp_gq_type_mil')),
     ])
+    CONTROLS[2015]['COUNTY'] = collections.OrderedDict()
+    # copy the 2010 controls but use updated acs
+    for control_name in ['pers_occ_management',
+                         'pers_occ_professional',
+                         'pers_occ_services',
+                         'pers_occ_retail',
+                         'pers_occ_manual']:
+        CONTROLS[2015]['COUNTY'][control_name] = list(CONTROLS[2010]['COUNTY'][control_name])
+        # update ACS year
+        CONTROLS[2015]['COUNTY'][control_name][1] = 2016
+
+    # for military, tally GQ military similar to MAZ version
+    # 2010 group quarters military - county level
+    CONTROLS[2015]['COUNTY']['temp_base_gq_type_mil_co'] = \
+        ('sf1',2010,'P43',   'county', [collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )
+    # 2010 all group quarters - county level
+    CONTROLS[2015]['COUNTY']['temp_base_gq_all_co'     ] = \
+        ('sf1',2010,'P43','county',[collections.OrderedDict([ ('sex','All'), ('inst','All'    ), ('subcategory','All') ])] )
+    # 2015 gq quarters military = 2015 group quarters x  (2010 gq military/2010 all group quarters)
+    CONTROLS[2015]['COUNTY']['temp_gq_type_mil'        ] = \
+        ('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_type_mil_co','temp_base_gq_all_co')
+
+
+    # finally, NON GQ military-occupied persons = Armed Forces persons in labor force MINUS gq military
+    CONTROLS[2015]['COUNTY']['pers_occ_military'       ] = \
+        ('acs5',2016,'B23025','county',[collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces') ])], None, None, 'temp_gq_type_mil')
+
+
     CONTROLS[2010]['REGION'] = collections.OrderedDict([
         ('gq_num_hh_region'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','All'     ) ])] )),
+    ])
+    CONTROLS[2015]['REGION'] = collections.OrderedDict([
+        # Group quarters - start with 2010
+        ('temp_base_gq_num_hh_co',('sf1',2010,'P43','county',[collections.OrderedDict([                ('inst','Noninst'), ('subcategory','All') ])] )),
+        ('temp_base_gq_all_co'   ,('sf1',2010,'P43','county',[collections.OrderedDict([ ('sex','All'), ('inst','All'    ), ('subcategory','All') ])] )),
+
+        # Create proportion gq growth = (gq_2015/gq_2010) for each county (note this is all, not just non institutional)
+        # And apply growth to 2010 non-institional group quarters
+        ('gq_num_hh_region'     ,('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_num_hh_co','temp_base_gq_all_co')),
     ])
 
     maz_taz_def_df = pandas.read_csv(MAZ_TAZ_DEF_FILE)
@@ -1044,15 +1197,19 @@ if __name__ == '__main__':
 
             control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
 
-            scale_numerator    = None
+            scale_numerator   = None
             scale_denominator = None
+            subtract_table    = None
             if len(control_def) > 5:
                 scale_numerator   = control_def[5]
                 scale_denominator = control_def[6]
+            if len(control_def) > 7:
+                subtract_table    = control_def[7]
 
             final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3],
                                                   maz_taz_def_df, temp_controls, full_region=(args.test_PUMA==None),
-                                                  scale_numerator=scale_numerator, scale_denominator=scale_denominator)
+                                                  scale_numerator=scale_numerator, scale_denominator=scale_denominator,
+                                                  subtract_table=subtract_table)
 
             # the temp control tables are special -- they're intermediate for matching
             if control_name.startswith("temp_"):
