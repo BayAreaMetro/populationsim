@@ -61,6 +61,8 @@ class SimulIntegerizer(object):
         self.parent_countrol_cols = parent_control_spec.target.values
         self.parent_countrol_importance = parent_control_spec.importance
 
+        assert total_hh_control_col not in self.parent_countrol_cols
+
         self.trace_label = trace_label
 
     def integerize(self):
@@ -70,8 +72,8 @@ class SimulIntegerizer(object):
         total_hh_sub_control_index = \
             self.sub_controls_df.columns.get_loc(self.total_hh_control_col)
 
-        total_hh_parent_control_index = \
-            self.sub_controls_df.columns.get_loc(self.total_hh_control_col)
+        # FIXME - shouldn't need this?
+        total_hh_parent_control_index = -1
 
         sub_incidence = self.incidence_df[self.sub_controls_df.columns]
         sub_incidence = sub_incidence.as_matrix().astype(np.float64)
@@ -139,9 +141,15 @@ class SimulIntegerizer(object):
             np.maximum(parent_max_possible_control_values, parent_lp_right_hand_side)
 
         # how could this not be the case?
-        # print (parent_hh_constraint_ge_bound - parent_max_possible_control_values)
-        np.testing.assert_array_almost_equal(parent_hh_constraint_ge_bound,
-            parent_max_possible_control_values, decimal=4)
+        if not (parent_hh_constraint_ge_bound == parent_max_possible_control_values).all():
+            print "\nSimulIntegerizer integerizing", self.trace_label
+            logger.warn("parent_hh_constraint_ge_bound != parent_max_possible_control_values")
+            logger.warn("parent_hh_constraint_ge_bound:      %s" %
+                        parent_hh_constraint_ge_bound)
+            logger.warn("parent_max_possible_control_values: %s" %
+                        parent_max_possible_control_values)
+            print "\n"
+            # assert (parent_hh_constraint_ge_bound == parent_max_possible_control_values).all()
 
         integerizer_func = get_simul_integerizer()
 
