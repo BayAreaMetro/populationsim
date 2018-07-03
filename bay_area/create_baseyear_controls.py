@@ -391,7 +391,7 @@ class CensusFetcher:
             # USE acs 2006-2010 https://api.census.gov/data/2010/acs5/variables.html for 2010 dollars
             ["variable",   "hhinc_min", "hhinc_max"],
             ["B19001_001E",          0,    HINC_MAX], # Households
-            ["B19001_002E",          0,       10000], # Households Less than $10,000
+            ["B19001_002E",          0,        9999], # Households Less than $10,000
             ["B19001_003E",      10000,       14999], # Households $10,000 to $14,999
             ["B19001_004E",      15000,       19999], # Households $15,000 to $19,999
             ["B19001_005E",      20000,       24999], # Households $20,000 to $24,999
@@ -1045,6 +1045,16 @@ if __name__ == '__main__':
         ('temp_base_num_hh_bg',('sf1', 2010,'H13',   'block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
         # temp_num_hh_bg_to_b = (B11016 / H13) at block group   x H13 at block
         ('temp_num_hh_bg_to_b',('acs5',2016,'B11016','block group',[collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])], 'temp_base_num_hh_b','temp_base_num_hh_bg')), # at block level
+
+        # Block groups don't nest neatly into TAZ so this will
+        # Create proportions hh_inc proportion = (hh_inc_XX/temp_num_hhinc) for each block group
+        # And aggregate for each block: temp_num_hh_bg_to_b x hh_inc proportion
+        # NOTE the household income here is in 2016 dollars so shifting the min/max; see "B19001 Income" worksheet in census_to_controls_Alameda_example.xlsx
+        ('temp_num_hhinc'  ,('acs5',2016,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',     0), ('hhinc_max',HINC_MAX) ])] )),
+        ('hh_inc_30'       ,('acs5',2016,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',     0), ('hhinc_max',   34999) ])], 'temp_num_hh_bg_to_b', 'temp_num_hhinc')), # scale by 1/denom x num
+        ('hh_inc_30_60'    ,('acs5',2016,'B19001','block group',[collections.OrderedDict([ ('hhinc_min', 35000), ('hhinc_max',   74999) ])], 'temp_num_hh_bg_to_b', 'temp_num_hhinc')),
+        ('hh_inc_60_100'   ,('acs5',2016,'B19001','block group',[collections.OrderedDict([ ('hhinc_min', 75000), ('hhinc_max',  124999) ])], 'temp_num_hh_bg_to_b', 'temp_num_hhinc')),
+        ('hh_inc_100_plus' ,('acs5',2016,'B19001','block group',[collections.OrderedDict([ ('hhinc_min',125000), ('hhinc_max',HINC_MAX) ])], 'temp_num_hh_bg_to_b', 'temp_num_hhinc')),
 
         # Tracts don't nest neatly into TAZ so this will
         # Create proportions hh_wkrs proportion = (hh_wrks_XX/temp_num_hh_wrks) for each tract
