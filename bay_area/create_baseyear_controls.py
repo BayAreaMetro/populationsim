@@ -722,7 +722,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
     return control_df
 
 def match_control_to_geography(control_name, control_table_df, control_geography, census_geography,
-                               maz_taz_def_df, temp_controls, full_region, 
+                               maz_taz_def_df, temp_controls, full_region,
                                scale_numerator, scale_denominator, subtract_table):
     """
     Given a control table in the given census geography, this method will transform the table to the appropriate
@@ -897,6 +897,106 @@ def match_control_to_geography(control_name, control_table_df, control_geography
     # this won't be exact but hopefully close
     logging.info("Proportionally-derived Total added: {:,}".format(final_df[control_name].sum()))
     return final_df
+
+def stochastic_round(my_series):
+    """
+    Performs stochastic rounding of a series and returns it.
+    https://en.wikipedia.org/wiki/Rounding#Stochastic_rounding
+    """
+    numpy.random.seed(32)
+    return numpy.floor(my_series + numpy.random.rand(len(my_series)))
+
+
+def integerize_control(out_df, crosswalk_df, control_name):
+    """
+    Integerize this control
+    """
+    logging.debug("integerize_control for {}: out_df head:\n{}".format(control_name, out_df.head()))
+    logging.debug("crosswalk_df head:\n{}".format(crosswalk_df.head()))
+
+    # keep index as a normal column
+    out_df.reset_index(drop=False, inplace=True)
+    # keep track of columns to go back to
+    out_df_cols = list(out_df.columns.values)
+
+    # stochastic rounding
+    out_df["control_stoch_round"] = stochastic_round(out_df[control_name])
+
+    logging.debug("out_df sum:\n{}".format(out_df.sum()))
+
+    # see how they look at the TAZ and county level
+    out_df = pandas.merge(left=out_df, right=crosswalk_df, how="left")
+
+    # this is being exacting... maybe not necessary
+
+    # make them match taz totals (especially those that are already even)
+    # really doing this in one iteration but check it
+    for iteration in [1,2]:
+        logging.debug("Iteration {}".format(iteration))
+
+        out_df_by_taz = out_df[["TAZ",control_name,"control_stoch_round"]].groupby("TAZ").aggregate(numpy.sum).reset_index(drop=False)
+        out_df_by_taz["control_taz"]       = out_df_by_taz[control_name]  # copy and name explicitly
+        out_df_by_taz["control_round_taz"] = numpy.around(out_df_by_taz[control_name])
+
+        out_df_by_taz["control_stoch_round_diff"]     = out_df_by_taz["control_round_taz"] - out_df_by_taz["control_stoch_round"]
+        out_df_by_taz["control_stoch_round_diff_abs"] = numpy.absolute(out_df_by_taz["control_stoch_round_diff"])
+
+        # if the total is off by less than one, don't touch
+        # otherwise, choose a MAZ to tweak based on control already in the MAZ
+        out_df_by_taz["control_adjust"] = numpy.trunc(out_df_by_taz["control_stoch_round_diff"])
+
+        logging.debug("out_df_by_taz head:\n{}".format(out_df_by_taz.head()))
+        logging.debug("out_df_by_taz sum:\n{}".format(out_df_by_taz.sum()))
+        logging.debug("out_df_by_taz describe:\n{}".format(out_df_by_taz.describe()))
+
+        tazdict_to_adjust = out_df_by_taz.loc[ out_df_by_taz["control_adjust"] != 0, ["TAZ","control_taz","control_adjust"]].set_index("TAZ").to_dict(orient="index")
+
+        logging.debug("tazdict_to_adjust {} TAZS: {}".format(len(tazdict_to_adjust), tazdict_to_adjust))
+
+        # nothing to do
+        if len(tazdict_to_adjust)==0: break
+
+        # add or remove a household if needed from a MAZ
+        out_df = pandas.merge(left=out_df, right=out_df_by_taz[["TAZ","control_adjust","control_taz"]], how="left")
+        logging.debug("out_df before adjustment:\n{}".format(out_df.head()))
+
+        out_df_by_taz_grouped = out_df[["MAZ","TAZ",control_name,"control_stoch_round","control_adjust","control_taz"]].groupby("TAZ")
+        for taz in tazdict_to_adjust.keys():
+            # logging.debug("group for taz {} with tazdict_to_adjust {}:\n{}".format(taz, str(tazdict_to_adjust[taz]),
+            #               out_df_by_taz_grouped.get_group(taz).head()))
+            adjustment = tazdict_to_adjust[taz]["control_adjust"]  # e.g. -2
+            sample_n   = int(abs(adjustment)) # e.g. 2
+            change_by  = adjustment/sample_n  # so this will be +1 or -1
+
+            # choose a maz to tweak weighted by number of households in the MAZ, so we don't tweak 0-hh MAZs
+            try:
+                sample = out_df_by_taz_grouped.get_group(taz).sample(n=sample_n, weights="control_stoch_round")
+                # logging.debug("sample:\n{}".format(sample))
+
+                # actually make the change in the out_df.  iterate rather than join since there are so few
+                for maz in sample["MAZ"].tolist():
+                    out_df.loc[ out_df["MAZ"] == maz, "control_stoch_round"] += change_by
+
+            except ValueError as e:
+                # this could fail if the weights are all zero
+                logging.warn(e)
+                logging.warn("group for taz {} with tazdict_to_adjust {}:\n{}".format(taz, str(tazdict_to_adjust[taz]),
+                              out_df_by_taz_grouped.get_group(taz).head()))
+
+    out_df_by_county = out_df[["COUNTY",control_name,"control_stoch_round"]].groupby("COUNTY").aggregate(numpy.sum).reset_index(drop=False)
+    logging.debug("out_df_by_county head:\n{}".format(out_df_by_county.head()))
+    logging.debug("out_df_by_county sum:\n{}".format(out_df_by_county.sum()))
+    logging.debug("out_df_by_county describe:\n{}".format(out_df_by_county.describe()))
+
+    # use the new version
+    out_df[control_name] = out_df["control_stoch_round"].astype(int)
+    # go back to original cols
+    out_df = out_df[out_df_cols]
+    # and index
+    out_df.set_index("MAZ", inplace=True)
+
+
+    return out_df
 
 if __name__ == '__main__':
     pandas.set_option("display.width", 500)
@@ -1154,18 +1254,11 @@ if __name__ == '__main__':
     CONTROLS[2015]['COUNTY']['pers_occ_military'       ] = \
         ('acs5',2016,'B23025','county',[collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces') ])], None, None, 'temp_gq_type_mil')
 
-
     CONTROLS[2010]['REGION'] = collections.OrderedDict([
-        ('gq_num_hh_region'     ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','All'     ) ])] )),
+        ('gq_num_hh_region','special')  # these are special: just sum from MAZ to be consistent
     ])
     CONTROLS[2015]['REGION'] = collections.OrderedDict([
-        # Group quarters - start with 2010
-        ('temp_base_gq_num_hh_co',('sf1',2010,'P43','county',[collections.OrderedDict([                ('inst','Noninst'), ('subcategory','All') ])] )),
-        ('temp_base_gq_all_co'   ,('sf1',2010,'P43','county',[collections.OrderedDict([ ('sex','All'), ('inst','All'    ), ('subcategory','All') ])] )),
-
-        # Create proportion gq growth = (gq_2015/gq_2010) for each county (note this is all, not just non institutional)
-        # And apply growth to 2010 non-institional group quarters
-        ('gq_num_hh_region'     ,('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_num_hh_co','temp_base_gq_all_co')),
+        ('gq_num_hh_region','special')  # these are special: just sum from MAZ to be consistent
     ])
 
     maz_taz_def_df = pandas.read_csv(MAZ_TAZ_DEF_FILE)
@@ -1194,51 +1287,72 @@ if __name__ == '__main__':
         maz_taz_def_df.loc[ maz_taz_def_df.PUMA != args.test_PUMA, "TAZ"   ] = 0
         maz_taz_def_df.loc[ maz_taz_def_df.PUMA != args.test_PUMA, "COUNTY"] = 0
 
+    # this will be the crosswalk
+    crosswalk_df = maz_taz_def_df.loc[ maz_taz_def_df["MAZ"] > 0] # drop MAZ=0
+    crosswalk_df = crosswalk_df[["MAZ","TAZ","PUMA","COUNTY","county_name","REGION"]].drop_duplicates()
+    crosswalk_df.sort_values(by="MAZ", inplace=True)
+
     cf = CensusFetcher()
 
     final_control_dfs = {} # control geography => dataframe
     for control_geo, control_dict in CONTROLS[args.model_year].iteritems():
         temp_controls = collections.OrderedDict()
+
         for control_name, control_def in control_dict.iteritems():
-            census_table_df = cf.get_census_data(dataset=control_def[0],
-                                                 year   =control_def[1],
-                                                 table  =control_def[2],
-                                                 geo    =control_def[3])
+            logging.info("Creating control [{}] for geography [{}]".format(control_name, control_geo))
+            logging.info("=================================================================================")
 
-            control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
-
-            scale_numerator   = None
-            scale_denominator = None
-            subtract_table    = None
-            if len(control_def) > 5:
-                scale_numerator   = control_def[5]
-                scale_denominator = control_def[6]
-            if len(control_def) > 7:
-                subtract_table    = control_def[7]
-
-            final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3],
-                                                  maz_taz_def_df, temp_controls, full_region=(args.test_PUMA==None),
-                                                  scale_numerator=scale_numerator, scale_denominator=scale_denominator,
-                                                  subtract_table=subtract_table)
-
-            # the temp control tables are special -- they're intermediate for matching
-            if control_name.startswith("temp_"):
-                temp_controls[control_name] = final_df
-                continue
-
-            # save it
-            if control_geo not in final_control_dfs:
-                final_control_dfs[control_geo] = final_df
+            if control_geo == "REGION":
+                # these are special -- just sum from MAZ
+                final_control_dfs[control_geo] = pandas.DataFrame.from_dict(data={'REGION':[1], "gq_num_hh_region":[final_control_dfs["MAZ"]["gq_num_hh"].sum()]})
+                logging.debug("\n{}".format(final_control_dfs[control_geo]))
             else:
-                final_control_dfs[control_geo] = pandas.merge(left       =final_control_dfs[control_geo],
-                                                              right      =final_df,
-                                                              how        ="left",
-                                                              left_index =True,
-                                                              right_index=True)
+                # create the controls from census data
+               census_table_df = cf.get_census_data(dataset=control_def[0],
+                                                    year   =control_def[1],
+                                                    table  =control_def[2],
+                                                    geo    =control_def[3])
+
+               control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
+
+               scale_numerator   = None
+               scale_denominator = None
+               subtract_table    = None
+               if len(control_def) > 5:
+                   scale_numerator   = control_def[5]
+                   scale_denominator = control_def[6]
+               if len(control_def) > 7:
+                   subtract_table    = control_def[7]
+
+               final_df = match_control_to_geography(control_name, control_table_df, control_geo, control_def[3],
+                                                     maz_taz_def_df, temp_controls, full_region=(args.test_PUMA==None),
+                                                     scale_numerator=scale_numerator, scale_denominator=scale_denominator,
+                                                     subtract_table=subtract_table)
+
+               # the temp control tables are special -- they're intermediate for matching
+               if control_name.startswith("temp_"):
+                   temp_controls[control_name] = final_df
+                   continue
+
+               # these are total_hh_control numbers -- they need to be integers
+               if control_name in ["num_hh","gq_num_hh"]:
+                   final_df = integerize_control(final_df, crosswalk_df, control_name)
+
+               # save it
+               if control_geo not in final_control_dfs:
+                   final_control_dfs[control_geo] = final_df
+               else:
+                   final_control_dfs[control_geo] = pandas.merge(left       =final_control_dfs[control_geo],
+                                                                 right      =final_df,
+                                                                 how        ="left",
+                                                                 left_index =True,
+                                                                 right_index=True)
+
+
 
         # Write the controls file for this geography
         logging.info("Preparing final controls files")
-        out_df = final_control_dfs[control_geo]  # easier to reference
+        out_df = final_control_dfs[control_geo].copy()  # easier to reference
         out_df.reset_index(drop=False, inplace=True)
 
         # for county, add readable county name
@@ -1263,21 +1377,17 @@ if __name__ == '__main__':
         if len(hh_control_names) > 0:
             hh_control_df   = out_df[[control_geo] + hh_control_names]
             hh_control_file = os.path.join("households", "data", "{}_{}_controls.csv".format(args.model_year, control_geo))
-            hh_control_df.to_csv(hh_control_file, index=False, float_format="%.2f")
+            hh_control_df.to_csv(hh_control_file, index=False, float_format="%.5f")
             logging.info("Wrote control file {}".format(hh_control_file))
 
         if len(gq_control_names) > 0:
             gq_control_df   = out_df[[control_geo] + gq_control_names]
             gq_control_file = os.path.join("group_quarters", "data", "{}_{}_controls.csv".format(args.model_year, control_geo))
-            gq_control_df.to_csv(gq_control_file, index=False, float_format="%.2f")
+            gq_control_df.to_csv(gq_control_file, index=False, float_format="%.5f")
             logging.info("Wrote control file {}".format(gq_control_file))
 
 
     # finally, save the cross walk file
-    crosswalk_df = maz_taz_def_df.loc[ maz_taz_def_df["MAZ"] > 0] # drop MAZ=0
-
-    crosswalk_df = crosswalk_df[["MAZ","TAZ","PUMA","COUNTY","county_name","REGION"]].drop_duplicates()
-    crosswalk_df.sort_values(by="MAZ", inplace=True)
     for hh_gq in ["households","group_quarters"]:
         crosswalk_file = os.path.join(hh_gq, "data", "geo_cross_walk.csv")
         crosswalk_df.to_csv(crosswalk_file, index=False)
