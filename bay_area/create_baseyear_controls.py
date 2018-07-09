@@ -1054,6 +1054,8 @@ if __name__ == '__main__':
         ('gq_type_univ'  ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','College' ) ])] )),
         ('gq_type_mil'   ,('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )),
         ('gq_type_othnon',('sf1',2010,'P43','block',[collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Other'   ) ])] )),
+        # This is for maz_data, not for populationsim.  Universe: Total Population (households and group quarters)
+        ('tot_pop'       ,('sf1',2010,'P12','block',[collections.OrderedDict([ ('sex','All'),('age_min',0),('age_max',AGE_MAX) ])] )),
     ])
     CONTROLS[2015]['MAZ'] = collections.OrderedDict([
         # 2015 doesn't have block-level data, only block group
@@ -1101,6 +1103,11 @@ if __name__ == '__main__':
         ('temp_base_gq_type_othnon_b',('sf1', 2010,'P43',   'block', [collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Other'   ) ])] )),
         ('gq_type_othnon'            ,('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_type_othnon_b','temp_base_gq_all_co')),
 
+        # This is for maz_data, not for populationsim.  Universe: Total Population (households and group quarters)
+        # Create proportion pop growth = (pop_2015/pop_2010) for each block group
+        ('temp_base_tot_pop_b'       ,('sf1', 2010,'P12',   'block',      [collections.OrderedDict([ ('sex','All'),('age_min',0),('age_max',AGE_MAX) ])] )),
+        ('temp_base_tot_pop_bg'      ,('sf1', 2010,'P12',   'block group',[collections.OrderedDict([ ('sex','All'),('age_min',0),('age_max',AGE_MAX) ])] )),
+        ('tot_pop'                   ,('acs5',2016,'B01001','block group',[collections.OrderedDict([ ('sex','All'),('age_min',0),('age_max',AGE_MAX) ])], 'temp_base_tot_pop_b', 'temp_base_tot_pop_bg')),
     ])
     CONTROLS[2010]['TAZ'] = collections.OrderedDict([
         ('temp_num_hh_b'   ,('sf1', 2010,'H13',   'block',      [collections.OrderedDict([ ('pers_min',1), ('pers_max',NPER_MAX) ])] )),
@@ -1302,9 +1309,9 @@ if __name__ == '__main__':
             logging.info("Creating control [{}] for geography [{}]".format(control_name, control_geo))
             logging.info("=================================================================================")
 
-            if control_geo == "REGION":
+            if control_geo == "REGION" and control_name=="gq_num_hh_region":
                 # these are special -- just sum from MAZ
-                final_control_dfs[control_geo] = pandas.DataFrame.from_dict(data={'REGION':[1], "gq_num_hh_region":[final_control_dfs["MAZ"]["gq_num_hh"].sum()]})
+                final_control_dfs[control_geo] = pandas.DataFrame.from_dict(data={'REGION':[1], "gq_num_hh_region":[final_control_dfs["MAZ"]["gq_num_hh"].sum()]}).set_index("REGION")
                 logging.debug("\n{}".format(final_control_dfs[control_geo]))
             else:
                 # create the controls from census data
@@ -1334,8 +1341,8 @@ if __name__ == '__main__':
                    temp_controls[control_name] = final_df
                    continue
 
-               # these are total_hh_control numbers -- they need to be integers
-               if control_name in ["num_hh","gq_num_hh"]:
+               # these are total_hh_control numbers -- they need to be integers.  tot_pop is for maz_data
+               if control_name in ["num_hh","gq_num_hh","tot_pop"]:
                    final_df = integerize_control(final_df, crosswalk_df, control_name)
 
                # save it
