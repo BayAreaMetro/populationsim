@@ -1356,20 +1356,44 @@ if __name__ == '__main__':
                                                                  right_index=True)
 
 
-
         # Write the controls file for this geography
-        logging.info("Preparing final controls files")
+        logging.info("Preparing final controls files for {}".format(control_geo))
         out_df = final_control_dfs[control_geo].copy()  # easier to reference
         out_df.reset_index(drop=False, inplace=True)
-
-        # for county, add readable county name
-        if control_geo=="COUNTY":
-            out_df = pandas.merge(left=COUNTY_RECODE[["COUNTY","county_name"]], right=out_df, how="right")
 
         # First, log and drop control=0 if necessary
         if len(out_df.loc[ out_df[control_geo]==0]) > 0:
             logging.info("Dropping {}=0\n{}".format(control_geo, out_df.loc[ out_df[control_geo]==0,:].T.squeeze()))
             out_df = out_df.loc[out_df[control_geo]>0, :]
+        
+        if control_geo=="COUNTY":
+            # for county, add readable county name
+            out_df = pandas.merge(left=COUNTY_RECODE[["COUNTY","county_name"]], right=out_df, how="right")
+        elif control_geo=="MAZ":
+            # for maz, output a maz_data_hh_pop.csv for maz_data.csv
+            maz_df = out_df[["MAZ","num_hh","gq_num_hh","tot_pop"]].copy()
+            # gq "household" is 1-person hh; total household is sum of both
+            # population already includes group quarters
+            maz_df["hh"] = maz_df["num_hh"] + maz_df["gq_num_hh"]
+
+            # check if pop < hh for any maz -- this shouldn't happen
+            maz_df["pop_minus_hh"] = maz_df["tot_pop"] - maz_df["hh"]
+            # only care if pop < hh (or pop-hh < 0)
+            maz_df.loc[ maz_df["pop_minus_hh"] >= 0, "pop_minus_hh"] = 0
+
+            logging.info("pop_minus_hh.sum: {}".format( maz_df["pop_minus_hh"].sum() ))
+            logging.info("pop_minus_hh < 0 :\n{}".format( maz_df.loc[ maz_df["pop_minus_hh"] < 0 ]))
+
+            # set pop to at least hh
+            maz_df.loc[ maz_df["pop_minus_hh"] < 0, "tot_pop"] = maz_df["hh"]
+
+            # keep only the fields we want
+            maz_df = maz_df[["MAZ","hh", "tot_pop"]]
+
+            # write it out
+            maz_hh_pop_file = os.path.join("output_{}".format(args.model_year), "maz_data_hh_pop.csv")
+            maz_df.to_csv(maz_hh_pop_file, index=False)
+            logging.info("Wrote {}".format(maz_hh_pop_file))
 
         # Controls start with gq_ are group quarters
         hh_control_names = []
