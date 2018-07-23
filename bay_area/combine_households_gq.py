@@ -6,6 +6,7 @@ USAGE = r"""
   (1) [households,group_quarters]/output_[model_year]/synthetic_households.csv
   (2) [households,group_quarters]/output_[model_year]/synthetic_persons.csv
   (3) [households,group_quarters]/output_[model_year]/summary_melt.csv
+  (4) group_quarters/data/geo_cross_walk.csv
 
   Outputs:
   (1) output_[model_year]/synthetic_households.csv
@@ -22,37 +23,38 @@ USAGE = r"""
 
 """
 
-import argparse, os, sys
+import argparse, collections, os, sys
 import pandas
+# http://bayareametro.github.io/travel-model-two/input/#households
+HOUSING_COLUMNS = collections.OrderedDict([
+  ("HHID",                "HHID"),
+  ("TAZ",                 "TAZ"),
+  ("MAZ",                 "MAZ"),
+  ("COUNTY",              "MTCCountyID"),
+  ("hh_income_2010",      "HHINCADJ"),
+  ("hh_workers_from_esr", "NWRKRS_ESR"),
+  ("VEH",                 "VEH"),
+  ("NP",                  "NP"),
+  ("HHT",                 "HHT"),
+  ("BLD",                 "BLD"),
+  ("TYPE",                "TYPE")
+])
 
-# these are the columns in the current households input:
-HOUSING_COLUMNS = [
-  # "tempId",         # do we need this?
-  "MTCCountyID",
-  "PUMA",
-  "taz",
-  "maz",
-  "WGTP",
-  # "finalPumsId",    # what's this? do we need this?
-  # "finalweight",    # what's this? do we need this?
-  "serialno",
-  "np",
-  "hincp",
-  "ten",
-  "bld",
-  "nwrkrs_esr",
-  "hhincAdj",
-  "adjinc",
-  "veh",
-  "hht",
-  "type",
-  "npf",              # do we need this?  it's similar to np
-  "hupac",
-  "GQFlag",           # do we need this?  isn't type enough?
-  "GQType",           # do we need this?  similar to type
-  "HHID",
-  # "n"               # what's this?  do we need it?
-]
+# http://bayareametro.github.io/travel-model-two/input/#persons
+PERSON_COLUMNS = collections.OrderedDict([
+  ("HHID",                "HHID"),
+  ("PERID",               "PERID"),
+  ("AGEP",                "AGEP"),
+  ("SEX",                 "SEX"),
+  ("SCHL",                "SCHL"),
+  ("occupation",          "OCCP"),
+  ("WKHP",                "WKHP"),
+  ("WKW",                 "WKW"),
+  ("employed",            "EMPLOYED"),
+  ("ESR",                 "ESR"),
+  ("SCHG",                "SCHG"),
+])
+
 
 if __name__ == '__main__':
   pandas.options.display.width    = 180
@@ -71,6 +73,10 @@ if __name__ == '__main__':
     os.mkdir(COMBINED_OUT_DIR)
     print "Created %s" % COMBINED_OUT_DIR
 
+  # read the geo cross walk
+  geocrosswalk_df = pandas.read_csv(os.path.join("group_quarters","data","geo_cross_walk.csv"))
+  print(geocrosswalk_df.head())
+
   for filename in ["synthetic_households.csv", "synthetic_persons.csv", "summary_melt.csv"]:
     table_hh = pandas.read_csv(os.path.join("households",     COMBINED_OUT_DIR, filename))
     table_gq = pandas.read_csv(os.path.join("group_quarters", COMBINED_OUT_DIR, filename))
@@ -84,6 +90,12 @@ if __name__ == '__main__':
       max_hhid = table_hh.HHID.max()
       print "Max housing record HHID: %d" % max_hhid
       table_gq["HHID"] = table_gq.unique_hh_id + max_hhid # start from max_hhid + 1
+
+      # the group quarters doesn't have taz so get taz from crosswalk
+      table_gq = pandas.merge(left=table_gq, right=geocrosswalk_df[["MAZ","TAZ"]], how="left")
+
+      # the households doesn't have county so get county from crosswalk
+      table_hh = pandas.merge(left=table_hh, right=geocrosswalk_df[["MAZ","COUNTY"]], how="left")
 
     elif filename=="synthetic_persons.csv":
       # add HHID
@@ -102,22 +114,24 @@ if __name__ == '__main__':
     concat_table = pandas.concat([table_hh, table_gq])
     concat_table.fillna(value=-9, inplace=True)
 
-    # downcast the floats that don't need to be floats
-    import create_seed_population
-    create_seed_population.clean_types(concat_table)
-
     if filename=="synthetic_households.csv":
       # fix the columns up
-      pass
+      concat_table = concat_table[HOUSING_COLUMNS.keys()].rename(columns=HOUSING_COLUMNS)
     elif filename=="synthetic_persons.csv":
       # fix the columns up
-      pass
+      concat_table = concat_table[PERSON_COLUMNS.keys()].rename(columns=PERSON_COLUMNS)
+      # set occp=0 to 999
+      concat_table.loc[concat_table.OCCP==0, "OCCP"] = 999
     elif filename=="summary_melt.csv":
       # perfect
       pass
 
-    print concat_table.head()
-    print concat_table.tail()
+    # downcast the floats that don't need to be floats
+    import create_seed_population
+    create_seed_population.clean_types(concat_table)
+
+    print concat_table.head(20)
+    print concat_table.tail(20)
     outfile = os.path.join(COMBINED_OUT_DIR, filename)
     concat_table.to_csv(outfile, header=True, index=False)
     print "Wrote %s" % outfile
