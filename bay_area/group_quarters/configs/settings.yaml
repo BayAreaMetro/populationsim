@@ -132,6 +132,7 @@ output_synthetic_population:
       - indp07               # Industry 2007 recode
       - occp02               # Occupation 2002 recode
       - occp10               # Occupation 2010 recode
+      - occupation           # occupation encoded
       - employed             # 0 or 1, based on ESR (from create_seed_population.py)
 
 # Steps for base mode
