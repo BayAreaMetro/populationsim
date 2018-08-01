@@ -1179,7 +1179,7 @@ if __name__ == '__main__':
         # temp_num_pers_hh_bg_to_b = (B11002 / P16)  x P16 at block
         ('temp_num_pers_hh_bg_to_b', ('acs5',2016,'B11002','block group',[collections.OrderedDict([])], 'temp_base_num_pers_hh_b', 'temp_base_num_pers_hh_bg')),  # at block level
 
-        ('temp_num_pers'   ,('acs5',2016,'B01001','block group', [collections.OrderedDict([])] )), # total persons (in households and not)
+        ('temp_num_pers'   ,('acs5',2016,'B01001','block group', [collections.OrderedDict([('age_min', 0),('age_max',AGE_MAX),('sex','All')])] )), # total persons (in households and not)
         ('pers_age_00_19'  ,('acs5',2016,'B01001','block group', [collections.OrderedDict([('age_min', 0),('age_max',     19)])], 'temp_num_pers_hh_bg_to_b','temp_num_pers')),
         ('pers_age_20_34'  ,('acs5',2016,'B01001','block group', [collections.OrderedDict([('age_min',20),('age_max',     34)])], 'temp_num_pers_hh_bg_to_b','temp_num_pers')),
         ('pers_age_35_64'  ,('acs5',2016,'B01001','block group', [collections.OrderedDict([('age_min',35),('age_max',     64)])], 'temp_num_pers_hh_bg_to_b','temp_num_pers')),
