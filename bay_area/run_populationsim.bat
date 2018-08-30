@@ -33,26 +33,27 @@ if ERRORLEVEL 1 goto error
 
 :year_loop
 for %%Y in (!YEARS!) do (
+  set YEAR=%%Y
 
   rem create controls
-  python create_baseyear_controls.py !TEST_PUMA_FLAG! %%Y
+  python create_baseyear_controls.py !TEST_PUMA_FLAG! !YEAR!
   if ERRORLEVEL 1 goto error
 
   rem create the final output directory
-  mkdir output_%%Y!PUMA_SUFFIX!
+  mkdir output_!YEAR!!PUMA_SUFFIX!
 
   rem synthesize households
-  mkdir households\output_%%Y!PUMA_SUFFIX!
-  python run_populationsim.py --model_year %%Y --config households\configs     --output households\output_%%Y!PUMA_SUFFIX!      --data households\data
+  mkdir households\output_!YEAR!!PUMA_SUFFIX!
+  python run_populationsim.py --model_year !YEAR! --config households\configs     --output households\output_!YEAR!!PUMA_SUFFIX!      --data households\data
   if ERRORLEVEL 1 goto error
 
-  mkdir group_quarters\output_%%Y!PUMA_SUFFIX!
-  python run_populationsim.py --model_year %%Y --config group_quarters\configs --output group_quarters\output_%%Y!PUMA_SUFFIX!  --data group_quarters\data
-  if ERRORLEVEL 1 goto error
   rem synthesize group_quarters
+  mkdir group_quarters\output_!YEAR!!PUMA_SUFFIX!
+  python run_populationsim.py --model_year !YEAR! --config group_quarters\configs --output group_quarters\output_!YEAR!!PUMA_SUFFIX!  --data group_quarters\data
+  if ERRORLEVEL 1 goto error
 
   rem put it together
-  python combine_households_gq.py !TEST_PUMA_FLAG! %%Y
+  python combine_households_gq.py !TEST_PUMA_FLAG! !YEAR!
   if ERRORLEVEL 1 goto error
 )
 
