@@ -1,7 +1,18 @@
+::
+:: Batch script to run the population simulation for the bay area
+:: Assumes activitysim is cloned to %USERPROFILE%\Documents\activitysim
+:: and the YEAR is passed as the argument to this batch script.
+::
+:: e.g. run_populationsim 2010
+::
 setlocal EnableDelayedExpansion
 
-:: Run the population simulation for the bay area
-set PYTHONPATH=C:\Users\lzorn\Documents\activitysim;C:\Users\lzorn\Documents\populationsim
+:: assume argument is year
+set YEARS=%1
+echo YEARS=[!YEARS!]
+
+set PYTHONPATH=%USERPROFILE%\Documents\activitysim;%~dp0
+echo PYTHONPATH=[!PYTHONPATH!]
 
 set TEST_PUMA=
 :: set TEST_PUMA=02402
@@ -21,8 +32,7 @@ python create_seed_population.py
 if ERRORLEVEL 1 goto error
 
 :year_loop
-:: for %%Y in (2000 2005 2010 2015) do (
-for %%Y in (2010) do (
+for %%Y in (%YEARS%) do (
 
   rem create controls
   python create_baseyear_controls.py !TEST_PUMA_FLAG! %%Y
