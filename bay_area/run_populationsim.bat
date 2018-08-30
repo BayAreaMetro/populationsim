@@ -32,7 +32,7 @@ python create_seed_population.py
 if ERRORLEVEL 1 goto error
 
 :year_loop
-for %%Y in (%YEARS%) do (
+for %%Y in (!YEARS!) do (
 
   rem create controls
   python create_baseyear_controls.py !TEST_PUMA_FLAG! %%Y
