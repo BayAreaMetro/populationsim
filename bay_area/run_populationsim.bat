@@ -38,15 +38,18 @@ for %%Y in (!YEARS!) do (
   python create_baseyear_controls.py !TEST_PUMA_FLAG! %%Y
   if ERRORLEVEL 1 goto error
 
-  rem households
+  rem create the final output directory
+  mkdir output_%%Y!PUMA_SUFFIX!
+
+  rem synthesize households
   mkdir households\output_%%Y!PUMA_SUFFIX!
   python run_populationsim.py --model_year %%Y --config households\configs     --output households\output_%%Y!PUMA_SUFFIX!      --data households\data
   if ERRORLEVEL 1 goto error
 
-  rem group_quarters
   mkdir group_quarters\output_%%Y!PUMA_SUFFIX!
   python run_populationsim.py --model_year %%Y --config group_quarters\configs --output group_quarters\output_%%Y!PUMA_SUFFIX!  --data group_quarters\data
   if ERRORLEVEL 1 goto error
+  rem synthesize group_quarters
 
   rem put it together
   python combine_households_gq.py !TEST_PUMA_FLAG! %%Y
