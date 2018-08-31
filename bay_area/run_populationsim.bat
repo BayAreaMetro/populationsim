@@ -11,7 +11,7 @@ setlocal EnableDelayedExpansion
 set YEARS=%1
 echo YEARS=[!YEARS!]
 
-set PYTHONPATH=%USERPROFILE%\Documents\activitysim;%~dp0
+set PYTHONPATH=%USERPROFILE%\Documents\GitHub\activitysim;%~dp0
 echo PYTHONPATH=[!PYTHONPATH!]
 
 set TEST_PUMA=
