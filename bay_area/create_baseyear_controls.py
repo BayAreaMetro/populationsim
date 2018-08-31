@@ -23,13 +23,20 @@ This script does the following:
    it is assumed that the smaller geography's total (e.g. households) are apportioned similarly
    to it's census geography, and the controls are tallied that way.
 
-4) It joins the MAZs and TAZs to the 2000 PUMAs (used in the 2007-2011 PUMS, which is
+4) Creates a simple file, output_[model_year]/maz_data_hh_pop.csv with 3 columns:
+   MAZ,hh,tot_pop for use in the maz_data.csv that will consistent with these controls, where
+   these "hh" include the 1-person group quarters households and the tot_pop includes both household
+   and group quarter persons.
+
+5) It joins the MAZs and TAZs to the 2000 PUMAs (used in the 2007-2011 PUMS, which is
    used by create_seed_population.py) and saves these crosswalks as well.
 
    Outputs: households    /data/[model_year]_[maz,taz,county]_controls.csv
             households    /data/geo_cross_walk.csv
             group_quarters/data/[model_year]_maz_controls.csv
             group_quarters/data/geo_cross_walk.csv
+
+            output_[model_year]/maz_data_hh_pop.csv
 
             create_baseyear_controls_[model_year].log
 """
