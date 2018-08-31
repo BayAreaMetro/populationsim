@@ -266,6 +266,16 @@ if __name__ == '__main__':
     # variables INTP, OIP, PAP, PERNP, PINCP, RETP, SEMP, SSIP, SSP, and WAGP in the
     # person record.
 
+    # transfer personal income from persons to households for households without HINCP
+    pers_inc_df = pums_pers_df[["SERIALNO","PINCP"]]                            # only want household id, personal income
+    pers_inc_df = pers_inc_df.loc[ pandas.notnull(pers_inc_df["PINCP"])].copy() # drop those with null personal income
+    pers_inc_df.drop_duplicates(subset="SERIALNO", keep="first", inplace=True)  # only want one per household
+    pums_hu_df = pandas.merge(left =pums_hu_df,                                 # add it to the housing unit dataframe
+                              right=pers_inc_df,
+                              how  ="left")
+    pums_hu_df.loc[ pandas.isnull(pums_hu_df["HINCP"]), "HINCP"] = pums_hu_df["PINCP"]  # pick up personal income if household income is null
+    pums_hu_df.drop(columns=["PINCP"], inplace=True)                                    # we're done with PINCP
+
     pums_hu_df['hh_income_2010'] = 999
     pums_hu_df.loc[ pums_hu_df.ADJINC==1102938, 'hh_income_2010'] = pums_hu_df.HINCP/1.0 * 1.016787 * 1.08472906/1.03154279
     pums_hu_df.loc[ pums_hu_df.ADJINC==1063801, 'hh_income_2010'] = pums_hu_df.HINCP/1.0 * 1.018389 * 1.04459203/1.03154279
