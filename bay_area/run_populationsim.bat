@@ -38,7 +38,7 @@ for %%Y in (!YEARS!) do (
   set YEAR=%%Y
 
   rem create the final output directory
-  mkdir output_!YEAR!!PUMA_SUFFIX!
+  if not exist output_!YEAR!!PUMA_SUFFIX! ( mkdir output_!YEAR!!PUMA_SUFFIX! )
 
   rem create controls
   python create_baseyear_controls.py !TEST_PUMA_FLAG! !YEAR!
