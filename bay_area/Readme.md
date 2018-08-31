@@ -15,4 +15,6 @@ This will:
 4) Run populationsim to synthesize group quarters
 5) Put the results together via [combine_households_gq.py](combine_households_gq.py)
 
+The [validation.twb](validation.twb) workbook can be used to visualize the final output_[model_year]/summary_melt.csv
+
 Future year populationsim setup TBD.
