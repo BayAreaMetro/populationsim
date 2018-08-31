@@ -11,7 +11,9 @@ setlocal EnableDelayedExpansion
 set YEARS=%1
 echo YEARS=[!YEARS!]
 
-set PYTHONPATH=%USERPROFILE%\Documents\GitHub\activitysim;%~dp0
+:: Need to be able to import activitysim and populationsim
+:: Assume activitysim is cloned to %USERPROFILE%\Documents\GitHub
+set PYTHONPATH=%USERPROFILE%\Documents\GitHub\activitysim;%~dp0\..
 echo PYTHONPATH=[!PYTHONPATH!]
 
 set TEST_PUMA=
