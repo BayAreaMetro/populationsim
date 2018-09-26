@@ -44,6 +44,10 @@ for %%Y in (!YEARS!) do (
   python create_baseyear_controls.py !TEST_PUMA_FLAG! !YEAR!
   if ERRORLEVEL 1 goto error
 
+  rem check controls
+  python check_controls.py !YEAR!
+  if ERRORLEVEL 1 goto error
+
   rem synthesize households
   mkdir households\output_!YEAR!!PUMA_SUFFIX!
   python run_populationsim.py --model_year !YEAR! --config households\configs     --output households\output_!YEAR!!PUMA_SUFFIX!      --data households\data

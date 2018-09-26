@@ -32,18 +32,20 @@ def smart_round(int_weights, resid_weights, target_sum):
     """
     assert len(int_weights) == len(resid_weights)
     assert (int_weights == int_weights.astype(int)).all()
-    assert target_sum == int(target_sum)
+    assert abs(target_sum - round(target_sum)) < 0.001
 
-    target_sum = int(target_sum)
+    target_sum = int(round(target_sum))
 
     # integer part of numbers to round (astype both copies and coerces)
     rounded_weights = int_weights.astype(int)
 
     # find number of residuals that we need to round up
     int_shortfall = target_sum - rounded_weights.sum()
+    logger.debug("int_shortfall={}".format(int_shortfall))
 
     # clip to feasible, in case target was not achievable by rounding
     int_shortfall = np.clip(int_shortfall, 0, len(resid_weights))
+    logger.debug("int_shortfall={}".format(int_shortfall))
 
     # Order the residual weights and round at the tipping point where target_sum is achieved
     if int_shortfall > 0:
@@ -153,7 +155,7 @@ class Integerizer(object):
         if (resid_weights == 0.0).any():
             # not sure this matters...
             logger.warn("Integerizer: %s zero resid_weights" % ((resid_weights == 0).sum(),))
-            assert False
+            # assert False
 
         integerizer_func = get_single_integerizer()
 
@@ -168,6 +170,7 @@ class Integerizer(object):
             hh_constraint_ge_bound=hh_constraint_ge_bound
         )
 
+        print("smart_round with self.total_hh_control_value: {:.8f}".format(self.total_hh_control_value))
         integerized_weights = smart_round(int_weights, resid_weights, self.total_hh_control_value)
 
         self.weights = pd.DataFrame(index=self.incidence_table.index)
@@ -223,6 +226,7 @@ def do_integerizing(
         incidence_table = incidence_table[~zero_weight_rows]
         float_weights = float_weights[~zero_weight_rows]
 
+    logger.debug("do_integerizing with total_hh_control_col={}".format(total_hh_control_col))
     total_hh_control_value = control_totals[total_hh_control_col]
 
     status = None
