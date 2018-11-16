@@ -396,9 +396,6 @@ if __name__ == '__main__':
     # give households unique id
     pums_hu_hh_df.reset_index(drop=True,inplace=True)
     pums_hu_hh_df['unique_hh_id'] = pums_hu_hh_df.index + 1  # start at 1
-    # give persons unique id
-    pums_pers_hh_df.reset_index(drop=True,inplace=True)
-    pums_pers_hh_df['unique_pers_id'] = pums_pers_hh_df.index + 1  # start at 1
     # transfer unique_hh_id and WGTP to person records
     pums_pers_hh_df = pandas.merge(left =pums_pers_hh_df,
                                    right=pums_hu_hh_df[['SERIALNO','WGTP','unique_hh_id']],
