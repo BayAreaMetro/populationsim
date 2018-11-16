@@ -25,37 +25,67 @@ USAGE = r"""
 
 """
 
+
 import argparse, collections, os, sys
 import pandas
-# http://bayareametro.github.io/travel-model-two/input/#households
-HOUSING_COLUMNS = collections.OrderedDict([
-  ("HHID",                "HHID"),
-  ("TAZ",                 "TAZ"),
-  ("MAZ",                 "MAZ"),
-  ("COUNTY",              "MTCCountyID"),
-  ("hh_income_2010",      "HHINCADJ"),
-  ("hh_workers_from_esr", "NWRKRS_ESR"),
-  ("VEH",                 "VEH"),
-  ("NP",                  "NP"),
-  ("HHT",                 "HHT"),
-  ("BLD",                 "BLD"),
-  ("TYPE",                "TYPE")
-])
 
-# http://bayareametro.github.io/travel-model-two/input/#persons
-PERSON_COLUMNS = collections.OrderedDict([
-  ("HHID",                "HHID"),
-  ("PERID",               "PERID"),
-  ("AGEP",                "AGEP"),
-  ("SEX",                 "SEX"),
-  ("SCHL",                "SCHL"),
-  ("occupation",          "OCCP"),
-  ("WKHP",                "WKHP"),
-  ("WKW",                 "WKW"),
-  ("employed",            "EMPLOYED"),
-  ("ESR",                 "ESR"),
-  ("SCHG",                "SCHG"),
-])
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_type", help="Specifies TM1 or TM2")
+parser.add_argument("--model_year", help="model year")
+args = parser.parse_args()
+
+if args.model_type == 'TM1':
+  # based on: https://github.com/BayAreaMetro/modeling-website/wiki/PopSynHousehold, PopSyn scripts
+  HOUSING_COLUMNS = collections.OrderedDict([
+    ("HHID",                "HHID"), 
+    ("TAZ",                 "TAZ"),
+    ("hinccat1",            "hinccat1"),
+    ("hh_income_2000",      "HINC"),
+    ("hh_workers_from_esr", "hworkers"),
+    ("VEH",                 "VEHICL"),
+    ("NP",                  "PERSONS"),
+    ("HHT",                 "HHT")
+  ])
+  # based on: https://github.com/BayAreaMetro/modeling-website/wiki/PopSynPerson, PopSyn scripts
+  PERSON_COLUMNS = collections.OrderedDict([
+    ("HHID",                "HHID"),
+    ("PERID",               "PERID"),
+    ("AGEP",                "AGE"),
+    ("SEX",                 "SEX"),
+    ("employ_status",       "pemploy"),
+    ("student_status",      "pstudent"),
+    ("person_type",         "ptype")
+  ])
+
+if args.model_type == 'TM2':
+  # http://bayareametro.github.io/travel-model-two/input/#households
+  HOUSING_COLUMNS = collections.OrderedDict([
+    ("HHID",                "HHID"),
+    ("TAZ",                 "TAZ"),
+    ("MAZ",                 "MAZ"),
+    ("COUNTY",              "MTCCountyID"),
+    ("hh_income_2010",      "HHINCADJ"),
+    ("hh_workers_from_esr", "NWRKRS_ESR"),
+    ("VEH",                 "VEH"),
+    ("NP",                  "NP"),
+    ("HHT",                 "HHT"),
+    ("BLD",                 "BLD"),
+    ("TYPE",                "TYPE")
+  ])
+  # http://bayareametro.github.io/travel-model-two/input/#persons
+  PERSON_COLUMNS = collections.OrderedDict([
+    ("HHID",                "HHID"),
+    ("PERID",               "PERID"),
+    ("AGEP",                "AGEP"),
+    ("SEX",                 "SEX"),
+    ("SCHL",                "SCHL"),
+    ("occupation",          "OCCP"),
+    ("WKHP",                "WKHP"),
+    ("WKW",                 "WKW"),
+    ("employed",            "EMPLOYED"),
+    ("ESR",                 "ESR"),
+    ("SCHG",                "SCHG"),
+  ])
 
 
 if __name__ == '__main__':
@@ -63,7 +93,8 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
     description=USAGE)
-  parser.add_argument("model_year", type=int)
+  parser.add_argument("--model_type", type=str, help="Specifies TM1 or TM2")
+  parser.add_argument("--model_year", type=int)
   parser.add_argument("--test_PUMA", type=str, help="Pass PUMA to output controls only for geographies relevant to a single PUMA, for testing")
   args = parser.parse_args()
 
@@ -76,8 +107,12 @@ if __name__ == '__main__':
     print "Created %s" % COMBINED_OUT_DIR
 
   # read the geo cross walk
-  geocrosswalk_df = pandas.read_csv(os.path.join("group_quarters","data","geo_cross_walk.csv"))
-  print(geocrosswalk_df.head())
+  if args.model_type == 'TM1':
+    geocrosswalk_df = pandas.read_csv(os.path.join("group_quarters","data","geo_cross_walk_tm1.csv"))
+    print(geocrosswalk_df.head())
+  if args.model_type == 'TM2':
+    geocrosswalk_df = pandas.read_csv(os.path.join("group_quarters","data","geo_cross_walk_tm2.csv"))
+    print(geocrosswalk_df.head())
 
   hh_counties_df = None
 
@@ -95,18 +130,31 @@ if __name__ == '__main__':
       print "Max housing record HHID: %d" % max_hhid
       table_gq["HHID"] = table_gq.unique_hh_id + max_hhid # start from max_hhid + 1
 
-      # the group quarters doesn't have taz so get taz from crosswalk
-      table_gq = pandas.merge(left=table_gq, right=geocrosswalk_df[["MAZ","TAZ"]], how="left")
+      # add hinccat1 as variable for tm1, group hh_income_2000 by tm1 income categories
+      if args.model_type == 'TM1': 
+        table_hh['hinccat1'] = 999
+        table_hh.loc[ (table_hh.hh_income_2000>=0)&(table_hh.hh_income_2000<=19999), 'hinccat1'] = 1
+        table_hh.loc[ (table_hh.hh_income_2000>=20000)&(table_hh.hh_income_2000<=49999), 'hinccat1'] = 2
+        table_hh.loc[ (table_hh.hh_income_2000>=50000)&(table_hh.hh_income_2000<=999999), 'hinccat1'] = 3
+        table_hh.loc[ (table_hh.hh_income_2000>=100000), 'hinccat1'] = 4
 
-      # the households doesn't have county so get county from crosswalk
-      table_hh = pandas.merge(left=table_hh, right=geocrosswalk_df[["MAZ","COUNTY"]], how="left")
+      if args.model_type == 'TM1': 
+        # the households doesn't have county so get county from crosswalk
+        table_hh = pandas.merge(left=table_hh, right=geocrosswalk_df[["TAZ","COUNTY"]], how="left")
+
+      if args.model_type == 'TM2':
+        # the group quarters doesn't have taz so get taz from crosswalk
+        table_gq = pandas.merge(left=table_gq, right=geocrosswalk_df[["MAZ","TAZ"]], how="left")
+
+        # the households doesn't have county so get county from crosswalk
+        table_hh = pandas.merge(left=table_hh, right=geocrosswalk_df[["MAZ","COUNTY"]], how="left")
 
       # save for creating county summaries
       hh_counties_df = table_hh[["HHID","COUNTY"]]
 
     elif filename=="synthetic_persons.csv":
       # add HHID
-      table_hh["HHID"] = table_hh.unique_hh_id
+      table_hh["HHID"] = table_hh.unique_hh_id 
       table_gq["HHID"] = table_gq.unique_hh_id + max_hhid
       table_hh["PERID"] = table_hh.index + 1 # start from 1
       max_perid = table_hh.PERID.max()
@@ -114,7 +162,7 @@ if __name__ == '__main__':
       table_gq["PERID"] = table_gq.index + 1 + max_perid # start from max_perid + 1
 
       # create county summaries - only want employed (see controls.csv)
-      hh_pers_county_occ_summary = pandas.merge(left  =table_hh.loc[ table_hh["employed"] == 1, ["HHID","PERID","occupation"]],
+      hh_pers_county_occ_summary = pandas.merge(left  =table_hh.loc[ table_hh["employed"] == 1, ["HHID","PERID","occupation"]], 
                                                 right =hh_counties_df,
                                                 how   ="left",
                                                 on    ="HHID")
@@ -161,7 +209,8 @@ if __name__ == '__main__':
       # fix the columns up
       concat_table = concat_table[PERSON_COLUMNS.keys()].rename(columns=PERSON_COLUMNS)
       # set occp=0 to 999
-      concat_table.loc[concat_table.OCCP==0, "OCCP"] = 999
+      if args.model_type == 'TM2':
+        concat_table.loc[concat_table.OCCP==0, "OCCP"] = 999
     elif filename=="summary_melt.csv":
       # perfect
       pass

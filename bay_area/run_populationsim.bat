@@ -7,6 +7,12 @@
 ::
 setlocal EnableDelayedExpansion
 
+:: should be TM1 or TM2
+set MODELTYPE=TM1
+
+:: should be the urbansim run number from the control files
+set BAUS_RUNNUM=run19 
+
 :: assume argument is year
 set YEARS=%1
 echo YEARS=[!YEARS!]
@@ -40,26 +46,30 @@ for %%Y in (!YEARS!) do (
   rem create the final output directory
   if not exist output_!YEAR!!PUMA_SUFFIX! ( mkdir output_!YEAR!!PUMA_SUFFIX! )
 
-  rem create controls
-  python create_baseyear_controls.py !TEST_PUMA_FLAG! !YEAR!
-  if ERRORLEVEL 1 goto error
+:: turned OFF while using UrbanSim controls instead of census data
+::  rem create controls
+::  python create_baseyear_controls.py !TEST_PUMA_FLAG! --model_year !YEAR!
+::  if ERRORLEVEL 1 goto error
 
+  :: tm2 version can be updated to use UrbanSim (not census) controls
   rem check controls
-  python check_controls.py !YEAR!
+  python check_controls.py --model_year !YEAR! --model_type !MODELTYPE! --run_num !BAUS_RUNNUM!
   if ERRORLEVEL 1 goto error
 
+  :: tm2 version will require small changes to the config if using UrbanSim controls 
   rem synthesize households
   mkdir households\output_!YEAR!!PUMA_SUFFIX!
-  python run_populationsim.py --model_year !YEAR! --config households\configs     --output households\output_!YEAR!!PUMA_SUFFIX!      --data households\data
+  python run_populationsim.py --run_num !BAUS_RUNNUM! --model_year !YEAR!  --config households\configs_%MODELTYPE%     --output households\output_!YEAR!!PUMA_SUFFIX!      --data households\data
   if ERRORLEVEL 1 goto error
 
+  :: tm2 version will require small changes to the config if if using UrbanSim controls
   rem synthesize group_quarters
   mkdir group_quarters\output_!YEAR!!PUMA_SUFFIX!
-  python run_populationsim.py --model_year !YEAR! --config group_quarters\configs --output group_quarters\output_!YEAR!!PUMA_SUFFIX!  --data group_quarters\data
+  python run_populationsim.py --run_num !BAUS_RUNNUM! --model_year !YEAR!  --config group_quarters\configs_%MODELTYPE% --output group_quarters\output_!YEAR!!PUMA_SUFFIX!  --data group_quarters\data
   if ERRORLEVEL 1 goto error
 
   rem put it together
-  python combine_households_gq.py !TEST_PUMA_FLAG! !YEAR!
+  python combine_households_gq.py !TEST_PUMA_FLAG! --model_type !MODELTYPE! --model_year !YEAR!
   if ERRORLEVEL 1 goto error
 )
 

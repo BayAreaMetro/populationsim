@@ -1010,7 +1010,7 @@ if __name__ == '__main__':
     pandas.set_option("display.float_format", "{:,.2f}".format)
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=USAGE)
-    parser.add_argument("model_year", type=int)
+    parser.add_argument("--model_year", type=int)
     parser.add_argument("--test_PUMA", type=str, help="Pass PUMA to output controls only for geographies relevant to a single PUMA, for testing")
     args = parser.parse_args()
 
