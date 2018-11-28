@@ -29,14 +29,9 @@ USAGE = r"""
 import argparse, collections, os, sys
 import pandas
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--model_type", help="Specifies TM1 or TM2")
-parser.add_argument("--model_year", help="model year")
-args = parser.parse_args()
-
-if args.model_type == 'TM1':
-  # based on: https://github.com/BayAreaMetro/modeling-website/wiki/PopSynHousehold, PopSyn scripts
-  HOUSING_COLUMNS = collections.OrderedDict([
+# based on: https://github.com/BayAreaMetro/modeling-website/wiki/PopSynHousehold, PopSyn scripts
+HOUSING_COLUMNS = {
+  'TM1':collections.OrderedDict([
     ("HHID",                "HHID"), 
     ("TAZ",                 "TAZ"),
     ("hinccat1",            "hinccat1"),
@@ -45,21 +40,9 @@ if args.model_type == 'TM1':
     ("VEH",                 "VEHICL"),
     ("NP",                  "PERSONS"),
     ("HHT",                 "HHT")
-  ])
-  # based on: https://github.com/BayAreaMetro/modeling-website/wiki/PopSynPerson, PopSyn scripts
-  PERSON_COLUMNS = collections.OrderedDict([
-    ("HHID",                "HHID"),
-    ("PERID",               "PERID"),
-    ("AGEP",                "AGE"),
-    ("SEX",                 "SEX"),
-    ("employ_status",       "pemploy"),
-    ("student_status",      "pstudent"),
-    ("person_type",         "ptype")
-  ])
-
-if args.model_type == 'TM2':
+  ]),
   # http://bayareametro.github.io/travel-model-two/input/#households
-  HOUSING_COLUMNS = collections.OrderedDict([
+  'TM2':collections.OrderedDict([
     ("HHID",                "HHID"),
     ("TAZ",                 "TAZ"),
     ("MAZ",                 "MAZ"),
@@ -71,9 +54,22 @@ if args.model_type == 'TM2':
     ("HHT",                 "HHT"),
     ("BLD",                 "BLD"),
     ("TYPE",                "TYPE")
-  ])
+  ]),
+}
+
+PERSON_COLUMNS = {
+  # based on: https://github.com/BayAreaMetro/modeling-website/wiki/PopSynPerson, PopSyn scripts
+  'TM1':collections.OrderedDict([
+    ("HHID",                "HHID"),
+    ("PERID",               "PERID"),
+    ("AGEP",                "AGE"),
+    ("SEX",                 "SEX"),
+    ("employ_status",       "pemploy"),
+    ("student_status",      "pstudent"),
+    ("person_type",         "ptype")
+  ]),
   # http://bayareametro.github.io/travel-model-two/input/#persons
-  PERSON_COLUMNS = collections.OrderedDict([
+  'TM2':collections.OrderedDict([
     ("HHID",                "HHID"),
     ("PERID",               "PERID"),
     ("AGEP",                "AGEP"),
@@ -86,7 +82,7 @@ if args.model_type == 'TM2':
     ("ESR",                 "ESR"),
     ("SCHG",                "SCHG"),
   ])
-
+}
 
 if __name__ == '__main__':
   pandas.options.display.width    = 180
@@ -96,6 +92,7 @@ if __name__ == '__main__':
   parser.add_argument("--model_type", type=str, help="Specifies TM1 or TM2")
   parser.add_argument("--model_year", type=int)
   parser.add_argument("--test_PUMA", type=str, help="Pass PUMA to output controls only for geographies relevant to a single PUMA, for testing")
+  parser.add_argument("--run_num",    help="Prefix for control filename")
   args = parser.parse_args()
 
   # create output dir if needed
@@ -186,15 +183,18 @@ if __name__ == '__main__':
       table_hh["type"] = "households"
       table_gq["type"] = "group_quarters"
       # add county summaries
-      county_hh_controls_df = pandas.read_csv(os.path.join("households","data","{}_COUNTY_controls.csv".format(args.model_year)))
+      county_controls_filename = os.path.join("households","data","{}_county_marginals_{}.csv".format(args.run_num, args.model_year))
+      county_hh_controls_df = pandas.read_csv(county_controls_filename)
       county_hh_controls_df = county_hh_controls_df[["COUNTY","pers_occ_management",
         "pers_occ_professional","pers_occ_services","pers_occ_retail","pers_occ_manual","pers_occ_military"]]
       county_hh_controls_df = county_hh_controls_df.melt(id_vars=["COUNTY"], var_name="variable", value_name="control")
       county_hh_controls_df.rename(columns={"COUNTY":"id"}, inplace=True)
-      print(county_hh_controls_df.head())
+      # print(county_hh_controls_df.head())
+
       county_hh_controls_df = pandas.merge(left=county_hh_controls_df, right=hh_pers_county_occ_summary, how="left")
+      county_hh_controls_df.fillna(value={"geography":"COUNTY", "type":"households", "result":0}, inplace=True)
       county_hh_controls_df["diff"] = county_hh_controls_df["result"] - county_hh_controls_df["control"]
-      print(county_hh_controls_df.head())
+      # print(county_hh_controls_df.head())
 
       county_hh_controls_df = county_hh_controls_df[ list(table_hh.columns) ]  # reorder columns to match
       table_hh = pandas.concat([table_hh, county_hh_controls_df])
@@ -204,10 +204,10 @@ if __name__ == '__main__':
 
     if filename=="synthetic_households.csv":
       # fix the columns up
-      concat_table = concat_table[HOUSING_COLUMNS.keys()].rename(columns=HOUSING_COLUMNS)
+      concat_table = concat_table[HOUSING_COLUMNS[args.model_type].keys()].rename(columns=HOUSING_COLUMNS[args.model_type])
     elif filename=="synthetic_persons.csv":
       # fix the columns up
-      concat_table = concat_table[PERSON_COLUMNS.keys()].rename(columns=PERSON_COLUMNS)
+      concat_table = concat_table[PERSON_COLUMNS[args.model_type].keys()].rename(columns=PERSON_COLUMNS[args.model_type])
       # set occp=0 to 999
       if args.model_type == 'TM2':
         concat_table.loc[concat_table.OCCP==0, "OCCP"] = 999
