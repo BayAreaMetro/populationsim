@@ -34,7 +34,7 @@ HOUSING_COLUMNS = {
   'TM1':collections.OrderedDict([
     ("HHID",                "HHID"), 
     ("TAZ",                 "TAZ"),
-    ("hinccat1",            "hinccat1"),
+   #("hinccat1",            "hinccat1"),  # commented out since this is added after hh+gq combine
     ("hh_income_2000",      "HINC"),
     ("hh_workers_from_esr", "hworkers"),
     ("VEH",                 "VEHICL"),
@@ -127,14 +127,6 @@ if __name__ == '__main__':
       print "Max housing record HHID: %d" % max_hhid
       table_gq["HHID"] = table_gq.unique_hh_id + max_hhid # start from max_hhid + 1
 
-      # add hinccat1 as variable for tm1, group hh_income_2000 by tm1 income categories
-      if args.model_type == 'TM1': 
-        table_hh['hinccat1'] = 999
-        table_hh.loc[ (table_hh.hh_income_2000>=0)&(table_hh.hh_income_2000<=19999), 'hinccat1'] = 1
-        table_hh.loc[ (table_hh.hh_income_2000>=20000)&(table_hh.hh_income_2000<=49999), 'hinccat1'] = 2
-        table_hh.loc[ (table_hh.hh_income_2000>=50000)&(table_hh.hh_income_2000<=999999), 'hinccat1'] = 3
-        table_hh.loc[ (table_hh.hh_income_2000>=100000), 'hinccat1'] = 4
-
       if args.model_type == 'TM1': 
         # the households doesn't have county so get county from crosswalk
         table_hh = pandas.merge(left=table_hh, right=geocrosswalk_df[["TAZ","COUNTY"]], how="left")
@@ -199,12 +191,24 @@ if __name__ == '__main__':
       county_hh_controls_df = county_hh_controls_df[ list(table_hh.columns) ]  # reorder columns to match
       table_hh = pandas.concat([table_hh, county_hh_controls_df])
 
+    # concatenate the household and group quarters tables
     concat_table = pandas.concat([table_hh, table_gq])
     concat_table.fillna(value=-9, inplace=True)
 
     if filename=="synthetic_households.csv":
       # fix the columns up
       concat_table = concat_table[HOUSING_COLUMNS[args.model_type].keys()].rename(columns=HOUSING_COLUMNS[args.model_type])
+
+      if args.model_type == 'TM1': 
+        # add hinccat1 as variable for tm1, group hh_income_2000 by tm1 income categories
+        concat_table['hinccat1'] = 0
+        concat_table.loc[                             (concat_table.HINC< 20000), 'hinccat1'] = 1
+        concat_table.loc[ (concat_table.HINC>= 20000)&(concat_table.HINC< 50000), 'hinccat1'] = 2
+        concat_table.loc[ (concat_table.HINC>= 50000)&(concat_table.HINC<100000), 'hinccat1'] = 3
+        concat_table.loc[ (concat_table.HINC>=100000)                           , 'hinccat1'] = 4
+        # recode -9 HHT to 0
+        concat_table.loc[ concat_table.HHT==-9, 'HHT'] = 0
+
     elif filename=="synthetic_persons.csv":
       # fix the columns up
       concat_table = concat_table[PERSON_COLUMNS[args.model_type].keys()].rename(columns=PERSON_COLUMNS[args.model_type])
