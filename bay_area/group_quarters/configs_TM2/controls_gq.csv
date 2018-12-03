@@ -3,4 +3,4 @@ gq_num_hh,MAZ,households,1000000000,gq_num_hh,(households.PWGTP > 0) & (househol
 gq_type_univ,MAZ,persons,10000000,gq_type_univ,persons.gqtype==1
 gq_type_mil,MAZ,persons,10000000,gq_type_mil,persons.gqtype==2
 gq_type_othnon,MAZ,persons,10000000,gq_type_othnon,persons.gqtype==3
-gq_num_hh_county,REGION,persons,1000,gq_num_hh_region,"persons.RT==""P"""
+gq_num_hh_region,REGION,persons,1000,gq_num_hh_region,"persons.RT==""P"""

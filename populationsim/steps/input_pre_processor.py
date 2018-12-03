@@ -60,6 +60,8 @@ def input_pre_processor():
     data_dir = data_dir_from_settings()
     model_year = inject.get_injectable("model_year", default=None)
     logger.info("model_year: %s" % model_year)
+    run_num = inject.get_injectable("run_num", default=None)
+    logger.info("run_num: %s" % run_num)
 
     for table_info in table_list:
 
@@ -72,6 +74,8 @@ def input_pre_processor():
         data_file_path = os.path.join(data_dir, data_filename)
         # replace "model_year" with string if it's defined
         if model_year: data_file_path = data_file_path.replace("model_year", model_year)
+        # replace "run_num" with string if it's defined
+        if run_num: data_file_path = data_file_path.replace("run_num", run_num)
 
         if not os.path.exists(data_file_path):
             raise RuntimeError("input_pre_processor %s - input file not found: %s"

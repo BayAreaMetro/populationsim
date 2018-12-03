@@ -59,6 +59,7 @@ NEW_HOUSING_RECORD_COLUMNS = [
     "hh_income_2010",       # household income in 2010 dollars, based on HINCP and ADJINC
     "unique_hh_id",         # integer unique id for housing unit, starting with 1
     "gqtype",               # group quarters type: 0: household (not gq), 1 college, 2 militar, 3 other
+    "hh_income_2000",       # household income in 2000 dollars for tm1
 ]
 
 # pums person record columns to keep
@@ -101,6 +102,10 @@ NEW_PERSON_RECORD_COLUMNS = [
     "WGTP",                 # from housing record
     "unique_hh_id",         # from housing record
     "gqtype",               # 0 is non gq person, 1 is college student, 2 is military, 3 is other
+    "employ_status",        # employment status for tm1. 1 is full-time worker, 2 is part-time worker, 3 is not in the labor force, 4 is student under 16
+    "student_status",       # student status for tm1. 1 is pre-school through grade 12 student, 2 is university/professional school student, 3 is non-student
+    "person_type",          # person type for tm1. 1 is full-time worker, 2 is part-time worker, 3 is college student, 4 is non-working adult, 
+                            # 5 is retired, 6 is driving-age student, 7 is non-driving age student, 8 is child too young for school
 ]
 
 import os, sys
@@ -248,6 +253,49 @@ if __name__ == '__main__':
     print pums_hu_df.head()
     print pums_pers_df.head()
 
+    # Employment status recode
+    #        b .N/A (less than 16 years old)
+    #        1 .Civilian employed, at work
+    #        2 .Civilian employed, with a job but not at work
+    #        3 .Unemployed
+    #        4 .Armed forces, at work
+    #        5 .Armed forces, with a job but not at work
+    #        6 .Not in labor force
+
+    # set employment status based on emplotment status recode, weeks worked per year, and hours worked per week
+    pums_pers_df['employ_status'] = 999
+    pums_pers_df.loc[ (pums_pers_df.ESR==1)|(pums_pers_df.ESR==2)|(pums_pers_df.ESR==4)|(pums_pers_df.ESR==5), 'employ_status'] = 2 # part-time worker
+    pums_pers_df.loc[ ((pums_pers_df.ESR==1)|(pums_pers_df.ESR==2)|(pums_pers_df.ESR==4)|(pums_pers_df.ESR==5))&((pums_pers_df.WKW==1)|(pums_pers_df.WKW==2)|(pums_pers_df.WKW==3)|(pums_pers_df.WKW==4))&
+                      (pums_pers_df.WKHP>=35), 'employ_status'] = 1 # full-time worker
+    pums_pers_df.loc[ (pums_pers_df.ESR==0), 'employ_status'] = 4 # student under 16
+    pums_pers_df.loc[ (pums_pers_df.ESR==6)|(pums_pers_df.ESR==3), 'employ_status'] = 3  # not in the labor force
+
+    # SCHG   Grade level attending
+    #      b .N/A (not attending school)
+    #      1 .Nursery school/preschool
+    #      2 .Kindergarten
+    #      3 .Grade 1 to grade 4
+    #      4 .Grade 5 to grade 8
+    #      5 .Grade 9 to grade 12
+    #      6 .College undergraduate
+    #      7 .Graduate or professional school  
+
+    # set student status based on school grade
+    pums_pers_df['student_status'] = 999
+    pums_pers_df.loc[ (pums_pers_df.SCHG==1)|(pums_pers_df.SCHG==2)|(pums_pers_df.SCHG==3)|(pums_pers_df.SCHG==4)|(pums_pers_df.SCHG==5), 'student_status'] = 1 # pre-school through grade 12 student
+    pums_pers_df.loc[ (pums_pers_df.SCHG==6)|(pums_pers_df.SCHG==7), 'student_status'] = 2 # university/professional school student
+    pums_pers_df.loc[ pandas.isnull(pums_pers_df.SCHG), 'student_status'] = 3 # non-student
+
+    # set person type based on employ status, student status, and age
+    pums_pers_df['person_type'] = 999
+    pums_pers_df['person_type'] = 5 # non-working senior
+    pums_pers_df.loc[ (pums_pers_df.AGEP<65), 'person_type'] = 4 # non-working adult
+    pums_pers_df.loc[ (pums_pers_df.employ_status==2), 'person_type'] = 2 # part-time worker
+    pums_pers_df.loc[ (pums_pers_df.student_status==1), 'person_type'] = 6  # driving-age student
+    pums_pers_df.loc[ (pums_pers_df.student_status==2)|((pums_pers_df.AGEP>=20)&(pums_pers_df.student_status==1)), 'person_type'] = 3 # college student
+    pums_pers_df.loc[ (pums_pers_df.employ_status==1), 'person_type'] = 1 # full-time worker
+    pums_pers_df.loc[ (pums_pers_df.AGEP<=15), 'person_type'] = 7 # non-driving under 16
+    pums_pers_df.loc[ (pums_pers_df.AGEP<6)&(pums_pers_df.student_status==3), 'person_type'] = 8 # pre-school
 
     # put income in constant year dollars (SQL says reported income * rolling reference factor * inflation adjustment)
     #
@@ -282,6 +330,9 @@ if __name__ == '__main__':
     pums_hu_df.loc[ pums_hu_df.ADJINC==1048026, 'hh_income_2010'] = pums_hu_df.HINCP/1.0 * 0.999480 * 1.04857143/1.03154279
     pums_hu_df.loc[ pums_hu_df.ADJINC==1039407, 'hh_income_2010'] = pums_hu_df.HINCP/1.0 * 1.007624 * 1.03154279/1.03154279
     pums_hu_df.loc[ pums_hu_df.ADJINC==1018237, 'hh_income_2010'] = pums_hu_df.HINCP/1.0 * 1.018237 * 1.00000000/1.03154279
+
+    # add household income in 2000 dollars, by deflating hh_income_2010 
+    pums_hu_df['hh_income_2000'] = pums_hu_df['hh_income_2010']*.79219238
 
     # extract the occupation code -- first two characters
     pums_pers_df['soc'] = pums_pers_df.socp00                                   # start with SOC 2000
@@ -349,6 +400,7 @@ if __name__ == '__main__':
     pums_pers_hh_df = pandas.merge(left =pums_pers_hh_df,
                                    right=pums_hu_hh_df[['SERIALNO','WGTP','unique_hh_id']],
                                    how  ="left")
+
     # one last downcast
     clean_types(pums_hu_hh_df)
     clean_types(pums_pers_hh_df)

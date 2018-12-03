@@ -21,7 +21,8 @@ from populationsim import multi_integerizer
 
 # handle model year as argument
 parser = argparse.ArgumentParser()
-parser.add_argument("-y","--model_year",help="model year")
+parser.add_argument("-y","--model_year", help="model year")
+parser.add_argument("--run_num", help="urbansim run number for the control files")
 
 # Add (and handle) 'standard' activitysim arguments:
 #     --config : specify path to config_dir
@@ -31,6 +32,7 @@ parser.add_argument("-y","--model_year",help="model year")
 #     --resume : resume_after
 args = handle_standard_args(parser)
 inject.add_injectable("model_year", args.model_year)
+inject.add_injectable("run_num", args.run_num)
 
 tracing.config_logger()
 
