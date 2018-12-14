@@ -1,7 +1,10 @@
 <?xml version='1.0' encoding='utf-8' ?>
 
-<!-- build 20182.18.0627.2230                               -->
-<workbook original-version='18.1' source-build='2018.2.0 (20182.18.0627.2230)' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+<!-- build 20183.18.1128.2033                               -->
+<workbook original-version='18.1' source-build='2018.3.1 (20183.18.1128.2033)' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <document-format-change-manifest>
+    <WindowsPersistSimpleIdentifiers />
+  </document-format-change-manifest>
   <preferences>
     <preference name='ui.encoding.shelf.height' value='24' />
     <preference name='ui.shelf.height' value='26' />
@@ -183,7 +186,7 @@
       <column datatype='integer' name='[Number of Records]' role='measure' type='quantitative' user:auto-column='numrec'>
         <calculation class='tableau' formula='1' />
       </column>
-      <column datatype='integer' name='[Nwrkrs Esr (bin)]' role='dimension' type='quantitative'>
+      <column aggregation='None' datatype='integer' name='[Nwrkrs Esr (bin)]' role='dimension' type='quantitative'>
         <calculation class='bin' decimals='0' formula='[NWRKRS_ESR]' peg='0' size='1.6' />
       </column>
       <column aggregation='Sum' datatype='integer' name='[TAZ]' role='dimension' type='ordinal' />
@@ -375,321 +378,11 @@
         <semantic-value key='[Country].[Name]' value='&quot;United States&quot;' />
       </semantic-values>
     </datasource>
-    <datasource caption='seed_households' inline='true' name='federated.1ut3wgp18b1o0314ziimw1c62ce0' version='18.1'>
-      <connection class='federated'>
-        <named-connections>
-          <named-connection caption='seed_households' name='textscan.0240fbz1o94g531grsn3j0s7liwf'>
-            <connection class='textscan' directory='C:/Users/lzorn/Documents/populationsim/bay_area/households/data' filename='seed_households.csv' password='' server='' />
-          </named-connection>
-        </named-connections>
-        <relation connection='textscan.0240fbz1o94g531grsn3j0s7liwf' name='seed_households.csv' table='[seed_households#csv]' type='table'>
-          <columns character-set='UTF-8' header='yes' locale='en_US' separator=','>
-            <column datatype='string' name='RT' ordinal='0' />
-            <column datatype='integer' name='SERIALNO' ordinal='1' />
-            <column datatype='integer' name='DIVISION' ordinal='2' />
-            <column datatype='integer' name='PUMA' ordinal='3' />
-            <column datatype='integer' name='REGION' ordinal='4' />
-            <column datatype='integer' name='ST' ordinal='5' />
-            <column datatype='integer' name='ADJINC' ordinal='6' />
-            <column datatype='integer' name='WGTP' ordinal='7' />
-            <column datatype='integer' name='NP' ordinal='8' />
-            <column datatype='integer' name='TYPE' ordinal='9' />
-            <column datatype='integer' name='BLD' ordinal='10' />
-            <column datatype='integer' name='HHT' ordinal='11' />
-            <column datatype='integer' name='HINCP' ordinal='12' />
-            <column datatype='integer' name='HUPAC' ordinal='13' />
-            <column datatype='real' name='NPF' ordinal='14' />
-            <column datatype='integer' name='TEN' ordinal='15' />
-            <column datatype='integer' name='VEH' ordinal='16' />
-            <column datatype='integer' name='COUNTY' ordinal='17' />
-            <column datatype='integer' name='hh_workers_from_esr' ordinal='18' />
-            <column datatype='real' name='hh_income_2010' ordinal='19' />
-            <column datatype='integer' name='unique_hh_id' ordinal='20' />
-          </columns>
-        </relation>
-        <metadata-records>
-          <metadata-record class='capability'>
-            <remote-name />
-            <remote-type>0</remote-type>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias />
-            <aggregation>Count</aggregation>
-            <contains-null>true</contains-null>
-            <attributes>
-              <attribute datatype='string' name='character-set'>&quot;UTF-8&quot;</attribute>
-              <attribute datatype='string' name='collation'>&quot;en_US&quot;</attribute>
-              <attribute datatype='string' name='field-delimiter'>&quot;,&quot;</attribute>
-              <attribute datatype='string' name='header-row'>&quot;true&quot;</attribute>
-              <attribute datatype='string' name='locale'>&quot;en_US&quot;</attribute>
-              <attribute datatype='string' name='single-char'>&quot;&quot;</attribute>
-            </attributes>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>RT</remote-name>
-            <remote-type>129</remote-type>
-            <local-name>[RT]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>RT</remote-alias>
-            <ordinal>0</ordinal>
-            <local-type>string</local-type>
-            <aggregation>Count</aggregation>
-            <scale>1</scale>
-            <width>1073741823</width>
-            <contains-null>true</contains-null>
-            <collation flag='0' name='LEN_RUS' />
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>SERIALNO</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[SERIALNO]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>SERIALNO</remote-alias>
-            <ordinal>1</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>DIVISION</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[DIVISION]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>DIVISION</remote-alias>
-            <ordinal>2</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>PUMA</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[PUMA]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>PUMA</remote-alias>
-            <ordinal>3</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>REGION</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[REGION]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>REGION</remote-alias>
-            <ordinal>4</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>ST</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[ST]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>ST</remote-alias>
-            <ordinal>5</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>ADJINC</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[ADJINC]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>ADJINC</remote-alias>
-            <ordinal>6</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>WGTP</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[WGTP]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>WGTP</remote-alias>
-            <ordinal>7</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>NP</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[NP]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>NP</remote-alias>
-            <ordinal>8</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>TYPE</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[TYPE]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>TYPE</remote-alias>
-            <ordinal>9</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>BLD</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[BLD]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>BLD</remote-alias>
-            <ordinal>10</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>HHT</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[HHT]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>HHT</remote-alias>
-            <ordinal>11</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>HINCP</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[HINCP]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>HINCP</remote-alias>
-            <ordinal>12</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>HUPAC</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[HUPAC]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>HUPAC</remote-alias>
-            <ordinal>13</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>NPF</remote-name>
-            <remote-type>5</remote-type>
-            <local-name>[NPF]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>NPF</remote-alias>
-            <ordinal>14</ordinal>
-            <local-type>real</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>TEN</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[TEN]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>TEN</remote-alias>
-            <ordinal>15</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>VEH</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[VEH]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>VEH</remote-alias>
-            <ordinal>16</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>COUNTY</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[COUNTY]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>COUNTY</remote-alias>
-            <ordinal>17</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>hh_workers_from_esr</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[hh_workers_from_esr]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>hh_workers_from_esr</remote-alias>
-            <ordinal>18</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>hh_income_2010</remote-name>
-            <remote-type>5</remote-type>
-            <local-name>[hh_income_2010]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>hh_income_2010</remote-alias>
-            <ordinal>19</ordinal>
-            <local-type>real</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-          <metadata-record class='column'>
-            <remote-name>unique_hh_id</remote-name>
-            <remote-type>20</remote-type>
-            <local-name>[unique_hh_id]</local-name>
-            <parent-name>[seed_households.csv]</parent-name>
-            <remote-alias>unique_hh_id</remote-alias>
-            <ordinal>20</ordinal>
-            <local-type>integer</local-type>
-            <aggregation>Sum</aggregation>
-            <contains-null>true</contains-null>
-          </metadata-record>
-        </metadata-records>
-      </connection>
-      <aliases enabled='yes' />
-      <column caption='Adjinc' datatype='integer' name='[ADJINC]' role='measure' type='quantitative' />
-      <column caption='County' datatype='integer' name='[COUNTY]' role='measure' type='quantitative' />
-      <column caption='inc_cat' datatype='string' name='[Calculation_1338413560381358080]' role='dimension' type='nominal'>
-        <calculation class='tableau' formula='if ([hh_income_2010]&lt;30000) then&#13;&#10;  &quot;hh_inc_30&quot;&#13;&#10;ELSEIF ([hh_income_2010]&lt;60000) then&#13;&#10;  &quot;hh_inc_30_60&quot;&#13;&#10;elseif ([hh_income_2010]&lt;100000) then&#13;&#10;  &quot;hh_inc_60_100&quot;&#13;&#10;ELSE&#13;&#10;  &quot;hh_inc_100_plus&quot;&#13;&#10;END' />
-      </column>
-      <column caption='Division' datatype='integer' name='[DIVISION]' role='measure' type='quantitative' />
-      <column caption='Hincp' datatype='integer' name='[HINCP]' role='measure' type='quantitative' />
-      <column caption='Hupac' datatype='integer' name='[HUPAC]' role='measure' type='quantitative' />
-      <column datatype='integer' name='[Number of Records]' role='measure' type='quantitative' user:auto-column='numrec'>
-        <calculation class='tableau' formula='1' />
-      </column>
-      <column caption='Puma' datatype='integer' name='[PUMA]' role='measure' type='quantitative' />
-      <column caption='Region' datatype='integer' name='[REGION]' role='measure' type='quantitative' />
-      <column caption='Serialno' datatype='integer' name='[SERIALNO]' role='measure' type='quantitative' />
-      <column caption='Type' datatype='integer' name='[TYPE]' role='measure' type='quantitative' />
-      <column caption='Wgtp' datatype='integer' name='[WGTP]' role='measure' type='quantitative' />
-      <column aggregation='Sum' caption='Hh Income 2010' datatype='real' name='[hh_income_2010]' role='dimension' type='ordinal' />
-      <column caption='Hh Workers From Esr' datatype='integer' name='[hh_workers_from_esr]' role='measure' type='quantitative' />
-      <column caption='Unique Hh Id' datatype='integer' name='[unique_hh_id]' role='dimension' type='ordinal' />
-      <layout dim-ordering='alphabetic' dim-percentage='0.204678' measure-ordering='alphabetic' measure-percentage='0.795322' show-structure='true' />
-      <semantic-values>
-        <semantic-value key='[Country].[Name]' value='&quot;United States&quot;' />
-      </semantic-values>
-    </datasource>
     <datasource caption='seed_persons' inline='true' name='federated.1asbmn61ym536x1dqogik0gu0vtb' version='18.1'>
       <connection class='federated'>
         <named-connections>
           <named-connection caption='seed_persons' name='textscan.0bw6nqk038lhyy1c1sv9i0hy6qq5'>
-            <connection class='textscan' directory='C:/Users/lzorn/Documents/populationsim/bay_area/households/data' filename='seed_persons.csv' password='' server='' />
+            <connection class='textscan' directory='X:/populationsim/bay_area/households/data' filename='seed_persons.csv' password='' server='' />
           </named-connection>
         </named-connections>
         <relation connection='textscan.0bw6nqk038lhyy1c1sv9i0hy6qq5' name='seed_persons.csv' table='[seed_persons#csv]' type='table'>
@@ -723,12 +416,15 @@
             <column datatype='string' name='occp10' ordinal='26' />
             <column datatype='integer' name='COUNTY' ordinal='27' />
             <column datatype='integer' name='employed' ordinal='28' />
-            <column datatype='real' name='soc' ordinal='29' />
-            <column datatype='integer' name='occupation' ordinal='30' />
-            <column datatype='integer' name='TYPE' ordinal='31' />
-            <column datatype='integer' name='gqtype' ordinal='32' />
-            <column datatype='integer' name='WGTP' ordinal='33' />
-            <column datatype='integer' name='unique_hh_id' ordinal='34' />
+            <column datatype='integer' name='employ_status' ordinal='29' />
+            <column datatype='integer' name='student_status' ordinal='30' />
+            <column datatype='integer' name='person_type' ordinal='31' />
+            <column datatype='real' name='soc' ordinal='32' />
+            <column datatype='integer' name='occupation' ordinal='33' />
+            <column datatype='integer' name='TYPE' ordinal='34' />
+            <column datatype='integer' name='gqtype' ordinal='35' />
+            <column datatype='integer' name='WGTP' ordinal='36' />
+            <column datatype='integer' name='unique_hh_id' ordinal='37' />
           </columns>
         </relation>
         <metadata-records>
@@ -1086,12 +782,45 @@
             <contains-null>true</contains-null>
           </metadata-record>
           <metadata-record class='column'>
+            <remote-name>employ_status</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[employ_status]</local-name>
+            <parent-name>[seed_persons.csv]</parent-name>
+            <remote-alias>employ_status</remote-alias>
+            <ordinal>29</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>student_status</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[student_status]</local-name>
+            <parent-name>[seed_persons.csv]</parent-name>
+            <remote-alias>student_status</remote-alias>
+            <ordinal>30</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>person_type</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[person_type]</local-name>
+            <parent-name>[seed_persons.csv]</parent-name>
+            <remote-alias>person_type</remote-alias>
+            <ordinal>31</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
             <remote-name>soc</remote-name>
             <remote-type>5</remote-type>
             <local-name>[soc]</local-name>
             <parent-name>[seed_persons.csv]</parent-name>
             <remote-alias>soc</remote-alias>
-            <ordinal>29</ordinal>
+            <ordinal>32</ordinal>
             <local-type>real</local-type>
             <aggregation>Sum</aggregation>
             <contains-null>true</contains-null>
@@ -1102,7 +831,7 @@
             <local-name>[occupation]</local-name>
             <parent-name>[seed_persons.csv]</parent-name>
             <remote-alias>occupation</remote-alias>
-            <ordinal>30</ordinal>
+            <ordinal>33</ordinal>
             <local-type>integer</local-type>
             <aggregation>Sum</aggregation>
             <contains-null>true</contains-null>
@@ -1113,7 +842,7 @@
             <local-name>[TYPE]</local-name>
             <parent-name>[seed_persons.csv]</parent-name>
             <remote-alias>TYPE</remote-alias>
-            <ordinal>31</ordinal>
+            <ordinal>34</ordinal>
             <local-type>integer</local-type>
             <aggregation>Sum</aggregation>
             <contains-null>true</contains-null>
@@ -1124,7 +853,7 @@
             <local-name>[gqtype]</local-name>
             <parent-name>[seed_persons.csv]</parent-name>
             <remote-alias>gqtype</remote-alias>
-            <ordinal>32</ordinal>
+            <ordinal>35</ordinal>
             <local-type>integer</local-type>
             <aggregation>Sum</aggregation>
             <contains-null>true</contains-null>
@@ -1135,7 +864,7 @@
             <local-name>[WGTP]</local-name>
             <parent-name>[seed_persons.csv]</parent-name>
             <remote-alias>WGTP</remote-alias>
-            <ordinal>33</ordinal>
+            <ordinal>36</ordinal>
             <local-type>integer</local-type>
             <aggregation>Sum</aggregation>
             <contains-null>true</contains-null>
@@ -1146,7 +875,7 @@
             <local-name>[unique_hh_id]</local-name>
             <parent-name>[seed_persons.csv]</parent-name>
             <remote-alias>unique_hh_id</remote-alias>
-            <ordinal>34</ordinal>
+            <ordinal>37</ordinal>
             <local-type>integer</local-type>
             <aggregation>Sum</aggregation>
             <contains-null>true</contains-null>
@@ -1184,7 +913,330 @@
       <column caption='Socp00' datatype='string' name='[socp00]' role='dimension' type='nominal' />
       <column caption='Socp10' datatype='string' name='[socp10]' role='dimension' type='nominal' />
       <column caption='Unique Hh Id' datatype='integer' name='[unique_hh_id]' role='dimension' type='ordinal' />
-      <layout dim-ordering='alphabetic' dim-percentage='0.368421' measure-ordering='alphabetic' measure-percentage='0.631579' show-structure='true' />
+      <layout dim-ordering='alphabetic' dim-percentage='0.221831' measure-ordering='alphabetic' measure-percentage='0.778169' show-structure='true' />
+      <semantic-values>
+        <semantic-value key='[Country].[Name]' value='&quot;United States&quot;' />
+      </semantic-values>
+    </datasource>
+    <datasource caption='seed_households' inline='true' name='federated.1ut3wgp18b1o0314ziimw1c62ce0' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='seed_households' name='textscan.0240fbz1o94g531grsn3j0s7liwf'>
+            <connection class='textscan' directory='X:/populationsim/bay_area/households/data' filename='seed_households.csv' password='' server='' />
+          </named-connection>
+        </named-connections>
+        <relation connection='textscan.0240fbz1o94g531grsn3j0s7liwf' name='seed_households.csv' table='[seed_households#csv]' type='table'>
+          <columns character-set='UTF-8' header='yes' locale='en_US' separator=','>
+            <column datatype='string' name='RT' ordinal='0' />
+            <column datatype='integer' name='SERIALNO' ordinal='1' />
+            <column datatype='integer' name='DIVISION' ordinal='2' />
+            <column datatype='integer' name='PUMA' ordinal='3' />
+            <column datatype='integer' name='REGION' ordinal='4' />
+            <column datatype='integer' name='ST' ordinal='5' />
+            <column datatype='integer' name='ADJINC' ordinal='6' />
+            <column datatype='integer' name='WGTP' ordinal='7' />
+            <column datatype='integer' name='NP' ordinal='8' />
+            <column datatype='integer' name='TYPE' ordinal='9' />
+            <column datatype='integer' name='BLD' ordinal='10' />
+            <column datatype='integer' name='HHT' ordinal='11' />
+            <column datatype='integer' name='HINCP' ordinal='12' />
+            <column datatype='integer' name='HUPAC' ordinal='13' />
+            <column datatype='real' name='NPF' ordinal='14' />
+            <column datatype='integer' name='TEN' ordinal='15' />
+            <column datatype='integer' name='VEH' ordinal='16' />
+            <column datatype='integer' name='COUNTY' ordinal='17' />
+            <column datatype='integer' name='hh_workers_from_esr' ordinal='18' />
+            <column datatype='real' name='hh_income_2010' ordinal='19' />
+            <column datatype='real' name='hh_income_2000' ordinal='20' />
+            <column datatype='integer' name='unique_hh_id' ordinal='21' />
+          </columns>
+        </relation>
+        <metadata-records>
+          <metadata-record class='capability'>
+            <remote-name />
+            <remote-type>0</remote-type>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias />
+            <aggregation>Count</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='character-set'>&quot;UTF-8&quot;</attribute>
+              <attribute datatype='string' name='collation'>&quot;en_US&quot;</attribute>
+              <attribute datatype='string' name='field-delimiter'>&quot;,&quot;</attribute>
+              <attribute datatype='string' name='header-row'>&quot;true&quot;</attribute>
+              <attribute datatype='string' name='locale'>&quot;en_US&quot;</attribute>
+              <attribute datatype='string' name='single-char'>&quot;&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>RT</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[RT]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>RT</remote-alias>
+            <ordinal>0</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <scale>1</scale>
+            <width>1073741823</width>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='LEN_RUS' />
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>SERIALNO</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[SERIALNO]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>SERIALNO</remote-alias>
+            <ordinal>1</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>DIVISION</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[DIVISION]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>DIVISION</remote-alias>
+            <ordinal>2</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>PUMA</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[PUMA]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>PUMA</remote-alias>
+            <ordinal>3</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>REGION</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[REGION]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>REGION</remote-alias>
+            <ordinal>4</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>ST</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[ST]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>ST</remote-alias>
+            <ordinal>5</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>ADJINC</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[ADJINC]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>ADJINC</remote-alias>
+            <ordinal>6</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>WGTP</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[WGTP]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>WGTP</remote-alias>
+            <ordinal>7</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>NP</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[NP]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>NP</remote-alias>
+            <ordinal>8</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>TYPE</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[TYPE]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>TYPE</remote-alias>
+            <ordinal>9</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>BLD</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[BLD]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>BLD</remote-alias>
+            <ordinal>10</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>HHT</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[HHT]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>HHT</remote-alias>
+            <ordinal>11</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>HINCP</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[HINCP]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>HINCP</remote-alias>
+            <ordinal>12</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>HUPAC</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[HUPAC]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>HUPAC</remote-alias>
+            <ordinal>13</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>NPF</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[NPF]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>NPF</remote-alias>
+            <ordinal>14</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>TEN</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[TEN]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>TEN</remote-alias>
+            <ordinal>15</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>VEH</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[VEH]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>VEH</remote-alias>
+            <ordinal>16</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>COUNTY</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[COUNTY]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>COUNTY</remote-alias>
+            <ordinal>17</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_workers_from_esr</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_workers_from_esr]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>hh_workers_from_esr</remote-alias>
+            <ordinal>18</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_income_2010</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[hh_income_2010]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>hh_income_2010</remote-alias>
+            <ordinal>19</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_income_2000</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[hh_income_2000]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>hh_income_2000</remote-alias>
+            <ordinal>20</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>unique_hh_id</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[unique_hh_id]</local-name>
+            <parent-name>[seed_households.csv]</parent-name>
+            <remote-alias>unique_hh_id</remote-alias>
+            <ordinal>21</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+          </metadata-record>
+        </metadata-records>
+      </connection>
+      <aliases enabled='yes' />
+      <column caption='Adjinc' datatype='integer' name='[ADJINC]' role='measure' type='quantitative' />
+      <column caption='County' datatype='integer' name='[COUNTY]' role='measure' type='quantitative' />
+      <column caption='inc_cat' datatype='string' name='[Calculation_1338413560381358080]' role='dimension' type='nominal'>
+        <calculation class='tableau' formula='if ([hh_income_2010]&lt;30000) then&#13;&#10;  &quot;hh_inc_30&quot;&#13;&#10;ELSEIF ([hh_income_2010]&lt;60000) then&#13;&#10;  &quot;hh_inc_30_60&quot;&#13;&#10;elseif ([hh_income_2010]&lt;100000) then&#13;&#10;  &quot;hh_inc_60_100&quot;&#13;&#10;ELSE&#13;&#10;  &quot;hh_inc_100_plus&quot;&#13;&#10;END' />
+      </column>
+      <column caption='Division' datatype='integer' name='[DIVISION]' role='measure' type='quantitative' />
+      <column caption='Hincp' datatype='integer' name='[HINCP]' role='measure' type='quantitative' />
+      <column caption='Hupac' datatype='integer' name='[HUPAC]' role='measure' type='quantitative' />
+      <column datatype='integer' name='[Number of Records]' role='measure' type='quantitative' user:auto-column='numrec'>
+        <calculation class='tableau' formula='1' />
+      </column>
+      <column caption='Puma' datatype='integer' name='[PUMA]' role='measure' type='quantitative' />
+      <column caption='Region' datatype='integer' name='[REGION]' role='measure' type='quantitative' />
+      <column caption='Serialno' datatype='integer' name='[SERIALNO]' role='measure' type='quantitative' />
+      <column caption='Type' datatype='integer' name='[TYPE]' role='measure' type='quantitative' />
+      <column caption='Wgtp' datatype='integer' name='[WGTP]' role='measure' type='quantitative' />
+      <column aggregation='Sum' datatype='real' name='[hh_income_2000]' role='dimension' type='ordinal' />
+      <column aggregation='Sum' caption='Hh Income 2010' datatype='real' name='[hh_income_2010]' role='dimension' type='ordinal' />
+      <column caption='Hh Workers From Esr' datatype='integer' name='[hh_workers_from_esr]' role='measure' type='quantitative' />
+      <column caption='Unique Hh Id' datatype='integer' name='[unique_hh_id]' role='dimension' type='ordinal' />
+      <layout dim-ordering='alphabetic' dim-percentage='0.314554' measure-ordering='alphabetic' measure-percentage='0.685446' show-structure='true' />
       <semantic-values>
         <semantic-value key='[Country].[Name]' value='&quot;United States&quot;' />
       </semantic-values>
@@ -1233,9 +1285,10 @@
             </column>
             <column caption='Wgtp' datatype='integer' name='[WGTP]' role='measure' type='quantitative' />
             <column-instance column='[unique_hh_id]' derivation='Attribute' name='[attr:unique_hh_id:qk]' pivot='key' type='quantitative' />
+            <column aggregation='Sum' datatype='real' name='[hh_income_2000]' role='dimension' type='ordinal' />
             <column aggregation='Sum' caption='Hh Income 2010' datatype='real' name='[hh_income_2010]' role='dimension' type='ordinal' />
             <column-instance column='[Calculation_1338413560381358080]' derivation='None' name='[none:Calculation_1338413560381358080:nk]' pivot='key' type='nominal' />
-            <column-instance column='[hh_income_2010]' derivation='None' name='[none:hh_income_2010:ok]' pivot='key' type='ordinal' />
+            <column-instance column='[hh_income_2000]' derivation='None' name='[none:hh_income_2000:ok]' pivot='key' type='ordinal' />
             <column-instance column='[WGTP]' derivation='Sum' name='[pcto:cum:sum:WGTP:qk]' pivot='key' type='quantitative'>
               <table-calc aggregation='Sum' ordering-type='Rows' type='CumTotal' />
               <table-calc ordering-type='Rows' type='PctTotal' />
@@ -1243,7 +1296,7 @@
             <column caption='Unique Hh Id' datatype='integer' name='[unique_hh_id]' role='dimension' type='ordinal' />
           </datasource-dependencies>
           <filter class='categorical' column='[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:Calculation_1338413560381358080:nk]'>
-            <groupfilter function='member' level='[none:Calculation_1338413560381358080:nk]' member='&quot;hh_inc_100_plus&quot;' user:ui-domain='relevant' user:ui-enumeration='inclusive' user:ui-marker='enumerate' />
+            <groupfilter function='member' level='[none:Calculation_1338413560381358080:nk]' member='&quot;hh_inc_30&quot;' user:ui-domain='relevant' user:ui-enumeration='inclusive' user:ui-marker='enumerate' />
           </filter>
           <slices>
             <column>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:Calculation_1338413560381358080:nk]</column>
@@ -1263,12 +1316,12 @@
           </pane>
         </panes>
         <rows>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[pcto:cum:sum:WGTP:qk]</rows>
-        <cols>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:hh_income_2010:ok]</cols>
+        <cols>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:hh_income_2000:ok]</cols>
       </table>
     </worksheet>
   </worksheets>
   <windows source-height='93'>
-    <window class='worksheet' name='hh_income_medians'>
+    <window class='worksheet' maximized='true' name='hh_income_medians'>
       <cards>
         <edge name='left'>
           <strip size='160'>
@@ -1292,42 +1345,18 @@
       </cards>
       <viewpoint>
         <zoom type='fit-width' />
-        <selection-collection>
-          <tuple-selection>
-            <tuple-reference>
-              <tuple-descriptor>
-                <pane-descriptor>
-                  <x-fields>
-                    <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:hh_income_2010:ok]</field>
-                  </x-fields>
-                  <y-fields>
-                    <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[pcto:cum:sum:WGTP:qk]</field>
-                  </y-fields>
-                </pane-descriptor>
-                <columns>
-                  <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:hh_income_2010:ok]</field>
-                  <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[attr:unique_hh_id:qk]</field>
-                  <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[pcto:cum:sum:WGTP:qk]</field>
-                </columns>
-              </tuple-descriptor>
-              <tuple>
-                <value>155227.03761326964</value>
-                <value>26603</value>
-                <value>0.50108156584161812</value>
-              </tuple>
-            </tuple-reference>
-          </tuple-selection>
-        </selection-collection>
         <highlight>
           <color-one-way>
             <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:Calculation_1338413560381358080:nk]</field>
+            <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:hh_income_2000:ok]</field>
             <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:hh_income_2010:ok]</field>
             <field>[federated.1ut3wgp18b1o0314ziimw1c62ce0].[none:unique_hh_id:ok]</field>
           </color-one-way>
         </highlight>
       </viewpoint>
+      <simple-id uuid='{11566CFC-C9D2-4A3B-86B3-04E42E523D6F}' />
     </window>
-    <window class='worksheet' maximized='true' name='age_median'>
+    <window class='worksheet' name='age_median'>
       <cards>
         <edge name='left'>
           <strip size='160'>
@@ -1357,6 +1386,7 @@
         </highlight>
         <floating-toolbar-visibility value='2' />
       </viewpoint>
+      <simple-id uuid='{E088E8C3-88FA-43F5-8805-6A052AE0E7F6}' />
     </window>
   </windows>
   <thumbnails>
@@ -1501,232 +1531,74 @@
     </thumbnail>
     <thumbnail height='192' name='hh_income_medians' width='192'>
       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
-      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
+      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
+      VqfyBikAAAAASUVORK5CYII=
     </thumbnail>
   </thumbnails>
 </workbook>
