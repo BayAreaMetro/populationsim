@@ -23,10 +23,10 @@ TAZ_DATA_CSV  = os.path.join("X:", "Petrale", "Output", "TAZ1454 2015 Land Use.c
 OUTPUT_PREFIX = "accessibilities_dummy"
 
 # median of weighted seed_households hh_income_2000; see populationsim\bay_area\households\data\helpful_seed_viewer.twb
-#    12878, hh_inc_30
-#    35282, hh_inc_30_60
-#    61799, hh_inc_60_100
-#   122820 hh_inc_100_plus
+#    12878  hh_inc_30
+#    35282  hh_inc_30_60
+#    61799  hh_inc_60_100
+#   122820  hh_inc_100_plus
 
 # https://github.com/BayAreaMetro/modeling-website/wiki/PopSynHousehold
 household = collections.OrderedDict([
