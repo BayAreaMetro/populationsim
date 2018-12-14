@@ -14,7 +14,8 @@ import collections, os
 import pandas
 
 # Set the working directory
-os.chdir('C:\\Users\\sisrae\\Documents\\GitHub\\populationsim\\bay_area')
+USERPROFILE = os.environ["USERPROFILE"]
+os.chdir = os.path.join(USERPROFILE,"Documents","GitHub","populationsim","bay_area")   
 
 # household HHID,TAZ,HINC,hworkers,PERSONS,HHT,VEHICL,hinccat1
 # persons   HHID,PERID,AGE,SEX,pemploy,pstudent,ptype 
