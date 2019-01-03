@@ -12,7 +12,8 @@ setlocal EnableDelayedExpansion
 set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
-set BAUS_RUNNUM=run19
+set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Application\Bay Area UrbanSim 1.5\Horizon\Output\Clean and Green (S1)\2018 12 21
+set BAUS_RUNNUM=run14
 
 :: assume argument is year
 set YEARS=%1
@@ -38,11 +39,6 @@ if "%TEST_PUMA%" NEQ "" (
 
 :: copy over 2015 baseyear controls from petrale
 set PETRALEPATH=X:\petrale
-copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars.csv"        households\data\census_taz_summaries_2015.csv
-copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars County.csv" households\data\census_county_marginals_2015.csv
-
-copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars.csv"        group_quarters\data\census_taz_summaries_2015.csv
-copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars Region.csv" group_quarters\data\census_regional_marginals_2015.csv
 
 :create_seed
 python create_seed_population.py
@@ -55,16 +51,25 @@ for %%Y in (!YEARS!) do (
 
   rem Use UrbanSim run number except for base year -- then use census
   set RUN_NUM=!BAUS_RUNNUM!
-  if !YEAR!==2015 (set RUN_NUM=census)
+  if !YEAR!==2015 (
+    set RUN_NUM=census
+    copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars.csv"        households\data\census_taz_summaries_2015.csv
+    copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars County.csv" households\data\census_county_marginals_2015.csv
+
+    copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars.csv"        group_quarters\data\census_taz_summaries_2015.csv
+    copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars Region.csv" group_quarters\data\census_regional_marginals_2015.csv
+  )
+  if !YEAR! GTR 2015 (
+    copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      households\data
+    copy "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"   households\data
+
+    copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      group_quarters\data
+    copy "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" group_quarters\data
+  )
   echo RUN_NUM=[!RUN_NUM!]
 
   rem create the final output directory
   if not exist output_!YEAR!!PUMA_SUFFIX! ( mkdir output_!YEAR!!PUMA_SUFFIX! )
-
-:: turned OFF while using UrbanSim controls instead of census data
-::  rem create controls
-::  python create_baseyear_controls.py !TEST_PUMA_FLAG! --model_year !YEAR!
-::  if ERRORLEVEL 1 goto error
 
   :: tm2 version can be updated to use UrbanSim (not census) controls
   rem check controls
