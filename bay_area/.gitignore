@@ -1,6 +1,8 @@
 group_quarters/data/seed_*
+group_quarters/data/run*
 group_quarters/output*
 households/data/seed_*
+households/data/run*
 households/output*
 mysql*
 output_*
