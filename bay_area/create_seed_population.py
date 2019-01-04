@@ -366,7 +366,7 @@ if __name__ == '__main__':
 
     # Remove vacant housing units
     pums_hu_df = pums_hu_df.loc[ pums_hu_df.NP != 0, :]
-    print "Filtered to %7d non-vacant housing record" % len(pums_hu_df)
+    print "Filtered to %7d non-vacant housing records" % len(pums_hu_df)
 
     # SERIALNO is never null
     assert( len(pums_hu_df.loc[   pandas.isnull(pums_hu_df.SERIALNO),   ['SERIALNO','WGTP','NP','TYPE']])==0)
@@ -380,40 +380,22 @@ if __name__ == '__main__':
     # note group quarters (TYPE>1) have zero weight
     assert( len(pums_hu_df.loc[ (pums_hu_df.WGTP>0)&(pums_hu_df.TYPE>1), ['SERIALNO','WGTP','NP','TYPE']])==0)
 
-    # split -- households (TYPE=1) and non institutional group quarters (TYPE=3).  Dropping TYPE=2.
-    pums_hu_hh_df = pums_hu_df.loc[ pums_hu_df.TYPE == 1, :].copy()
-    pums_hu_gq_df = pums_hu_df.loc[ pums_hu_df.TYPE == 3, :].copy()
-    # and persons -- add TYPE to pums_pers_df
+    # DON'T SPLIT households (TYPE=1) and non institutional group quarters (TYPE=3).  Just drop TYPE=2 (institional gq).
+    # add TYPE to pums_pers_df
     pums_pers_df = pandas.merge(left  = pums_pers_df,
                                 right = pums_hu_df[['SERIALNO','TYPE']],
                                 how   = "left")
-    pums_pers_hh_df = pums_pers_df.loc[ pums_pers_df.TYPE == 1, :].copy()
-    pums_pers_gq_df = pums_pers_df.loc[ pums_pers_df.TYPE == 3, :].copy()
-    pums_pers_hh_df["gqtype"] = 0
-    print "Split housing records into %d households and %d non-institutional group quarters" % (len(pums_hu_hh_df  ), len(pums_hu_gq_df  ))
-    print "Split person  records into %d households and %d non-institutional group quarters" % (len(pums_pers_hh_df), len(pums_pers_gq_df))
+    pums_hu_df   = pums_hu_df.loc[ (pums_hu_df.TYPE != 2), :]
+    pums_pers_df = pums_pers_df.loc[ pums_pers_df.TYPE != 2, :]
+    print "Filtered to %7d household and non-institutional group quarters housing records" % len(pums_hu_df)
 
     # give households unique id
-    pums_hu_hh_df.reset_index(drop=True,inplace=True)
-    pums_hu_hh_df['unique_hh_id'] = pums_hu_hh_df.index + 1  # start at 1
+    pums_hu_df.reset_index(drop=True,inplace=True)
+    pums_hu_df['unique_hh_id'] = pums_hu_df.index + 1  # start at 1
     # transfer unique_hh_id and WGTP to person records
-    pums_pers_hh_df = pandas.merge(left =pums_pers_hh_df,
-                                   right=pums_hu_hh_df[['SERIALNO','WGTP','unique_hh_id']],
-                                   how  ="left")
-
-    # one last downcast
-    clean_types(pums_hu_hh_df)
-    clean_types(pums_pers_hh_df)
-
-    # write households - housing records and person records
-    if not os.path.exists(os.path.join("households","data")): os.mkdir(os.path.join("households","data"))
-    outfile = os.path.join("households","data","seed_households.csv")
-    pums_hu_hh_df.to_csv(outfile, index=False)
-    print "Wrote household housing records to %s" % outfile
-
-    outfile = os.path.join("households","data","seed_persons.csv")
-    pums_pers_hh_df.to_csv(outfile, index=False)
-    print "Wrote household person  records to %s" % outfile
+    pums_pers_df = pandas.merge(left =pums_pers_df,
+                                right=pums_hu_df[['SERIALNO','WGTP','unique_hh_id']],
+                                how  ="left")
 
     # SCHG   Grade level attending
     #      b .N/A (not attending school)
@@ -435,32 +417,29 @@ if __name__ == '__main__':
     #      5 .No, never served in the military
     #
     # add gqtype to person: 1 is college student, 2 is military, 3 is other
-    pums_pers_gq_df["gqtype"] = 3
-    pums_pers_gq_df.loc[ (pums_pers_gq_df.MIL==1)                           , "gqtype"] = 2
-    pums_pers_gq_df.loc[ (pums_pers_gq_df.SCHG==6)|(pums_pers_gq_df.SCHG==7), "gqtype"] = 1
-    print pums_pers_gq_df.gqtype.value_counts()
-    # add gqtype, PWGT to housing record
-    pums_hu_gq_df = pandas.merge(left =pums_hu_gq_df,
-                                 right=pums_pers_gq_df[['SERIALNO','gqtype','PWGTP']],
-                                 how  ="left")
+    pums_pers_df["gqtype"] = 0  # non-gq
+    pums_pers_df.loc[ pums_pers_df.TYPE==3                                                  , "gqtype"] = 3
+    pums_pers_df.loc[ (pums_pers_df.TYPE==3)&(pums_pers_df.MIL==1)                          , "gqtype"] = 2
+    pums_pers_df.loc[ (pums_pers_df.TYPE==3)&((pums_pers_df.SCHG==6)|(pums_pers_df.SCHG==7)), "gqtype"] = 1
+    print pums_pers_df.gqtype.value_counts()
+    # add PWGT to housing record temporarily for group quarters folks since they lack housing weights WGTP
+    pums_hu_df = pandas.merge(left =pums_hu_df,
+                              right=pums_pers_df.loc[pums_pers_df.gqtype > 0, ['SERIALNO','PWGTP']],
+                              how  ="left")
+    # for group quarters people, household weight is 0.  Set to person weight for populationsim
+    pums_hu_df.loc[ pums_hu_df.TYPE==3, "WGTP"] = pums_hu_df.PWGTP
+    pums_hu_df.drop(columns=["PWGTP"], inplace=True)
 
-    # give households unique id
-    pums_hu_gq_df.reset_index(drop=True,inplace=True)
-    pums_hu_gq_df['unique_hh_id'] = pums_hu_gq_df.index + 1  # start at 1
-    # transfer unique_hh_id to person records
-    pums_pers_gq_df = pandas.merge(left =pums_pers_gq_df,
-                                   right=pums_hu_gq_df[['SERIALNO','unique_hh_id']],
-                                   how  ="left")
     # one last downcast
-    clean_types(pums_hu_gq_df)
-    clean_types(pums_pers_gq_df)
+    clean_types(pums_hu_df)
+    clean_types(pums_pers_df)
 
-    # write group quarters - housing records and person records
-    if not os.path.exists(os.path.join("group_quarters","data")): os.mkdir(os.path.join("group_quarters","data"))
-    outfile = os.path.join("group_quarters","data","seed_households.csv")
-    pums_hu_gq_df.to_csv(outfile, index=False)
-    print "Wrote group quarters housing records to %s" % outfile
+    # write combined housing records and person records
+    if not os.path.exists(os.path.join("hh_gq","data")): os.mkdir(os.path.join("hh_gq","data"))
+    outfile = os.path.join("hh_gq","data","seed_households.csv")
+    pums_hu_df.to_csv(outfile, index=False)
+    print "Wrote household and group quarters housing records to %s" % outfile
 
-    outfile = os.path.join("group_quarters","data","seed_persons.csv")
-    pums_pers_gq_df.to_csv(outfile, index=False)
-    print "Wrote group quarters person  records to %s" % outfile
+    outfile = os.path.join("hh_gq","data","seed_persons.csv")
+    pums_pers_df.to_csv(outfile, index=False)
+    print "Wrote household and group quarters person  records to %s" % outfile
