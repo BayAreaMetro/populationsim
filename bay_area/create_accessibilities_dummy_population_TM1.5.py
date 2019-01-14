@@ -20,8 +20,8 @@ import pandas
 # household HHID,TAZ,HINC,hworkers,PERSONS,HHT,VEHICL,hinccat1
 # persons   HHID,PERID,AGE,SEX,pemploy,pstudent,ptype 
 
-#TAZ_DATA_CSV  = os.path.join("X:", "Petrale", "Output", "TAZ1454 2015 Land Use.csv")
-TAZ_DATA_CSV  = "tazData.csv"
+TAZ_DATA_CSV  = os.path.join("X:\\", "petrale", "output", "TAZ1454 2015 Land Use.csv")
+# TAZ_DATA_CSV  = "tazData.csv"
 OUTPUT_PREFIX = "accessibilities_dummy"
 
 
