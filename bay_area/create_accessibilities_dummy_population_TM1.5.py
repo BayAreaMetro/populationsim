@@ -93,11 +93,12 @@ if __name__ == '__main__':
     # create the base household df
     #############################################################################################################
     household_df = pandas.DataFrame.from_dict(household)
-    household_df = replicate_df_for_variable(household_df, "ZONE", taz_list)
-    household_df = replicate_df_for_variable(household_df, "VEHICL",  [0,1,2])
-    household_df = replicate_df_for_variable(household_df, "AV_AVAIL",[0,1])
+    household_df = replicate_df_for_variable(household_df, "ZONE",         taz_list)
+    household_df = replicate_df_for_variable(household_df, "walk_subzone", [0,1,2])
+    household_df = replicate_df_for_variable(household_df, "VEHICL",       [0,1,2])
+    household_df = replicate_df_for_variable(household_df, "AV_AVAIL",     [0,1])
     household_df = household_df[((household_df.AV_AVAIL==0) & (household_df.VEHICL==0))|(household_df.VEHICL>0)]
-    household_df = household_df.sort_values(by=["ZONE","hinccat1","VEHICL","AV_AVAIL"])
+    household_df = household_df.sort_values(by=["ZONE","walk_subzone","hinccat1","VEHICL","AV_AVAIL"])
     household_df = household_df.reset_index(drop=True)
     household_df["HHID"] = household_df.index + 1
 
@@ -105,7 +106,7 @@ if __name__ == '__main__':
     household_df.rename(columns={"ZONE":"TAZ"}, inplace=True)
     
     # reorder columns
-    household_df = household_df[["HHID","TAZ","HINC","hworkers","PERSONS","HHT","VEHICL","hinccat1","AV_AVAIL"]]
+    household_df = household_df[["HHID","TAZ","walk_subzone","HINC","hworkers","PERSONS","HHT","VEHICL","hinccat1","AV_AVAIL"]]
     
     # print(household_df.head(10))
     outfile = "{}_households.csv".format(OUTPUT_PREFIX)
@@ -118,7 +119,6 @@ if __name__ == '__main__':
     household_model_df = household_df.copy()
     household_model_df = household_model_df.drop(columns=["HHT","hinccat1"])
     household_model_df = household_model_df.rename({"HHID": "hh_id", "TAZ": "taz","HINC":"income","PERSONS":"size","hworkers":"workers","VEHICL":"autos","AV_AVAIL":"autonomousVehicles"}, axis="columns")
-    household_model_df["walk_subzone"] = 1
     household_model_df["cdap_pattern"] = "MN"
     household_model_df["jtf_pattern"] = "0_tours"
     household_model_df["humanVehicles"] = household_model_df["autos"] - household_model_df["autonomousVehicles"]
