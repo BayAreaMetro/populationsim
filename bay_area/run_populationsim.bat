@@ -5,7 +5,7 @@
 ::
 :: e.g. run_populationsim 2010
 ::
-@echo on
+echo on
 setlocal EnableDelayedExpansion
 
 :: should be TM1 or TM2
@@ -13,8 +13,9 @@ set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Clean and Green (S1)\2019 01 23
-set BAUS_RUNNUM=run20
+set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Rising Tides Falling Fortunes (S2)\2019 01 24
+set BAUS_RUNNUM=run21
+set OUTPUT_SUFFIX=RisingTides_20190124_!BAUS_RUNNUM!
 
 :: assume argument is year
 set YEARS=%1
@@ -39,8 +40,10 @@ if "%TEST_PUMA%" NEQ "" (
 )
 
 :create_seed
-python create_seed_population.py
-if ERRORLEVEL 1 goto error
+if not exist hh_gq\data\seed_households.csv (
+  python create_seed_population.py
+  if ERRORLEVEL 1 goto error
+)
 
 :year_loop
 for %%Y in (!YEARS!) do (
@@ -70,8 +73,8 @@ for %%Y in (!YEARS!) do (
 
   :: tm2 version can be updated to use UrbanSim (not census) controls
   rem check controls
-  python check_controls.py --model_year !YEAR! --model_type !MODELTYPE! --run_num !RUN_NUM!
-  if ERRORLEVEL 1 goto error
+  :: python check_controls.py --model_year !YEAR! --model_type !MODELTYPE! --run_num !RUN_NUM!
+  :: if ERRORLEVEL 1 goto error
 
   :: tm2 version will require small changes to the config if using UrbanSim controls 
   rem synthesize households
@@ -82,6 +85,9 @@ for %%Y in (!YEARS!) do (
   rem put it together
   python combine_households_gq.py !TEST_PUMA_FLAG! --run_num !RUN_NUM! --model_type !MODELTYPE! --model_year !YEAR!
   if ERRORLEVEL 1 goto error
+
+  move output_!YEAR!        output_!YEAR!_!OUTPUT_SUFFIX!
+  move hh_gq\output_!YEAR!  hh_gq\output_!YEAR!_!OUTPUT_SUFFIX!
 )
 
 :success

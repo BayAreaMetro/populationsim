@@ -161,7 +161,7 @@ if __name__ == '__main__':
                                           6:"pers_occ_military"}}, inplace=True)
       print(pers_county_occ_summary.head())
 
-    elif filename=="summary_melt.csv":
+    elif filename=="summary_melt.csv" and False:
       # add county summaries
       county_controls_filename = os.path.join("hh_gq","data","{}_county_marginals_{}.csv".format(args.run_num, args.model_year))
       county_controls_df = pandas.read_csv(county_controls_filename)
