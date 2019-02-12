@@ -90,7 +90,7 @@ for %%Y in (!YEARS!) do (
   move hh_gq\output_!YEAR!  hh_gq\output_!YEAR!_!OUTPUT_SUFFIX!
   :: save input also
   copy /Y "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      "hh_gq\data\taz_summaries_!OUTPUT_SUFFIX!_!YEAR!.csv"
-  copy /Y "hh_gq\data\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" "hh_gq\data\taz_summaries_!OUTPUT_SUFFIX!_!YEAR!.csv"
+  copy /Y "hh_gq\data\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" "hh_gq\data\regional_marginals_!OUTPUT_SUFFIX!_!YEAR!.csv"
 )
 
 :success

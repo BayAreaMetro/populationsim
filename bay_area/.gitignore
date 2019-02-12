@@ -8,6 +8,8 @@ households/data/census*
 households/output*
 hh_gq/data/seed_*
 hh_gq/data/run*
+hh_gq/data/taz_summaries_*
+hh_gq/data/regional_marginals_*
 hh_gq/data/census*
 hh_gq/output*
 mysql*
