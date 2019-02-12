@@ -13,9 +13,9 @@ set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Rising Tides Falling Fortunes (S2)\2019 01 24
-set BAUS_RUNNUM=run21
-set OUTPUT_SUFFIX=RisingTides_20190124_!BAUS_RUNNUM!
+set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Rising Tides Falling Fortunes (S2)\2019 02 11
+set BAUS_RUNNUM=run99
+set OUTPUT_SUFFIX=RisingTides_20190211_!BAUS_RUNNUM!
 
 :: assume argument is year
 set YEARS=%1
@@ -88,6 +88,9 @@ for %%Y in (!YEARS!) do (
 
   move output_!YEAR!        output_!YEAR!_!OUTPUT_SUFFIX!
   move hh_gq\output_!YEAR!  hh_gq\output_!YEAR!_!OUTPUT_SUFFIX!
+  :: save input also
+  copy /Y "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      "hh_gq\data\taz_summaries_!OUTPUT_SUFFIX!_!YEAR!.csv"
+  copy /Y "hh_gq\data\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" "hh_gq\data\taz_summaries_!OUTPUT_SUFFIX!_!YEAR!.csv"
 )
 
 :success
