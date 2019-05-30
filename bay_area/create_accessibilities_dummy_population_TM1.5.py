@@ -22,7 +22,7 @@ import pandas
 
 TAZ_DATA_CSV  = os.path.join("X:\\", "petrale", "output", "TAZ1454 2015 Land Use.csv")
 # TAZ_DATA_CSV  = "tazData.csv"
-OUTPUT_PREFIX = "accessibilities_dummy"
+OUTPUT_PREFIX = "accessibilities_dummy_full"
 
 
 # median of weighted seed_households hh_income_2000; see populationsim\bay_area\households\data\helpful_seed_viewer.twb
@@ -46,7 +46,7 @@ persons = collections.OrderedDict([
     ("person_num",  [  0,  1]),     # Person number
     ("AGE",         [ 36, 37]),     # 36,37 years old
     ("SEX",         [  1,  1]),     # Male :p
-    ("pemploy",     [  1,  2]),     # Full- and part-time employee
+    ("pemploy",     [  1,  3]),     # Full-time worker and not in the labor force
     ("pstudent",    [  3,  3]),     # Not attending school
     ("ptype",       [  1,  2])      # Person type, full- and part-time worker
 ])
@@ -187,7 +187,7 @@ if __name__ == '__main__':
     
     # keep mandatory tours for FT workers and non-mandatory tours for PT workers
     individualTours_df = individualTours_df[((individualTours_df.pemploy==1) & (individualTours_df.tour_category=="MANDATORY"))|
-        ((individualTours_df.pemploy==2) & (individualTours_df.tour_category=="INDIVIDUAL_NON_MANDATORY"))]
+        ((individualTours_df.pemploy==3) & (individualTours_df.tour_category=="INDIVIDUAL_NON_MANDATORY"))]
     
     # merge household file so that we can set origin zone
     individualTours_df = pandas.merge(left=individualTours_df, right=household_df, on="HHID",how="outer")
