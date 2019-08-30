@@ -13,9 +13,9 @@ set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Clean and Green (S1)\2019 08 28 Futures Round 2 v0
-set BAUS_RUNNUM=run38
-set OUTPUT_SUFFIX=CleanAndGreen_20190828_!BAUS_RUNNUM!
+set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Clean and Green (S1)\2019 08 30 Futures Round 1 v2
+set BAUS_RUNNUM=run39
+set OUTPUT_SUFFIX=CleanAndGreen_20190830_!BAUS_RUNNUM!
 
 :: assume argument is year
 set YEARS=%1
