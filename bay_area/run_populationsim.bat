@@ -13,11 +13,9 @@ set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-::set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Back to the Future (S5)\2019 08 30 FR1 re-run v1 iteration 2
-:: Temporarily pull from \\lumodel\LUPSQL directly while Box is down
-set URBANSIMPATH=\\tsclient\O\w\bayarea_urbansim_three\runs
-set BAUS_RUNNUM=run44
-set OUTPUT_SUFFIX=BackToTheFuture_20190830_!BAUS_RUNNUM!
+set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Clean and Green (S1)\2019 08 30 FR1 re-run v1 iteration 2
+set BAUS_RUNNUM=run45
+set OUTPUT_SUFFIX=CleanAndGreen_20190830_!BAUS_RUNNUM!
 
 :: assume argument is year
 set YEARS=%1
