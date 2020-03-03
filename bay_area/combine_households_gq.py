@@ -39,7 +39,8 @@ HOUSING_COLUMNS = {
     ("hh_workers_from_esr", "hworkers"),
     ("VEH",                 "VEHICL"),
     ("NP",                  "PERSONS"),
-    ("HHT",                 "HHT")
+    ("HHT",                 "HHT"),
+    ("TYPE",                "UNITTYPE")
   ]),
   # http://bayareametro.github.io/travel-model-two/input/#households
   'TM2':collections.OrderedDict([
