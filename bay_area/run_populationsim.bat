@@ -13,9 +13,9 @@ set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\Horizon\Output\Back to the Future (S5)\2019 08 12 PPA v11 (PBA40pipeline)
-set BAUS_RUNNUM=run25
-set OUTPUT_SUFFIX=BackToTheFuture_20190812_!BAUS_RUNNUM!
+set URBANSIMPATH=na
+set BAUS_RUNNUM=na
+set OUTPUT_SUFFIX=2015_run20200424
 
 :: assume argument is year
 set YEARS=%1
@@ -54,9 +54,9 @@ for %%Y in (!YEARS!) do (
   set RUN_NUM=!BAUS_RUNNUM!
   if !YEAR!==2015 (
     set RUN_NUM=census
-    copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars.csv"          hh_gq\data\census_taz_summaries_2015.csv
-    copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\census_county_marginals_2015.csv
-    copy "%PETRALEPATH%\output\TAZ1454 2015 Popsim Vars Region.csv"   hh_gq\data\census_regional_marginals_2015.csv
+    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars.csv"          hh_gq\data\census_taz_summaries_2015.csv
+    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\census_county_marginals_2015.csv
+    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars Region.csv"   hh_gq\data\census_regional_marginals_2015.csv
   )
   if !YEAR! GTR 2015 (
     copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      hh_gq\data
