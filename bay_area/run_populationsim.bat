@@ -15,7 +15,7 @@ set MODELTYPE=TM1
 set PETRALEPATH=X:\petrale
 set URBANSIMPATH=na
 set BAUS_RUNNUM=na
-set OUTPUT_SUFFIX=2015_run20200424
+set OUTPUT_SUFFIX=run20200424
 
 :: assume argument is year
 set YEARS=%1
