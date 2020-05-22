@@ -10,8 +10,8 @@ set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set YEAR=2035
-set BAUS_RUNNUM=IPhi
-set OUTPUT_SUFFIX=PBA50_20200302_%BAUS_RUNNUM%
+set BAUS_RUNNUM=IP
+set OUTPUT_SUFFIX=PBA50_20200323_%BAUS_RUNNUM%
 
 :: Need to be able to import activitysim and populationsim
 :: Assume activitysim is cloned to %USERPROFILE%\Documents\GitHub
