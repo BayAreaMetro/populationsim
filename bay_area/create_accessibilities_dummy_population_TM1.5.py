@@ -20,7 +20,7 @@ import pandas
 # household HHID,TAZ,HINC,hworkers,PERSONS,HHT,VEHICL,hinccat1
 # persons   HHID,PERID,AGE,SEX,pemploy,pstudent,ptype 
 
-TAZ_DATA_CSV  = os.path.join("X:\\", "petrale", "output", "TAZ1454 2015 Land Use.csv")
+TAZ_DATA_CSV  = os.path.join("X:\\", "petrale", "applications", "travel_model_lu_inputs", "2015", "TAZ1454 2015 Land Use.csv")
 # TAZ_DATA_CSV  = "tazData.csv"
 OUTPUT_PREFIX = "accessibilities_dummy_full"
 
@@ -101,12 +101,15 @@ if __name__ == '__main__':
     household_df = household_df.sort_values(by=["ZONE","walk_subzone","hinccat1","VEHICL","AV_AVAIL"])
     household_df = household_df.reset_index(drop=True)
     household_df["HHID"] = household_df.index + 1
+    
+    # add a sampleRate column (of 1s) 
+    household_df["sampleRate"] = 1
 
     # rename ZONE to TAZ
     household_df.rename(columns={"ZONE":"TAZ"}, inplace=True)
     
     # reorder columns
-    household_df = household_df[["HHID","TAZ","walk_subzone","HINC","hworkers","PERSONS","HHT","VEHICL","hinccat1","AV_AVAIL"]]
+    household_df = household_df[["HHID","TAZ","walk_subzone","HINC","hworkers","PERSONS","HHT","VEHICL","hinccat1","AV_AVAIL", "sampleRate"]]
     
     # print(household_df.head(10))
     outfile = "{}_households.csv".format(OUTPUT_PREFIX)
@@ -122,6 +125,10 @@ if __name__ == '__main__':
     household_model_df["cdap_pattern"] = "MN"
     household_model_df["jtf_pattern"] = "0_tours"
     household_model_df["humanVehicles"] = household_model_df["autos"] - household_model_df["autonomousVehicles"]
+    
+    # add a sampleRate column (of 1s) 
+    household_model_df["sampleRate"] = 1
+    
     outfile = "{}_model_households.csv".format(OUTPUT_PREFIX)
     household_model_df.to_csv(outfile, index=False)
     print("Wrote {} lines to {}".format(len(household_model_df), outfile))
@@ -138,6 +145,9 @@ if __name__ == '__main__':
     # sort by household ID then person ID
     persons_df = persons_df[["HHID","person_num","AGE","SEX","pemploy","pstudent","ptype","value_of_time"]].sort_values(["HHID","person_num"]).reset_index(drop=True)
     persons_df["PERID"] = persons_df.index + 1
+
+    # add a sampleRate column (of 1s)     
+    persons_df["sampleRate"] = 1
     
     # print(persons_df.head(20))
     outfile = "{}_persons.csv".format(OUTPUT_PREFIX)
@@ -166,6 +176,9 @@ if __name__ == '__main__':
     persons_model_df.loc[persons_model_df.person_num==1, "imf_choice"] = 0
     persons_model_df["inmf_choice"] = 1
     persons_model_df.loc[persons_model_df.person_num==0, "inmf_choice"] = 0
+
+    # add a sampleRate column (of 1s) 
+    persons_model_df["sampleRate"] = 1
   
     # print
     outfile = "{}_model_persons.csv".format(OUTPUT_PREFIX)
@@ -200,11 +213,14 @@ if __name__ == '__main__':
     individualTours_df = individualTours_df.drop(columns=["join_key","AGE","SEX","pemploy","pstudent","TAZ","HINC","hworkers","PERSONS","HHT","hinccat1"])
     individualTours_df = individualTours_df.rename(columns={"HHID":"hh_id","ptype":"person_type","PERID":"person_id"})
     individualTours_df = individualTours_df.sort_values(by=["person_id"])
+
+    # add a sampleRate column (of 1s)     
+    individualTours_df["sampleRate"] = 1
     
     # reorder columns
     individualTours_df = individualTours_df[["hh_id","person_id","person_num","person_type","tour_id","tour_category",
         "tour_purpose","orig_taz","orig_walk_segment","dest_taz","dest_walk_segment","start_hour","end_hour","tour_mode","atWork_freq","num_ob_stops","num_ib_stops",      
-        "avAvailable"]]
+        "avAvailable", "sampleRate"]]
 
     
     outfile = "{}_indivTours.csv".format(OUTPUT_PREFIX)
