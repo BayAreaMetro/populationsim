@@ -12,7 +12,7 @@ hh_wrks_0,TAZ,households,10000,hh_wrks_0,(households.TYPE==1) & (households.hh_w
 hh_wrks_1,TAZ,households,10000,hh_wrks_1,(households.TYPE==1) & (households.hh_workers_from_esr == 1)
 hh_wrks_2,TAZ,households,10000,hh_wrks_2,(households.TYPE==1) & (households.hh_workers_from_esr == 2)
 hh_wrks_3_plus,TAZ,households,1000000,hh_wrks_3_plus,(households.TYPE==1) & (households.hh_workers_from_esr >= 3)
-num_pers,TAZ,persons,100000000,TOTPOP,(persons.AGEP >= 0) & (persons.AGEP <= np.inf)
+totpop,TAZ,persons,10000000,TOTPOP,(persons.AGEP >= 0) & (persons.AGEP <= np.inf)
 pers_age_00_04,TAZ,persons,10000000,AGE0004,(persons.AGEP >= 0) & (persons.AGEP <= 4)
 pers_age_05_19,TAZ,persons,100000,AGE0519,(persons.AGEP >= 5) & (persons.AGEP <= 19)
 pers_age_20_44,TAZ,persons,100000,AGE2044,(persons.AGEP >= 20) & (persons.AGEP <= 44)
