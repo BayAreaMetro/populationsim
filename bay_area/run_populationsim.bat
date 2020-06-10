@@ -15,7 +15,7 @@ set MODELTYPE=TM1
 set PETRALEPATH=X:\petrale
 set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\PBA50\Draft Blueprint runs\Blueprint Basic (s21)\v1.5.1\v1.5.1.2 (to 2050)
 set BAUS_RUNNUM=run56
-set OUTPUT_SUFFIX=PBA50Basic_20200609_!BAUS_RUNNUM!
+set OUTPUT_SUFFIX=PBA50BasicTest2_20200609_!BAUS_RUNNUM!
 
 :: assume argument is year
 set YEARS=%1
