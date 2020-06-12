@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument("--model_year", type=int, required=True, help="Model year")
     args = parser.parse_args()
 
-    # control files are: 
+    # control files are:
     #  - [run_num]_taz_summaries_[year].csv
     taz_controls_file = os.path.join("hh_gq", "data", "{}_TAZ_summaries_{}.csv".format(args.run_num, args.model_year))
     taz_controls_df   = pandas.read_csv(taz_controls_file)
@@ -27,6 +27,18 @@ if __name__ == '__main__':
     taz_controls_df["numhh_gq"] = taz_controls_df.TOTHH + taz_controls_df.gq_tot_pop
     # GQ are 1-person households
     taz_controls_df["hh_size_1_gq"] = taz_controls_df.hh_size_1 + taz_controls_df.gq_tot_pop
+
+    # address households and population conflicts
+    # when there's a conflict, let household numbers take precedence and adjust total population (assume 2.5 persons per hh)
+    if taz_controls_df.numhh_gq > taz_controls_df.totpop :
+
+        taz_controls_df["totpop_adj"] = taz_controls_df.numhh_gq * 2.5
+
+        taz_controls_df["AGE0004_adj"] = taz_controls_df.AGE0004 * taz_controls_df.totpop_adj / taz_controls_df.totpop
+        taz_controls_df["AGE0519_adj"] = taz_controls_df.AGE0519 * taz_controls_df.totpop_adj / taz_controls_df.totpop
+        taz_controls_df["AGE2044_adj"] = taz_controls_df.AGE2044 * taz_controls_df.totpop_adj / taz_controls_df.totpop
+        taz_controls_df["AGE4564_adj"] = taz_controls_df.AGE4564 * taz_controls_df.totpop_adj / taz_controls_df.totpop
+        taz_controls_df["AGE65P_adj"]  = taz_controls_df.AGE65P  * taz_controls_df.totpop_adj / taz_controls_df.totpop
 
     # note that hh_wrks and hh_inc categories specify households.TYPE==1 so no need to modify those
 
