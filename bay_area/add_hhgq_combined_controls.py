@@ -30,15 +30,12 @@ if __name__ == '__main__':
 
     # address households and population conflicts
     # when there's a conflict, let household numbers take precedence and adjust total population (assume 2.5 persons per hh)
-    if taz_controls_df.numhh_gq > taz_controls_df.totpop :
-
-        taz_controls_df["totpop_adj"] = taz_controls_df.numhh_gq * 2.5
-
-        taz_controls_df["AGE0004_adj"] = taz_controls_df.AGE0004 * taz_controls_df.totpop_adj / taz_controls_df.totpop
-        taz_controls_df["AGE0519_adj"] = taz_controls_df.AGE0519 * taz_controls_df.totpop_adj / taz_controls_df.totpop
-        taz_controls_df["AGE2044_adj"] = taz_controls_df.AGE2044 * taz_controls_df.totpop_adj / taz_controls_df.totpop
-        taz_controls_df["AGE4564_adj"] = taz_controls_df.AGE4564 * taz_controls_df.totpop_adj / taz_controls_df.totpop
-        taz_controls_df["AGE65P_adj"]  = taz_controls_df.AGE65P  * taz_controls_df.totpop_adj / taz_controls_df.totpop
+    taz_controls_df['totpop_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], taz_controls_df['numhh_gq'] * 2.5, taz_controls_df['TOTPOP'])
+    taz_controls_df['AGE0004_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], taz_controls_df['AGE0004'] * taz_controls_df['totpop_adj'] / taz_controls_df['TOTPOP'], taz_controls_df['AGE0004'])
+    taz_controls_df['AGE0519_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], taz_controls_df['AGE0519'] * taz_controls_df['totpop_adj'] / taz_controls_df['TOTPOP'], taz_controls_df['AGE0519'])
+    taz_controls_df['AGE2044_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], taz_controls_df['AGE2044'] * taz_controls_df['totpop_adj'] / taz_controls_df['TOTPOP'], taz_controls_df['AGE2044'])
+    taz_controls_df['AGE4564_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], taz_controls_df['AGE4564'] * taz_controls_df['totpop_adj'] / taz_controls_df['TOTPOP'], taz_controls_df['AGE4564'])
+    taz_controls_df['AGE65P_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], taz_controls_df['AGE65P'] * taz_controls_df['totpop_adj'] / taz_controls_df['TOTPOP'], taz_controls_df['AGE65P'])
 
     # note that hh_wrks and hh_inc categories specify households.TYPE==1 so no need to modify those
 
