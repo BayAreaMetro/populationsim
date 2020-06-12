@@ -35,8 +35,8 @@ if __name__ == '__main__':
     taz_controls_df["hh_size_1_gq"] = numpy.where(taz_controls_df['TOTPOP']/taz_controls_df['numhh_gq'] > 10, taz_controls_df.hh_size_1 + numpy.where(taz_controls_df.gq_tot_pop >= taz_controls_df.GQPOP, taz_controls_df.gq_tot_pop, taz_controls_df.GQPOP), taz_controls_df["hh_size_1_gq"])
 
     # address households and population conflicts
-    # where households > population, let household numbers take precedence and adjust total population (assume 2.5 persons per hh)
-    taz_controls_df['totpop_adj']  = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], taz_controls_df['numhh_gq'] * 2.5, taz_controls_df['TOTPOP'])
+    # where households > population, let household numbers take precedence and adjust total population (assume 2 persons per hh)
+    taz_controls_df['totpop_adj']  = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], taz_controls_df['numhh_gq'] * 2, taz_controls_df['TOTPOP'])
     taz_controls_df['AGE0004_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], numpy.where(taz_controls_df['TOTPOP'] > 0, taz_controls_df['AGE0004'] * taz_controls_df['totpop_adj'] / taz_controls_df['TOTPOP'], taz_controls_df['totpop_adj']/5), taz_controls_df['AGE0004'])
     taz_controls_df['AGE0519_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], numpy.where(taz_controls_df['TOTPOP'] > 0, taz_controls_df['AGE0519'] * taz_controls_df['totpop_adj'] / taz_controls_df['TOTPOP'], taz_controls_df['totpop_adj']/5), taz_controls_df['AGE0519'])
     taz_controls_df['AGE2044_adj'] = numpy.where(taz_controls_df['numhh_gq'] > taz_controls_df['TOTPOP'], numpy.where(taz_controls_df['TOTPOP'] > 0, taz_controls_df['AGE2044'] * taz_controls_df['totpop_adj'] / taz_controls_df['TOTPOP'], taz_controls_df['totpop_adj']/5), taz_controls_df['AGE2044'])
