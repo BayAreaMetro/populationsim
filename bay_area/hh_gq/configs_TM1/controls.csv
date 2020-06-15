@@ -12,12 +12,11 @@ hh_wrks_0,TAZ,households,10000,hh_wrks_0,(households.TYPE==1) & (households.hh_w
 hh_wrks_1,TAZ,households,10000,hh_wrks_1,(households.TYPE==1) & (households.hh_workers_from_esr == 1)
 hh_wrks_2,TAZ,households,10000,hh_wrks_2,(households.TYPE==1) & (households.hh_workers_from_esr == 2)
 hh_wrks_3_plus,TAZ,households,1000000,hh_wrks_3_plus,(households.TYPE==1) & (households.hh_workers_from_esr >= 3)
-totpop_adj,TAZ,persons,1000000,totpop_adj,(persons.AGEP >= 0) & (persons.AGEP <= np.inf)
-pers_age_00_04,TAZ,persons,10000000,AGE0004_adj,(persons.AGEP >= 0) & (persons.AGEP <= 4)
-pers_age_05_19,TAZ,persons,100000,AGE0519_adj,(persons.AGEP >= 5) & (persons.AGEP <= 19)
-pers_age_20_44,TAZ,persons,100000,AGE2044_adj,(persons.AGEP >= 20) & (persons.AGEP <= 44)
-pers_age_45_64,TAZ,persons,100001,AGE4564_adj,(persons.AGEP >= 45) & (persons.AGEP <= 64)
-pers_age_65_plus,TAZ,persons,100000,AGE65P_adj,(persons.AGEP >= 65) & (persons.AGEP <= np.inf)
+pers_age_00_04,TAZ,persons,10000000,AGE0004,(persons.AGEP >= 0) & (persons.AGEP <= 4)
+pers_age_05_19,TAZ,persons,100000,AGE0519,(persons.AGEP >= 5) & (persons.AGEP <= 19)
+pers_age_20_44,TAZ,persons,100000,AGE2044,(persons.AGEP >= 20) & (persons.AGEP <= 44)
+pers_age_45_64,TAZ,persons,100001,AGE4564,(persons.AGEP >= 45) & (persons.AGEP <= 64)
+pers_age_65_plus,TAZ,persons,100000,AGE65P,(persons.AGEP >= 65) & (persons.AGEP <= np.inf)
 gq_type_univ,TAZ,persons,10000000,gq_type_univ,persons.gqtype==1
 gq_type_mil,TAZ,persons,10000000,gq_type_mil,persons.gqtype==2
 gq_type_othnon,TAZ,persons,10000000,gq_type_othnon,persons.gqtype==3
