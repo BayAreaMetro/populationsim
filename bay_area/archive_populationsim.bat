@@ -1,0 +1,66 @@
+
+for /d %%f in (
+
+output_2030_RisingTides_20190124_run21
+output_2030_RisingTides_20190215_run59
+output_2030_RisingTides_20190418_run74
+output_2030_RisingTides_20190430_run92
+output_2040_RisingTides_20190430_run92
+output_2040_RisingTides_20190812_run24
+output_2050_RisingTides_20181221_run16
+output_2050_RisingTides_20190124_run21
+output_2050_RisingTides_20190211_run99
+output_2050_RisingTides_20190215_run59
+output_2050_RisingTides_20190315_run59
+output_2050_RisingTides_20190418_run74
+output_2050_RisingTides_20190430_run92
+output_2050_RisingTides_20190613_run93
+output_2050_RisingTides_20190724_run10
+output_2050_RisingTides_20190725_run12
+output_2050_RisingTides_20190802_run18
+output_2050_RisingTides_20190812_run24
+output_2050_RisingTides_20190814_run26
+output_2050_RisingTides_20190828_run36
+output_2050_RisingTides_20190830_run43
+output_2050_RisingTides_20190909_run15
+output_2030_CleanAndGreen_20190123_run20
+output_2030_CleanAndGreen_20190215_run60
+output_2030_CleanAndGreen_20190418_run110
+output_2030_CleanAndGreen_20190430_run125
+output_2040_CleanAndGreen_20190430_run125
+output_2040_CleanAndGreen_20190812_run26
+output_2050_CleanAndGreen_20181221_run14
+output_2050_CleanAndGreen_20190123_run20
+output_2050_CleanAndGreen_20190211_run50
+output_2050_CleanAndGreen_20190215_run60
+output_2050_CleanAndGreen_20190315_run89
+output_2050_CleanAndGreen_20190418_run110
+output_2050_CleanAndGreen_20190430_run125
+output_2050_CleanAndGreen_20190613_run160
+output_2050_CleanAndGreen_20190724_run10
+output_2050_CleanAndGreen_20190725_run12
+output_2050_CleanAndGreen_20190802_run19
+output_2050_CleanAndGreen_20190812_run26
+output_2050_CleanAndGreen_20190814_run28
+output_2050_CleanAndGreen_20190828_run38
+output_2050_CleanAndGreen_20190830_run39
+output_2050_CleanAndGreen_20190830_run45
+output_2050_CleanAndGreen_20190909_run15
+
+
+)    do    (
+
+  rem each populationsim run generates output in two places
+  rem (1) in the bay_area directory
+  "C:\Program Files\7-Zip\7z.exe" a "\\mtcarchives\cloudmodels1\Archived_Populationsim_Runs\bay_area\%%f" "\\mainmodel\MainModelShare\populationsim\bay_area\%%f"
+  ren "\\mainmodel\MainModelShare\populationsim\bay_area\%%f" %%f.archived
+
+  rem (2) in the \bay_area\hh_gq directory
+  "C:\Program Files\7-Zip\7z.exe" a "\\mtcarchives\cloudmodels1\Archived_Populationsim_Runs\bay_area\hh_gq\%%f" "\\mainmodel\MainModelShare\populationsim\bay_area\hh_gq\%%f"
+  ren "\\mainmodel\MainModelShare\populationsim\bay_area\hh_gq\%%f" %%f.archived
+
+)
+
+
+
+pause
