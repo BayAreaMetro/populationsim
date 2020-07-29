@@ -13,7 +13,7 @@ set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\PBA50\Draft Blueprint runs\Blueprint Plus Crossing (s23)\v1.7.1
+set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim 1.5\PBA50\Draft Blueprint runs\Blueprint Plus Crossing (s23)\v1.7.1- FINAL DRAFT BLUEPRINT
 set BAUS_RUNNUM=run98
 set OUTPUT_SUFFIX=PBA50PlusCrossing_20200622_!BAUS_RUNNUM!
 
