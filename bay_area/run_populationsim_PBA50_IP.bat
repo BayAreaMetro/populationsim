@@ -18,6 +18,8 @@ set OUTPUT_SUFFIX=PBA50_20210121_%BAUS_RUNNUM%
 set PYTHONPATH=%USERPROFILE%\Documents\GitHub\activitysim;%~dp0\..
 echo PYTHONPATH=[%PYTHONPATH%]
 
+goto restart_here
+
 :create_seed
 if not exist hh_gq\data\seed_households.csv (
   python create_seed_population.py
@@ -26,6 +28,7 @@ if not exist hh_gq\data\seed_households.csv (
 
 copy "\\tsclient\M\Application\Model One\RTP2021\IncrementalProgress\Landuse\tazData_%YEAR%_%BAUS_RUNNUM%.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_%YEAR%.csv"
 
+:restart_here
 rem add combined hh gq columns (e.g. make gq into one-person households)
 python add_hhgq_combined_controls.py --model_year %YEAR% --run_num %BAUS_RUNNUM%
 if ERRORLEVEL 1 goto error
