@@ -52,18 +52,18 @@ for %%Y in (!YEARS!) do (
 
   rem Use UrbanSim run number except for base year -- then use census
   set RUN_NUM=!BAUS_RUNNUM!
-  if !YEAR!==2015 (
-    set RUN_NUM=census
-    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars.csv"          hh_gq\data\census_taz_summaries_2015.csv
-    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\census_county_marginals_2015.csv
-    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars Region.csv"   hh_gq\data\census_regional_marginals_2015.csv
-  )
-  if !YEAR! GTR 2015 (
+rem  if !YEAR!==2015 (
+rem    set RUN_NUM=census
+rem    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars.csv"          hh_gq\data\census_taz_summaries_2015.csv
+rem    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\census_county_marginals_2015.csv
+rem    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars Region.csv"   hh_gq\data\census_regional_marginals_2015.csv
+rem   )
+rem  if !YEAR! GTR 2015 (
     rem copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"
     copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      hh_gq\data
     copy "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"   hh_gq\data
     copy "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" hh_gq\data
-  )
+rem  )
   echo RUN_NUM=[!RUN_NUM!]
   rem add combined hh gq columns (e.g. make gq into one-person households)
   python add_hhgq_combined_controls.py --model_year !YEAR! --run_num !RUN_NUM!
