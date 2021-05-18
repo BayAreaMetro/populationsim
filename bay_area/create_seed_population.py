@@ -424,7 +424,7 @@ if __name__ == '__main__':
     print pums_pers_df.gqtype.value_counts()
     # add PWGT to housing record temporarily for group quarters folks since they lack housing weights WGTP
     pums_hu_df = pandas.merge(left =pums_hu_df,
-                              right=pums_pers_df.loc[pums_pers_df.gqtype > 0, ['SERIALNO','PWGTP']],
+                              right=pums_pers_df[['SERIALNO','PWGTP','gqtype']],
                               how  ="left")
     # for group quarters people, household weight is 0.  Set to person weight for populationsim
     pums_hu_df.loc[ pums_hu_df.TYPE==3, "WGTP"] = pums_hu_df.PWGTP
