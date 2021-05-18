@@ -22,7 +22,7 @@ New columns in housing records file:
 - hh_workers_from_esr: count of employed persons in household
 - hh_income_2010     : household income in 2010 dollars, based on HINCP and ADJINC
 - unique_hh_id       : integer unique id for housing unit, starting with 1
-- gqtype             : 0 for non gq, 1 is college student, 2 is military, 3 is other
+- hhgqtype           : 0 for non gq, 1 is college student, 2 is military, 3 is other
 - PWGT               : for group quarters file only, transfered from person records
 New columns in person records file:
 - employed           : 0 or 1, based on ESR
@@ -423,12 +423,16 @@ if __name__ == '__main__':
     pums_pers_df.loc[ (pums_pers_df.TYPE==3)&((pums_pers_df.SCHG==6)|(pums_pers_df.SCHG==7)), "gqtype"] = 1
     print pums_pers_df.gqtype.value_counts()
     # add PWGT to housing record temporarily for group quarters folks since they lack housing weights WGTP
+    print("before merge: pums_pers_df len {} pums_hu_df len {}".format(len(pums_pers_df), len(pums_hu_df)))
     pums_hu_df = pandas.merge(left =pums_hu_df,
-                              right=pums_pers_df[['SERIALNO','PWGTP','gqtype']],
+                              right=pums_pers_df[['SERIALNO','PWGTP','gqtype']].drop_duplicates(subset=['SERIALNO']),
                               how  ="left")
     # for group quarters people, household weight is 0.  Set to person weight for populationsim
     pums_hu_df.loc[ pums_hu_df.TYPE==3, "WGTP"] = pums_hu_df.PWGTP
     pums_hu_df.drop(columns=["PWGTP"], inplace=True)
+    # rename gqtype to hhgqtype
+    pums_hu_df.rename(columns={"gqtype":"hhgqtype"}, inplace=True)
+    print("after merge: pums_pers_df len {} pums_hu_df len {}".format(len(pums_pers_df), len(pums_hu_df)))
 
     # one last downcast
     clean_types(pums_hu_df)
