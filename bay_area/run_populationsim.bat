@@ -9,13 +9,13 @@ echo on
 setlocal EnableDelayedExpansion
 
 :: should be TM1 or TM2
-set MODELTYPE=TM1
+set MODELTYPE=TM2
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim\PBA50\EIR runs\Alt1 (s26) runs\Alt1_v3_test_far_tiers_FINAL_EIR_ALT
-set BAUS_RUNNUM=run375
-set OUTPUT_SUFFIX=PBA50EIRalt1_20210318_!BAUS_RUNNUM!
+set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim\Travel Model 2\csvs
+set BAUS_RUNNUM=manualTM2_20210816
+set OUTPUT_SUFFIX=manualTM2_20210816
 
 :: assume argument is year
 set YEARS=%1
@@ -52,21 +52,34 @@ for %%Y in (!YEARS!) do (
 
   rem Use UrbanSim run number except for base year -- then use census
   set RUN_NUM=!BAUS_RUNNUM!
-  if !YEAR!==2015 (
-    set RUN_NUM=census
-    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars.csv"          hh_gq\data\census_taz_summaries_2015.csv
-    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\census_county_marginals_2015.csv
-    copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars Region.csv"   hh_gq\data\census_regional_marginals_2015.csv
-   )
-  if !YEAR! GTR 2015 (
-    rem copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"
-    copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      hh_gq\data
-    copy "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"   hh_gq\data
-    copy "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" hh_gq\data
+  if !MODELTYPE!==TM1 (
+    if !YEAR!==2015 (
+      set RUN_NUM=census
+      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars.csv"          hh_gq\data\census_taz_summaries_2015.csv
+      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\census_county_marginals_2015.csv
+      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars Region.csv"   hh_gq\data\census_regional_marginals_2015.csv
+    )
+    if !YEAR! GTR 2015 (
+      rem copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"
+      copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      hh_gq\data
+      copy "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"   hh_gq\data
+      copy "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" hh_gq\data
+    )
+  )
+
+  if !MODELTYPE!==TM2 (
+    if !YEAR!==2015 (
+      copy "%URBANSIMPATH%\maz_marginals.csv"    hh_gq\data\%BAUS_RUNNUM%_maz_marginals_2015.csv
+      copy "%URBANSIMPATH%\taz2_marginals.csv"   hh_gq\data\%BAUS_RUNNUM%_taz_marginals_2015.csv
+      copy "%URBANSIMPATH%\county_marginals.csv" hh_gq\data\%BAUS_RUNNUM%_county_marginals_2015.csv
+      :: temporary until fix is made
+      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\%BAUS_RUNNUM%_county_marginals_2015.csv
+
+    )
   )
   echo RUN_NUM=[!RUN_NUM!]
   rem add combined hh gq columns (e.g. make gq into one-person households)
-  python add_hhgq_combined_controls.py --model_year !YEAR! --run_num !RUN_NUM!
+  python add_hhgq_combined_controls.py --model_year !YEAR! --run_num !RUN_NUM! --model_type !MODELTYPE!
   if ERRORLEVEL 1 goto error
 
   rem create the final output directory
