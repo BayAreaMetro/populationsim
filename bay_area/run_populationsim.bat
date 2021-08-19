@@ -13,9 +13,9 @@ set MODELTYPE=TM2
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim\Travel Model 2\csvs
-set BAUS_RUNNUM=manualTM2_20210816
-set OUTPUT_SUFFIX=manualTM2_20210816
+set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim\Travel Model 2\csvs\2021 08 18
+set BAUS_RUNNUM=manualTM2_20210819
+set OUTPUT_SUFFIX=manualTM2_20210819
 
 :: assume argument is year
 set YEARS=%1
@@ -72,9 +72,6 @@ for %%Y in (!YEARS!) do (
       copy "%URBANSIMPATH%\maz_marginals.csv"    hh_gq\data\%BAUS_RUNNUM%_maz_marginals_2015.csv
       copy "%URBANSIMPATH%\taz2_marginals.csv"   hh_gq\data\%BAUS_RUNNUM%_taz_marginals_2015.csv
       copy "%URBANSIMPATH%\county_marginals.csv" hh_gq\data\%BAUS_RUNNUM%_county_marginals_2015.csv
-      :: temporary until fix is made
-      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\%BAUS_RUNNUM%_county_marginals_2015.csv
-
     )
   )
   echo RUN_NUM=[!RUN_NUM!]

@@ -118,21 +118,19 @@ if __name__ == '__main__':
     table_hhgq = pandas.read_csv(os.path.join("hh_gq", COMBINED_OUT_DIR, filename))
 
     print table_hhgq.head()
+    print table_hhgq.columns
 
     if filename=="synthetic_households.csv":
       # add HHID
       table_hhgq["HHID"] = table_hhgq.unique_hh_id  # this already starts from 1
 
       if args.model_type == 'TM1': 
-        # the households doesn't have county so get county from crosswalk
+        # the households don't have county so get county from crosswalk
         table_hhgq = pandas.merge(left=table_hhgq, right=geocrosswalk_df[["TAZ","COUNTY"]], how="left")
 
       if args.model_type == 'TM2':
-        # the group quarters doesn't have taz so get taz from crosswalk
-        table_gq = pandas.merge(left=table_gq, right=geocrosswalk_df[["MAZ","TAZ"]], how="left")
-
-        # the households doesn't have county so get county from crosswalk
-        table_hh = pandas.merge(left=table_hh, right=geocrosswalk_df[["MAZ","COUNTY"]], how="left")
+        # the households don't have county so get county from crosswalk
+        table_hhgq = pandas.merge(left=table_hhgq, right=geocrosswalk_df[["MAZ","COUNTY"]], how="left")
 
       # save for creating county summaries
       hh_counties_df = table_hhgq[["HHID","COUNTY"]]
