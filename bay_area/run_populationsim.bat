@@ -99,9 +99,17 @@ for %%Y in (!YEARS!) do (
 
   move output_!YEAR!        output_!YEAR!_!OUTPUT_SUFFIX!
   move hh_gq\output_!YEAR!  hh_gq\output_!YEAR!_!OUTPUT_SUFFIX!
+
   :: save input also
-  copy /Y "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      "hh_gq\data\taz_summaries_!OUTPUT_SUFFIX!_!YEAR!.csv"
-  copy /Y "hh_gq\data\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" "hh_gq\data\regional_marginals_!OUTPUT_SUFFIX!_!YEAR!.csv"
+  if !MODELTYPE!==TM1 (
+    copy /Y "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      "hh_gq\data\taz_summaries_!OUTPUT_SUFFIX!_!YEAR!.csv"
+    copy /Y "hh_gq\data\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" "hh_gq\data\regional_marginals_!OUTPUT_SUFFIX!_!YEAR!.csv"
+  )
+  if !MODELTYPE!==TM2 (
+      copy "hh_gq\data\%BAUS_RUNNUM%_maz_marginals_!YEAR!.csv"        "output_!YEAR!_!OUTPUT_SUFFIX!"
+      copy "hh_gq\data\%BAUS_RUNNUM%_taz_marginals_!YEAR!.csv"        "output_!YEAR!_!OUTPUT_SUFFIX!"
+      copy "hh_gq\data\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"     "output_!YEAR!_!OUTPUT_SUFFIX!"
+  )
 )
 
 :success
