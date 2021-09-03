@@ -1,6 +1,6 @@
 target,geography,seed_table,importance,control_field,expression
 num_hh,MAZ,households,10000000,numhh_gq,(households.WGTP > 0) & (households.WGTP < np.inf)
-hh_size_1,MAZ,households,100000,hh_size_1,households.NP == 1
+hh_size_1,MAZ,households,100000,hh_size_1_gq,households.NP == 1
 hh_size_2,MAZ,households,100000,hh_size_2,households.NP == 2
 hh_size_3,MAZ,households,100000,hh_size_3,households.NP == 3
 hh_size_4_plus,MAZ,households,100000,hh_size_4_plus,households.NP >= 4
