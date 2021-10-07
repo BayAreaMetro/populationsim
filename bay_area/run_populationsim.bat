@@ -13,9 +13,9 @@ set MODELTYPE=TM2
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Development\Travel Model Two Development\Model Inputs\Land Use\csvs_2015\2021 09 30
-set BAUS_RUNNUM=manualTM2_20210930
-set OUTPUT_SUFFIX=manualTM2_20210930
+set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Development\Travel Model Two Development\Model Inputs\Land Use\csvs_2015\2021 10 07
+set BAUS_RUNNUM=manualTM2_20211007
+set OUTPUT_SUFFIX=manualTM2_20211007
 
 :: assume argument is year
 set YEARS=%1
