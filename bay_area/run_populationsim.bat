@@ -9,13 +9,13 @@ echo on
 setlocal EnableDelayedExpansion
 
 :: should be TM1 or TM2
-set MODELTYPE=TM2
+set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\lzorn\Box\Modeling and Surveys\Development\Travel Model Two Development\Model Inputs\Land Use\csvs_2015\2021 10 07
-set BAUS_RUNNUM=manualTM2_20211007
-set OUTPUT_SUFFIX=manualTM2_20211007
+set URBANSIMPATH=\\tsclient\C\Users\ywang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim\PBA50\CARB Sensitivity Tests\UrbanSim v0
+set BAUS_RUNNUM=run335
+set OUTPUT_SUFFIX=CARB_Sens_20211101_!BAUS_RUNNUM!
 
 :: assume argument is year
 set YEARS=%1
