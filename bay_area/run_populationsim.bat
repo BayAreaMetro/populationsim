@@ -13,9 +13,10 @@ set MODELTYPE=TM1
 
 :: should be the urbansim run number from the control files
 set PETRALEPATH=X:\petrale
-set URBANSIMPATH=\\tsclient\C\Users\ftsang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim\PBA50\Final Blueprint runs\Final Blueprint (s24)\BAUS v2.25 - FINAL VERSION
-set BAUS_RUNNUM=run182
-set OUTPUT_SUFFIX=SacogAirQ_20220124_!BAUS_RUNNUM!
+set URBANSIMPATH=L:\Application\Model_One\TransitRecovery\land_use_preprocessing
+:: modified version
+set BAUS_RUNNUM=run182_modv01
+set OUTPUT_SUFFIX=TransitRecovery_20220805_!BAUS_RUNNUM!
 
 :: assume argument is year
 set YEARS=%1
