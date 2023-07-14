@@ -38,6 +38,8 @@ HOUSING_COLUMNS = {
     ("hh_income_2000",      "HINC"),
     ("hh_workers_from_esr", "hworkers"),
     ("VEH",                 "VEHICL"),
+    ("BLD",                 "BLD"),       # added Feb '23
+    ("TEN",                 "TEN"),       # added Feb '23
     ("NP",                  "PERSONS"),
     ("HHT",                 "HHT"),
     ("TYPE",                "UNITTYPE")
@@ -51,6 +53,7 @@ HOUSING_COLUMNS = {
     ("hh_income_2010",      "HHINCADJ"),
     ("hh_workers_from_esr", "NWRKRS_ESR"),
     ("VEH",                 "VEH"),
+    ("TEN",                 "TEN"),       # added Feb '23
     ("NP",                  "NP"),
     ("HHT",                 "HHT"),
     ("BLD",                 "BLD"),
