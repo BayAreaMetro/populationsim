@@ -15,8 +15,8 @@ set MODELTYPE=TM1
 set PETRALEPATH=X:\petrale
 set URBANSIMPATH=L:\Application\Model_One\TransitRecovery\land_use_preprocessing
 :: modified version
-set BAUS_RUNNUM=run182_modv01
-set OUTPUT_SUFFIX=TransitRecovery_20220805_!BAUS_RUNNUM!
+set BAUS_RUNNUM=
+set OUTPUT_SUFFIX=PBA50Plus_20230714
 
 :: assume argument is year
 set YEARS=%1
@@ -54,15 +54,21 @@ for %%Y in (!YEARS!) do (
   rem Use UrbanSim run number except for base year -- then use census
   set RUN_NUM=!BAUS_RUNNUM!
   if !MODELTYPE!==TM1 (
-    if !YEAR!==2015 (
+    set FORECAST=1
+    if !YEAR! == 2015 (set FORECAST=0)
+    if !YEAR! == 2020 (set FORECAST=0)
+    if !YEAR! == 2023 (set FORECAST=0)
+    echo FORECAST=!FORECAST!
+    if !FORECAST!==0 (
       set RUN_NUM=census
-      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars.csv"          hh_gq\data\census_taz_summaries_2015.csv
-      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars County.csv"   hh_gq\data\census_county_marginals_2015.csv
-      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\2015\TAZ1454 2015 Popsim Vars Region.csv"   hh_gq\data\census_regional_marginals_2015.csv
+      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"          hh_gq\data\census_taz_summaries_!YEAR!.csv
+      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"   hh_gq\data\census_county_marginals_!YEAR!.csv
+      copy "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars Region.csv"   hh_gq\data\census_regional_marginals_!YEAR!.csv
     )
-    if !YEAR! GTR 2015 (
+    if !FORECAST!==1 (
       rem copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"
       copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      hh_gq\data
+      rem these aren't necessary
       copy "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"   hh_gq\data
       copy "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" hh_gq\data
     )
