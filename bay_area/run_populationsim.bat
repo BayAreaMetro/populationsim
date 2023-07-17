@@ -110,6 +110,7 @@ for %%Y in (!YEARS!) do (
   :: save input also
   if !MODELTYPE!==TM1 (
     copy /Y "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      "hh_gq\data\taz_summaries_!OUTPUT_SUFFIX!_!YEAR!.csv"
+    copy /Y "hh_gq\data\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"    "hh_gq\data\county_marginals_!OUTPUT_SUFFIX!_!YEAR!.csv"
     copy /Y "hh_gq\data\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" "hh_gq\data\regional_marginals_!OUTPUT_SUFFIX!_!YEAR!.csv"
   )
   if !MODELTYPE!==TM2 (
