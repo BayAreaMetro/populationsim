@@ -1,3 +1,4 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
@@ -9,9 +10,9 @@ import pandas as pd
 from activitysim.core import pipeline
 from activitysim.core import inject
 
-from helper import get_control_table
-from helper import control_table_name
-from helper import get_weight_table
+from .helper import get_control_table
+from .helper import control_table_name
+from .helper import get_weight_table
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def dump_table(table_name, table):
 
     return
 
-    print "\n%s\n" % table_name, table
+    print("\n%s\n" % table_name, table)
 
 
 @inject.step()
@@ -54,7 +55,7 @@ def meta_control_factoring(settings, control_spec, incidence_table):
 
     # - if there are no meta controls, then we don't have to do anything
     if not (control_spec.geography == meta_geography).any():
-        logger.warn("meta_control_factoring: no meta targets so nothing to do")
+        logger.warning("meta_control_factoring: no meta targets so nothing to do")
         return
 
     meta_controls_df = get_control_table(meta_geography)

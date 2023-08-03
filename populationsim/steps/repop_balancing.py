@@ -1,3 +1,4 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
@@ -6,11 +7,11 @@ import pandas as pd
 
 from activitysim.core import inject
 
-from populationsim.util import setting
+from activitysim.core.config import setting
 
-from helper import get_control_table
-from helper import weight_table_name
-from helper import get_weight_table
+from .helper import get_control_table
+from .helper import weight_table_name
+from .helper import get_weight_table
 
 from ..balancer import do_balancing
 from ..integerizer import do_integerizing
@@ -58,6 +59,9 @@ def repop_balancing(settings, crosswalk, control_spec, incidence_table):
     total_hh_control_col = setting('total_hh_control')
 
     max_expansion_factor = settings.get('max_expansion_factor', None)
+    min_expansion_factor = settings.get('min_expansion_factor', None)
+    absolute_upper_bound = settings.get('absolute_upper_bound', None)
+    absolute_lower_bound = settings.get('absolute_lower_bound', None)
 
     # run balancer for each low geography
     low_weight_list = []
@@ -98,6 +102,9 @@ def repop_balancing(settings, crosswalk, control_spec, incidence_table):
                 control_spec=low_control_spec,
                 total_hh_control_col=total_hh_control_col,
                 max_expansion_factor=max_expansion_factor,
+                min_expansion_factor=min_expansion_factor,
+                absolute_upper_bound=absolute_upper_bound,
+                absolute_lower_bound=absolute_lower_bound,
                 incidence_df=seed_incidence_df,
                 control_totals=low_controls_df.loc[low_id],
                 initial_weights=initial_weights)
@@ -138,6 +145,7 @@ def repop_balancing(settings, crosswalk, control_spec, incidence_table):
     low_weights_df = pd.concat([low_weights_df, crosswalk_df], axis=1)
 
     inject.add_table(weight_table_name(low_geography),
-                     low_weights_df)
+                     low_weights_df, replace=True)
     inject.add_table(weight_table_name(low_geography, sparse=True),
-                     low_weights_df[low_weights_df['integer_weight'] > 0])
+                     low_weights_df[low_weights_df['integer_weight'] > 0],
+                     replace=True)
