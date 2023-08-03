@@ -46,10 +46,10 @@ input_table_list:
   - tablename: geo_cross_walk
     filename : geo_cross_walk_tm1.csv
   - tablename: TAZ_control_data
-    filename : run_num_taz_summaries_model_year_hhgq.csv
+    filename : taz_summaries_hhgq.csv
     # from UrbanSim 1.5
   - tablename: COUNTY_control_data
-    filename : run_num_county_marginals_model_year.csv
+    filename : county_marginals.csv
     # from UrbanSim 1.5
 
 
