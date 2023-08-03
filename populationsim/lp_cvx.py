@@ -1,10 +1,11 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
 import logging
 
 import numpy as np
-from util import setting
+from activitysim.core.config import setting
 
 logger = logging.getLogger(__name__)
 

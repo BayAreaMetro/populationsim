@@ -1,3 +1,4 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
@@ -9,10 +10,10 @@ import pandas as pd
 from activitysim.core import inject
 
 from ..integerizer import do_integerizing
-from helper import get_control_table
-from helper import weight_table_name
-from helper import get_weight_table
-from populationsim.util import setting
+from .helper import get_control_table
+from .helper import weight_table_name
+from .helper import get_weight_table
+from activitysim.core.config import setting
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,10 @@ def integerize_final_seed_weights(settings, crosswalk, control_spec, incidence_t
     -------
 
     """
+
+    if setting('NO_INTEGERIZATION_EVER', False):
+        logger.warning("skipping integerize_final_seed_weights: NO_INTEGERIZATION_EVER")
+        return
 
     crosswalk_df = crosswalk.to_frame()
     incidence_df = incidence_table.to_frame()

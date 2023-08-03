@@ -1,3 +1,4 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
@@ -9,9 +10,9 @@ import numpy as np
 
 from activitysim.core import inject
 
-from helper import get_control_table
-from helper import get_weight_table
-from populationsim.util import setting
+from .helper import get_control_table
+from .helper import get_weight_table
+from activitysim.core.config import setting
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +32,11 @@ def out_table(table_name, df):
         df.to_csv(file_path, index=write_index)
     else:
         logger.info("saving summary table %s" % table_name)
-        inject.add_table(table_name, df)
+        repop = inject.get_step_arg('repop', default=False)
+        inject.add_table(table_name, df, replace=repop)
 
 
-def summarize_geography(geography, weight_col,
+def summarize_geography(geography, weight_col, hh_id_col,
                         crosswalk_df, results_df, incidence_df):
 
     # controls_table for current geography level
@@ -50,13 +52,12 @@ def summarize_geography(geography, weight_col,
     for zone_id in zone_ids:
 
         zone_controls = controls_df.loc[zone_id].tolist()
-
         controls.append(zone_controls)
 
         zone_row_map = results_df[geography] == zone_id
         zone_weights = results_df[zone_row_map]
 
-        incidence = incidence_df.loc[zone_weights[setting('household_id_col')]]
+        incidence = incidence_df.loc[zone_weights[hh_id_col]]
 
         weights = zone_weights[weight_col].tolist()
         x = [(incidence[c] * weights).sum() for c in control_names]
@@ -92,7 +93,14 @@ def summarize_geography(geography, weight_col,
     return summary_df
 
 
-def meta_summary(incidence_df, control_spec, top_geography, top_id, sub_geographies):
+def meta_summary(incidence_df, control_spec, top_geography, top_id, sub_geographies, hh_id_col):
+
+    if setting('NO_INTEGERIZATION_EVER', False):
+        seed_weight_cols = ['preliminary_balanced_weight', 'balanced_weight']
+        sub_weight_cols = ['balanced_weight']
+    else:
+        seed_weight_cols = ['preliminary_balanced_weight', 'balanced_weight', 'integer_weight']
+        sub_weight_cols = ['balanced_weight', 'integer_weight']
 
     incidence_df = incidence_df[incidence_df[top_geography] == top_id]
 
@@ -113,7 +121,7 @@ def meta_summary(incidence_df, control_spec, top_geography, top_id, sub_geograph
 
     seed_geography = setting('seed_geography')
     seed_weights_df = get_weight_table(seed_geography)
-    seed_weight_cols = ['preliminary_balanced_weight', 'balanced_weight', 'integer_weight']
+
     for c in seed_weight_cols:
         if c in seed_weights_df:
             summary_col_name = '%s_%s' % (top_geography, c)
@@ -122,8 +130,6 @@ def meta_summary(incidence_df, control_spec, top_geography, top_id, sub_geograph
 
     for g in sub_geographies:
 
-        sub_weight_cols = ['balanced_weight', 'integer_weight']
-
         sub_weights = get_weight_table(g)
 
         if sub_weights is None:
@@ -131,7 +137,7 @@ def meta_summary(incidence_df, control_spec, top_geography, top_id, sub_geograph
 
         sub_weights = sub_weights[sub_weights[top_geography] == top_id]
 
-        sub_weights = sub_weights[[setting('household_id_col')] + sub_weight_cols].groupby(setting('household_id_col')).sum()
+        sub_weights = sub_weights[[hh_id_col] + sub_weight_cols].groupby(hh_id_col).sum()
 
         for c in sub_weight_cols:
             summary['%s_%s' % (g, c)] = \
@@ -156,6 +162,8 @@ def summarize(crosswalk, incidence_table, control_spec):
 
     """
 
+    include_integer_colums = not setting('NO_INTEGERIZATION_EVER', False)
+
     crosswalk_df = crosswalk.to_frame()
     incidence_df = incidence_table.to_frame()
 
@@ -163,12 +171,13 @@ def summarize(crosswalk, incidence_table, control_spec):
     seed_geography = setting('seed_geography')
     meta_geography = geographies[0]
     sub_geographies = geographies[geographies.index(seed_geography) + 1:]
-    household_id_col = setting('household_id_col')
+    hh_id_col = setting('household_id_col')
 
     meta_ids = crosswalk_df[meta_geography].unique()
     for meta_id in meta_ids:
         meta_summary_df = \
-            meta_summary(incidence_df, control_spec, meta_geography, meta_id, sub_geographies)
+            meta_summary(incidence_df, control_spec, meta_geography,
+                         meta_id, sub_geographies, hh_id_col)
         out_table('%s_%s' % (meta_geography, meta_id), meta_summary_df)
 
     hh_weights_summary = pd.DataFrame(index=incidence_df.index)
@@ -176,7 +185,8 @@ def summarize(crosswalk, incidence_table, control_spec):
     # add seed level summaries
     seed_weights_df = get_weight_table(seed_geography)
     hh_weights_summary['%s_balanced_weight' % seed_geography] = seed_weights_df['balanced_weight']
-    hh_weights_summary['%s_integer_weight' % seed_geography] = seed_weights_df['integer_weight']
+    if include_integer_colums:
+        hh_weights_summary['%s_integer_weight' % seed_geography] = seed_weights_df['integer_weight']
 
     for geography in sub_geographies:
 
@@ -185,34 +195,43 @@ def summarize(crosswalk, incidence_table, control_spec):
         if weights_df is None:
             continue
 
-        hh_weight_cols = [household_id_col, 'balanced_weight', 'integer_weight']
-        hh_weights = weights_df[hh_weight_cols].groupby([household_id_col]).sum()
+        if include_integer_colums:
+            hh_weight_cols = [hh_id_col, 'balanced_weight', 'integer_weight']
+        else:
+            hh_weight_cols = [hh_id_col, 'balanced_weight']
+
+        hh_weights = weights_df[hh_weight_cols].groupby([hh_id_col]).sum()
         hh_weights_summary['%s_balanced_weight' % geography] = hh_weights['balanced_weight']
-        hh_weights_summary['%s_integer_weight' % geography] = hh_weights['integer_weight']
+        if include_integer_colums:
+            hh_weights_summary['%s_integer_weight' % geography] = hh_weights['integer_weight']
 
         # aggregate to seed level
-        hh_id_col = incidence_df.index.name
         aggegrate_weights = weights_df.groupby([seed_geography, hh_id_col], as_index=False).sum()
         aggegrate_weights.set_index(hh_id_col, inplace=True)
 
-        aggegrate_weights = \
-            aggegrate_weights[[seed_geography, 'balanced_weight', 'integer_weight']]
-        aggegrate_weights['sample_weight'] = \
-            incidence_df['sample_weight']
+        if include_integer_colums:
+            aggegrate_weight_cols = [seed_geography, 'balanced_weight', 'integer_weight']
+        else:
+            aggegrate_weight_cols = [seed_geography, 'balanced_weight']
+
+        aggegrate_weights = aggegrate_weights[aggegrate_weight_cols]
+        aggegrate_weights['sample_weight'] = incidence_df['sample_weight']
         aggegrate_weights['%s_preliminary_balanced_weight' % seed_geography] = \
             seed_weights_df['preliminary_balanced_weight']
         aggegrate_weights['%s_balanced_weight' % seed_geography] = \
             seed_weights_df['balanced_weight']
-        aggegrate_weights['%s_integer_weight' % seed_geography] = \
-            seed_weights_df['integer_weight']
+        if include_integer_colums:
+            aggegrate_weights['%s_integer_weight' % seed_geography] = \
+                seed_weights_df['integer_weight']
 
         out_table('%s_aggregate' % (geography,), aggegrate_weights)
 
-        df = summarize_geography(seed_geography, 'integer_weight',
+        summary_col = 'integer_weight' if include_integer_colums else 'balanced_weight'
+        df = summarize_geography(seed_geography, summary_col, hh_id_col,
                                  crosswalk_df, weights_df, incidence_df)
         out_table('%s_%s' % (geography, seed_geography,), df)
 
-        df = summarize_geography(geography, 'integer_weight',
+        df = summarize_geography(geography, summary_col, hh_id_col,
                                  crosswalk_df, weights_df, incidence_df)
         out_table('%s' % (geography,), df)
 

@@ -16,7 +16,6 @@ input_table_list:
     column_map:
       SERIALNO: hh_id
   - tablename: persons
-    # expression_filename: seed_persons_expressions.csv
     filename : seed_persons.csv
     column_map:
       SERIALNO: hh_id
@@ -38,6 +37,7 @@ seed_geography: PUMA
 
 output_tables:
   action: skip
+  prefix: ''
   tables:
     - households
     - persons
@@ -63,4 +63,3 @@ output_synthetic_population:
       - per_num
       - OSUTAG
       - OCCP
-

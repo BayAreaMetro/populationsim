@@ -8,6 +8,7 @@ import numpy.testing as npt
 import pytest
 
 from ..balancer import ListBalancer
+from ..balancer import DEFAULT_MAX_ITERATIONS
 
 
 def test_Konduri():
@@ -40,17 +41,18 @@ def test_Konduri():
         control_importance_weights=control_importance_weights,
         lb_weights=0,
         ub_weights=30,
-        master_control_index=None
+        master_control_index=None,
+        max_iterations=DEFAULT_MAX_ITERATIONS
         )
 
     status, weights, controls = balancer.balance()
 
     weighted_sum = \
-        [round((incidence_table.ix[:, c] * weights.final).sum(), 2) for c in controls.index]
+        [round((incidence_table.loc[:, c] * weights.final).sum(), 2) for c in controls.index]
 
     published_final_weights = [1.36, 25.66, 7.98, 27.79, 18.45, 8.64, 1.47, 8.64]
     published_weighted_sum = [
-        round((incidence_table.ix[:, c] * published_final_weights).sum(), 2)
+        round((incidence_table.loc[:, c] * published_final_weights).sum(), 2)
         for c in controls.index]
     npt.assert_almost_equal(weighted_sum, published_weighted_sum, decimal=1)
 

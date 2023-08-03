@@ -1,7 +1,8 @@
+
 import os
 import logging
 
-from activitysim.core import inject_defaults
+from activitysim.core import config
 from populationsim import steps
 
 from activitysim.core import tracing
@@ -11,7 +12,7 @@ from activitysim.core import inject
 from activitysim.core.config import handle_standard_args
 from activitysim.core.tracing import print_elapsed_time
 
-from populationsim.util import setting
+from activitysim.core.config import setting
 from populationsim import lp
 from populationsim import multi_integerizer
 
@@ -57,7 +58,7 @@ steps = run_list.get('steps')
 resume_after = run_list.get('resume_after', None)
 
 if resume_after:
-    print "resume_after", resume_after
+    print("resume_after", resume_after)
 
 pipeline.run(models=steps, resume_after=resume_after)
 

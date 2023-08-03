@@ -2,6 +2,7 @@
 # PopulationSim
 # See full license in LICENSE.txt.
 
+from builtins import str
 import logging
 import os
 
@@ -50,7 +51,7 @@ def assign_variable(target, expression, df, locals_dict, df_alias=None, trace_ro
     def to_series(x, target=None):
         if x is None or np.isscalar(x):
             if target:
-                logger.warn("WARNING: assign_variables promoting scalar %s to series" % target)
+                logger.warning("WARNING: assign_variables promoting scalar %s to series" % target)
             return pd.Series([x] * len(df.index), index=df.index)
         return x
 
