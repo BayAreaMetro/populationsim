@@ -108,7 +108,7 @@ NEW_PERSON_RECORD_COLUMNS = [
                             # 5 is retired, 6 is driving-age student, 7 is non-driving age student, 8 is child too young for school
 ]
 
-import os, sys
+import logging, os, sys, time
 import numpy, pandas
 
 PUMS_INPUT_DIR      = "M:\Data\Census\PUMS\PUMS 2007-11\CSV"
@@ -183,47 +183,62 @@ def clean_types(df):
     If they don't downcast cleanly, then no change is made.
     """
     for colname in list(df.columns.values):
-        # print("%10s: min:%10.2f  max:%10.2f  null count:%6d  dtype:%s" % (colname, df[colname].min(), df[colname].max(),
-        #                                                                   len(pandas.isnull(df[colname])), str(df[colname].dtype)) )
-        print "%20s:" % colname,
-        print "%8d null values," % pandas.isnull(df[colname]).sum(),
-        print "%10s dtype, " %  str(df[colname].dtype),
-        print "%10s min, " % str(df[colname].min()),
-        print "%10s max " % str(df[colname].max()),
+        log_str = "{:20}".format(colname)
+        log_str += "{:8d} null values,".format(pandas.isnull(df[colname]).sum())
+        log_str += "{:10} dtype, ".format(str(df[colname].dtype))
+        log_str += "{:15s} min, ".format(str(df[colname].min()) if df[colname].dtype != object else "n/a")
+        log_str += "{:15s} max ".format(str(df[colname].max()) if df[colname].dtype != object else "n/a")
         try:
             new_col = pandas.to_numeric(df[colname], errors="raise", downcast="integer")
             if str(new_col.dtype) != str(df[colname].dtype):
                 df[colname] = new_col
-                print "  => %10s" % str(df[colname].dtype)
+                log_str +=  "  => {:10}".format(str(df[colname].dtype))
             else:
-                print " no downcast"
-        except Exception, e:
-            print e
+                log_str += " no downcast"
+        except Exception as e:
+            print(e)
+        logging.info(log_str)
 
 if __name__ == '__main__':
     pandas.options.display.width    = 180
     pandas.options.display.max_rows = 1000
 
+    NOW = time.strftime("%Y%b%d_%H%M")
+    LOG_FILE = "create_seed_population_{}.log".format(NOW)
+    print("Creating log file {}".format(LOG_FILE))
+
+    # create logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    # console handler
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p'))
+    logger.addHandler(ch)
+    # file handler
+    fh = logging.FileHandler(LOG_FILE, mode='w')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p'))
+    logger.addHandler(fh)
+
     pums_hu_file   = os.path.join(PUMS_INPUT_DIR, PUMS_HOUSEHOLD_FILE)
-    pums_hu_df     = pandas.read_csv(pums_hu_file)
-    pums_hu_df     = pums_hu_df[PUMS_HOUSING_RECORD_COLUMNS]
-    print "Read %7d housing records from %s" % (len(pums_hu_df), pums_hu_file)
-    print pums_hu_df.head()
-    # print pums_hu_df.dtypes
+    pums_hu_df     = pandas.read_csv(pums_hu_file, usecols=PUMS_HOUSING_RECORD_COLUMNS)
+    logging.info("Read {:7d} housing records from {}".format(len(pums_hu_df), pums_hu_file))
+    logging.debug("pums_hu_df.head():\n{}".format(pums_hu_df.head()))
+    logging.debug("pums_hu_df.dtypes:\n{}".format(pums_hu_df.dtypes))
 
     pums_pers_file = os.path.join(PUMS_INPUT_DIR, PUMS_PERSON_FILE)
-    pums_pers_df   = pandas.read_csv(pums_pers_file)
-    pums_pers_df   = pums_pers_df[PUMS_PERSON_RECORD_COLUMNS]
-    print "Read %7d person  records from %s" % (len(pums_pers_df), pums_pers_file)
-    print pums_pers_df.head()
-    # print pums_pers_df.dtypes
+    pums_pers_df   = pandas.read_csv(pums_pers_file, usecols=PUMS_PERSON_RECORD_COLUMNS)
+    logging.info("Read {:7d} person  records from {}".format(len(pums_pers_df), pums_pers_file))
+    logging.debug("pums_pers_df.head()\n{}".format(pums_pers_df.head()))
+    logging.debug("pums_pers_df.dtypes()\n{}".format(pums_pers_df.dtypes))
 
     # filter to bay area
     local_pumas  = BAY_AREA_PUMA2000_COUNTY.PUMA.tolist()
     pums_hu_df   = pums_hu_df.loc[pums_hu_df.PUMA.isin(local_pumas), :]
-    print "Filtered to %7d housing records in the bay area" % len(pums_hu_df)
+    logging.info("Filtered to {:7d} housing records in the bay area".format(len(pums_hu_df)))
     pums_pers_df = pums_pers_df.loc[pums_pers_df.PUMA.isin(local_pumas), :]
-    print "Filtered to %7d person  records in the bay area" % len(pums_pers_df)
+    logging.info("Filtered to {:7d} person  records in the bay area".format(len(pums_pers_df)))
 
     # add COUNTY
     pums_hu_df   = pandas.merge(left=pums_hu_df,   right=BAY_AREA_PUMA2000_COUNTY[["PUMA","COUNTY"]], how="left")
@@ -250,8 +265,8 @@ if __name__ == '__main__':
     pums_hu_df.loc[ pandas.isnull(pums_hu_df.hh_workers_from_esr), 'hh_workers_from_esr'] = 0
     pums_hu_df['hh_workers_from_esr'] = pums_hu_df.hh_workers_from_esr.astype(numpy.uint8)
     del pums_workers_df
-    print pums_hu_df.head()
-    print pums_pers_df.head()
+    logging.debug("\n{}".format(pums_hu_df.head()))
+    logging.debug("\n{}".format(pums_pers_df.head()))
 
     # Employment status recode
     #        b .N/A (less than 16 years old)
@@ -366,7 +381,7 @@ if __name__ == '__main__':
 
     # Remove vacant housing units
     pums_hu_df = pums_hu_df.loc[ pums_hu_df.NP != 0, :]
-    print "Filtered to %7d non-vacant housing records" % len(pums_hu_df)
+    logging.info("Filtered to {:7d} non-vacant housing records".format(len(pums_hu_df)))
 
     # SERIALNO is never null
     assert( len(pums_hu_df.loc[   pandas.isnull(pums_hu_df.SERIALNO),   ['SERIALNO','WGTP','NP','TYPE']])==0)
@@ -387,7 +402,7 @@ if __name__ == '__main__':
                                 how   = "left")
     pums_hu_df   = pums_hu_df.loc[ (pums_hu_df.TYPE != 2), :]
     pums_pers_df = pums_pers_df.loc[ pums_pers_df.TYPE != 2, :]
-    print "Filtered to %7d household and non-institutional group quarters housing records" % len(pums_hu_df)
+    logging.info("Filtered to {:7d} household and non-institutional group quarters housing records".format(len(pums_hu_df)))
 
     # give households unique id
     pums_hu_df.reset_index(drop=True,inplace=True)
@@ -421,9 +436,9 @@ if __name__ == '__main__':
     pums_pers_df.loc[ pums_pers_df.TYPE==3                                                  , "gqtype"] = 3
     pums_pers_df.loc[ (pums_pers_df.TYPE==3)&(pums_pers_df.MIL==1)                          , "gqtype"] = 2
     pums_pers_df.loc[ (pums_pers_df.TYPE==3)&((pums_pers_df.SCHG==6)|(pums_pers_df.SCHG==7)), "gqtype"] = 1
-    print pums_pers_df.gqtype.value_counts()
+    logging.info(pums_pers_df.gqtype.value_counts())
     # add PWGT to housing record temporarily for group quarters folks since they lack housing weights WGTP
-    print("before merge: pums_pers_df len {} pums_hu_df len {}".format(len(pums_pers_df), len(pums_hu_df)))
+    logging.info("before merge: pums_pers_df len {} pums_hu_df len {}".format(len(pums_pers_df), len(pums_hu_df)))
     pums_hu_df = pandas.merge(left =pums_hu_df,
                               right=pums_pers_df[['SERIALNO','PWGTP','gqtype']].drop_duplicates(subset=['SERIALNO']),
                               how  ="left")
@@ -432,7 +447,7 @@ if __name__ == '__main__':
     pums_hu_df.drop(columns=["PWGTP"], inplace=True)
     # rename gqtype to hhgqtype
     pums_hu_df.rename(columns={"gqtype":"hhgqtype"}, inplace=True)
-    print("after merge: pums_pers_df len {} pums_hu_df len {}".format(len(pums_pers_df), len(pums_hu_df)))
+    logging.info("after merge: pums_pers_df len {} pums_hu_df len {}".format(len(pums_pers_df), len(pums_hu_df)))
 
     # one last downcast
     clean_types(pums_hu_df)
@@ -442,8 +457,8 @@ if __name__ == '__main__':
     if not os.path.exists(os.path.join("hh_gq","data")): os.mkdir(os.path.join("hh_gq","data"))
     outfile = os.path.join("hh_gq","data","seed_households.csv")
     pums_hu_df.to_csv(outfile, index=False)
-    print "Wrote household and group quarters housing records to %s" % outfile
+    logging.info("Wrote household and group quarters housing records to {}".format(outfile))
 
     outfile = os.path.join("hh_gq","data","seed_persons.csv")
     pums_pers_df.to_csv(outfile, index=False)
-    print "Wrote household and group quarters person  records to %s" % outfile
+    logging.info("Wrote household and group quarters person  records to {}".format(outfile))
