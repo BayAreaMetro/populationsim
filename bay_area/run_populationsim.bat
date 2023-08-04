@@ -1,7 +1,6 @@
 ::
 :: Batch script to run the population simulation for the bay area
-:: Assumes activitysim is cloned to %USERPROFILE%\Documents\GitHub
-:: and the YEAR is passed as the argument to this batch script.
+:: Pass YEAR as the argument to this batch script.
 ::
 :: e.g. run_populationsim 2010
 ::
@@ -11,11 +10,13 @@ setlocal EnableDelayedExpansion
 :: should be TM1 or TM2
 set MODELTYPE=TM1
 
-:: should be the urbansim run number from the control files
+:: for a forecast, copies marginals from         "%URBANSIMPATH%\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv" 
+:: for past/current year, copies marginals from  "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!""
 set PETRALEPATH=X:\petrale
 set URBANSIMPATH=L:\Application\Model_One\TransitRecovery\land_use_preprocessing
-:: modified version
+:: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
 set BAUS_RUNNUM=census
+:: OUTPUT DIR will be hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
 set OUTPUT_SUFFIX=PBA50Plus_20230803
 
 :: assume argument is year
@@ -104,28 +105,39 @@ for %%Y in (!YEARS!) do (
   if not exist !OUTPUT_DIR! ( mkdir !OUTPUT_DIR! )
 
   :: tm2 version will require small changes to the config if using UrbanSim controls 
-  rem synthesize households
-  python run_populationsim.py --config hh_gq\configs_%MODELTYPE% --output !OUTPUT_DIR! --data hh_gq\data
-  if ERRORLEVEL 1 goto error
+  rem Synthesize households and persons
+  rem This will create the following in OUTPUT_DIR
+  rem   - synthetic_[households,persons].csv
+  rem   - final_expanded_household_ids.csv
+  rem   - final_summary_COUNTY_[1-9].csv
+  rem   - final_summary_TAZ.csv
+  rem   - populationsim.log, timing_log.csv, mem.csv
+  rem   - pipeline.h5
+  :: skip if ran already
+  if exist !OUTPUT_DIR!\synthetic_households.csv (
+    echo poputionsim output files exist in !OUTPUT_DIR! already.
+  )
+  if not exist !OUTPUT_DIR!\synthetic_households.csv (
+    python run_populationsim.py --config hh_gq\configs_%MODELTYPE% --output !OUTPUT_DIR! --data hh_gq\data
+    if ERRORLEVEL 1 goto error
+  )
 
-  goto end
-  rem put it together
-  python combine_households_gq.py !TEST_PUMA_FLAG! --run_num !RUN_NUM! --model_type !MODELTYPE! --model_year !YEAR!
+  rem Postprocess and recode
+  python postprocess_recode.py !TEST_PUMA_FLAG! --model_type !MODELTYPE! --directory !OUTPUT_DIR!
   if ERRORLEVEL 1 goto error
-
-  move output_!YEAR!!PUMA_SUFFIX!        output_!YEAR!_!OUTPUT_SUFFIX!
-  move hh_gq\output_!YEAR!!PUMA_SUFFIX!  hh_gq\output_!YEAR!_!OUTPUT_SUFFIX!
+  rem Note: this creates OUTPUT_DIR\summary_melt.csv so copy validation.twb into place
+  copy /y validation.twb !OUTPUT_DIR!
 
   :: save input also
   if !MODELTYPE!==TM1 (
-    copy /Y "hh_gq\data\taz_summaries.csv"       !OUTPUT_DIR!
-    copy /Y "hh_gq\data\county_marginals.csv"    !OUTPUT_DIR!
-    copy /Y "hh_gq\data\regional_marginals.csv"  !OUTPUT_DIR!
+    move /y "hh_gq\data\taz_summaries.csv"       !OUTPUT_DIR!
+    move /y "hh_gq\data\county_marginals.csv"    !OUTPUT_DIR!
+    move /y "hh_gq\data\regional_marginals.csv"  !OUTPUT_DIR!
   )
   if !MODELTYPE!==TM2 (
-      copy "hh_gq\data\maz_marginals.csv"        !OUTPUT_DIR!
-      copy "hh_gq\data\taz_marginals.csv"        !OUTPUT_DIR!
-      copy "hh_gq\data\county_marginals.csv"     !OUTPUT_DIR!
+    move /y "hh_gq\data\maz_marginals.csv"        !OUTPUT_DIR!
+    move /y "hh_gq\data\taz_marginals.csv"        !OUTPUT_DIR!
+    move /y "hh_gq\data\county_marginals.csv"     !OUTPUT_DIR!
   )
 )
 
