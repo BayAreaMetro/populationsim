@@ -100,7 +100,7 @@ output_synthetic_population:
       - ADJINC                  # Adjustment factor for income and earnings dollar amounts
       - WGTP                    # Housing weight
       - NP                      # Number of person records following this housing record
-      - TYPE                    # Type of unit
+      - TYPEHUGQ                # Type of unit
       - ACR                     # Lot size
       - BLD                     # Units in structure
       - HHT                     # Household/family type
@@ -110,7 +110,7 @@ output_synthetic_population:
       - TEN                     # Tenure
       - VEH                     # Vehicles available
       - hh_workers_from_esr     # count of employed persons in household
-      - hh_income_2010          # household income in 2010 dollars, based on HINCP and ADJINC
+      - hh_income_2021          # household income in 2010 dollars, based on HINCP and ADJINC
       - gqtype                  # group quarters type: 0: household (not gq), 1 college, 2 militar, 3 other
       - hh_income_2000          # household income in 2000 dollars for tm1
 
@@ -132,15 +132,12 @@ output_synthetic_population:
       - WKW                  # Weeks worked during past 12 months
       - ESR                  # Employment status recode
       - HISP                 # Recoded detailed Hispanic origin
-      - naicsp07             # NAICS 2007 Industry code
+      - NAICSP               # NAICS 2017 Industry code
       - PINCP                # Total person's income (signed)
       - POWPUMA              # Place of work PUMA
-      - socp00               # SOC 2000 Occupation code
-      - socp10               # SOC 2010 Occupation code
-      - indp02               # Industry 2002 recode
-      - indp07               # Industry 2007 recode
-      - occp02               # Occupation 2002 recode
-      - occp10               # Occupation 2010 recode
+      - SOCP                 # SOC 2018 Occupation code
+      - INDP                 # Industry recode
+      - OCCP                 # Occupation recode
       - occupation           # occupation encoded
       - employed             # 0 or 1, based on ESR (from create_seed_population.py)
       - employ_status        # employment status for tm1. 1 is full-time worker, 2 is part-time worker, 3 is not in the labor force, 4 is student under 16
