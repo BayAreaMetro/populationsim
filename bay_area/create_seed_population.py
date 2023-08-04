@@ -108,7 +108,7 @@ NEW_PERSON_RECORD_COLUMNS = [
                             # 5 is retired, 6 is driving-age student, 7 is non-driving age student, 8 is child too young for school
 ]
 
-import logging, os, sys, time
+import logging, os, pathlib, sys, time
 import numpy, pandas
 
 PUMS_INPUT_DIR      = "M:\Data\Census\PUMS\PUMS 2007-11\CSV"
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     pandas.options.display.max_rows = 1000
 
     NOW = time.strftime("%Y%b%d_%H%M")
-    LOG_FILE = "create_seed_population_{}.log".format(NOW)
+    LOG_FILE = pathlib.Path("hh_gq/data") / "create_seed_population_{}.log".format(NOW)
     print("Creating log file {}".format(LOG_FILE))
 
     # create logger
