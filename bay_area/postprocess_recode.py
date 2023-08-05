@@ -41,7 +41,7 @@ HOUSING_COLUMNS = {
       ("TEN",                 "TEN"),       # added Feb '23
       ("NP",                  "PERSONS"),
       ("HHT",                 "HHT"),
-      ("TYPE",                "UNITTYPE")
+      ("TYPEHUGQ",            "UNITTYPE")
     ]),
     # http://bayareametro.github.io/travel-model-two/input/#households
     'TM2':collections.OrderedDict([
