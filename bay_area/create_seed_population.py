@@ -251,10 +251,9 @@ if __name__ == '__main__':
     #     15 .College undergraduate years (freshman to senior)
     #     16 .Graduate or professional school beyond a bachelor's degree
     # set student status based on school grade
-    pums_pers_df['student_status'] = 999
-    pums_pers_df.loc[ (pums_pers_df.SCHG>1)&(pums_pers_df.SCHG==14), 'student_status'] = 1 # pre-school through grade 12 student
+    pums_pers_df['student_status'] = 3
+    pums_pers_df.loc[ (pums_pers_df.SCHG>=1 )&(pums_pers_df.SCHG<=14), 'student_status'] = 1 # pre-school through grade 12 student
     pums_pers_df.loc[ (pums_pers_df.SCHG==15)|(pums_pers_df.SCHG==16), 'student_status'] = 2 # university/professional school student
-    pums_pers_df.loc[ pandas.isnull(pums_pers_df.SCHG), 'student_status'] = 3 # non-student
 
     # set person type based on employ status, student status, and age
     pums_pers_df['person_type'] = 999
