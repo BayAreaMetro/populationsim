@@ -15,11 +15,10 @@ Outputs:
 
 Basic functions:
 (a) Create control vs result summary, summary_melt.csv
-(b) Add COUNTY to households
-(c) Add PERID to persons
-(d) Fills NaN values with -9
-(e) subset & rename household/persons columns according to HOUSING_COLUMNS/PERSON_COLUMNS
-(f) Downcasts columns to int where possible
+(b) Add PERID to persons
+(c) Fills NaN values with -9
+(d) subset & rename household/persons columns according to HOUSING_COLUMNS/PERSON_COLUMNS
+(e) Downcasts columns to int where possible
 
 """
 
@@ -32,7 +31,6 @@ HOUSING_COLUMNS = {
     'TM1':collections.OrderedDict([
       ("unique_hh_id",        "HHID"), 
       ("TAZ",                 "TAZ"),
-      ("COUNTY",              "COUNTY"),    # we added this
      #("hinccat1",            "hinccat1"),  # commented out since this is added after hh+gq combine
       ("hh_income_2000",      "HINC"),
       ("hh_workers_from_esr", "hworkers"),
@@ -189,17 +187,14 @@ if __name__ == '__main__':
     logging.debug("persons_df.head():\n{}".format(persons_df.head()))
     logging.debug("persons_df.dtypes:\n{}".format(persons_df.dtypes))
   
-    # (b) Add COUNTY to households
-    households_df = pandas.merge(left=households_df, right=geocrosswalk_df[["TAZ","COUNTY"]], how="left")
-
-    # (c) Add PERID to persons
+    # (b) Add PERID to persons
     persons_df["PERID"] = persons_df.index + 1 # start from 1
   
-    # (d) Fills NaN values with -9
+    # (c) Fills NaN values with -9
     households_df.fillna(value=-9, inplace=True)
     persons_df.fillna(value=-9, inplace=True)
 
-    # (e) subset & rename household columns according to HOUSING_COLUMNS
+    # (d) subset & rename household columns according to HOUSING_COLUMNS
     households_df = households_df[HOUSING_COLUMNS[args.model_type].keys()].rename(columns=HOUSING_COLUMNS[args.model_type])
 
     if args.model_type == 'TM1': 
