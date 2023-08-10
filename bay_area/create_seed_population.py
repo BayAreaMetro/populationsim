@@ -223,7 +223,7 @@ if __name__ == '__main__':
     #     1..98 .1 to 98 usual hours
     #     99 .99 or more usual hours
 
-    # set employment status based on emplotment status recode, weeks worked per year, and hours worked per week
+    # set employment status based on employment status recode, weeks worked per year, and hours worked per week
     pums_pers_df['employ_status'] = 999
     pums_pers_df.loc[ pums_pers_df.employed == 1, 'employ_status'] = 2 # part-time worker
     pums_pers_df.loc[ (pums_pers_df.employed == 1)&

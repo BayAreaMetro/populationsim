@@ -17,7 +17,7 @@ set URBANSIMPATH=L:\Application\Model_One\TransitRecovery\land_use_preprocessing
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
 set BAUS_RUNNUM=census
 :: OUTPUT DIR will be hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=PBA50Plus_20230804
+set OUTPUT_SUFFIX=PBA50Plus_20230809
 
 :: assume argument is year
 set YEARS=%1
