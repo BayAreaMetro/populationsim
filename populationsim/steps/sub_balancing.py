@@ -1,3 +1,4 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
@@ -11,11 +12,12 @@ from ..simul_balancer import SimultaneousListBalancer
 from activitysim.core import inject
 from activitysim.core import pipeline
 
-from populationsim.util import setting
+from activitysim.core.config import setting
 
-from helper import get_control_table
-from helper import weight_table_name
-from helper import get_weight_table
+from .helper import control_table_name
+from .helper import get_control_table
+from .helper import weight_table_name
+from .helper import get_weight_table
 
 from ..multi_integerizer import multi_integerize
 
@@ -72,7 +74,7 @@ def balance(
     controls = pd.DataFrame({'name': sub_control_spec.target})
     controls['importance'] = sub_control_spec.importance
     controls['total'] = sub_controls_df.sum(axis=0).values
-    for zone, zone_name in sub_control_zones.iteritems():
+    for zone, zone_name in sub_control_zones.items():
         controls[zone_name] = sub_controls_df.loc[zone].values
 
     # incidence table should only have control columns
@@ -207,6 +209,9 @@ def sub_balancing(settings, crosswalk, control_spec, incidence_table):
 
     """
 
+    NO_INTEGERIZATION_EVER = setting('NO_INTEGERIZATION_EVER', False)
+    SUB_BALANCE_WITH_FLOAT_SEED_WEIGHTS = setting('SUB_BALANCE_WITH_FLOAT_SEED_WEIGHTS', True)
+
     # geography is an injected model step arg
     geography = inject.get_step_arg('geography')
 
@@ -240,24 +245,29 @@ def sub_balancing(settings, crosswalk, control_spec, incidence_table):
         seed_incidence_df = incidence_df[incidence_df[seed_geography] == seed_id]
         seed_crosswalk_df = crosswalk_df[crosswalk_df[seed_geography] == seed_id]
 
+        # expects seed geography is siloed by meta_geography
+        # (no seed_id is in more than one meta_geography zone)
         assert len(seed_crosswalk_df[meta_geography].unique()) == 1
 
         # list of unique parent zone ids in this seed zone
-        # (there will be just one if parent geo is seed)
+        # (there will be just one if parent geography is seed)
         parent_ids = seed_crosswalk_df[parent_geography].unique()
+
         # only want ones for which there are (non-zero) controls
         parent_ids = parent_controls_df.index.intersection(parent_ids)
 
-        for parent_id in parent_ids:
+        num_parent_ids = len(parent_ids)
+        for idx, parent_id in enumerate(parent_ids, start=1):
 
-            logger.info("balancing seed %s, %s %s" % (seed_id, parent_geography, parent_id))
+            logger.info(f"balancing {idx}/{num_parent_ids} seed {seed_id}, "
+                        f"{parent_geography} {parent_id}")
 
             initial_weights = weights_df[weights_df[parent_geography] == parent_id]
             initial_weights = initial_weights.set_index(settings.get('household_id_col'))
 
             # using balanced_weight slows down simul and doesn't improve results
             # (float seeds means no zero-weight households to drop)
-            if setting('SUB_BALANCE_WITH_FLOAT_SEED_WEIGHTS', True):
+            if NO_INTEGERIZATION_EVER or SUB_BALANCE_WITH_FLOAT_SEED_WEIGHTS:
                 initial_weights = initial_weights['balanced_weight']
             else:
                 initial_weights = initial_weights['integer_weight']
@@ -287,10 +297,14 @@ def sub_balancing(settings, crosswalk, control_spec, incidence_table):
 
     integer_weights_df = pd.concat(integer_weights_list)
 
+    logger.info(f"adding table {weight_table_name(geography)}")
     inject.add_table(weight_table_name(geography),
                      integer_weights_df)
-    inject.add_table(weight_table_name(geography, sparse=True),
-                     integer_weights_df[integer_weights_df['integer_weight'] > 0])
+
+    if not NO_INTEGERIZATION_EVER:
+
+        inject.add_table(weight_table_name(geography, sparse=True),
+                         integer_weights_df[integer_weights_df['integer_weight'] > 0])
 
     if 'trace_geography' in settings and geography in settings['trace_geography']:
         trace_geography_id = settings.get('trace_geography')[geography]

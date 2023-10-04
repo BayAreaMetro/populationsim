@@ -1,7 +1,9 @@
 
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
+from builtins import zip
 import logging
 import os
 
@@ -10,21 +12,22 @@ import numpy as np
 
 from activitysim.core import inject
 from activitysim.core import pipeline
+from activitysim.core import config
 
 from ..assign import assign_variable
-from helper import control_table_name
-from helper import get_control_table
-from helper import get_control_data_table
+from .helper import control_table_name
+from .helper import get_control_table
+from .helper import get_control_data_table
 
-from populationsim.util import setting
+from activitysim.core.config import setting
 
 logger = logging.getLogger(__name__)
 
 
-def read_control_spec(data_filename, configs_dir):
+def read_control_spec(data_filename):
 
     # read the csv file
-    data_file_path = os.path.join(configs_dir, data_filename)
+    data_file_path = config.config_file_path(data_filename)
     if not os.path.exists(data_file_path):
         raise RuntimeError(
             "initial_seed_balancing - control file not found: %s" % (data_file_path,))
@@ -108,11 +111,11 @@ def add_geography_columns(incidence_table, households_df, crosswalk_df):
     # add seed_geography col to incidence table
     incidence_table[seed_geography] = households_df[seed_geography]
 
-    # add meta column to incidence table
-    seed_to_meta = \
-        crosswalk_df[[seed_geography, meta_geography]] \
-        .groupby(seed_geography, as_index=True).min()[meta_geography]
-    incidence_table[meta_geography] = incidence_table[seed_geography].map(seed_to_meta)
+    # add meta column to incidence table (unless it's already there)
+    if seed_geography != meta_geography:
+        tmp = crosswalk_df[list({seed_geography, meta_geography})]
+        seed_to_meta = tmp.groupby(seed_geography, as_index=True).min()[meta_geography]
+        incidence_table[meta_geography] = incidence_table[seed_geography].map(seed_to_meta)
 
     return incidence_table
 
@@ -267,7 +270,7 @@ def filter_households(households_df, persons_df, crosswalk_df):
 
 
 @inject.step()
-def setup_data_structures(settings, configs_dir, households, persons):
+def setup_data_structures(settings, households, persons):
     """
     Setup geographic correspondence (crosswalk), control sets, and incidence tables.
 
@@ -287,7 +290,6 @@ def setup_data_structures(settings, configs_dir, households, persons):
     ----------
     settings: dict
         contents of settings.yaml as dict
-    configs_dir: str
     households: pipeline table
     persons: pipeline table
 
@@ -305,6 +307,7 @@ def setup_data_structures(settings, configs_dir, households, persons):
     """
 
     seed_geography = setting('seed_geography')
+    geographies = settings['geographies']
 
     households_df = households.to_frame()
     persons_df = persons.to_frame()
@@ -312,10 +315,21 @@ def setup_data_structures(settings, configs_dir, households, persons):
     crosswalk_df = build_crosswalk_table()
     inject.add_table('crosswalk', crosswalk_df)
 
-    control_spec = read_control_spec(setting('control_file_name', 'controls.csv'), configs_dir)
+    slice_geography = settings.get('slice_geography', None)
+    if slice_geography:
+        assert slice_geography in geographies
+        assert slice_geography in crosswalk_df.columns
+
+        # only want rows for slice_geography and higher
+        slice_geographies = geographies[:geographies.index(slice_geography) + 1]
+        slice_table = crosswalk_df[slice_geographies].groupby(slice_geography).max()
+        # it is convenient to have slice_geography column in table as well as index
+        slice_table[slice_geography] = slice_table.index
+        inject.add_table(f"slice_crosswalk", slice_table)
+
+    control_spec = read_control_spec(setting('control_file_name', 'controls.csv'))
     inject.add_table('control_spec', control_spec)
 
-    geographies = settings['geographies']
     for g in geographies:
         controls = build_control_table(g, control_spec, crosswalk_df)
         inject.add_table(control_table_name(g), controls)
@@ -333,7 +347,7 @@ def setup_data_structures(settings, configs_dir, households, persons):
     hh_weight_col = setting('household_weight_col')
     incidence_table['sample_weight'] = households_df[hh_weight_col]
 
-    if setting('GROUP_BY_INCIDENCE_SIGNATURE'):
+    if setting('GROUP_BY_INCIDENCE_SIGNATURE') and not setting('NO_INTEGERIZATION_EVER', False):
         group_incidence_table, household_groups \
             = build_grouped_incidence_table(incidence_table, control_spec, seed_geography)
 
@@ -344,7 +358,7 @@ def setup_data_structures(settings, configs_dir, households, persons):
 
 
 @inject.step()
-def repop_setup_data_structures(configs_dir, households, persons):
+def repop_setup_data_structures(households, persons):
     """
     Setup geographic correspondence (crosswalk), control sets, and incidence tables for repop run.
 
@@ -358,7 +372,6 @@ def repop_setup_data_structures(configs_dir, households, persons):
 
     Parameters
     ----------
-    configs_dir : str
     households: pipeline table
     persons: pipeline table
 
@@ -377,7 +390,7 @@ def repop_setup_data_structures(configs_dir, households, persons):
 
     # replace control_spec
     control_file_name = setting('repop_control_file_name', 'repop_controls.csv')
-    control_spec = read_control_spec(control_file_name, configs_dir)
+    control_spec = read_control_spec(control_file_name)
 
     # repop control spec should only specify controls for lowest level geography
     assert control_spec.geography.unique() == [low_geography]
@@ -405,7 +418,7 @@ def repop_setup_data_structures(configs_dir, households, persons):
         controls = build_control_table(g, control_spec, crosswalk_df)
         pipeline.replace_table(control_table_name(g), controls)
 
-    if setting('GROUP_BY_INCIDENCE_SIGNATURE'):
+    if setting('GROUP_BY_INCIDENCE_SIGNATURE') and not setting('NO_INTEGERIZATION_EVER', False):
         group_incidence_table, household_groups \
             = build_grouped_incidence_table(incidence_table, control_spec, seed_geography)
 

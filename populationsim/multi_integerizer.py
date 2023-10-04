@@ -1,6 +1,9 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
+from builtins import range
+from builtins import object
 import logging
 import os
 
@@ -8,13 +11,13 @@ import numpy as np
 import pandas as pd
 
 
-from util import setting
+from activitysim.core.config import setting
 
-from lp import get_simul_integerizer
-from lp import STATUS_SUCCESS
+from .lp import get_simul_integerizer
+from .lp import STATUS_SUCCESS
 
-from integerizer import smart_round
-from integerizer import do_integerizing
+from .integerizer import smart_round
+from .integerizer import do_integerizing
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +79,9 @@ class SimulIntegerizer(object):
         total_hh_parent_control_index = -1
 
         sub_incidence = self.incidence_df[self.sub_controls_df.columns]
-        sub_incidence = sub_incidence.as_matrix().astype(np.float64)
+        sub_incidence = sub_incidence.values.astype(np.float64)
 
-        sub_float_weights = self.sub_weights.as_matrix().transpose().astype(np.float64)
+        sub_float_weights = self.sub_weights.values.transpose().astype(np.float64)
         sub_int_weights = sub_float_weights.astype(int)
         sub_resid_weights = sub_float_weights % 1.0
 
@@ -107,7 +110,7 @@ class SimulIntegerizer(object):
 
         # - parent
         parent_incidence = self.incidence_df[self.parent_countrol_cols]
-        parent_incidence = parent_incidence.as_matrix().astype(np.float64)
+        parent_incidence = parent_incidence.values.astype(np.float64)
 
         # note:
         # sum(sub_int_weights) might be different from parent_float_weights.astype(int)
@@ -142,13 +145,13 @@ class SimulIntegerizer(object):
 
         # how could this not be the case?
         if not (parent_hh_constraint_ge_bound == parent_max_possible_control_values).all():
-            print "\nSimulIntegerizer integerizing", self.trace_label
-            logger.warn("parent_hh_constraint_ge_bound != parent_max_possible_control_values")
-            logger.warn("parent_hh_constraint_ge_bound:      %s" %
-                        parent_hh_constraint_ge_bound)
-            logger.warn("parent_max_possible_control_values: %s" %
-                        parent_max_possible_control_values)
-            print "\n"
+            print("\nSimulIntegerizer integerizing", self.trace_label)
+            logger.warning("parent_hh_constraint_ge_bound != parent_max_possible_control_values")
+            logger.warning("parent_hh_constraint_ge_bound:      %s" %
+                           parent_hh_constraint_ge_bound)
+            logger.warning("parent_max_possible_control_values: %s" %
+                           parent_max_possible_control_values)
+            print("\n")
             # assert (parent_hh_constraint_ge_bound == parent_max_possible_control_values).all()
 
         integerizer_func = get_simul_integerizer()
@@ -286,11 +289,11 @@ def reshape_result(float_weights, integerized_weights, sub_geography, sub_contro
 
     # integerize the sub_zone weights
     integer_weights_list = []
-    for zone_id, zone_name in sub_control_zones.iteritems():
+    for zone_id, zone_name in list(sub_control_zones.items()):
 
         weights = float_weights[zone_name]
 
-        zone_weights_df = pd.DataFrame(index=range(0, len(integerized_weights.index)))
+        zone_weights_df = pd.DataFrame(index=list(range(0, len(integerized_weights.index))))
         zone_weights_df[weights.index.name] = float_weights.index
         zone_weights_df[sub_geography] = zone_id
         zone_weights_df['balanced_weight'] = float_weights[zone_name].values
@@ -360,7 +363,7 @@ def do_simul_integerizing(
         logger.info("do_simul_integerizing succeeded for %s status %s. " % (trace_label, status))
         return integerized_weights_df
 
-    logger.warn("do_simul_integerizing failed for %s status %s. " % (trace_label, status))
+    logger.warning("do_simul_integerizing failed for %s status %s. " % (trace_label, status))
 
     # if simultaneous integerization failed, sequentially integerize to detect infeasible subzones
     # infeasible zones will be smart rounded and returned in rounded_weights_df
@@ -377,7 +380,7 @@ def do_simul_integerizing(
     if len(feasible_zone_ids) == 0:
         # if all subzones are infeasible, then we don't have any feasible zones to try
         # so the best we can do is return rounded_weights_df
-        logger.warn("do_sequential_integerizing failed for all subzones %s. " % trace_label)
+        logger.warning("do_sequential_integerizing failed for all subzones %s. " % trace_label)
         logger.info("do_simul_integerizing returning smart rounded weights for %s."
                     % trace_label)
         return rounded_weights_df
@@ -385,8 +388,8 @@ def do_simul_integerizing(
     if len(rounded_zone_ids) == 0:
         # if all subzones are feasible, then there are no zones to remove in order to retry
         # so the best we can do is return sequentially_integerized_weights_df
-        logger.warn("do_simul_integerizing failed but found no infeasible sub zones %s. "
-                    % trace_label)
+        logger.warning("do_simul_integerizing failed but found no infeasible sub zones %s. "
+                       % trace_label)
         logger.info("do_simul_integerizing falling back to sequential integerizing for %s."
                     % trace_label)
         return sequentially_integerized_weights_df
@@ -394,8 +397,8 @@ def do_simul_integerizing(
     if len(feasible_zone_ids) == 1:
         # if only one zone is feasible, not much point in simul_integerizing it
         # so the best we can do is return do_sequential_integerizing combined results
-        logger.warn("do_simul_integerizing failed but found no infeasible sub zones %s. "
-                    % trace_label)
+        logger.warning("do_simul_integerizing failed but found no infeasible sub zones %s. "
+                       % trace_label)
         return pd.concat([sequentially_integerized_weights_df, rounded_weights_df])
 
     # - remove the infeasible subzones and retry simul_integerizing
@@ -491,7 +494,7 @@ def do_sequential_integerizing(
     rounded_weights_list = []
     integerized_zone_ids = []
     rounded_zone_ids = []
-    for zone_id, zone_name in sub_control_zones.iteritems():
+    for zone_id, zone_name in list(sub_control_zones.items()):
 
         logger.info("sequential_integerizing zone_id %s zone_name %s" % (zone_id, zone_name))
 
@@ -508,7 +511,7 @@ def do_sequential_integerizing(
             total_hh_control_col=total_hh_control_col
         )
 
-        zone_weights_df = pd.DataFrame(index=range(0, len(integer_weights.index)))
+        zone_weights_df = pd.DataFrame(index=list(range(0, len(integer_weights.index))))
         zone_weights_df[weights.index.name] = weights.index
         zone_weights_df[sub_geography] = zone_id
         zone_weights_df['balanced_weight'] = weights.values
@@ -529,6 +532,37 @@ def do_sequential_integerizing(
     rounded_weights_df = pd.concat(rounded_weights_list) if rounded_zone_ids else None
 
     return integerized_zone_ids, rounded_zone_ids, integerized_weights_df, rounded_weights_df
+
+
+def do_no_integerizing(
+        trace_label,
+        incidence_df,
+        sub_weights, sub_controls_df,
+        control_spec, total_hh_control_col,
+        sub_control_zones,
+        sub_geography):
+    """
+
+    """
+    integerized_weights_list = []
+    rounded_weights_list = []
+    integerized_zone_ids = []
+    for zone_id, zone_name in sub_control_zones.iteritems():
+
+        logger.info("sequential_integerizing zone_id %s zone_name %s" % (zone_id, zone_name))
+
+        weights = sub_weights[zone_name]
+
+        zone_weights_df = pd.DataFrame(index=range(0, len(weights.index)))
+        zone_weights_df[weights.index.name] = weights.index
+        zone_weights_df[sub_geography] = zone_id
+        zone_weights_df['balanced_weight'] = weights.values
+
+        integerized_weights_list.append(zone_weights_df)
+        integerized_zone_ids.append(zone_id)
+
+    integerized_weights_df = pd.concat(integerized_weights_list + rounded_weights_list)
+    return integerized_weights_df
 
 
 def multi_integerize(
@@ -574,7 +608,9 @@ def multi_integerize(
 
     trace_label = "%s_%s" % (parent_geography, parent_id)
 
-    if use_simul_integerizer():
+    if setting('NO_INTEGERIZATION_EVER', False):
+        integerizer = do_no_integerizing
+    elif use_simul_integerizer():
         integerizer = do_simul_integerizing
     else:
         integerizer = do_sequential_integerizing

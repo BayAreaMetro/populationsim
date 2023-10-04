@@ -1,38 +1,22 @@
-"""
+import os
+import logging
 
-See run_populationsim.bat for typical usage.
-
-"""
-import argparse,os,logging,sys
-
-from activitysim.core import inject_defaults
-from populationsim import steps
+from activitysim.core import config
 
 from activitysim.core import tracing
 from activitysim.core import pipeline
 from activitysim.core import inject
 
-from activitysim.core.config import handle_standard_args
 from activitysim.core.tracing import print_elapsed_time
+from activitysim.core.config import handle_standard_args
 
-from populationsim.util import setting
+from populationsim import steps
+from activitysim.core.config import setting
 from populationsim import lp
 from populationsim import multi_integerizer
 
-# handle model year as argument
-parser = argparse.ArgumentParser()
-parser.add_argument("-y","--model_year", help="model year")
-parser.add_argument("--run_num", help="urbansim run number for the control files")
 
-# Add (and handle) 'standard' activitysim arguments:
-#     --config : specify path to config_dir
-#     --output : specify path to output_dir
-#     --data   : specify path to data_dir
-#     --models : specify run_list name
-#     --resume : resume_after
-args = handle_standard_args(parser)
-inject.add_injectable("model_year", args.model_year)
-inject.add_injectable("run_num", args.run_num)
+handle_standard_args()
 
 tracing.config_logger()
 
@@ -66,8 +50,8 @@ assert 'steps' in run_list, "Did not find steps in run_list"
 steps = run_list.get('steps')
 resume_after = run_list.get('resume_after', None)
 
-if resume_after:
-    print "resume_after", resume_after
+# they may have overridden resume_after on command line
+resume_after = inject.get_injectable('resume_after', resume_after)
 
 pipeline.run(models=steps, resume_after=resume_after)
 
@@ -75,4 +59,7 @@ pipeline.run(models=steps, resume_after=resume_after)
 # tables will no longer be available after pipeline is closed
 pipeline.close_pipeline()
 
-t0 = ("all models", t0)
+# write checkpoints (this can be called whether or not pipeline is open)
+# file_path = os.path.join(inject.get_injectable("output_dir"), "checkpoints.csv")
+# pipeline.get_checkpoints().to_csv(file_path)
+t0 = print_elapsed_time("all models", t0)

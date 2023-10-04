@@ -3,7 +3,7 @@
    contain the root `toctree` directive.
 
 .. _getting_started:
-   
+
 Getting Started
 ===============
 
@@ -12,9 +12,15 @@ This page describes how to install and run PopulationSim with the provided examp
 Installation
 ------------
 
-1. Install `Anaconda Python 2.7 <https://www.continuum.io/downloads>`__.  Anaconda Python is required for PopulationSim.
+1. It is recommended that you install and use a *conda* package manager
+for your system. One easy way to do so is by using `Anaconda 64bit Python 3 <https://www.anaconda.com/distribution/>`__,
+although you should consult the `terms of service <https://www.anaconda.com/terms-of-service>`__
+for this product and ensure you qualify (as of summer 2021, businesses and
+governments with over 200 employees do not qualify for free usage).  If you prefer
+a completely free open source *conda* tool, you can download and install the
+appropriate version of `Miniforge <https://github.com/conda-forge/miniforge#miniforge3>`__.
 
-2. If you access the internet from behind a firewall, then you will need to configure your proxy server. To do so, create a .condarc file in your Anaconda installation folder (i.e. ``C:\ProgramData\Anaconda2``), such as:
+2. If you access the internet from behind a firewall, then you will need to configure your proxy server. To do so, create a .condarc file in your Anaconda installation folder (i.e. ``C:\ProgramData\Anaconda3``), such as:
 
 ::
 
@@ -22,43 +28,63 @@ Installation
     http: http://myproxy.org:8080
     https: https://myproxy.org:8080
   ssl_verify: false
- 
+
 3. Create and activate an Anaconda environment (basically a Python install just for this project)
-  
-  * Run ``conda create -n popsim python=2.7``
-  * Run ``activate popsim`` (you can re-use the environment on a later date by re-activating it or you can skip this step if you don't want to setup a new Python environment just for PopulationSim)
-   
-4. Get and install other required libraries, which can be found online.  Run the following commands on the activated conda Python environment:
-
-  * `conda install pytables <http://www.pytables.org/>`__
-  * `pip install toolz <http://toolz.readthedocs.org/en/latest>`__
-  * `pip install zbox <https://github.com/jiffyclub/zbox>`__
-  * `pip install orca <https://synthicity.github.io/orca>`__
-  * `pip install openmatrix <https://pypi.python.org/pypi/OpenMatrix>`__
-  * `pip install activitysim <https://pypi.python.org/pypi/activitysim>`__
-  * `pip install ortools <https://github.com/google/or-tools>`__
-
-5. If you access the internet from behind a firewall, then you will need to configure your proxy server when downloading packages. For example:
-     
-::
-
-  pip install --trusted-host pypi.python.org --proxy=myproxy.org:8080  activitysim
-
-6. Get and install the PopulationSim package on the activated conda Python environment:
 
 ::
 
-  pip install https://github.com/RSGInc/populationsim/zipball/master
+  conda create -n popsim python=3.8 
+
+  # Windows
+  activate popsim
+
+  # Mac
+  conda activate popsim
+
+4. Get and install the PopulationSim package on the activated conda Python environment:
+
+::
+
+  # best to use the conda version of pytables for consistency with activitysim
+  conda install pytables
+
+  pip install populationsim
+
+
+.. _activitysim :
+
+ActivitySim
+~~~~~~~~~~~
+
+.. note::
+
+  PopulationSim is a 64bit Python 3 library that uses a number of packages from the
+  scientific Python ecosystem, most notably `pandas <http://pandas.pydata.org>`__
+  and `numpy <http://numpy.org>`__. It also relies heavily on the
+  `ActivitySim <https://activitysim.github.io>`__ package.
+
+  The recommended way to get your own scientific Python installation is to
+  install 64 bit Anaconda, which contains many of the libraries upon which
+  ActivitySim depends + some handy Python installation management tools.
+
+  For more information on Anaconda and ActivitySim, see ActivitySim's `getting started
+  <https://activitysim.github.io/activitysim/gettingstarted.html>`__ guide.
 
 
 Run Examples
 ------------
 
-  * Before running examples, ensure that Anaconda Python, dependent libraries and PopulationSim package have been installed.
- 
-  * Download and unzip the `example setups <https://github.com/RSGInc/populationSim_resources/raw/master/example_setup/PopulationSimExampleSetUps.7z>`_ to a folder on your computer. It does not have to be the same directory as your Anaconda or PopulationSim install.
+There are four examples for running PopulationSim, three created using data from the 
+Corvallis-Albany-Lebanon Modeling (CALM) region in Oregon and the other using data from 
+the Metro Vancouver region in British Columbia. 
 
-There are two examples for running PopulationSim, created using data from the Corvallis-Albany-Lebanon Modeling (CALM) region in Oregon. The `example_calm`_ set-up runs PopulationSim in base mode, where a synthetic population is created for the entire modeling region. This takes approximately 12 minutes on a laptop with an Intel i7-4800MQ CPU @ 2.70GHz and 16 GB of RAM. The `example_calm_repop`_ set-up runs PopulationSim in the *repop* mode, which updates the synthetic population for a small part of the region. More information on the configuration of PopulationSim can be found in the **Application & Configuration** section.
+1. The `example_calm`_ set-up runs PopulationSim,  where a synthetic population is created single-processed for the entire modeling region. 
+
+2. The `example_calm_mp`_ set-up runs PopulationSim `multi-processed <http://docs.python.org/3/library/multiprocessing.html>`_, where a synthetic population is created for the entire modeling region by simultaneously balancing results using multiple processors on your computer, thereby reducing runtime.
+
+3. The `example_calm_repop`_ set-up runs PopulationSim in the *repop* mode, which updates the synthetic population for a small part of the region. 
+
+4. The `example_survey_weighting`_ set-up runs PopulationSim for the case of developing final weights for a household travel survey. More information on the configuration of PopulationSim can be found in the **Application & Configuration** section.
 
 Example_calm
 ~~~~~~~~~~~~
@@ -67,12 +93,28 @@ Follow the steps below to run **example_calm** set up:
 
   * Open a command prompt in the example_calm folder
   * Run the following commands:
-  
+
   ::
 
    activate popsim
    python run_populationsim.py
-   
+
+  * Review the outputs in the *output* folder
+
+Example_calm_mp
+~~~~~~~~~~~~~~~
+
+Follow the steps below to run **example_calm_mp** multiprocessed set up:
+
+  * Open a command prompt in the example_calm folder
+  * In ``configs_mp\setting.yaml``, set ``num_processes: 2`` to a reasonable number of processors for your machine
+  * Run the following commands:
+
+  ::
+
+   activate popsim
+   python run_populationsim.py -c configs_mp -c configs
+
   * Review the outputs in the *output* folder
 
 Example_calm_repop
@@ -83,10 +125,25 @@ The repop configuration requires outputs from a base run. Therefore, the base co
   * Copy the **pipeline.h5** file from the example_calm\\output directory to example_calm_repop\\output directory (all PopulationSim files are stored in pipeline.h5 file)
   * Open a command prompt in the example_calm_repop folder
   * Run the following commands:
-    
+
   ::
 
    activate popsim
    python run_populationsim.py
-   
-  * Review the outputs in the *output* folder 
+
+  * Review the outputs in the *output* folder
+
+Example_survey_weighting
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Follow the steps below to run **example_survey_weighting** set up:
+
+  * Open a command prompt in the example_survey_weighting folder
+  * Run the following commands:
+
+  ::
+
+   activate popsim
+   python run_populationsim.py
+
+  * Review the outputs in the *output* folder

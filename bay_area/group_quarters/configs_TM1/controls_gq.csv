@@ -1,6 +1,0 @@
-target,geography,seed_table,importance,control_field,expression
-gq_num_hh,TAZ,households,1000000000,gq_tot_pop,(households.PWGTP > 0) & (households.PWGTP < np.inf)
-gq_type_univ,TAZ,persons,10000000,gq_type_univ,persons.gqtype==1
-gq_type_mil,TAZ,persons,10000000,gq_type_mil,persons.gqtype==2
-gq_type_othnon,TAZ,persons,10000000,gq_type_othnon,persons.gqtype==3
-gq_num_hh_region,REGION,persons,1000,gq_num_hh_region,"persons.RT==""P"""

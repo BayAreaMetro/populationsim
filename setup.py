@@ -3,35 +3,25 @@ use_setuptools()  # nopep8
 
 from setuptools import setup, find_packages
 
-with open('README.rst') as file:
-    long_description = file.read()
-
 setup(
     name='populationsim',
-    version='0.3.3',
+    version='0.5.1',
     description='Population Synthesis',
     author='contributing authors',
     author_email='ben.stabler@rsginc.com',
     license='BSD-3',
-    url='https://github.com/RSGInc/populationsim',
+    url='https://github.com/ActivitySim/populationsim',
     classifiers=[
-        'Development Status :: 4 - Beta',
-        'Programming Language :: Python :: 2.7',
+        'Development Status :: 5 - Production/Stable',
+        'Programming Language :: Python :: 3.8',
         'License :: OSI Approved :: BSD License'
     ],
-    long_description=long_description,
     packages=find_packages(exclude=['*.tests']),
+    include_package_data=True,
     install_requires=[
-        'numpy >= 1.12.1',
-        'openmatrix >= 0.2.4',
-        'orca >= 1.1',
-        'pandas >= 0.18.0',
-        'pyyaml >= 3.0',
-        'tables >= 3.3.0',
-        'toolz >= 0.7',
-        'zbox >= 1.2',
-        'psutil >= 4.1',
-        'activitysim == 0.5',
-        'ortools >= 5.1.4045',
+        'activitysim >= 0.9.9.1',
+        'numpy >= 1.16.1',
+        'pandas >= 1.1.0',
+        'ortools >= 5.1.4045'
     ]
 )

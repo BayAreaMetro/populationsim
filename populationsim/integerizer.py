@@ -1,16 +1,19 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
+from builtins import object
 import logging
 
 import os
 
 import numpy as np
 import pandas as pd
-from util import setting
+from activitysim.core.config import setting
 
-from lp import get_single_integerizer
-from lp import STATUS_SUCCESS
+from .lp import get_single_integerizer
+from .lp import STATUS_SUCCESS
+from .lp import STATUS_OPTIMAL
 
 
 logger = logging.getLogger(__name__)
@@ -101,7 +104,7 @@ class Integerizer(object):
         sample_count = len(self.incidence_table.index)
         control_count = len(self.incidence_table.columns)
 
-        incidence = self.incidence_table.as_matrix().transpose().astype(np.float64)
+        incidence = self.incidence_table.values.transpose().astype(np.float64)
         float_weights = np.asanyarray(self.float_weights).astype(np.float64)
         relaxed_control_totals = np.asanyarray(self.relaxed_control_totals).astype(np.float64)
         control_is_hh_based = np.asanyarray(self.control_is_hh_based).astype(bool)
@@ -120,58 +123,71 @@ class Integerizer(object):
         int_weights = float_weights.astype(int)
         resid_weights = float_weights % 1.0
 
-        # - lp_right_hand_side - relaxed_control_shortfall
-        lp_right_hand_side = relaxed_control_totals - np.dot(int_weights, incidence.T)
-        lp_right_hand_side = np.maximum(lp_right_hand_side, 0.0)
-
-        # - max_incidence_value of each control
-        max_incidence_value = np.amax(incidence, axis=1)
-        assert (max_incidence_value[control_is_hh_based] <= 1).all()
-
-        # - create the inequality constraint upper bounds
-        num_households = relaxed_control_totals[self.total_hh_control_index]
-        relax_ge_upper_bound = np.maximum(max_incidence_value * num_households - lp_right_hand_side,
-                                          0)
-        hh_constraint_ge_bound = \
-            np.maximum(self.total_hh_control_value * max_incidence_value, lp_right_hand_side)
-
-        # popsim3 does does something rather peculiar, which I am not sure is right
-        # it applies a huge penalty to rounding a near-zero residual upwards
-        # the documentation justifying this is sparse and possibly confused:
-        # // Set objective: min sum{c(n)*x(n)} + 999*y(i) - 999*z(i)}
-        # objective_function_coefficients = -1.0 * np.log(resid_weights)
-        # objective_function_coefficients[(resid_weights <= np.exp(-999))] = 999
-        # I am opting for an alternate interpretation of what they meant to do: avoid log overflow
-        # There is not much difference in effect...
-        LOG_OVERFLOW = -725
-        log_resid_weights = np.log(np.maximum(resid_weights, np.exp(LOG_OVERFLOW)))
-        assert not np.isnan(log_resid_weights).any()
-
-        if (float_weights == 0).any():
+        if (resid_weights == 0.0).all():
             # not sure this matters...
-            logger.warn("Integerizer: %s zero weights" % ((float_weights == 0).sum(),))
-            assert False
+            logger.info("Integerizer: all %s resid_weights zero. Returning success." %
+                        ((resid_weights == 0).sum(), ))
 
-        if (resid_weights == 0.0).any():
-            # not sure this matters...
-            logger.warn("Integerizer: %s zero resid_weights" % ((resid_weights == 0).sum(),))
-            # assert False
+            integerized_weights = int_weights
+            status = STATUS_OPTIMAL
 
-        integerizer_func = get_single_integerizer()
+        else:
 
-        resid_weights, status = integerizer_func(
-            incidence=incidence,
-            resid_weights=resid_weights,
-            log_resid_weights=log_resid_weights,
-            control_importance_weights=control_importance_weights,
-            total_hh_control_index=self.total_hh_control_index,
-            lp_right_hand_side=lp_right_hand_side,
-            relax_ge_upper_bound=relax_ge_upper_bound,
-            hh_constraint_ge_bound=hh_constraint_ge_bound
-        )
+            # - lp_right_hand_side - relaxed_control_shortfall
+            lp_right_hand_side = relaxed_control_totals - np.dot(int_weights, incidence.T)
+            lp_right_hand_side = np.maximum(lp_right_hand_side, 0.0)
 
-        print("smart_round with self.total_hh_control_value: {:.8f}".format(self.total_hh_control_value))
-        integerized_weights = smart_round(int_weights, resid_weights, self.total_hh_control_value)
+            # - max_incidence_value of each control
+            max_incidence_value = np.amax(incidence, axis=1)
+            assert (max_incidence_value[control_is_hh_based] <= 1).all()
+
+            # - create the inequality constraint upper bounds
+            num_households = relaxed_control_totals[self.total_hh_control_index]
+            relax_ge_upper_bound = \
+                np.maximum(max_incidence_value * num_households - lp_right_hand_side, 0)
+            hh_constraint_ge_bound = \
+                np.maximum(self.total_hh_control_value * max_incidence_value, lp_right_hand_side)
+
+            # popsim3 does does something rather peculiar, which I am not sure is right
+            # it applies a huge penalty to rounding a near-zero residual upwards
+            # the documentation justifying this is sparse and possibly confused:
+            # // Set objective: min sum{c(n)*x(n)} + 999*y(i) - 999*z(i)}
+            # objective_function_coefficients = -1.0 * np.log(resid_weights)
+            # objective_function_coefficients[(resid_weights <= np.exp(-999))] = 999
+            # We opt for an alternate interpretation of what they meant to do: avoid log overflow
+            # There is not much difference in effect...
+            LOG_OVERFLOW = -725
+            log_resid_weights = np.log(np.maximum(resid_weights, np.exp(LOG_OVERFLOW)))
+            assert not np.isnan(log_resid_weights).any()
+
+            if (float_weights == 0).any():
+                # not sure this matters...
+                logger.warning("Integerizer: %s zero weights out of %s" %
+                               ((float_weights == 0).sum(), sample_count))
+                assert False
+
+            if (resid_weights == 0.0).any():
+                # not sure this matters...
+                logger.info("Integerizer: %s zero resid_weights out of %s" %
+                            ((resid_weights == 0).sum(), sample_count))
+                # assert False
+
+            integerizer_func = get_single_integerizer()
+
+            resid_weights, status = integerizer_func(
+                incidence=incidence,
+                resid_weights=resid_weights,
+                log_resid_weights=log_resid_weights,
+                control_importance_weights=control_importance_weights,
+                total_hh_control_index=self.total_hh_control_index,
+                lp_right_hand_side=lp_right_hand_side,
+                relax_ge_upper_bound=relax_ge_upper_bound,
+                hh_constraint_ge_bound=hh_constraint_ge_bound
+            )
+
+            print("smart_round with self.total_hh_control_value: {:.8f}".format(self.total_hh_control_value))
+            integerized_weights = \
+                smart_round(int_weights, resid_weights, self.total_hh_control_value)
 
         self.weights = pd.DataFrame(index=self.incidence_table.index)
         self.weights['integerized_weight'] = integerized_weights
@@ -240,7 +256,7 @@ def do_integerizing(
         ##########################################
 
         relaxed_control_totals = \
-            np.round(np.dot(np.asanyarray(float_weights), incidence_table.as_matrix()))
+            np.round(np.dot(np.asanyarray(float_weights), incidence_table.values))
         relaxed_control_totals = \
             pd.Series(relaxed_control_totals, index=incidence_table.columns.values)
 
@@ -278,7 +294,7 @@ def do_integerizing(
         control_spec = control_spec[control_spec.target.isin(balanced_control_cols)]
 
         relaxed_control_totals = \
-            np.round(np.dot(np.asanyarray(float_weights), incidence_table.as_matrix()))
+            np.round(np.dot(np.asanyarray(float_weights), incidence_table.values))
         relaxed_control_totals = \
             pd.Series(relaxed_control_totals, index=incidence_table.columns.values)
 
@@ -301,7 +317,7 @@ def do_integerizing(
         logger.error("Integerizer failed for %s status %s. "
                      "Returning smart-rounded original weights" % (trace_label, status))
     elif status != 'OPTIMAL':
-        logger.warn("Integerizer status non-optimal for %s status %s." % (trace_label, status))
+        logger.warning("Integerizer status non-optimal for %s status %s." % (trace_label, status))
 
     integerized_weights = pd.Series(0, index=zero_weight_rows.index)
     integerized_weights.update(integerizer.weights['integerized_weight'])

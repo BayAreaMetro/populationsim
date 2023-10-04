@@ -1,17 +1,20 @@
+
 # PopulationSim
 # See full license in LICENSE.txt.
 
+from builtins import range
+from builtins import object
 import logging
 import numpy as np
 
 import pandas as pd
 
-from util import setting
+from activitysim.core.config import setting
 
 
 logger = logging.getLogger(__name__)
 
-MAX_ITERATIONS = 10000
+DEFAULT_MAX_ITERATIONS = 10000
 
 MAX_GAP = 1.0e-9
 
@@ -42,7 +45,8 @@ class ListBalancer(object):
                  control_importance_weights,
                  lb_weights,
                  ub_weights,
-                 master_control_index):
+                 master_control_index,
+                 max_iterations):
         """
         Parameters
         ----------
@@ -75,6 +79,8 @@ class ListBalancer(object):
         self.ub_weights = ub_weights
         self.master_control_index = master_control_index
 
+        self.max_iterations = max_iterations
+
         assert len(self.incidence_table.columns) == len(self.control_totals)
         assert len(self.incidence_table.columns) == len(self.control_importance_weights)
 
@@ -97,7 +103,7 @@ class ListBalancer(object):
         sample_count = len(self.incidence_table.index)
         control_count = len(self.incidence_table.columns)
         master_control_index = self.master_control_index
-        incidence = self.incidence_table.as_matrix().transpose()
+        incidence = self.incidence_table.values.transpose()
         weights_initial = np.asanyarray(self.initial_weights).astype(np.float64)
         weights_lower_bound = np.asanyarray(self.lb_weights).astype(np.float64)
         weights_upper_bound = np.asanyarray(self.ub_weights).astype(np.float64)
@@ -116,7 +122,8 @@ class ListBalancer(object):
             weights_lower_bound,
             weights_upper_bound,
             controls_constraint,
-            controls_importance)
+            controls_importance,
+            self.max_iterations)
 
         # weights dataframe
         weights = pd.DataFrame(index=self.incidence_table.index)
@@ -129,7 +136,7 @@ class ListBalancer(object):
         controls['relaxation_factor'] = relaxation_factors
         controls['relaxed_control'] = controls.control * relaxation_factors
         controls['weight_totals'] = \
-            [round((self.incidence_table.ix[:, c] * weights['final']).sum(), 2)
+            [round((self.incidence_table.loc[:, c] * weights['final']).sum(), 2)
              for c in controls.index]
 
         return status, weights, controls
@@ -144,17 +151,21 @@ def np_balancer(
         weights_lower_bound,
         weights_upper_bound,
         controls_constraint,
-        controls_importance):
+        controls_importance,
+        max_iterations):
 
     # initial relaxation factors
     relaxation_factors = np.repeat(1.0, control_count)
+
+    # Note: importance_adjustment must always be a float to ensure
+    # correct "true division" in both Python 2 and 3
     importance_adjustment = 1.0
 
     # make a copy as we change this
     weights_final = weights_initial.copy()
 
     # array of control indexes for iterating over controls
-    control_indexes = range(control_count)
+    control_indexes = list(range(control_count))
     if master_control_index is not None:
         # reorder indexes so we handle master_control_index last
         control_indexes.append(control_indexes.pop(master_control_index))
@@ -162,7 +173,7 @@ def np_balancer(
     # precompute incidence squared
     incidence2 = incidence * incidence
 
-    for iter in range(MAX_ITERATIONS):
+    for iter in range(max_iterations):
 
         weights_previous = weights_final.copy()
 
@@ -171,6 +182,7 @@ def np_balancer(
 
         # importance adjustment as number of iterations progress
         if iter > 0 and iter % IMPORTANCE_ADJUST_COUNT == 0:
+            # always a float
             importance_adjustment = importance_adjustment / IMPORTANCE_ADJUST
 
         # for each control
@@ -190,11 +202,12 @@ def np_balancer(
             if xx > 0:
                 relaxed_constraint = controls_constraint[c] * relaxation_factors[c]
                 relaxed_constraint = max(relaxed_constraint, MIN_CONTROL_VALUE)
+                # ensure float division
                 gamma[c] = 1.0 - (xx - relaxed_constraint) / (
-                    yy + relaxed_constraint / importance)
+                    yy + relaxed_constraint / float(importance))
 
             # update HH weights
-            weights_final[incidence[c] > 0] *= gamma[c]
+            weights_final *= pow(gamma[c], incidence[c])
 
             # clip weights to upper and lower bounds
             weights_final = np.clip(weights_final, weights_lower_bound, weights_upper_bound)
@@ -206,7 +219,8 @@ def np_balancer(
 
         max_gamma_dif = np.absolute(gamma - 1).max()
 
-        delta = np.absolute(weights_final - weights_previous).sum() / sample_count
+        # ensure float division
+        delta = np.absolute(weights_final - weights_previous).sum() / float(sample_count)
 
         converged = delta < MAX_GAP and max_gamma_dif < MAX_GAP
 
@@ -226,7 +240,9 @@ def np_balancer(
 
 
 def do_balancing(control_spec,
-                 total_hh_control_col, max_expansion_factor,
+                 total_hh_control_col,
+                 max_expansion_factor, min_expansion_factor,
+                 absolute_upper_bound, absolute_lower_bound,
                  incidence_df, control_totals, initial_weights):
 
     # incidence table should only have control columns
@@ -245,7 +261,27 @@ def do_balancing(control_spec,
 
     control_importance_weights = control_spec.importance
 
-    lb_weights = 0
+    if min_expansion_factor:
+
+        # number_of_households in this seed geograpy as specified in seed_controls
+        number_of_households = control_totals[total_hh_control_index]
+
+        total_weights = initial_weights.sum()
+        lb_ratio = min_expansion_factor * float(number_of_households) / float(total_weights)
+
+        lb_weights = initial_weights * lb_ratio
+
+        if absolute_lower_bound:
+            lb_weights = lb_weights.clip(lower=absolute_lower_bound)
+        else:
+            lb_weights = lb_weights.clip(lower=0)
+
+    elif absolute_lower_bound:
+        lb_weights = initial_weights.clip(lower=absolute_lower_bound)
+
+    else:
+        lb_weights = None
+
     if max_expansion_factor:
 
         # number_of_households in this seed geograpy as specified in seed_controlss
@@ -255,19 +291,29 @@ def do_balancing(control_spec,
         ub_ratio = max_expansion_factor * float(number_of_households) / float(total_weights)
 
         ub_weights = initial_weights * ub_ratio
-        ub_weights = ub_weights.round().clip(lower=1).astype(int)
+
+        if absolute_upper_bound:
+            ub_weights = ub_weights.round().clip(upper=absolute_upper_bound, lower=1).astype(int)
+        else:
+            ub_weights = ub_weights.round().clip(lower=1).astype(int)
+
+    elif absolute_upper_bound:
+        ub_weights = ub_weights.round().clip(upper=absolute_upper_bound, lower=1).astype(int)
 
     else:
         ub_weights = None
 
+    max_iterations = setting('MAX_BALANCE_ITERATIONS_SEQUENTIAL', DEFAULT_MAX_ITERATIONS)
+
     balancer = ListBalancer(
         incidence_table=incidence_df,
         initial_weights=initial_weights,
-        lb_weights=lb_weights,
-        ub_weights=ub_weights,
         control_totals=control_totals,
         control_importance_weights=control_importance_weights,
-        master_control_index=total_hh_control_index
+        lb_weights=lb_weights,
+        ub_weights=ub_weights,
+        master_control_index=total_hh_control_index,
+        max_iterations=max_iterations
     )
 
     status, weights, controls = balancer.balance()
