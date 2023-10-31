@@ -10,14 +10,14 @@ setlocal EnableDelayedExpansion
 :: should be TM1 or TM2
 set MODELTYPE=TM1
 
-:: for a forecast, copies marginals from         "%URBANSIMPATH%\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv" 
-:: for past/current year, copies marginals from  "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!""
-set PETRALEPATH=X:\petrale
-set URBANSIMPATH=L:\Application\Model_One\TransitRecovery\land_use_preprocessing
+:: for a forecast, copies marginals from         "%URBANSIMPATH%\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv"
+:: for past/current year, copies marginals from  "%TMPATH%\!YEAR!""
+set TMPATH=X:\travel-model-one-master\utilities\taz-data-baseyears
+set URBANSIMPATH=na
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
 set BAUS_RUNNUM=census
-:: OUTPUT DIR will be hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=PBA50Plus_20230809
+:: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
+set OUTPUT_SUFFIX=PBA50Plus_20231031
 
 :: assume argument is year
 set YEARS=%1
@@ -57,13 +57,13 @@ for %%Y in (!YEARS!) do (
     echo FORECAST=!FORECAST!
     if !FORECAST!==0 (
       set RUN_NUM=census
-      copy /y "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"          hh_gq\data\taz_summaries.csv
-      copy /y "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"   hh_gq\data\county_marginals.csv
+      copy /y "%TMPATH%\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"          hh_gq\data\taz_summaries.csv
+      copy /y "%TMPATH%\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"   hh_gq\data\county_marginals.csv
 
       rem Verify that the file copy MUST succeed or we'll run populationsim with the wrong input
-      fc /b "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"         hh_gq\data\taz_summaries.csv > nul
+      fc /b "%TMPATH%\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"         hh_gq\data\taz_summaries.csv > nul
       if errorlevel 1 goto error
-      fc /b "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"  hh_gq\data\county_marginals.csv > nul
+      fc /b "%TMPATH%\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"  hh_gq\data\county_marginals.csv > nul
       if errorlevel 1 goto error
     )
     if !FORECAST!==1 (
@@ -100,11 +100,11 @@ for %%Y in (!YEARS!) do (
   if ERRORLEVEL 1 goto error
 
   rem create the final output directory that populationsim will write to
-  set OUTPUT_DIR=hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
+  set OUTPUT_DIR=X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
   echo OUTPUT_DIR=[!OUTPUT_DIR!]
   if not exist !OUTPUT_DIR! ( mkdir !OUTPUT_DIR! )
 
-  :: tm2 version will require small changes to the config if using UrbanSim controls 
+  :: tm2 version will require small changes to the config if using UrbanSim controls
   rem Synthesize households and persons
   rem This will create the following in OUTPUT_DIR
   rem   - synthetic_[households,persons].csv
