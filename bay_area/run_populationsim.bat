@@ -13,11 +13,11 @@ set MODELTYPE=TM1
 :: for a forecast, copies marginals from         "%URBANSIMPATH%\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv"
 :: for past/current year, copies marginals from  "%TMPATH%\!YEAR!""
 set TMPATH=X:\travel-model-one-master\utilities\taz-data-baseyears
-set URBANSIMPATH=na
+set URBANSIMPATH=M:\Application\Model One\RTP2025\INPUT_DEVELOPMENT\LandUse_n_Popsyn\2035_v01\Create_2035_land_use_for_updated_RGF
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
-set BAUS_RUNNUM=census
+set BAUS_RUNNUM=ScaleToRGF
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=PBA50Plus_20231031
+set OUTPUT_SUFFIX=PBA50Plus_20231117
 
 :: assume argument is year
 set YEARS=%1
