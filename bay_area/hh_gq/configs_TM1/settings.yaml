@@ -48,8 +48,8 @@ input_table_list:
   - tablename: TAZ_control_data
     filename : taz_summaries_hhgq.csv
     # from UrbanSim 1.5
-  - tablename: COUNTY_control_data
-    filename : county_marginals.csv
+  #- tablename: COUNTY_control_data
+  #  filename : county_marginals.csv
     # from UrbanSim 1.5
 
 
