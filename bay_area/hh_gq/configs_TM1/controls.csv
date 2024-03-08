@@ -20,9 +20,9 @@ pers_age_65_plus,TAZ,persons,100000,AGE65P,(persons.AGEP >= 65) & (persons.AGEP 
 gq_type_univ,TAZ,persons,10000000,gq_type_univ,persons.gqtype==1
 gq_type_mil,TAZ,persons,10000000,gq_type_mil,persons.gqtype==2
 gq_type_othnon,TAZ,persons,10000000,gq_type_othnon,persons.gqtype==3
-#pers_occ_management,COUNTY,persons,10000,pers_occ_management,(persons.occupation == 1) & (persons.employed == 1)
-#pers_occ_professional,COUNTY,persons,10000,pers_occ_professional,(persons.occupation == 2) & (persons.employed == 1)
-#pers_occ_services,COUNTY,persons,10000,pers_occ_services,(persons.occupation == 3) & (persons.employed == 1)
-#pers_occ_retail,COUNTY,persons,10000,pers_occ_retail,(persons.occupation == 4) & (persons.employed == 1)
-#pers_occ_manual,COUNTY,persons,10000,pers_occ_manual,(persons.occupation == 5) & (persons.employed == 1)
-#pers_occ_military,COUNTY,persons,10000,pers_occ_military,(persons.occupation == 6) & (persons.employed == 1)
+pers_occ_management,COUNTY,persons,10000,pers_occ_management,(persons.occupation == 1) & (persons.employed == 1)
+pers_occ_professional,COUNTY,persons,10000,pers_occ_professional,(persons.occupation == 2) & (persons.employed == 1)
+pers_occ_services,COUNTY,persons,10000,pers_occ_services,(persons.occupation == 3) & (persons.employed == 1)
+pers_occ_retail,COUNTY,persons,10000,pers_occ_retail,(persons.occupation == 4) & (persons.employed == 1)
+pers_occ_manual,COUNTY,persons,10000,pers_occ_manual,(persons.occupation == 5) & (persons.employed == 1)
+pers_occ_military,COUNTY,persons,10000,pers_occ_military,(persons.occupation == 6) & (persons.employed == 1)
