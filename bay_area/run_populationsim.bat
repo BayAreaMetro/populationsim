@@ -17,7 +17,7 @@ set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\PBA50Plus_2020Validation_HE_BO
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
 set BAUS_RUNNUM=PBA50Plus_2020Validation_HE_BOC_v2
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=DBP_20240328
+set OUTPUT_SUFFIX=NoProject_20240328
 
 :: assume argument is year
 set YEARS=%1
