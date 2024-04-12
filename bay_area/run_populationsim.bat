@@ -17,7 +17,7 @@ set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\PBA50Plus_Exogenous_2020Valida
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
 set BAUS_RUNNUM=PBA50Plus_Exogenous_2020Validation_GG_Pipeline_Strategies_SLR_v2
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=DBP_20240409
+set OUTPUT_SUFFIX=DBP_20240411
 
 :: assume argument is year
 set YEARS=%1
@@ -131,6 +131,7 @@ for %%Y in (!YEARS!) do (
   :: save input also
   if !MODELTYPE!==TM1 (
     move /y "hh_gq\data\taz_summaries.csv"       !OUTPUT_DIR!
+    move /y "hh_gq\data\taz_summaries_hhgq.csv"  !OUTPUT_DIR!
     move /y "hh_gq\data\county_marginals.csv"    !OUTPUT_DIR!
     move /y "hh_gq\data\regional_marginals.csv"  !OUTPUT_DIR!
   )
