@@ -69,3 +69,4 @@ docs/_build/
 
 # vagrant
 .vagrant
+docs/images/Thumbs.db
