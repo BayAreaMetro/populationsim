@@ -7,6 +7,7 @@ USAGE = r"""
   * TAZ
   * pemploy_[1234] = number of persons with this pemploy value
   * pstudent_[123] = numver of persons with this pstudent value
+  * UNITTYPE_[13] = number of persons with UNITTYPE value
 
   References: 
   * https://github.com/BayAreaMetro/modeling-website/wiki/PopSynHousehold
@@ -61,6 +62,7 @@ if __name__ == "__main__":
     
     person_taz_pemploy.rename(columns=pemploy_cols_rename, inplace=True)
     person_taz_pemploy.columns.name = None
+    person_taz_pemploy[list(pemploy_cols_rename.values())] = person_taz_pemploy[list(pemploy_cols_rename.values())].astype(int)
     print(person_taz_pemploy.head())
 
     # summarize pstudent categories by TAZ
@@ -76,11 +78,36 @@ if __name__ == "__main__":
     
     person_taz_pstudent.rename(columns=pstudent_cols_rename, inplace=True)
     person_taz_pstudent.columns.name = None
+    person_taz_pstudent[list(pstudent_cols_rename.values())] = person_taz_pstudent[list(pstudent_cols_rename.values())].astype(int)
     print(person_taz_pstudent.head())
 
     taz_summary = pandas.merge(
       left=person_taz_pemploy,
       right=person_taz_pstudent,
+      on="TAZ",
+      how="outer",
+      validate="one_to_one")
+    
+    # summarize UNITTYPE categories by TAZ
+    person_taz_gqphh = person_df.groupby(["TAZ","UNITTYPE"]).size().reset_index(drop=False, name="persons")
+    person_taz_gqphh = person_taz_gqphh.pivot_table(index="TAZ", columns="UNITTYPE", values="persons", fill_value=0).reset_index(drop=False)
+    # print(person_taz_gqphh.head())
+    # print(f"index.name={person_taz_gqphh.index.name}  columns={person_taz_gqphh.columns}")
+  
+    unittype_cols_rename = {}
+    for col in person_taz_gqphh.columns.tolist():
+      if col == "TAZ": continue
+      unittype_cols_rename[ col ] = f"UNITTYPE_{col}"
+
+    person_taz_gqphh.rename(columns=unittype_cols_rename, inplace=True)
+    person_taz_gqphh.columns.name = None
+    person_taz_gqphh[list(unittype_cols_rename.values())] = person_taz_gqphh[list(unittype_cols_rename.values())].astype(int)
+    print(person_taz_gqphh.head())
+
+    # join to taz_summary
+    taz_summary = pandas.merge(
+      left=taz_summary,
+      right=person_taz_gqphh,
       on="TAZ",
       how="outer",
       validate="one_to_one")
