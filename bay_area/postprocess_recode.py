@@ -18,11 +18,10 @@ Basic functions:
 (b) Add PERID to persons
 (c) Fills NaN values with -9
 (d) subset & rename household/persons columns according to HOUSING_COLUMNS/PERSON_COLUMNS
-(e) Downcasts columns to int where possible
+(e) adds additional columns hinccat1, poverty_income_[year]d, poverty_income_2000d, pct_of_poverty
+(f) Downcasts columns to int where possible
 
 """
-
-
 import argparse, collections, logging, pathlib, sys
 import pandas
 
@@ -92,8 +91,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
         description=USAGE)
     parser.add_argument("--test_PUMA", type=str, help="Pass PUMA to output controls only for geographies relevant to a single PUMA, for testing")
-    parser.add_argument("--model_type", type=str, help="Specifies TM1 or TM2")
-    parser.add_argument("--directory", type=str, help="Directory with populationsim output")
+    parser.add_argument("--model_type",type=str, help="Specifies TM1 or TM2", required=True)
+    parser.add_argument("--directory", type=str, help="Directory with populationsim output", required=True)
+    parser.add_argument("--year",      type=int, help="Model year (used for poverty level calculations)", required=True)
     args = parser.parse_args()
 
     LOG_FILE = pathlib.Path(args.directory) / "postprocess_recode.log"
@@ -203,11 +203,36 @@ if __name__ == '__main__':
         households_df.loc[                              (households_df.HINC< 20000), 'hinccat1'] = 1
         households_df.loc[ (households_df.HINC>= 20000)&(households_df.HINC< 50000), 'hinccat1'] = 2
         households_df.loc[ (households_df.HINC>= 50000)&(households_df.HINC<100000), 'hinccat1'] = 3
-        households_df.loc[ (households_df.HINC>=100000)                           , 'hinccat1'] = 4
+        households_df.loc[ (households_df.HINC>=100000)                            , 'hinccat1'] = 4
         # recode -9 HHT to 0
         households_df.loc[ households_df.HHT==-9, 'HHT'] = 0
 
-    # (e) subset & rename persons columns according to PERSON_COLUMNS
+        # add poverty level calculation
+        # use model year to translate household income from 2000 dollars into the model year dollars
+        # Source: https://github.com/BayAreaMetro/modeling-website/wiki/InflationAssumptions
+        DOLLARS_2000_TO_MODELYEAR  = 1.0
+        # Source: https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/prior-hhs-poverty-guidelines-federal-register-references
+        INC_FIRST_PERSON           = 0
+        INC_EACH_ADDITIONAL_PERSON = 0
+        if args.year == 2015:
+          DOLLARS_2000_TO_MODELYEAR  = 1.43
+          INC_FIRST_PERSON           = 11770
+          INC_EACH_ADDITIONAL_PERSON = 4160
+        elif args.year >= 2023:
+          DOLLARS_2000_TO_MODELYEAR  = 1.88
+          INC_FIRST_PERSON           = 14580
+          INC_EACH_ADDITIONAL_PERSON = 5140
+        else:
+          raise RuntimeError(f"Model year {args.year} not supported for poverty calculation")
+        
+        # calculate poverty threshold income in args.year dollars
+        households_df[f'poverty_income_{args.year}d'] = INC_FIRST_PERSON + (households_df.PERSONS-1)*INC_EACH_ADDITIONAL_PERSON
+        # convert to 2000 dollars
+        households_df['poverty_income_2000d'] = round(households_df[f'poverty_income_{args.year}d']/DOLLARS_2000_TO_MODELYEAR)
+        # calculate income/poverty_income_2000d
+        households_df['pct_of_poverty'] = round(100.0 * (households_df.HINC / households_df.poverty_income_2000d))
+
+    # (f) subset & rename persons columns according to PERSON_COLUMNS
     persons_df = persons_df[PERSON_COLUMNS[args.model_type].keys()].rename(columns=PERSON_COLUMNS[args.model_type])
     # set occp=0 to 999
     if args.model_type == 'TM2':
