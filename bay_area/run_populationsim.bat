@@ -13,11 +13,11 @@ set MODELTYPE=TM1
 :: for a forecast, copies marginals from         "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv"
 :: for past/current year, copies marginals from  "%TMPATH%\!YEAR!""
 set TMPATH=X:\travel-model-one-v1.6.1_develop\utilities\taz-data-baseyears
-set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\PBA50Plus_DraftBlueprint\PBA50Plus_Draft_Blueprint_v8_znupd_nodevfix
+set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\PBA50Plus_NoProject\PBA50Plus_NoProject_v34
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
-set BAUS_RUNNUM=census
+set BAUS_RUNNUM=PBA50Plus_NoProject_v34
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=FBP_20250104
+set OUTPUT_SUFFIX=FBP_20250121
 
 :: assume argument is year
 set YEARS=%1
@@ -123,7 +123,7 @@ for %%Y in (!YEARS!) do (
   )
 
   rem Postprocess and recode
-  python postprocess_recode.py !TEST_PUMA_FLAG! --model_type !MODELTYPE! --directory !OUTPUT_DIR!
+  python postprocess_recode.py !TEST_PUMA_FLAG! --model_type !MODELTYPE! --directory !OUTPUT_DIR! --year !YEAR!
   if ERRORLEVEL 1 goto error
   rem Note: this creates OUTPUT_DIR\summary_melt.csv so copy validation.twb into place
   copy /y validation.twb !OUTPUT_DIR!
