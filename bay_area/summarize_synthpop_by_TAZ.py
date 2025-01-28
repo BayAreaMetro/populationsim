@@ -47,7 +47,7 @@ if __name__ == "__main__":
         how="left",
         validate="many_to_one"
     )
-    print(person_df.head())
+    print(f"person_df len={len(person_df):,}, head=\n{person_df.head()}")
 
     # summarize pemploy categories by TAZ
     person_taz_pemploy = person_df.groupby(["TAZ","pemploy"]).size().reset_index(drop=False, name="persons")
@@ -89,19 +89,26 @@ if __name__ == "__main__":
       validate="one_to_one")
     
     # summarize UNITTYPE categories by TAZ
-    person_taz_gqphh = person_df.groupby(["TAZ","UNITTYPE"]).size().reset_index(drop=False, name="persons")
-    person_taz_gqphh = person_taz_gqphh.pivot_table(index="TAZ", columns="UNITTYPE", values="persons", fill_value=0).reset_index(drop=False)
-    # print(person_taz_gqphh.head())
-    # print(f"index.name={person_taz_gqphh.index.name}  columns={person_taz_gqphh.columns}")
-  
-    unittype_cols_rename = {}
-    for col in person_taz_gqphh.columns.tolist():
-      if col == "TAZ": continue
-      unittype_cols_rename[ col ] = f"UNITTYPE_{col}"
+    person_taz_gqphh = person_df.groupby(["TAZ","UNITTYPE"]).agg(
+       persons   =pandas.NamedAgg(column="PERID", aggfunc="nunique"),
+       households=pandas.NamedAgg(column="HHID",  aggfunc="nunique")
+    ).reset_index(drop=False)
+    person_taz_gqphh = person_taz_gqphh.pivot_table(index="TAZ", columns="UNITTYPE", values=["persons","households"], fill_value=0).reset_index(drop=False)
+    print(f"index.name={person_taz_gqphh.index.name}  columns=\n{person_taz_gqphh.columns}")
+    print(person_taz_gqphh.head())
 
-    person_taz_gqphh.rename(columns=unittype_cols_rename, inplace=True)
+    unittype_cols_rename = []
+    for col in person_taz_gqphh.columns.tolist():
+      print(f"{col=}")
+      if col[0] == "TAZ": 
+        unittype_cols_rename.append("TAZ")
+      else:
+        unittype_cols_rename.append(f"{col[0]}_UnitType{col[1]}")
+    print(f"{unittype_cols_rename=}")
+
+    person_taz_gqphh.columns = unittype_cols_rename
     person_taz_gqphh.columns.name = None
-    person_taz_gqphh[list(unittype_cols_rename.values())] = person_taz_gqphh[list(unittype_cols_rename.values())].astype(int)
+    person_taz_gqphh[unittype_cols_rename] = person_taz_gqphh[unittype_cols_rename].astype(int)
     print(person_taz_gqphh.head())
 
     # join to taz_summary
