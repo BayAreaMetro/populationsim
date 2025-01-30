@@ -15,9 +15,9 @@ set MODELTYPE=TM1
 set TMPATH=X:\travel-model-one-v1.6.1_develop\utilities\taz-data-baseyears
 set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\PBA50Plus_FinalBlueprint\PBA50Plus_Final_Blueprint_v24h
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
-set BAUS_RUNNUM=PBA50Plus_Final_Blueprint_v24h
+set BAUS_RUNNUM=census
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=FBP_20250128
+set OUTPUT_SUFFIX=FBP_20250130
 
 :: assume argument is year
 set YEARS=%1
