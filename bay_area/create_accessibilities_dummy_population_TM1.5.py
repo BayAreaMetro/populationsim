@@ -10,18 +10,13 @@ including 1 full time worker and 1 part time worker.  See below for attributes.
 
 """
 
-import collections, os
+import collections, os, pathlib
 import pandas
-
-# Set the working directory
-#USERPROFILE = os.environ["USERPROFILE"]
-#os.chdir = os.path.join(USERPROFILE,"Documents","GitHub","populationsim","bay_area")   
 
 # household HHID,TAZ,HINC,hworkers,PERSONS,HHT,VEHICL,hinccat1
 # persons   HHID,PERID,AGE,SEX,pemploy,pstudent,ptype 
 
-TAZ_DATA_CSV  = os.path.join("X:\\", "petrale", "applications", "travel_model_lu_inputs", "2015", "TAZ1454 2015 Land Use.csv")
-# TAZ_DATA_CSV  = "tazData.csv"
+TAZ_DATA_CSV  = pathlib.Path("X:\\travel-model-one-master\\utilities\\taz-data-baseyears\\2015\\TAZ1454 2015 Land Use.csv")
 OUTPUT_PREFIX = "accessibilities_dummy_full"
 
 
@@ -40,6 +35,10 @@ household = collections.OrderedDict([
     ("hinccat1",   [ 1,         2,      3,     4])                      # Income categories
 ])
 
+# From https://github.com/BayAreaMetro/populationsim/blob/15003d1d814c811942d68fc831f13b639b6c637c/bay_area/postprocess_recode.py#L221-L224
+DOLLARS_2000_TO_MODELYEAR  = 1.88
+INC_FIRST_PERSON           = 14580
+INC_EACH_ADDITIONAL_PERSON = 5140
 
 # https://github.com/BayAreaMetro/modeling-website/wiki/PopSynPerson
 persons = collections.OrderedDict([
@@ -84,7 +83,7 @@ if __name__ == '__main__':
     pandas.options.display.max_rows = 100
 
     taz_data_df = pandas.read_csv(TAZ_DATA_CSV)
-    print("Read {} rows of {}".format(len(taz_data_df), TAZ_DATA_CSV))
+    print(f"Read {len(taz_data_df)} rows of {TAZ_DATA_CSV}")
     
     # print(taz_data_df.head())
     taz_list = sorted(taz_data_df["ZONE"].tolist())
@@ -107,14 +106,25 @@ if __name__ == '__main__':
 
     # rename ZONE to TAZ
     household_df.rename(columns={"ZONE":"TAZ"}, inplace=True)
-    
+
+    # add poverty-related fields for TM1.6.1, consistently with postprocess_recode.py
+    # calculate poverty threshold income in args.year dollars
+    household_df[f'poverty_income_2023d'] = INC_FIRST_PERSON + (household_df.PERSONS-1)*INC_EACH_ADDITIONAL_PERSON
+    # convert to 2000 dollars
+    household_df['poverty_income_2000d'] = round(household_df[f'poverty_income_2023d']/DOLLARS_2000_TO_MODELYEAR)
+    household_df['poverty_income_2000d'] = household_df['poverty_income_2000d'].astype(int)
+    # calculate income/poverty_income_2000d
+    household_df['pct_of_poverty'] = round(100.0 * (household_df.HINC / household_df.poverty_income_2000d))
+    household_df['pct_of_poverty'] = household_df['pct_of_poverty'].astype(int)
+
     # reorder columns
-    household_df = household_df[["HHID","TAZ","walk_subzone","HINC","hworkers","PERSONS","HHT","VEHICL","hinccat1","AV_AVAIL", "sampleRate"]]
+    household_df = household_df[["HHID","TAZ","walk_subzone","HINC","hworkers","PERSONS","HHT","VEHICL","hinccat1","AV_AVAIL",
+                                 "sampleRate","poverty_income_2023d","poverty_income_2000d","pct_of_poverty"]]
     
     # print(household_df.head(10))
-    outfile = "{}_households.csv".format(OUTPUT_PREFIX)
+    outfile = f"{OUTPUT_PREFIX}_households.csv"
     household_df.to_csv(outfile, index=False)
-    print("Wrote {} lines to {}".format(len(household_df), outfile))
+    print(f"Wrote {len(household_df):,} lines to {outfile}")
     
     #############################################################################################################
     # create model output household file from input household file dataframe
@@ -126,12 +136,9 @@ if __name__ == '__main__':
     household_model_df["jtf_pattern"] = "0_tours"
     household_model_df["humanVehicles"] = household_model_df["autos"] - household_model_df["autonomousVehicles"]
     
-    # add a sampleRate column (of 1s) 
-    household_model_df["sampleRate"] = 1
-    
-    outfile = "{}_model_households.csv".format(OUTPUT_PREFIX)
+    outfile = f"{OUTPUT_PREFIX}_model_households.csv"
     household_model_df.to_csv(outfile, index=False)
-    print("Wrote {} lines to {}".format(len(household_model_df), outfile))
+    print(f"Wrote {len(household_model_df):,} lines to {outfile}")
 
     #############################################################################################################
     # create persons by duplicating for households
@@ -150,9 +157,9 @@ if __name__ == '__main__':
     persons_df["sampleRate"] = 1
     
     # print(persons_df.head(20))
-    outfile = "{}_persons.csv".format(OUTPUT_PREFIX)
+    outfile = f"{OUTPUT_PREFIX}_persons.csv"
     persons_df.to_csv(outfile, index=False)
-    print("Wrote {} lines to {}".format(len(persons_df), outfile))
+    print(f"Wrote {len(persons_df):,} lines to {outfile}")
     
     #############################################################################################################
     # create model output person file from input person file dataframe
@@ -181,9 +188,9 @@ if __name__ == '__main__':
     persons_model_df["sampleRate"] = 1
   
     # print
-    outfile = "{}_model_persons.csv".format(OUTPUT_PREFIX)
+    outfile = f"{OUTPUT_PREFIX}_model_persons.csv"
     persons_model_df.to_csv(outfile, index=False)
-    print("Wrote {} lines to {}".format(len(persons_model_df), outfile))
+    print(f"Wrote {len(persons_model_df):,} lines to {outfile}")
 
     #############################################################################################################
     # create individual tours
@@ -204,7 +211,7 @@ if __name__ == '__main__':
     
     # merge household file so that we can set origin zone
     individualTours_df = pandas.merge(left=individualTours_df, right=household_df, on="HHID",how="outer")
-    print individualTours_df.columns
+    print(individualTours_df.columns)
     individualTours_df["orig_taz"] = individualTours_df["TAZ"]
     individualTours_df["orig_walk_segment"] = 0
     individualTours_df["avAvailable"] = individualTours_df["AV_AVAIL"]
@@ -223,6 +230,6 @@ if __name__ == '__main__':
         "avAvailable", "sampleRate"]]
 
     
-    outfile = "{}_indivTours.csv".format(OUTPUT_PREFIX)
+    outfile = f"{OUTPUT_PREFIX}_indivTours.csv"
     individualTours_df.to_csv(outfile, index=False)
-    print("Wrote {} lines to {}".format(len(individualTours_df), outfile))
+    print(f"Wrote {len(individualTours_df):,} lines to {outfile}")
