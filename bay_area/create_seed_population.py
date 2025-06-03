@@ -101,7 +101,7 @@ NEW_PERSON_RECORD_COLUMNS = [
 import logging, os, pathlib, sys, time
 import numpy, pandas
 
-CROSSWALK_FILE      = pathlib.Path("hh_gq/data/mazs_tazs_county_tract_PUMA.csv")
+CROSSWALK_FILE      = pathlib.Path("hh_gq/data/geo_cross_walk_tm2.csv")
 PUMS_INPUT_DIR      = pathlib.Path("M:/Data/Census/PUMS/PUMS 2017-21")
 PUMS_HOUSEHOLD_FILE = "hbayarea1721.csv"
 PUMS_PERSON_FILE    = "pbayarea1721.csv"
@@ -393,11 +393,11 @@ if __name__ == '__main__':
     clean_types(pums_pers_df)
 
     # write combined housing records and person records
-    if not os.path.exists(pathlib.Path("hh_gq\data")): os.mkdir(pathlib.Path("hh_gq\data"))
-    outfile = pathlib.Path("hh_gq\data\seed_households.csv")
+    if not os.path.exists(pathlib.Path("hh_gq/data")): os.mkdir(pathlib.Path("hh_gq/data"))
+    outfile = pathlib.Path("hh_gq/data/seed_households.csv")
     pums_hu_df.to_csv(outfile, index=False)
     logging.info("Wrote household and group quarters housing records to {}".format(outfile))
 
-    outfile = pathlib.Path("hh_gq\data\seed_persons.csv")
+    outfile = pathlib.Path("hh_gq/data/seed_persons.csv")
     pums_pers_df.to_csv(outfile, index=False)
     logging.info("Wrote household and group quarters person  records to {}".format(outfile))
