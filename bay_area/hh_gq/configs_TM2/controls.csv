@@ -4,9 +4,9 @@ hh_size_1,MAZ,households,100000,hh_size_1_gq,households.NP == 1
 hh_size_2,MAZ,households,100000,hh_size_2,households.NP == 2
 hh_size_3,MAZ,households,100000,hh_size_3,households.NP == 3
 hh_size_4_plus,MAZ,households,100000,hh_size_4_plus,households.NP >= 4
-gqtype_univ,MAZ,persons,10000000,gqtype_univ,persons.gqtype==1
-gqtype_mil,MAZ,persons,10000000,gqtype_mil,persons.gqtype==2
-gqtype_othnon,MAZ,persons,10000000,gqtype_othnon,persons.gqtype==3
+gq_type_univ,MAZ,persons,10000000,gq_type_univ,persons.gqtype==1
+gq_type_mil,MAZ,persons,10000000,gq_type_mil,persons.gqtype==2
+gq_type_othnon,MAZ,persons,10000000,gq_type_othnon,persons.gqtype==3
 hh_inc_30,TAZ,households,1000000,hh_inc_30,(households.hhgqtype==1) & (households.hh_income_2021 > -999999999) & (households.hh_income_2021 <= 30000)
 hh_inc_30_60,TAZ,households,1000000,hh_inc_30_60,(households.hhgqtype==1) & (households.hh_income_2021 >30000) & (households.hh_income_2021 <= 60000)
 hh_inc_60_100,TAZ,households,1000000,hh_inc_60_100,(households.hhgqtype==1) & (households.hh_income_2021 > 60000) & (households.hh_income_2021 <= 100000)
