@@ -101,7 +101,7 @@ NEW_PERSON_RECORD_COLUMNS = [
 import logging, os, pathlib, sys, time
 import numpy, pandas
 
-CROSSWALK_FILE      = pathlib.Path("hh_gq/data/geo_cross_walk_tm1.csv")
+CROSSWALK_FILE      = pathlib.Path("hh_gq/data/mazs_tazs_county_tract_PUMA.csv")
 PUMS_INPUT_DIR      = pathlib.Path("M:/Data/Census/PUMS/PUMS 2017-21")
 PUMS_HOUSEHOLD_FILE = "hbayarea1721.csv"
 PUMS_PERSON_FILE    = "pbayarea1721.csv"
