@@ -13,7 +13,7 @@ set YEAR=2015
 
 :: for a forecast, copies marginals from         "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv"
 :: for past/current year, copies marginals from  "%TMPATH%\!YEAR!""
-set TMPATH=M:\Development\PopulationSynthesizer\TM2_inputs_outputs_PopulationSim\%YEAR%\inputs
+set TMPATH=C:\GitHub\tm2popsim_in_out\%YEAR%\inputs
 ::set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\PBA50Plus_FinalBlueprint\PBA50Plus_Final_Blueprint_v65
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
 ::set BAUS_RUNNUM=BAUS_RUNNUM=PBA50Plus_Final_Blueprint_v65
@@ -21,7 +21,7 @@ set TMPATH=M:\Development\PopulationSynthesizer\TM2_inputs_outputs_PopulationSim
 ::set OUTPUT_SUFFIX=FBP_20250522
 
 rem create the final output directory that populationsim will write to
-set OUTPUT_DIR=M:\Development\PopulationSynthesizer\TM2_inputs_outputs_PopulationSim\%YEAR%\outputs
+set OUTPUT_DIR=C:\GitHub\tm2popsim_in_out\%YEAR%\outputs
 echo OUTPUT_DIR=[!OUTPUT_DIR!]
 if not exist !OUTPUT_DIR! ( mkdir !OUTPUT_DIR! )
 
