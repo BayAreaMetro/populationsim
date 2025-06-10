@@ -1,5 +1,8 @@
 USAGE="""
 Create baseyear controls for MTC Bay Area populationsim.
+THIS IS ALL BEING RE-WRITTEN TO HANDLE THE NEW 2020 CENSUS GEOGRAPHIES
+THE MODEL GEOGRAPHIES WILL NO LONGER NEST, AND WE HAVE TO HANDLE THE MANY TO MANY MATCH
+
 
 This script does the following:
 
@@ -14,21 +17,18 @@ This script does the following:
    CONTROLS structure in the script.
 
 3) Finally, it transforms the control tables from the Census geographies to the desired control
-   geography using the MAZ_TAZ_DEF_FILE, which defines MAZs and TAZs as unions of Census blocks.
+   geography using the MAZ_TAZ_DEF_FILE. The Census geographies and model geographies are many to many,
+   so we have to handle the percent of each census geography that falls into each model geography and
+   vice versa.
 
-   For controls derived from census data which is available at smaller geographies, this is a
-   simple aggregation.
 
-   However, for controls derived from census data which is not available at smaller geographies,
-   it is assumed that the smaller geography's total (e.g. households) are apportioned similarly
-   to it's census geography, and the controls are tallied that way.
 
 4) Creates a simple file, output_[model_year]/maz_data_hh_pop.csv with 3 columns:
    MAZ,hh,tot_pop for use in the maz_data.csv that will consistent with these controls, where
    these "hh" include the 1-person group quarters households and the tot_pop includes both household
    and group quarter persons.
 
-5) It joins the MAZs and TAZs to the 2000 PUMAs (used in the 2007-2011 PUMS, which is
+5) It joins the MAZs and TAZs to the 2020 PUMAs (used in the 2007-2011 PUMS, which is
    used by create_seed_population.py) and saves these crosswalks as well.
 
    Outputs: households    /data/[model_year]_[maz,taz,county]_controls.csv
@@ -408,13 +408,13 @@ class CensusFetcher:
 
     def get_census_data(self, dataset, year, table, geo):
         """
-        Dataset is one of "sf1" or "acs5"
+        Dataset is one of "dec or "acs5"
         Year is a number for the table
         Geo is one of "block", "block group", "tract", "county subdivision" or "county"
         """
 
-        if dataset not in ["sf1", "acs5"]:
-            raise ValueError(f"get_census_data only supports datasets 'sf1' and 'acs5'")
+        if dataset not in ["dec", "acs5"]:
+            raise ValueError(f"get_census_data only supports datasets 'dec' and 'acs5'")
         if geo not in ["block", "block group", "tract", "county subdivision", "county"]:
             raise ValueError(f"get_census_data received unsupported geo {geo}")
         if table not in CensusFetcher.CENSUS_DEFINITIONS:
@@ -675,10 +675,97 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
 
     return control_df
 
+
+"""
+IDEA OF WHAT WE HAVE TO DO
+import pandas as pd
+
+def match_control_to_geography_many_to_many(control_name: str,
+                                            control_df: pd.DataFrame,
+                                            lookup_df: pd.DataFrame,
+                                            source_geo_col: str,
+                                            target_geo_col: str,
+                                            pct_source_in_target_col: str,
+                                            pct_target_in_source_col: str,
+                                            scale_numerator: str = None,
+                                            scale_denominator: str = None,
+                                            subtract_table: str = None,
+                                            full_region: bool = True
+                                           ) -> pd.DataFrame:
+  
+    Apportion 'control_name' from source geographies to target geographies using a many-to-many lookup.
+
+    Parameters
+    ----------
+    control_name : str
+        Column in control_df containing the values to apportion.
+    control_df : pd.DataFrame
+        DataFrame with one row per source geography, indexed or containing `source_geo_col`.
+    lookup_df : pd.DataFrame
+        DataFrame with columns [source_geo_col, target_geo_col,
+        pct_source_in_target_col, pct_target_in_source_col].
+        Each row represents one source–target overlap.
+    source_geo_col : str
+        Name of the geography column in control_df and lookup_df (e.g. 'GEOID20').
+    target_geo_col : str
+        Name of the target geography column in lookup_df (e.g. 'MAZ_ID').
+    pct_source_in_target_col : str
+        In lookup_df, the fraction of each source unit falling in that target.
+    pct_target_in_source_col : str
+        In lookup_df, the fraction of each target unit covered by that source.
+    scale_numerator, scale_denominator, subtract_table : str, optional
+        Names of “temp” tables in control_df/lookup_df to scale or subtract. 
+        (If you need a complex scaling step, merge them similarly before weighting.)
+    full_region : bool
+        If True, assert that the total after apportionment matches the original sum.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame indexed by target_geo_col with a column [control_name]
+        giving the apportioned totals.
+
+
+    # 1) Merge control totals onto the lookup
+    df = lookup_df.merge(
+        control_df[[source_geo_col, control_name]],
+        how="left", left_on=source_geo_col, right_on=source_geo_col
+    )
+
+    # 2) Optionally apply any scaling or subtraction here, if needed:
+    #    e.g. df[control_name] *= df[scale_numerator] / df[scale_denominator]
+    #    or df[control_name] -= df[subtract_table]
+
+    # 3) Weight by the fraction of the source within each target
+    df['weighted_value'] = df[control_name] * df[pct_source_in_target_col]
+
+    # 4) Aggregate up to the target geography
+    result = (
+        df
+        .groupby(target_geo_col)['weighted_value']
+        .sum()
+        .reset_index()
+        .rename(columns={'weighted_value': control_name})
+    )
+
+    # 5) (Optional) Check that totals roughly match
+    orig_sum = control_df[control_name].sum()
+    new_sum  = result[control_name].sum()
+    if full_region and not pd.isclose(orig_sum, new_sum, atol=1e-6):
+        raise ValueError(
+            f"Apportioned total {new_sum:.2f} "
+            f"does not match original {orig_sum:.2f}"
+        )
+
+    return result
+
+"""
+
 def match_control_to_geography(control_name, control_table_df, control_geography, census_geography,
                                maz_taz_def_df, temp_controls, full_region,
                                scale_numerator, scale_denominator, subtract_table):
     """
+    THIS NEEDS TO BE COMPLETELY UPDATED TO USE MANY TO MANY MERGES
     Given a control table in the given census geography, this method will transform the table to the appropriate
     control geography and return it.
 
@@ -961,9 +1048,9 @@ if __name__ == '__main__':
     parser.add_argument("--test_PUMA", type=str, help="Pass PUMA to output controls only for geographies relevant to a single PUMA, for testing")
     args = parser.parse_args()
 
-    # for now, we only do 2010
-    if args.model_year not in [2010, 2015]:
-        raise ValueError("Model year {} not supported yet".format(args.model_year))
+    # for now
+   # if args.model_year not in [2020, 2023]:
+   #     raise ValueError("Model year {} not supported yet".format(args.model_year))
 
     LOG_FILE = "create_baseyear_controls_{0}.log".format(args.model_year)
 
@@ -987,7 +1074,7 @@ if __name__ == '__main__':
     }
     # TODO: Could probably make this more readable than a tuple
     # control name ->
-    #  ( dataset (e.g. 'sf1', 'acs5),
+    #  ( dataset (e.g. 'dec', 'acs5),
     #    year for dataset,
     #    table name within dataset,
     #    level of geography to use,
@@ -1036,80 +1123,113 @@ if __name__ == '__main__':
         ('hh_kids_yes',           ('acs5',2023,'B11005','block group',[collections.OrderedDict([('num_kids_min',1),('num_kids_max',NKID_MAX)])],'temp_num_hh_bg_to_b','temp_num_hh_kids')),
     ])          
 
-    CONTROLS[2010]['COUNTY'] = collections.OrderedDict([
-        # this one is more complicated since the categories are nominal
-        ('pers_occ_management'  ,('acs5',2012,'C24010', 'tract', [
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Management, business, and financial'                 ), ('occ_cat3','Management'                        ) ]),
-        ] )),
-        ('pers_occ_professional',('acs5',2012,'C24010', 'tract', [
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Management, business, and financial'                 ), ('occ_cat3','Business and financial operations'                               ) ]),
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Computer, engineering, and science'                  ), ('occ_cat3','Computer and mathematical'                                       ) ]),
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Computer, engineering, and science'                  ), ('occ_cat3','Architecture and engineering'                                    ) ]),
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Computer, engineering, and science'                  ), ('occ_cat3','Life, physical, and social science'                              ) ]),
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Education, legal, community service, arts, and media'), ('occ_cat3','Legal'                                                           ) ]),
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Education, legal, community service, arts, and media'), ('occ_cat3','Education, training, and library'                                ) ]),
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Healthcare practitioners and technical'              ), ('occ_cat3','Health diagnosing and treating practitioners and other technical') ]),
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Healthcare practitioners and technical'              ), ('occ_cat3','Health technologists and technicians'                            ) ]),
-        ] )),
-        ('pers_occ_services'    ,('acs5',2012,'C24010', 'tract', [
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Education, legal, community service, arts, and media'), ('occ_cat3','Community and social service'                                      ) ]),
-            collections.OrderedDict([ ('occ_cat1','Management, business, science, and arts'          ), ('occ_cat2','Education, legal, community service, arts, and media'), ('occ_cat3','Arts, design, entertainment, sports, and media'                    ) ]),
-            collections.OrderedDict([ ('occ_cat1','Service'                                          ), ('occ_cat2','Healthcare support'                                  ), ('occ_cat3','All'                                                               ) ]),
-            collections.OrderedDict([ ('occ_cat1','Service'                                          ), ('occ_cat2','Protective service'                                  ), ('occ_cat3','Fire fighting and prevention, and other protective service workers') ]),
-            collections.OrderedDict([ ('occ_cat1','Service'                                          ), ('occ_cat2','Protective service'                                  ), ('occ_cat3','Law enforcement workers'                                           ) ]),
-            collections.OrderedDict([ ('occ_cat1','Service'                                          ), ('occ_cat2','Personal care and service'                           ), ('occ_cat3','All'                                                               ) ]),
-            collections.OrderedDict([ ('occ_cat1','Sales and office'                                 ), ('occ_cat2','Office and administrative support'                   ), ('occ_cat3','All'                                                               ) ]),
-        ] )),
-        ('pers_occ_retail'      ,('acs5',2012,'C24010', 'tract', [
-            collections.OrderedDict([ ('occ_cat1','Service'                                          ), ('occ_cat2','Food preparation and serving related'                ), ('occ_cat3','All') ]),
-            collections.OrderedDict([ ('occ_cat1','Sales and office'                                 ), ('occ_cat2','Sales and related'                                   ), ('occ_cat3','All') ]),
-        ] )),
-        ('pers_occ_manual'      ,('acs5',2012,'C24010', 'tract', [
-            collections.OrderedDict([ ('occ_cat1','Service'                                         ), ('occ_cat2','Building and grounds cleaning and maintenance'        ), ('occ_cat3','All') ]),
-            collections.OrderedDict([ ('occ_cat1','Natural resources, construction, and maintenance'), ('occ_cat2','Farming, fishing, and forestry'                       ), ('occ_cat3','All') ]),
-            collections.OrderedDict([ ('occ_cat1','Natural resources, construction, and maintenance'), ('occ_cat2','Construction and extraction'                          ), ('occ_cat3','All') ]),
-            collections.OrderedDict([ ('occ_cat1','Natural resources, construction, and maintenance'), ('occ_cat2','Installation, maintenance, and repair'                ), ('occ_cat3','All') ]),
-            collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Production'                                           ), ('occ_cat3','All') ]),
-            collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Transportation'                                       ), ('occ_cat3','All') ]),
-            collections.OrderedDict([ ('occ_cat1','Production, transportation, and material moving' ), ('occ_cat2','Material moving'                                      ), ('occ_cat3','All') ]),
-        ] )),
-        # These folks are in group quarters so they shouldn't be included
-        # Use acs5 2012 Table B23025. EMPLOYMENT STATUS FOR THE POPULATION 16 YEARS AND OVER - Armed Forces
-        # MINUS the group quarters military
-        ('temp_gq_type_mil' ,('sf1', 2010,'P43',   'tract',[collections.OrderedDict([('inst','Noninst'), ('subcategory','Military') ])] )),
-        ('pers_occ_military',('acs5',2012,'B23025','tract',[collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces') ])], None, None, 'temp_gq_type_mil')),
+    CONTROLS[2020]['COUNTY'] = collections.OrderedDict([
+        ('pers_occ_management',   ('acs5',2023,'C24010','tract',
+                                [collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Management, business, and financial'),
+                                                        ('occ_cat3','Management')])])),
+        ('pers_occ_professional', ('acs5',2023,'C24010','tract',
+                                [collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Management, business, and financial'),
+                                                        ('occ_cat3','Business and financial operations')]),
+                                collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Computer, engineering, and science'),
+                                                        ('occ_cat3','Computer and mathematical')]),
+                                collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Computer, engineering, and science'),
+                                                        ('occ_cat3','Architecture and engineering')]),
+                                collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Computer, engineering, and science'),
+                                                        ('occ_cat3','Life, physical, and social science')]),
+                                collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Education, legal, community service, arts, and media'),
+                                                        ('occ_cat3','Legal')]),
+                                collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Education, legal, community service, arts, and media'),
+                                                        ('occ_cat3','Education, training, and library')]),
+                                collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Healthcare practitioners and technical'),
+                                                        ('occ_cat3','Health diagnosing and treating practitioners and other technical')]),
+                                collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                                        ('occ_cat2','Healthcare practitioners and technical'),
+                                                        ('occ_cat3','Health technologists and technicians')])])),
+
+        ('pers_occ_services',     ('acs5',2023,'C24010','tract',
+                                [collections.OrderedDict([('occ_cat1','Service'),
+                                                        ('occ_cat2','Healthcare support'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Service'),
+                                                        ('occ_cat2','Protective service'),
+                                                        ('occ_cat3','Fire fighting and prevention, and other protective service workers')]),
+                                collections.OrderedDict([('occ_cat1','Service'),
+                                                        ('occ_cat2','Protective service'),
+                                                        ('occ_cat3','Law enforcement workers')]),
+                                collections.OrderedDict([('occ_cat1','Service'),
+                                                        ('occ_cat2','Personal care and service'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Sales and office'),
+                                                        ('occ_cat2','Office and administrative support'),
+                                                        ('occ_cat3','All')])])),
+        ('pers_occ_retail',       ('acs5',2023,'C24010','tract',
+                                [collections.OrderedDict([('occ_cat1','Service'),
+                                                        ('occ_cat2','Food preparation and serving related'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Sales and office'),
+                                                        ('occ_cat2','Sales and related'),
+                                                        ('occ_cat3','All')])])),
+        ('pers_occ_manual',       ('acs5',2023,'C24010','tract',
+                                [collections.OrderedDict([('occ_cat1','Service'),
+                                                        ('occ_cat2','Building and grounds cleaning and maintenance'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Natural resources, construction, and maintenance'),
+                                                        ('occ_cat2','Farming, fishing, and forestry'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Natural resources, construction, and maintenance'),
+                                                        ('occ_cat2','Construction and extraction'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Natural resources, construction, and maintenance'),
+                                                        ('occ_cat2','Installation, maintenance, and repair'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Production, transportation, and material moving'),
+                                                        ('occ_cat2','Production'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Production, transportation, and material moving'),
+                                                        ('occ_cat2','Transportation'),
+                                                        ('occ_cat3','All')]),
+                                collections.OrderedDict([('occ_cat1','Production, transportation, and material moving'),
+                                                        ('occ_cat2','Material moving'),
+                                                        ('occ_cat3','All')])])),
+        ('temp_gq_type_mil',       ('dec/dhc',2020,'P5_GROUP_QUARTERS','tract',
+                                [collections.OrderedDict([('inst','Noninst'),
+                                                        ('subcategory','Military')])])),
+        ('pers_occ_military',     ('acs5',2023,'B23025','tract',
+                                [collections.OrderedDict([('inlaborforce','Yes'),
+                                                        ('type','Armed Forces')])],
+                                None,None,'temp_gq_type_mil')),
     ])
-    CONTROLS[2015]['COUNTY'] = collections.OrderedDict()
-    # copy the 2010 controls but use updated acs
+
+    CONTROLS[2023]['COUNTY'] = collections.OrderedDict()
+    # copy the 2020 controls but use updated acs
     for control_name in ['pers_occ_management',
                          'pers_occ_professional',
                          'pers_occ_services',
                          'pers_occ_retail',
                          'pers_occ_manual']:
-        CONTROLS[2015]['COUNTY'][control_name] = list(CONTROLS[2010]['COUNTY'][control_name])
+        CONTROLS[2023]['COUNTY'][control_name] = list(CONTROLS[2020]['COUNTY'][control_name])
         # update ACS year
-        CONTROLS[2015]['COUNTY'][control_name][1] = 2016
+        CONTROLS[2023]['COUNTY'][control_name][1] = 2023
 
     # for military, tally GQ military similar to MAZ version
-    # 2010 group quarters military - county level
-    CONTROLS[2015]['COUNTY']['temp_base_gq_type_mil_co'] = \
-        ('sf1',2010,'P43',   'county', [collections.OrderedDict([ ('inst','Noninst'), ('subcategory','Military') ])] )
-    # 2010 all group quarters - county level
-    CONTROLS[2015]['COUNTY']['temp_base_gq_all_co'     ] = \
-        ('sf1',2010,'P43','county',[collections.OrderedDict([ ('sex','All'), ('inst','All'    ), ('subcategory','All') ])] )
-    # 2015 gq quarters military = 2015 group quarters x  (2010 gq military/2010 all group quarters)
-    CONTROLS[2015]['COUNTY']['temp_gq_type_mil'        ] = \
-        ('acs5',2016,'B26001','county',[collections.OrderedDict([ ])], 'temp_base_gq_type_mil_co','temp_base_gq_all_co')
+    # 2020 group quarters military - county level
+    CONTROLS[2020]['COUNTY']['temp_base_gq_type_mil_co'] = ('dec/dhc',2020,'P5_GROUP_QUARTERS','county',[collections.OrderedDict([('inst','Noninst'),('subcategory','Military')])])
+    CONTROLS[2020]['COUNTY']['temp_base_gq_all_co']     = ('dec/dhc',2020,'P5_GROUP_QUARTERS','county',[collections.OrderedDict([('sex','All'),('inst','All'),('subcategory','All')])])
+    CONTROLS[2023]['COUNTY']['temp_gq_type_mil']        = ('acs5',2023,'B26001','county',[collections.OrderedDict([])],'temp_base_gq_type_mil_co','temp_base_gq_all_co')
+    CONTROLS[2023]['COUNTY']['pers_occ_military']       = ('acs5',2023,'B23025','county',[collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces')])],None,None,'temp_gq_type_mil')
 
-
-    # finally, NON GQ military-occupied persons = Armed Forces persons in labor force MINUS gq military
-    CONTROLS[2015]['COUNTY']['pers_occ_military'       ] = \
-        ('acs5',2016,'B23025','county',[collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces') ])], None, None, 'temp_gq_type_mil')
-
-    CONTROLS[2010]['REGION'] = collections.OrderedDict([
+    CONTROLS[2020]['REGION'] = collections.OrderedDict([
         ('gq_num_hh_region','special')  # these are special: just sum from MAZ to be consistent
     ])
-    CONTROLS[2015]['REGION'] = collections.OrderedDict([
+    CONTROLS[2023]['REGION'] = collections.OrderedDict([
         ('gq_num_hh_region','special')  # these are special: just sum from MAZ to be consistent
     ])
 
