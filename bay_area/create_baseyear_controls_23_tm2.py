@@ -1,17 +1,20 @@
 USAGE="""
 Create baseyear controls for MTC Bay Area populationsim.
-THIS IS ALL BEING RE-WRITTEN TO HANDLE THE NEW 2020 CENSUS GEOGRAPHIES
-THE MODEL GEOGRAPHIES WILL NO LONGER NEST, AND WE HAVE TO HANDLE THE MANY TO MANY MATCH
+
+
 
 
 This script does the following:
 
-1) Downloads the relevant Census tables to a local cache specified by CensusFetcher.LOCAL_CACHE_FOLDER,
+1) Downloads the relevant 2020 Census tables to a local cache specified by CensusFetcher.LOCAL_CACHE_FOLDER,
    one table per file in CSV format.  These files are the raw tables at a census geography appropriate
    for the control geographies in this script, although the column headers have additional variables
    that are more descriptive of what the columns mean.
 
    To re-download the data using the Census API, remove the cache file.
+
+2) Translates 2020 Census estimates to 2010 Census geographies, which were used to create the
+    MTC model geographies. 
 
 2) It then combines the columns in the Census tables to match the control definitions in the
    CONTROLS structure in the script.
@@ -28,8 +31,7 @@ This script does the following:
    these "hh" include the 1-person group quarters households and the tot_pop includes both household
    and group quarter persons.
 
-5) It joins the MAZs and TAZs to the 2020 PUMAs (used in the 2007-2011 PUMS, which is
-   used by create_seed_population.py) and saves these crosswalks as well.
+5) It joins the MAZs and TAZs to the 2020 PUMAs and saves these crosswalks as well.
 
    Outputs: households    /data/[model_year]_[maz,taz,county]_controls.csv
             households    /data/geo_cross_walk.csv
@@ -43,10 +45,15 @@ This script does the following:
 
 import argparse, collections, logging, os, sys
 import census #, us
-import numpy, pandas, simpledbf
+import numpy, pandas
+import re
+import requests
+from bs4 import BeautifulSoup
 
-MAZ_TAZ_DEF_FILE   = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
-MAZ_TAZ_PUMA_FILE  = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_TM2_v2_2_intersect_puma2000.dbf"  # NOTE these are PUMA 2000
+MAZ_TAZ_DEF_FILE   = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv" # These are 2010 geographies
+MAZ_TAZ_PUMA_FILE  = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_county_tract_PUMA10.csv"  #These are 2010 geographies
+
+
 AGE_MAX  = 130 # max person age
 NKID_MAX = 10 # max number of kids
 NPER_MAX = 10 # max number of persons
@@ -513,7 +520,7 @@ class CensusFetcher:
                         'in' : f"state:{CensusFetcher.CA_STATE_FIPS} county:{county_code}"
                     }
 
-                if dataset == "sf1":
+                if dataset == "dec":
                     county_df = pandas.DataFrame.from_records(
                         self.census.sf1.get(census_col[0], geo_dict, year=year)
                     ).set_index(geo_index)
@@ -674,98 +681,106 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
         prev_sum = new_sum
 
     return control_df
-
-
-"""
-IDEA OF WHAT WE HAVE TO DO
-import pandas as pd
-
-def match_control_to_geography_many_to_many(control_name: str,
-                                            control_df: pd.DataFrame,
-                                            lookup_df: pd.DataFrame,
-                                            source_geo_col: str,
-                                            target_geo_col: str,
-                                            pct_source_in_target_col: str,
-                                            pct_target_in_source_col: str,
-                                            scale_numerator: str = None,
-                                            scale_denominator: str = None,
-                                            subtract_table: str = None,
-                                            full_region: bool = True
-                                           ) -> pd.DataFrame:
-  
-    Apportion 'control_name' from source geographies to target geographies using a many-to-many lookup.
-
-    Parameters
-    ----------
-    control_name : str
-        Column in control_df containing the values to apportion.
-    control_df : pd.DataFrame
-        DataFrame with one row per source geography, indexed or containing `source_geo_col`.
-    lookup_df : pd.DataFrame
-        DataFrame with columns [source_geo_col, target_geo_col,
-        pct_source_in_target_col, pct_target_in_source_col].
-        Each row represents one source–target overlap.
-    source_geo_col : str
-        Name of the geography column in control_df and lookup_df (e.g. 'GEOID20').
-    target_geo_col : str
-        Name of the target geography column in lookup_df (e.g. 'MAZ_ID').
-    pct_source_in_target_col : str
-        In lookup_df, the fraction of each source unit falling in that target.
-    pct_target_in_source_col : str
-        In lookup_df, the fraction of each target unit covered by that source.
-    scale_numerator, scale_denominator, subtract_table : str, optional
-        Names of “temp” tables in control_df/lookup_df to scale or subtract. 
-        (If you need a complex scaling step, merge them similarly before weighting.)
-    full_region : bool
-        If True, assert that the total after apportionment matches the original sum.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame indexed by target_geo_col with a column [control_name]
-        giving the apportioned totals.
-
-
-    # 1) Merge control totals onto the lookup
-    df = lookup_df.merge(
-        control_df[[source_geo_col, control_name]],
-        how="left", left_on=source_geo_col, right_on=source_geo_col
+def fetch_nhgis_crosswalk(source_year, target_year, geography, download_dir, api_key=None):
+    """
+    Download the NHGIS geographic crosswalk CSV for the given source and target years
+    and geography level into download_dir.
+    """
+    src = str(source_year)
+    tgt = str(target_year)
+    geo = geography.lower().replace(" ", "")
+    
+    # 1. Scrape the NHGIS crosswalks page
+    page_url = "https://www.nhgis.org/geographic-crosswalks"
+    resp = requests.get(page_url)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.content, 'html.parser')
+    
+    # 2. Find matching CSV link
+    pattern = re.compile(rf"{src}.*{geo}.*{tgt}.*\.csv", re.IGNORECASE)
+    links = [a['href'] for a in soup.find_all('a', href=True) if pattern.search(a['href'])]
+    if not links:
+        raise FileNotFoundError(f"No crosswalk link for {src} → {tgt} at {geo} level.")
+    link = links[0]
+    if link.startswith('/'):
+        link = "https://secure-assets.ipums.org" + link
+    download_url = link.replace(
+        "https://secure-assets.ipums.org/nhgis/",
+        "https://api.ipums.org/supplemental-data/nhgis/"
     )
+    
+    # 3. Download via IPUMS API
+    headers = {}
+    key = api_key or os.getenv("IPUMS_API_KEY")
+    if not key:
+        raise EnvironmentError("Set IPUMS_API_KEY env var or pass api_key.")
+    headers["Authorization"] = key
+    dl = requests.get(download_url, headers=headers)
+    dl.raise_for_status()
+    
+    # 4. Save file
+    os.makedirs(download_dir, exist_ok=True)
+    fname = download_url.split("/")[-1]
+    out_path = os.path.join(download_dir, fname)
+    with open(out_path, "wb") as f:
+        f.write(dl.content)
+    
+    return out_path
 
-    # 2) Optionally apply any scaling or subtraction here, if needed:
-    #    e.g. df[control_name] *= df[scale_numerator] / df[scale_denominator]
-    #    or df[control_name] -= df[subtract_table]
-
-    # 3) Weight by the fraction of the source within each target
-    df['weighted_value'] = df[control_name] * df[pct_source_in_target_col]
-
-    # 4) Aggregate up to the target geography
-    result = (
-        df
-        .groupby(target_geo_col)['weighted_value']
-        .sum()
-        .reset_index()
-        .rename(columns={'weighted_value': control_name})
-    )
-
-    # 5) (Optional) Check that totals roughly match
-    orig_sum = control_df[control_name].sum()
-    new_sum  = result[control_name].sum()
-    if full_region and not pd.isclose(orig_sum, new_sum, atol=1e-6):
-        raise ValueError(
-            f"Apportioned total {new_sum:.2f} "
-            f"does not match original {orig_sum:.2f}"
-        )
-
+def interpolate_est(control_df, dataset, year, table, geo, target_geo_year, source_geo_year,
+                    crosswalk_dir="nhgis_crosswalks", api_key=None):
+    """
+    Interpolate a control DataFrame from one geography vintage to another,
+    fetching the NHGIS crosswalk if not already cached.
+    """
+    # Prepare names
+    geo_name = geo.lower().replace(" ", "")
+    fname = f"nhgis{source_geo_year}_{geo_name}_to_{geo_name}_{target_geo_year}.csv"
+    cw_path = os.path.join(crosswalk_dir, fname)
+    
+    # Fetch if missing
+    if not os.path.exists(cw_path):
+        fetch_nhgis_crosswalk(source_year=source_geo_year,
+                              target_year=target_geo_year,
+                              geography=geo_name,
+                              download_dir=crosswalk_dir,
+                              api_key=api_key)
+    
+    # Load crosswalk
+    cw = pd.read_csv(cw_path, dtype=str)
+    cw["WEIGHT"] = cw["WEIGHT"].astype(float)
+    
+    # Identify source ID column
+    possible = [c for c in control_df.columns if c.lower() in ("geoid", geo_name)]
+    if not possible:
+        raise ValueError(f"No source ID column matching '{geo}' in control_df")
+    src_col = possible[0]
+    
+    # Merge & weight
+    df = control_df.copy()
+    df[src_col] = df[src_col].astype(str)
+    merged = df.merge(cw, left_on=src_col, right_on="SOURCEID", how="inner")
+    
+    # Apply weights to numeric columns
+    data_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c != src_col]
+    for col in data_cols:
+        merged[col] = merged[col] * merged["WEIGHT"]
+    
+    # Aggregate to target geography
+    result = (merged
+              .groupby("TARGETID")[data_cols]
+              .sum()
+              .reset_index()
+              .rename(columns={"TARGETID": src_col}))
+    
     return result
 
-"""
 
 def match_control_to_geography(control_name, control_table_df, control_geography, census_geography,
                                maz_taz_def_df, temp_controls, full_region,
                                scale_numerator, scale_denominator, subtract_table):
     """
-    THIS NEEDS TO BE COMPLETELY UPDATED TO USE MANY TO MANY MERGES
+    
     Given a control table in the given census geography, this method will transform the table to the appropriate
     control geography and return it.
 
@@ -1044,9 +1059,16 @@ if __name__ == '__main__':
     pandas.set_option("display.float_format", "{:,.2f}".format)
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=USAGE)
-    parser.add_argument("--model_year", type=int)
+    parser.add_argument("--est_model_year", type=int, help="Model year for the target estimates (e.g. 2020, 2023)")
+    parser.add_argument("geog_model_year", type=int, help="Model year for the geography definitions (e.g. 2020, 2023)")
     parser.add_argument("--test_PUMA", type=str, help="Pass PUMA to output controls only for geographies relevant to a single PUMA, for testing")
-    args = parser.parse_args()
+    
+    #The estimate model year is the year for which we are creating the controls, e.g. 2020 or 2023. It
+    # is the Census or ACS estimate year.
+    # The geog model year is the year for which we are using the geography definitions
+    # it can match the estimate model year or be different, e.g. 2010 geography with 2023 estimates.
+    # When it matches, no interpolation is needed, but when it doesn't, we need to interpolate 
+    # estimates across the geography
 
     # for now
    # if args.model_year not in [2020, 2023]:
@@ -1074,7 +1096,7 @@ if __name__ == '__main__':
     }
     # TODO: Could probably make this more readable than a tuple
     # control name ->
-    #  ( dataset (e.g. 'dec', 'acs5),
+    #  ( dataset (e.g. 'dec/dp', 'dec/dhc', 'acs5),
     #    year for dataset,
     #    table name within dataset,
     #    level of geography to use,
@@ -1244,11 +1266,11 @@ if __name__ == '__main__':
     maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
 
     # and PUMA
-    taz_puma_dbf   = simpledbf.Dbf5(MAZ_TAZ_PUMA_FILE)
-    taz_puma_df    = taz_puma_dbf.to_dataframe()
+    taz_puma_csv  = read.csv(MAZ_TAZ_PUMA_FILE)
+    taz_puma_df    = taz_puma_csv.to_dataframe()
     # since this is an intersect, there may be multiple PUMAs per taz
     # remedy this by picking the one with the biggest calc_area -- the sort will put that one last
-    taz_puma_df    = taz_puma_df[["taz","PUMA","calc_area"]].sort_values(by=["taz","calc_area"])
+    #taz_puma_df    = taz_puma_df[["taz","PUMA","calc_area"]].sort_values(by=["taz","calc_area"])
     taz_puma_df    = taz_puma_df.drop_duplicates(subset=["taz"], keep="last")
     taz_puma_df.rename(columns={"taz":"TAZ"}, inplace=True)
     maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=taz_puma_df[["TAZ", "PUMA"]], how="left")
@@ -1284,9 +1306,22 @@ if __name__ == '__main__':
                                                     year   =control_def[1],
                                                     table  =control_def[2],
                                                     geo    =control_def[3])
-
-               control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
-
+            
+               control_table_df= create_control_table(control_name, control_def[4], control_def[2], census_table_df)
+               if args.geog_model_year != args.est_model_year:
+               # we need to interpolate the estimates across the geography
+                  control_table_df = interpolate_est(
+                                control_table_df,
+                                dataset=control_def[0],
+                                year=control_def[1],
+                                table=control_def[2],
+                                geo=control_def[3],
+                                target_geo_year=args.geog_model_year,
+                                source_geo_year=args.est_model_year,
+                                crosswalk_dir="path/to/crosswalks",
+                                api_key="YOUR_IPUMS_API_KEY"  # or rely on env var
+                    )
+                
                scale_numerator   = None
                scale_denominator = None
                subtract_table    = None
