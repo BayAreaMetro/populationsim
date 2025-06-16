@@ -3,7 +3,41 @@ import pandas as pd
 import requests
 import re
 from bs4 import BeautifulSoup
+from tm2_control_utils.config import *
 
+
+def prepare_geography_dfs():
+    """
+    Reads and prepares MAZ/TAZ definition and crosswalk DataFrames.
+    Returns:
+        maz_taz_def_df: DataFrame with MAZ/TAZ definitions and attributes.
+        crosswalk_df:   DataFrame with MAZ/TAZ/PUMA/COUNTY crosswalk.
+    """
+    if os.path.exists(MAZ_TAZ_ALL_GEOG_FILE):
+        maz_taz_def_df = pandas.read_csv(MAZ_TAZ_ALL_GEOG_FILE)
+    else:
+        maz_taz_def_df = pandas.read_csv(MAZ_TAZ_DEF_FILE)
+        maz_taz_def_df.rename(columns={"maz": "MAZ", "taz": "TAZ"}, inplace=True)
+        maz_taz_def_df["GEOID_block"] = "0" + maz_taz_def_df["GEOID10"].astype(str)
+        add_aggregate_geography_colums(maz_taz_def_df)
+        maz_taz_def_df.drop("GEOID10", axis="columns", inplace=True)
+        maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
+
+        taz_puma_df = pandas.read_csv(MAZ_TAZ_PUMA_FILE)
+        taz_puma_df.rename(columns={"PUMA10": "PUMA"}, inplace=True)
+        maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=taz_puma_df[["TAZ", "MAZ", "PUMA"]], how="left")
+
+        maz_taz_def_df["PUMA"] = maz_taz_def_df["PUMA"].astype("Int64")
+        maz_taz_def_df = maz_taz_def_df[maz_taz_def_df["PUMA"].notna()]
+
+        # Save for future use
+        maz_taz_def_df.to_csv(MAZ_TAZ_ALL_GEOG_FILE, index=False)
+
+    crosswalk_df = maz_taz_def_df.loc[maz_taz_def_df["MAZ"] > 0]
+    crosswalk_df = crosswalk_df[["MAZ", "TAZ", "PUMA", "COUNTY", "county_name", "REGION"]].drop_duplicates()
+    crosswalk_df.sort_values(by="MAZ", inplace=True)
+
+    return maz_taz_def_df, crosswalk_df
 
 def read_ipums_api_key():
     with open(IPUMS_API_KEY_FILE) as f:

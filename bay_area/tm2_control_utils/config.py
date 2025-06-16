@@ -4,6 +4,7 @@ import collections
 # File paths
 MAZ_TAZ_DEF_FILE   = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
 MAZ_TAZ_PUMA_FILE  = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_county_tract_PUMA10.csv"
+MAZ_TAZ_ALL_GEOG_FILE =  "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_all_geog.csv"
 CENSUS_API_KEY_FILE = "M:\\Data\\Census\\API\\new_key\\api-key.txt"
 IPUMS_API_KEY_FILE  = "M:\\Data\\Census\\API\\ipums_key\\ipums-api-key.txt"
 LOCAL_CACHE_FOLDER  = "M:\\Data\\Census\\NewCachedTablesForPopulationSimControls"
