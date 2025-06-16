@@ -14,18 +14,18 @@ def prepare_geography_dfs():
         crosswalk_df:   DataFrame with MAZ/TAZ/PUMA/COUNTY crosswalk.
     """
     if os.path.exists(MAZ_TAZ_ALL_GEOG_FILE):
-        maz_taz_def_df = pandas.read_csv(MAZ_TAZ_ALL_GEOG_FILE)
+        maz_taz_def_df = pd.read_csv(MAZ_TAZ_ALL_GEOG_FILE)
     else:
-        maz_taz_def_df = pandas.read_csv(MAZ_TAZ_DEF_FILE)
+        maz_taz_def_df = pd.read_csv(MAZ_TAZ_DEF_FILE)
         maz_taz_def_df.rename(columns={"maz": "MAZ", "taz": "TAZ"}, inplace=True)
         maz_taz_def_df["GEOID_block"] = "0" + maz_taz_def_df["GEOID10"].astype(str)
         add_aggregate_geography_colums(maz_taz_def_df)
         maz_taz_def_df.drop("GEOID10", axis="columns", inplace=True)
-        maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
+        maz_taz_def_df = pd.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
 
-        taz_puma_df = pandas.read_csv(MAZ_TAZ_PUMA_FILE)
+        taz_puma_df = pd.read_csv(MAZ_TAZ_PUMA_FILE)
         taz_puma_df.rename(columns={"PUMA10": "PUMA"}, inplace=True)
-        maz_taz_def_df = pandas.merge(left=maz_taz_def_df, right=taz_puma_df[["TAZ", "MAZ", "PUMA"]], how="left")
+        maz_taz_def_df = pd.merge(left=maz_taz_def_df, right=taz_puma_df[["TAZ", "MAZ", "PUMA"]], how="left")
 
         maz_taz_def_df["PUMA"] = maz_taz_def_df["PUMA"].astype("Int64")
         maz_taz_def_df = maz_taz_def_df[maz_taz_def_df["PUMA"].notna()]

@@ -1,4 +1,4 @@
-import pandas
+import pandas as pd
 import collections
 
 # File paths
@@ -19,6 +19,17 @@ OUTPUT_DIR_FMT = "output_{}"
 CONTROL_FILE_FMT = "{}_{}_controls.csv"
 
 
+# Define required crosswalks as (source_year, target_year, geography)
+# if you don't need geography crosswalks, you can set the two years to the same valbue
+REQUIRED_CROSSWALKS = [
+    (2020, 2010, "block"),
+    (2020, 2010, "block group"),
+    (2020, 2010, "tract"),
+    # Add more as needed, e.g.:
+    # (2023, 2010, "tract"),
+    # (2020, 2010, "county subdivision"),
+]
+
 # Constants
 AGE_MAX  = 130
 NKID_MAX = 10
@@ -27,7 +38,7 @@ NWOR_MAX = 10
 HINC_MAX = 2000000
 
 # County recode DataFrame
-COUNTY_RECODE = pandas.DataFrame([
+COUNTY_RECODE = pd.DataFrame([
     {"GEOID_county":"06001", "COUNTY":4, "county_name":"Alameda"      , "REGION":1},
     {"GEOID_county":"06013", "COUNTY":5, "county_name":"Contra Costa" , "REGION":1},
     {"GEOID_county":"06041", "COUNTY":9, "county_name":"Marin"        , "REGION":1},
@@ -54,114 +65,193 @@ CONTROLS = {
 # ----------------------------------------
 # MAZ controls for Census estimate year
 CONTROLS[CENSUS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    ('num_hh',         ('dec/dp', CENSUS_EST_YEAR, 'DP1_HOUSEHOLD_SIZE',       'block',
-                        [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
-    ('hh_size_1',      ('dec/dp', CENSUS_EST_YEAR, 'DP1_HOUSEHOLD_SIZE',       'block',
-                        [collections.OrderedDict([('pers_min',1),('pers_max',1)])])),
-    ('hh_size_2',      ('dec/dp', CENSUS_EST_YEAR, 'DP1_HOUSEHOLD_SIZE',       'block',
-                        [collections.OrderedDict([('pers_min',2),('pers_max',2)])])),
-    ('hh_size_3',      ('dec/dp', CENSUS_EST_YEAR, 'DP1_HOUSEHOLD_SIZE',       'block',
-                        [collections.OrderedDict([('pers_min',3),('pers_max',3)])])),
-    ('hh_size_4_plus', ('dec/dp', CENSUS_EST_YEAR, 'DP1_HOUSEHOLD_SIZE',       'block',
-                        [collections.OrderedDict([('pers_min',4),('pers_max',NPER_MAX)])])),
-    ('gq_num_hh',      ('dec/dhc', CENSUS_EST_YEAR, 'P5_GROUP_QUARTERS',        'block',
-                        [collections.OrderedDict([('inst','Noninstitutional'),('subcategory','All')])])),
-    ('gq_type_univ',   ('dec/dhc', CENSUS_EST_YEAR, 'P5_GROUP_QUARTERS',        'block',
-                        [collections.OrderedDict([('inst','Noninstitutional'),
-                                                  ('subcategory','College/University')])])),
-    ('gq_type_mil',    ('dec/dhc', CENSUS_EST_YEAR, 'P5_GROUP_QUARTERS',        'block',
-                        [collections.OrderedDict([('inst','Noninstitutional'),
-                                                  ('subcategory','Military')])])),
-    ('gq_type_othnon', ('dec/dhc', CENSUS_EST_YEAR, 'P5_GROUP_QUARTERS',        'block',
-                        [collections.OrderedDict([('inst','Noninstitutional'),
-                                                  ('subcategory','Other Noninstitutional')])])),
-    ('tot_pop',        ('dec/dp', CENSUS_EST_YEAR, 'DP1_SEX_BY_AGE',           'block',
-                        [collections.OrderedDict([('sex','All'),('age_min',0),('age_max',AGE_MAX)])])),
+    ('tot_pop',        ('dec', CENSUS_EST_YEAR, 'P1_001N', 'block', [])),
+    ('pop_hh',         ('dec', CENSUS_EST_YEAR, 'P1_002N', 'block', [])),
+    ('pop_gq',         ('dec', CENSUS_EST_YEAR, 'P1_003N', 'block', [])),
+    ('tot_hu',         ('dec', CENSUS_EST_YEAR, 'H1_001N', 'block', [])),
+    ('occ_hu',         ('dec', CENSUS_EST_YEAR, 'H1_002N', 'block', [])),
+    ('vac_hu',         ('dec', CENSUS_EST_YEAR, 'H1_003N', 'block', [])),
 ])
 
 # ----------------------------------------
 # MAZ controls for ACS estimate year
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    ('temp_base_num_hh_b',    ('dec/dp', CENSUS_EST_YEAR, 'DP1_HOUSEHOLD_SIZE',       'block',
-                               [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
-    ('temp_base_num_hh_bg',   ('dec/dp', CENSUS_EST_YEAR, 'DP1_HOUSEHOLD_SIZE',       'block group',
-                               [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
-    ('temp_num_hh_bg_to_b',   ('acs5',    ACS_EST_YEAR,    'B11016',                   'block group',
+    # block‐level households (occupied units) from PL redistricting file
+    ('temp_base_num_hh_b',    ('pl',  CENSUS_EST_YEAR, 'H1_002N',       'block',
+                               [])),
+    # block‐group–level households from PL redistricting file
+    ('temp_base_num_hh_bg',   ('pl',  CENSUS_EST_YEAR, 'H1_002N',       'block group',
+                               [])),
+    # distribute ACS5 household counts down to blocks
+    ('temp_num_hh_bg_to_b',   ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])],
                                'temp_base_num_hh_b','temp_base_num_hh_bg')),
-    ('temp_num_hhinc',        ('acs5',    ACS_EST_YEAR,    'B19001',                   'block group',
-                               [collections.OrderedDict([('hhinc_min',0),('hhinc_max',HINC_MAX)])])),
-    ('hh_inc_30',             ('acs5',    ACS_EST_YEAR,    'B19001',                   'block group',
-                               [collections.OrderedDict([('hhinc_min',0),('hhinc_max',34999)])],
+    # ACS5 household income distribution at block‐group
+    ('temp_num_hhinc',        ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
+                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',HINC_MAX)])])),
+    ('hh_inc_30',             ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
+                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',34999)])],
                                'temp_num_hh_bg_to_b','temp_num_hhinc')),
-    ('hh_inc_30_60',          ('acs5',    ACS_EST_YEAR,    'B19001',                   'block group',
+    ('hh_inc_30_60',          ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
                                [collections.OrderedDict([('hhinc_min',35000),('hhinc_max',74999)])],
                                'temp_num_hh_bg_to_b','temp_num_hhinc')),
-    ('hh_inc_60_100',         ('acs5',    ACS_EST_YEAR,    'B19001',                   'block group',
+    ('hh_inc_60_100',         ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
                                [collections.OrderedDict([('hhinc_min',75000),('hhinc_max',124999)])],
                                'temp_num_hh_bg_to_b','temp_num_hhinc')),
-    ('hh_inc_100_plus',       ('acs5',    ACS_EST_YEAR,    'B19001',                   'block group',
+    ('hh_inc_100_plus',       ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
                                [collections.OrderedDict([('hhinc_min',125000),('hhinc_max',HINC_MAX)])],
                                'temp_num_hh_bg_to_b','temp_num_hhinc')),
-    ('temp_num_hh_wrks',      ('acs5',    ACS_EST_YEAR,    'B08202',                   'tract',
+    # ACS5 workers per household at tract level
+    ('temp_num_hh_wrks',      ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',0),('workers_max',NWOR_MAX),
-                                                         ('persons_min',0),('persons_max',NPER_MAX)])])),
-    ('hh_wrks_0',             ('acs5',    ACS_EST_YEAR,    'B08202',                   'tract',
+                                                         ('persons_min',0), ('persons_max',NPER_MAX)])])),
+    ('hh_wrks_0',             ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',0),('workers_max',0),
-                                                         ('persons_min',0),('persons_max',NPER_MAX)])],
+                                                         ('persons_min',0), ('persons_max',NPER_MAX)])],
                                'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
-    ('hh_wrks_1',             ('acs5',    ACS_EST_YEAR,    'B08202',                   'tract',
+    ('hh_wrks_1',             ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',1),('workers_max',1),
-                                                         ('persons_min',0),('persons_max',NPER_MAX)])],
+                                                         ('persons_min',0), ('persons_max',NPER_MAX)])],
                                'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
-    ('hh_wrks_2',             ('acs5',    ACS_EST_YEAR,    'B08202',                   'tract',
+    ('hh_wrks_2',             ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',2),('workers_max',2),
-                                                         ('persons_min',0),('persons_max',NPER_MAX)])],
+                                                         ('persons_min',0), ('persons_max',NPER_MAX)])],
                                'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
-    ('hh_wrks_3_plus',        ('acs5',    ACS_EST_YEAR,    'B08202',                   'tract',
+    ('hh_wrks_3_plus',        ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',3),('workers_max',NWOR_MAX),
-                                                         ('persons_min',0),('persons_max',NPER_MAX)])],
+                                                         ('persons_min',0), ('persons_max',NPER_MAX)])],
                                'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
-    ('temp_base_num_pers_hh_b',('dec/dp', CENSUS_EST_YEAR, 'DP1_POPULATION_IN_HOUSEHOLDS','block',
-                                [collections.OrderedDict([('age_min',0),('age_max',AGE_MAX)])])),
-    ('temp_base_num_pers_hh_bg',('dec/dp', CENSUS_EST_YEAR, 'DP1_POPULATION_IN_HOUSEHOLDS','block group',
-                                 [collections.OrderedDict([('age_min',0),('age_max',AGE_MAX)])])),
-    ('temp_num_pers_hh_bg_to_b',('acs5',    ACS_EST_YEAR,    'B11002',                   'block group',
+    # block‐level persons‐in‐households from PL redistricting file
+    ('temp_base_num_pers_hh_b', ('pl', CENSUS_EST_YEAR, 'P1_002N', 'block', [])),
+    # block‐group–level persons‐in‐households from PL redistricting file
+    ('temp_base_num_pers_hh_bg', ('pl', CENSUS_EST_YEAR, 'P1_002N', 'block group', [])),
+    # distribute ACS5 persons‐in‐households down to blocks
+    ('temp_num_pers_hh_bg_to_b',('acs5', ACS_EST_YEAR,    'B11002',       'block group',
                                  [collections.OrderedDict([])],
                                  'temp_base_num_pers_hh_b','temp_base_num_pers_hh_bg')),
-    ('temp_num_pers',         ('acs5',    ACS_EST_YEAR,    'B01001',                   'block group',
-                               [collections.OrderedDict([('sex','All'),('age_min',0),('age_max',AGE_MAX)])])),
-    ('pers_age_00_19',        ('acs5',    ACS_EST_YEAR,    'B01001',                   'block group',
+    # ACS5 total persons by age at block‐group
+    ('temp_num_pers',         ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
+                               [collections.OrderedDict([('sex','All'),
+                                                         ('age_min',0),('age_max',AGE_MAX)])])),
+    ('pers_age_00_19',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
                                [collections.OrderedDict([('age_min',0),('age_max',19)])],
                                'temp_num_pers_hh_bg_to_b','temp_num_pers')),
-    ('pers_age_20_34',        ('acs5',    ACS_EST_YEAR,    'B01001',                   'block group',
+    ('pers_age_20_34',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
                                [collections.OrderedDict([('age_min',20),('age_max',34)])],
                                'temp_num_pers_hh_bg_to_b','temp_num_pers')),
-    ('pers_age_35_64',        ('acs5',    ACS_EST_YEAR,    'B01001',                   'block group',
+    ('pers_age_35_64',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
                                [collections.OrderedDict([('age_min',35),('age_max',64)])],
                                'temp_num_pers_hh_bg_to_b','temp_num_pers')),
-    ('pers_age_65_plus',      ('acs5',    ACS_EST_YEAR,    'B01001',                   'block group',
+    ('pers_age_65_plus',      ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
                                [collections.OrderedDict([('age_min',65),('age_max',AGE_MAX)])],
                                'temp_num_pers_hh_bg_to_b','temp_num_pers')),
-    ('temp_num_hh_kids',      ('acs5',    ACS_EST_YEAR,    'B11005',                   'block group',
+    # ACS5 households with children at block‐group
+    ('temp_num_hh_kids',      ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
                                [collections.OrderedDict([('num_kids_min',0),('num_kids_max',NKID_MAX)])])),
-    ('hh_kids_no',            ('acs5',    ACS_EST_YEAR,    'B11005',                   'block group',
+    ('hh_kids_no',            ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
                                [collections.OrderedDict([('num_kids_min',0),('num_kids_max',0)])],
                                'temp_num_hh_bg_to_b','temp_num_hh_kids')),
-    ('hh_kids_yes',           ('acs5',    ACS_EST_YEAR,    'B11005',                   'block group',
+    ('hh_kids_yes',           ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
                                [collections.OrderedDict([('num_kids_min',1),('num_kids_max',NKID_MAX)])],
                                'temp_num_hh_bg_to_b','temp_num_hh_kids')),
 ])
+
 
 # ----------------------------------------
 # COUNTY controls for Census estimate year
 CONTROLS[CENSUS_EST_YEAR]['COUNTY'] = collections.OrderedDict([
     ('pers_occ_management',   ('acs5', ACS_EST_YEAR, 'C24010', 'tract', [
         collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
-                                ('occ_cat2','Management, business, and financial'),
-                                ('occ_cat3','Management')])
+                                 ('occ_cat2','Management, business, and financial'),
+                                 ('occ_cat3','Management')])
     ])),
-    # … (other COUNTY entries for CENSUS_EST_YEAR) …
+    ('pers_occ_professional', ('acs5', ACS_EST_YEAR, 'C24010', 'tract', [
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Management, business, and financial'),
+                                 ('occ_cat3','Business and financial operations')]),
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Computer, engineering, and science'),
+                                 ('occ_cat3','Computer and mathematical')]),
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Computer, engineering, and science'),
+                                 ('occ_cat3','Architecture and engineering')]),
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Computer, engineering, and science'),
+                                 ('occ_cat3','Life, physical, and social science')]),
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Education, legal, community service, arts, and media'),
+                                 ('occ_cat3','Legal')]),
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Education, legal, community service, arts, and media'),
+                                 ('occ_cat3','Education, training, and library')]),
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Healthcare practitioners and technical'),
+                                 ('occ_cat3','Health diagnosing and treating practitioners and other technical')]),
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Healthcare practitioners and technical'),
+                                 ('occ_cat3','Health technologists and technicians')]),
+    ])),
+    ('pers_occ_services',     ('acs5', ACS_EST_YEAR, 'C24010', 'tract', [
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Education, legal, community service, arts, and media'),
+                                 ('occ_cat3','Community and social service')]),
+        collections.OrderedDict([('occ_cat1','Management, business, science, and arts'),
+                                 ('occ_cat2','Education, legal, community service, arts, and media'),
+                                 ('occ_cat3','Arts, design, entertainment, sports, and media')]),
+        collections.OrderedDict([('occ_cat1','Service'),
+                                 ('occ_cat2','Healthcare support'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Service'),
+                                 ('occ_cat2','Protective service'),
+                                 ('occ_cat3','Fire fighting and prevention, and other protective service workers')]),
+        collections.OrderedDict([('occ_cat1','Service'),
+                                 ('occ_cat2','Protective service'),
+                                 ('occ_cat3','Law enforcement workers')]),
+        collections.OrderedDict([('occ_cat1','Service'),
+                                 ('occ_cat2','Personal care and service'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Sales and office'),
+                                 ('occ_cat2','Office and administrative support'),
+                                 ('occ_cat3','All')]),
+    ])),
+    ('pers_occ_retail',       ('acs5', ACS_EST_YEAR, 'C24010', 'tract', [
+        collections.OrderedDict([('occ_cat1','Service'),
+                                 ('occ_cat2','Food preparation and serving related'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Sales and office'),
+                                 ('occ_cat2','Sales and related'),
+                                 ('occ_cat3','All')]),
+    ])),
+    ('pers_occ_manual',       ('acs5', ACS_EST_YEAR, 'C24010', 'tract', [
+        collections.OrderedDict([('occ_cat1','Service'),
+                                 ('occ_cat2','Building and grounds cleaning and maintenance'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Natural resources, construction, and maintenance'),
+                                 ('occ_cat2','Farming, fishing, and forestry'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Natural resources, construction, and maintenance'),
+                                 ('occ_cat2','Construction and extraction'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Natural resources, construction, and maintenance'),
+                                 ('occ_cat2','Installation, maintenance, and repair'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Production, transportation, and material moving'),
+                                 ('occ_cat2','Production'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Production, transportation, and material moving'),
+                                 ('occ_cat2','Transportation'),
+                                 ('occ_cat3','All')]),
+        collections.OrderedDict([('occ_cat1','Production, transportation, and material moving'),
+                                 ('occ_cat2','Material moving'),
+                                 ('occ_cat3','All')]),
+    ])),
+    # Military
+    ('temp_gq_type_mil',      ('pl', CENSUS_EST_YEAR, 'P43', 'tract', [
+        collections.OrderedDict([('inst','Noninst'), ('subcategory','Military')])
+    ])),
+    ('pers_occ_military',     ('acs5', ACS_EST_YEAR, 'B23025', 'tract', [
+        collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces')])
+    ], None, None, 'temp_gq_type_mil')),
 ])
 
 # copy COUNTY controls into ACS_EST_YEAR and update any 'acs5' tuples
@@ -198,126 +288,30 @@ BAY_AREA_COUNTY_FIPS  = collections.OrderedDict([
 CA_STATE_FIPS = "06"
 
 CENSUS_DEFINITIONS = {
-    "DP1_HOUSEHOLD_SIZE": [
-        ["variable","pers_min","pers_max"],
-        ["DP1_001E",1,NPER_MAX],
-        ["DP1_002E",1,1],
-        ["DP1_003E",2,2],
-        ["DP1_004E",3,3],
-        ["DP1_005E",4,4],
-        ["DP1_006E",5,5],
-        ["DP1_007E",6,6],
-        ["DP1_008E",7,NPER_MAX]
-    ],
-    "DP1_POP_HH": [
-        ["variable","age_min","age_max"],
-        ["DP1_009E",0,AGE_MAX],
-        ["DP1_010E",0,17],
-        ["DP1_011E",18,AGE_MAX]
-    ],
-    "DP1_SEX_BY_AGE": [
-        ["variable","sex","age_min","age_max"],
-        ["DP1_012E","All",0,AGE_MAX],
-        ["DP1_013E","Male",0,AGE_MAX],
-        ["DP1_014E","Male",0,4],
-        ["DP1_015E","Male",5,9],
-        ["DP1_016E","Male",10,14],
-        ["DP1_017E","Male",15,17],
-        ["DP1_018E","Male",18,19],
-        ["DP1_019E","Male",20,24],
-        ["DP1_020E","Male",25,34],
-        ["DP1_021E","Male",35,44],
-        ["DP1_022E","Male",45,54],
-        ["DP1_023E","Male",55,64],
-        ["DP1_024E","Male",65,74],
-        ["DP1_025E","Male",75,AGE_MAX],
-        ["DP1_026E","Female",0,AGE_MAX],
-        ["DP1_027E","Female",0,4],
-        ["DP1_028E","Female",5,9],
-        ["DP1_029E","Female",10,14],
-        ["DP1_030E","Female",15,17],
-        ["DP1_031E","Female",18,19],
-        ["DP1_032E","Female",20,24],
-        ["DP1_033E","Female",25,34],
-        ["DP1_034E","Female",35,44],
-        ["DP1_035E","Female",45,54],
-        ["DP1_036E","Female",55,64],
-        ["DP1_037E","Female",65,74],
-        ["DP1_038E","Female",75,AGE_MAX]
-    ],
-    "B01001": [
-        ["variable","sex","age_min","age_max"],
-        ["B01001_001E","All",0,AGE_MAX],
-        ["B01001_002E","Male",0,AGE_MAX],
-        ["B01001_003E","Male",0,4],
-        ["B01001_004E","Male",5,9],
-        ["B01001_005E","Male",10,14],
-        ["B01001_006E","Male",15,17],
-        ["B01001_007E","Male",18,19],
-        ["B01001_008E","Male",20,20],
-        ["B01001_009E","Male",21,21],
-        ["B01001_010E","Male",22,24],
-        ["B01001_011E","Male",25,29],
-        ["B01001_012E","Male",30,34],
-        ["B01001_013E","Male",35,39],
-        ["B01001_014E","Male",40,44],
-        ["B01001_015E","Male",45,49],
-        ["B01001_016E","Male",50,54],
-        ["B01001_017E","Male",55,59],
-        ["B01001_018E","Male",60,61],
-        ["B01001_019E","Male",62,64],
-        ["B01001_020E","Male",65,66],
-        ["B01001_021E","Male",67,69],
-        ["B01001_022E","Male",70,74],
-        ["B01001_023E","Male",75,79],
-        ["B01001_024E","Male",80,84],
-        ["B01001_025E","Male",85,AGE_MAX],
-        ["B01001_026E","Female",0,AGE_MAX],
-        ["B01001_027E","Female",0,4],
-        ["B01001_028E","Female",5,9],
-        ["B01001_029E","Female",10,14],
-        ["B01001_030E","Female",15,17],
-        ["B01001_031E","Female",18,19],
-        ["B01001_032E","Female",20,20],
-        ["B01001_033E","Female",21,21],
-        ["B01001_034E","Female",22,24],
-        ["B01001_035E","Female",25,29],
-        ["B01001_036E","Female",30,34],
-        ["B01001_037E","Female",35,39],
-        ["B01001_038E","Female",40,44],
-        ["B01001_039E","Female",45,49],
-        ["B01001_040E","Female",50,54],
-        ["B01001_041E","Female",55,59],
-        ["B01001_042E","Female",60,61],
-        ["B01001_043E","Female",62,64],
-        ["B01001_044E","Female",65,66],
-        ["B01001_045E","Female",67,69],
-        ["B01001_046E","Female",70,74],
-        ["B01001_047E","Female",75,79],
-        ["B01001_048E","Female",80,84],
-        ["B01001_049E","Female",85,AGE_MAX]
-    ],
-    "B11002": [
+    # 2020 PL 94-171 Redistricting Data (block-level)
+    "P1_001N": [  # Total population
         ["variable"],
-        ["B11002_001E"]
+        ["P1_001N"]
     ],
-    "B11005": [
-        ["variable","family","famtype","num_kids_min","num_kids_max"],
-        ["B11005_002E","All","All",1, NKID_MAX],
-        ["B11005_011E","All","All",0,0]
+    "P1_002N": [  # Population in households
+        ["variable"],
+        ["P1_002N"]
     ],
-    "P5_GROUP_QUARTERS": [
-        ["variable","inst","subcategory"],
-        ["P5_001E","All","All"],
-        ["P5_002E","Inst","All"],
-        ["P5_003E","Inst","Correctional"],
-        ["P5_004E","Inst","Juvenile"],
-        ["P5_005E","Inst","Nursing"],
-        ["P5_006E","Inst","Other"],
-        ["P5_007E","Noninst","All"],
-        ["P5_008E","Noninst","College/University"],
-        ["P5_009E","Noninst","Military"],
-        ["P5_010E","Noninst","Other"]
+    "P1_003N": [  # Population in group quarters
+        ["variable"],
+        ["P1_003N"]
+    ],
+    "H1_001N": [  # Total housing units
+        ["variable"],
+        ["H1_001N"]
+    ],
+    "H1_002N": [  # Occupied housing units (households)
+        ["variable"],
+        ["H1_002N"]
+    ],
+    "H1_003N": [  # Vacant housing units
+        ["variable"],
+        ["H1_003N"]
     ],
     "B23025": [  # ACS5-2023: Employment status
         ["variable","inlaborforce","type","employed"],
@@ -332,34 +326,6 @@ CENSUS_DEFINITIONS = {
     "B26001": [  # ACS5-2023: Group quarters population
         ["variable"],
         ["B26001_001E"]
-    ],
-    "PCT16": [  # 2020 Decennial DP1: Household type by children under 18
-        ["variable","family","famtype","num_kids_min","num_kids_max"],
-        ["DP1_0127E","All","All",0,NPER_MAX],
-        ["DP1_0128E","All","HusWif",0,NPER_MAX],
-        ["DP1_0129E","All","HusWif",0,0],
-        ["DP1_0130E","All","HusWif",1,1],
-        ["DP1_0131E","All","HusWif",2,2],
-        ["DP1_0132E","All","HusWif",3,3],
-        ["DP1_0133E","All","HusWif",4,NPER_MAX],
-        ["DP1_0134E","All","MaleH",0,NPER_MAX],
-        ["DP1_0135E","All","MaleH",0,0],
-        ["DP1_0136E","All","MaleH",1,1],
-        ["DP1_0137E","All","MaleH",2,2],
-        ["DP1_0138E","All","MaleH",3,3],
-        ["DP1_0139E","All","MaleH",4,NPER_MAX],
-        ["DP1_0140E","All","FemaleH",0,NPER_MAX],
-        ["DP1_0141E","All","FemaleH",0,0],
-        ["DP1_0142E","All","FemaleH",1,1],
-        ["DP1_0143E","All","FemaleH",2,2],
-        ["DP1_0144E","All","FemaleH",3,3],
-        ["DP1_0145E","All","FemaleH",4,NPER_MAX],
-        ["DP1_0146E","All","All",0,NPER_MAX],
-        ["DP1_0147E","All","All",0,0],
-        ["DP1_0148E","All","All",1,1],
-        ["DP1_0149E","All","All",2,2],
-        ["DP1_0150E","All","All",3,3],
-        ["DP1_0151E","All","All",4,NPER_MAX]
     ],
     "B08202": [
         ["variable","workers_min","workers_max","persons_min","persons_max"],

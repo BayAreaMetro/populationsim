@@ -40,7 +40,7 @@ import logging
 import os
 import sys
 import numpy
-import pandas
+import pandas as pd
 
 from tm2_control_utils.config import *
 from tm2_control_utils.census_fetcher import CensusFetcher
@@ -57,12 +57,16 @@ def process_control(
 
     # Special case for REGION/gq_num_hh_region
     if control_geo == "REGION" and control_name == "gq_num_hh_region":
-        final_control_dfs[control_geo] = pandas.DataFrame.from_dict(
+        final_control_dfs[control_geo] = pd.DataFrame.from_dict(
             data={'REGION': [1], "gq_num_hh_region": [final_control_dfs["MAZ"]["gq_num_hh"].sum()]}
         ).set_index("REGION")
         logger.debug(f"\n{final_control_dfs[control_geo]}")
         return
-
+    
+    print("dataset:", control_def[0])
+    print("year:", control_def[1])
+    print("table:", control_def[2])
+    print("geo:", control_def[3])
     # Step 1: Fetch census data
     census_table_df = cf.get_census_data(
         dataset=control_def[0],
@@ -114,7 +118,7 @@ def process_control(
     if control_geo not in final_control_dfs:
         final_control_dfs[control_geo] = final_df
     else:
-        final_control_dfs[control_geo] = pandas.merge(
+        final_control_dfs[control_geo] = pd.merge(
             left=final_control_dfs[control_geo],
             right=final_df,
             how="left",
@@ -132,7 +136,7 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         out_df = out_df.loc[out_df[control_geo] > 0, :]
 
     if control_geo == "COUNTY":
-        out_df = pandas.merge(left=COUNTY_RECODE[["COUNTY", "county_name"]], right=out_df, how="right")
+        out_df = pd.merge(left=COUNTY_RECODE[["COUNTY", "county_name"]], right=out_df, how="right")
     elif control_geo == "MAZ":
         maz_df = out_df[["MAZ", "num_hh", "gq_num_hh", "tot_pop"]].copy()
         maz_df["hh"] = maz_df["num_hh"] + maz_df["gq_num_hh"]
@@ -170,8 +174,8 @@ def write_outputs(control_geo, out_df, crosswalk_df):
 
 
 def main():
-    pandas.set_option("display.width", 500)
-    pandas.set_option("display.float_format", "{:,.2f}".format)
+    pd.set_option("display.width", 500)
+    pd.set_option("display.float_format", "{:,.2f}".format)
 
     LOG_FILE = f"create_baseyear_controls_{ACS_EST_YEAR}.log"
 
@@ -189,11 +193,27 @@ def main():
 
     logger.info("Preparing geography lookups")
     maz_taz_def_df, crosswalk_df = prepare_geography_dfs()
+    for src_year, tgt_year, geo in REQUIRED_CROSSWALKS:
+        if src_year == tgt_year:
+            print(f"Skipping crosswalk for {src_year} → {tgt_year} at {geo} (years are the same).")
+            continue
+        try:
+            print(f"Fetching crosswalk: {src_year} → {tgt_year} at {geo} level...")
+            fetch_nhgis_crosswalk(
+                source_year=src_year,
+                target_year=tgt_year,
+                geography=geo,
+                download_dir=LOCAL_CACHE_FOLDER,
+                api_key=IPUMS_API_KEY_FILE
+            )
+        except Exception as e:
+            print(f"Failed to fetch crosswalk for {src_year} → {tgt_year} at {geo}: {e}")
 
-    cf = CensusFetcher()
+    cf = CensusFetcher() 
     final_control_dfs = {}
 
-    for control_geo, control_dict in CONTROLS[ACS_EST_YEAR].items():
+    #for control_geo, control_dict in CONTROLS[ACS_EST_YEAR].items():
+    for control_geo, control_dict in list(CONTROLS[ACS_EST_YEAR].items())[:1]:
         temp_controls = collections.OrderedDict()
         for control_name, control_def in control_dict.items():
             process_control(

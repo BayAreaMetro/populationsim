@@ -1,6 +1,6 @@
 import logging
 import numpy
-import pandas
+import pandas as pd
 import collections
 
 def census_col_is_in_control(param_dict, control_dict):
@@ -42,7 +42,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
     logging.debug("\n{}".format(census_table_df.head()))
 
     # construct a new dataframe to return with same index as census_table_df
-    control_df = pandas.DataFrame(index=census_table_df.index, columns=[control_name], data=0)
+    control_df = pd.DataFrame(index=census_table_df.index, columns=[control_name], data=0)
     # logging.debug control_df.head()
 
     # logging.debug(census_table_df.columns.names)
@@ -178,7 +178,7 @@ def match_control_to_geography(control_name, control_table_df, control_geography
 
             # one should match -- try denom
             if len(temp_controls[scale_denominator]) == len(control_table_df):
-                control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
+                control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
                 control_table_df["temp_fraction"] = control_table_df[control_name] / control_table_df[scale_denominator]
 
                 # if the denom is 0, warn and convert infinite fraction to zero
@@ -192,7 +192,7 @@ def match_control_to_geography(control_name, control_table_df, control_geography
                 # but return table at numerator geography
                 numerator_df = temp_controls[scale_numerator].copy()
                 add_aggregate_geography_colums(numerator_df)
-                control_table_df = pandas.merge(left=numerator_df, right=control_table_df, how="left")
+                control_table_df = pd.merge(left=numerator_df, right=control_table_df, how="left")
                 logging.debug("Joined with num ({} rows) :\n{}".format(len(control_table_df), control_table_df.head()))
                 control_table_df[control_name] = control_table_df["temp_fraction"] * control_table_df[scale_numerator]
                 # keep only geometry column name and control
@@ -216,8 +216,8 @@ def match_control_to_geography(control_name, control_table_df, control_geography
             assert(len(temp_controls[scale_denominator]) == len(control_table_df))
             logging.info("  Scaling by {}/{}".format(scale_numerator,scale_denominator))
 
-            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_numerator  ], how="left")
-            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
+            control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_numerator  ], how="left")
+            control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
             control_table_df[control_name] = control_table_df[control_name] * control_table_df[scale_numerator]/control_table_df[scale_denominator]
             control_table_df.fillna(0, inplace=True)
 
@@ -227,14 +227,14 @@ def match_control_to_geography(control_name, control_table_df, control_geography
             assert(len(temp_controls[subtract_table]) == len(control_table_df))
             logging.info("  Initial total {:,}".format(control_table_df[control_name].sum()))
             logging.info("  Subtracting out {} with sum {:,}".format(subtract_table, temp_controls[subtract_table][subtract_table].sum()))
-            control_table_df = pandas.merge(left=control_table_df, right=temp_controls[subtract_table], how="left")
+            control_table_df = pd.merge(left=control_table_df, right=temp_controls[subtract_table], how="left")
             control_table_df[control_name] = control_table_df[control_name] - control_table_df[subtract_table]
 
             variable_total = variable_total - temp_controls[subtract_table][subtract_table].sum()
 
         # we really only need these columns - control geography and the census geography
         geo_mapping_df   = maz_taz_def_df[[control_geography, "GEOID_{}".format(census_geography)]].drop_duplicates()
-        control_table_df = pandas.merge(left=control_table_df, right=geo_mapping_df, how="left")
+        control_table_df = pd.merge(left=control_table_df, right=geo_mapping_df, how="left")
 
         # aggregate now
         final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
@@ -265,7 +265,7 @@ def match_control_to_geography(control_name, control_table_df, control_geography
     same_geo_total_df   = temp_controls[scale_denominator]
     assert(len(same_geo_total_df) == len(control_table_df))
 
-    proportion_df = pandas.merge(left=control_table_df, right=same_geo_total_df, how="left")
+    proportion_df = pd.merge(left=control_table_df, right=same_geo_total_df, how="left")
     proportion_var = "{} proportion".format(control_name)
     proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[scale_denominator]
     logging.info("Create proportion {} at {} geography via {} using {}/{}\n{}".format(
@@ -275,10 +275,10 @@ def match_control_to_geography(control_name, control_table_df, control_geography
     logging.info("Mean:\n{}".format(proportion_df[[proportion_var]].mean()))
 
     # join this to the maz_taz_definition - it'll be the lowest level
-    block_prop_df = pandas.merge(left=maz_taz_def_df, right=proportion_df, how="left")
+    block_prop_df = pd.merge(left=maz_taz_def_df, right=proportion_df, how="left")
     # this is the first temp table, our multiplier
     block_total_df   = temp_controls[scale_numerator]
-    block_prop_df = pandas.merge(left=block_prop_df, right=block_total_df, how="left")
+    block_prop_df = pd.merge(left=block_prop_df, right=block_total_df, how="left")
 
     # now multiply to get total at block level
     block_prop_df[control_name] = block_prop_df[proportion_var]*block_prop_df[scale_numerator]
@@ -319,7 +319,7 @@ def integerize_control(out_df, crosswalk_df, control_name):
     logging.debug("out_df sum:\n{}".format(out_df.sum()))
 
     # see how they look at the TAZ and county level
-    out_df = pandas.merge(left=out_df, right=crosswalk_df, how="left")
+    out_df = pd.merge(left=out_df, right=crosswalk_df, how="left")
 
     # this is being exacting... maybe not necessary
 
@@ -351,7 +351,7 @@ def integerize_control(out_df, crosswalk_df, control_name):
         if len(tazdict_to_adjust)==0: break
 
         # add or remove a household if needed from a MAZ
-        out_df = pandas.merge(left=out_df, right=out_df_by_taz[["TAZ","control_adjust","control_taz"]], how="left")
+        out_df = pd.merge(left=out_df, right=out_df_by_taz[["TAZ","control_adjust","control_taz"]], how="left")
         logging.debug("out_df before adjustment:\n{}".format(out_df.head()))
 
         out_df_by_taz_grouped = out_df[["MAZ","TAZ",control_name,"control_stoch_round","control_adjust","control_taz"]].groupby("TAZ")
