@@ -6,7 +6,6 @@ MAZ_TAZ_DEF_FILE   = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.c
 MAZ_TAZ_PUMA_FILE  = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_county_tract_PUMA10.csv"
 MAZ_TAZ_ALL_GEOG_FILE =  "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_all_geog.csv"
 CENSUS_API_KEY_FILE = "M:\\Data\\Census\\API\\new_key\\api-key.txt"
-IPUMS_API_KEY_FILE  = "M:\\Data\\Census\\API\\ipums_key\\ipums-api-key.txt"
 LOCAL_CACHE_FOLDER  = "M:\\Data\\Census\\NewCachedTablesForPopulationSimControls"
 
 # Output directories and file formats 
@@ -20,15 +19,15 @@ CONTROL_FILE_FMT = "{}_{}_controls.csv"
 
 
 # Define required crosswalks as (source_year, target_year, geography)
-# if you don't need geography crosswalks, you can set the two years to the same valbue
-REQUIRED_CROSSWALKS = [
-    (2020, 2010, "block"),
-    (2020, 2010, "block group"),
-    (2020, 2010, "tract"),
-    # Add more as needed, e.g.:
-    # (2023, 2010, "tract"),
-    # (2020, 2010, "county subdivision"),
-]
+# if you don't need geography crosswalks, you can set the two years to the same value
+
+# The crosswalk files were download from https://www.nhgis.org/geographic-crosswalks#download-2020-2010
+# This required a login so had to be manual.
+NHGIS_CROSSWALK_PATHS = {
+    ("block", 2020, 2010): r"M:\Data\Census\NewCachedTablesForPopulationSimControls\nhgis_blk2020_blk2010_06.csv",
+    ("block group", 2020, 2010): r"M:\Data\Census\NewCachedTablesForPopulationSimControls\nhgis_bg2020_bg2010_06.csv",
+    ("tract", 2020, 2010): r"M:\Data\Census\NewCachedTablesForPopulationSimControls\nhgis_tr2020_tr2010_06.csv",
+}
 
 # Constants
 AGE_MAX  = 130

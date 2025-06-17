@@ -44,7 +44,7 @@ import pandas as pd
 
 from tm2_control_utils.config import *
 from tm2_control_utils.census_fetcher import CensusFetcher
-from tm2_control_utils.geog_utils import prepare_geography_dfs, add_aggregate_geography_colums, fetch_nhgis_crosswalk, interpolate_est
+from tm2_control_utils.geog_utils import prepare_geography_dfs, add_aggregate_geography_colums, interpolate_est
 from tm2_control_utils.controls import create_control_table, census_col_is_in_control, match_control_to_geography, integerize_control
 
 
@@ -80,16 +80,15 @@ def process_control(
 
     # Step 3: Interpolate if needed
     if CENSUS_GEOG_YEAR != CENSUS_EST_YEAR:
+        print("control_df columns:", control_table_df.columns)
+        print(control_table_df.head())
+        print(control_table_df.reset_index().head())
         control_table_df = interpolate_est(
             control_table_df,
-            dataset=control_def[0],
-            year=control_def[1],
-            table=control_def[2],
             geo=control_def[3],
             target_geo_year=CENSUS_GEOG_YEAR,
-            source_geo_year=CENSUS_EST_YEAR,
-            crosswalk_dir=LOCAL_CACHE_FOLDER,
-            api_key=IPUMS_API_KEY_FILE
+            source_geo_year=CENSUS_EST_YEAR
+   
         )
 
     # Step 4: Prepare scaling and subtraction
@@ -193,22 +192,6 @@ def main():
 
     logger.info("Preparing geography lookups")
     maz_taz_def_df, crosswalk_df = prepare_geography_dfs()
-    for src_year, tgt_year, geo in REQUIRED_CROSSWALKS:
-        if src_year == tgt_year:
-            print(f"Skipping crosswalk for {src_year} → {tgt_year} at {geo} (years are the same).")
-            continue
-        try:
-            print(f"Fetching crosswalk: {src_year} → {tgt_year} at {geo} level...")
-            fetch_nhgis_crosswalk(
-                source_year=src_year,
-                target_year=tgt_year,
-                geography=geo,
-                download_dir=LOCAL_CACHE_FOLDER,
-                api_key=IPUMS_API_KEY_FILE
-            )
-        except Exception as e:
-            print(f"Failed to fetch crosswalk for {src_year} → {tgt_year} at {geo}: {e}")
-
     cf = CensusFetcher() 
     final_control_dfs = {}
 

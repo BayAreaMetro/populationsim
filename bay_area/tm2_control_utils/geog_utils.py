@@ -39,9 +39,7 @@ def prepare_geography_dfs():
 
     return maz_taz_def_df, crosswalk_df
 
-def read_ipums_api_key():
-    with open(IPUMS_API_KEY_FILE) as f:
-        return f.read().strip()
+
 
 def add_aggregate_geography_colums(table_df):
     """
@@ -52,96 +50,96 @@ def add_aggregate_geography_colums(table_df):
         table_df["GEOID_tract"      ] = table_df["GEOID_block"].str[:11]
         table_df["GEOID_block group"] = table_df["GEOID_block"].str[:12]
 
-def fetch_nhgis_crosswalk(source_year, target_year, geography, download_dir, api_key=None):
+def make_geoid_column(df, geo, state_fips='06'):
     """
-    Download the NHGIS geographic crosswalk CSV for the given source and target years
-    and geography level into download_dir.
+    Create a GEOID column matching NHGIS crosswalk format for the specified geography.
     """
-    src = str(source_year)
-    tgt = str(target_year)
-    geo = geography.lower().replace(" ", "")
-    
-    # 1. Scrape the NHGIS crosswalks page
-    page_url = "https://www.nhgis.org/geographic-crosswalks"
-    resp = requests.get(page_url)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.content, 'html.parser')
-    
-    # 2. Find matching CSV link
-    pattern = re.compile(rf"{src}.*{geo}.*{tgt}.*\.csv", re.IGNORECASE)
-    links = [a['href'] for a in soup.find_all('a', href=True) if pattern.search(a['href'])]
-    if not links:
-        raise FileNotFoundError(f"No crosswalk link for {src} → {tgt} at {geo} level.")
-    link = links[0]
-    if link.startswith('/'):
-        link = "https://secure-assets.ipums.org" + link
-    download_url = link.replace(
-        "https://secure-assets.ipums.org/nhgis/",
-        "https://api.ipums.org/supplemental-data/nhgis/"
-    )
-    
-    # 3. Download via IPUMS API
-    headers = {}
-    key = read_ipums_api_key()
-    if not key:
-        raise EnvironmentError("Set IPUMS_API_KEY env var or pass api_key.")
-    headers["Authorization"] = key
-    dl = requests.get(download_url, headers=headers)
-    dl.raise_for_status()
-    
-    # 4. Save file
-    os.makedirs(download_dir, exist_ok=True)
-    fname = download_url.split("/")[-1]
-    out_path = os.path.join(download_dir, fname)
-    with open(out_path, "wb") as f:
-        f.write(dl.content)
-    
-    return out_path
+    df = df.copy()
+    geo = geo.lower().replace("_", " ")
+    geo_specs = {
+        "block":       [("county", 3), ("tract", 6), ("block", 4)],
+        "block group": [("county", 3), ("tract", 6), ("block group", 1)],
+        "tract":       [("county", 3), ("tract", 6)],
+        "county":      [("county", 3)],
+    }
+    crosswalk_col_map = {
+        "block": "blk2020ge",
+        "block group": "bg2020ge",
+        "tract": "tr2020ge",
+        "county": "cty2020ge"
+    }
+    if geo not in geo_specs:
+        raise ValueError(f"Unsupported geography: {geo}")
 
-def interpolate_est(control_df, dataset, year, table, geo, target_geo_year, source_geo_year,
-                    crosswalk_dir="nhgis_crosswalks", api_key=None):
+    state_fips = str(state_fips).zfill(2)
+    parts = [state_fips]
+    for col, width in geo_specs[geo]:
+        if col not in df.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame for geography '{geo}'")
+        parts.append(df[col].astype(str).str.zfill(width))
+    geoid_col = crosswalk_col_map[geo]
+    df[geoid_col] = parts[0] + df[geo_specs[geo][0][0]].astype(str).str.zfill(geo_specs[geo][0][1])
+    for i, (col, width) in enumerate(geo_specs[geo][1:], start=1):
+        df[geoid_col] += df[col].astype(str).str.zfill(width)
+    return df
+
+def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
     """
     Interpolate a control DataFrame from one geography vintage to another,
-    fetching the NHGIS crosswalk if not already cached.
+    using a pre-downloaded NHGIS crosswalk with weights.
     """
-    # Prepare names
-    geo_name = geo.lower().replace(" ", "")
-    fname = f"nhgis{source_geo_year}_{geo_name}_to_{geo_name}_{target_geo_year}.csv"
-    cw_path = os.path.join(crosswalk_dir, fname)
-    
-    # Fetch if missing
-    if not os.path.exists(cw_path):
-        fetch_nhgis_crosswalk(source_year=source_geo_year,
-                              target_year=target_geo_year,
-                              geography=geo_name,
-                              download_dir=crosswalk_dir,
-                              api_key=api_key)
-    
+    geo_key = geo.lower().replace("_", " ")
+    crosswalk_col_map = {
+        "block": "blk2020ge",
+        "block group": "bg2020ge",
+        "tract": "tr2020ge",
+        "county": "cty2020ge"
+    }
+    crosswalk_path = NHGIS_CROSSWALK_PATHS.get((geo_key, source_geo_year, target_geo_year))
+    if not crosswalk_path or not os.path.exists(crosswalk_path):
+        raise FileNotFoundError(
+            f"Required NHGIS crosswalk file not found for {geo_key} {source_geo_year}->{target_geo_year}.\n"
+            f"Expected at: {crosswalk_path}\n"
+            "Please download the appropriate NHGIS crosswalk and place it in the configured directory."
+        )
+
     # Load crosswalk
-    cw = pd.read_csv(cw_path, dtype=str)
-    cw["WEIGHT"] = cw["WEIGHT"].astype(float)
-    
-    # Identify source ID column
-    possible = [c for c in control_df.columns if c.lower() in ("geoid", geo_name)]
-    if not possible:
-        raise ValueError(f"No source ID column matching '{geo}' in control_df")
-    src_col = possible[0]
-    
+    cw = pd.read_csv(crosswalk_path, dtype=str)
+    if "weight" in cw.columns:
+        cw["weight"] = cw["weight"].astype(float)
+        weight_col = "weight"
+    elif "WEIGHT" in cw.columns:
+        cw["WEIGHT"] = cw["WEIGHT"].astype(float)
+        weight_col = "WEIGHT"
+    else:
+        raise ValueError("Crosswalk file missing 'weight' column.")
+
+    print("crosswalk columns:", cw.columns)
+    print(cw.head())
+
+    # Add correct GEOID column to control_df
+    control_df_with_geoid = make_geoid_column(control_df.reset_index(), geo=geo_key)
+
+    src_col = crosswalk_col_map[geo_key]
+    if src_col not in control_df_with_geoid.columns:
+        raise ValueError(f"Column '{src_col}' not found in control_df for merging.")
+
     # Merge & weight
-    df = control_df.copy()
+    df = control_df_with_geoid.copy()
     df[src_col] = df[src_col].astype(str)
-    merged = df.merge(cw, left_on=src_col, right_on="SOURCEID", how="inner")
-    
+    merged = df.merge(cw, left_on=src_col, right_on=src_col, how="inner")
+
     # Apply weights to numeric columns
     data_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c != src_col]
     for col in data_cols:
-        merged[col] = merged[col] * merged["WEIGHT"]
-    
+        merged[col] = merged[col] * merged[weight_col]
+
     # Aggregate to target geography
+    target_col = [col for col in cw.columns if col.endswith(f"{target_geo_year}ge")][0]
     result = (merged
-              .groupby("TARGETID")[data_cols]
+              .groupby(target_col)[data_cols]
               .sum()
               .reset_index()
-              .rename(columns={"TARGETID": src_col}))
-    
+              .rename(columns={target_col: src_col}))
+
     return result
