@@ -2,6 +2,8 @@ import logging
 import numpy
 import pandas as pd
 import collections
+from tm2_control_utils.geog_utils import add_aggregate_geography_colums
+
 
 def census_col_is_in_control(param_dict, control_dict):
     """
@@ -114,24 +116,161 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
 
 
 
-def match_control_to_geography(control_name, control_table_df, control_geography, census_geography,
-                               maz_taz_def_df, temp_controls, full_region,
-                               scale_numerator, scale_denominator, subtract_table):
-    """
-    
-    Given a control table in the given census geography, this method will transform the table to the appropriate
-    control geography and return it.
+def prepare_geography_columns(df, census_geography):
+    # If you already have a GEOID column, just use it
+    possible_geoid_cols = ['blk2020ge', 'blk2010ge', 'GEOID_block', 'GEOID']
+    for col in possible_geoid_cols:
+        if col in df.columns:
+            df = df.rename(columns={col: 'GEOID_block'})
+            print("Using existing GEOID column:", col)
+            return df
+    # Otherwise, try to build from state/county/tract/block
+    geo_col_map = {
+        "block":       ['state', 'county', 'tract', 'block'],
+        "block group": ['state', 'county', 'tract', 'block group'],
+        "tract":       ['state', 'county', 'tract'],
+        "county":      ['state', 'county']
+    }
+    expected_cols = geo_col_map.get(census_geography)
+    if expected_cols and all(col in df.columns for col in expected_cols):
+        df['GEOID_block'] = df['state'] + df['county'] + df['tract'] + df['block']
+        print("Constructed GEOID_block from columns:", expected_cols)
+    else:
+        print("WARNING: Could not find expected columns to construct GEOID. Columns are:", df.columns)
+    return df
 
-    Pass full_region=False if this is a test subset so the control totals don't need to add up to the census table total.
-    Pass scale_numerator and scale_denominator to scale numbers by scale_numerator/scale_denominator, where those are temp tables.
-    Or pass subtract_table to subtract out a temp table.
-    """
+def add_geoid_column(df, census_geography):
+    # If GEOID_block already exists, do nothing
+    if census_geography == "block" and "GEOID_block" in df.columns:
+        return df
+    # Otherwise, try to build it (legacy fallback)
+    if census_geography == "block":
+        df["GEOID_block"] = df["state"] + df["county"] + df["tract"] + df["block"]
+    elif census_geography == "block group":
+        df["GEOID_block group"] = df["state"] + df["county"] + df["tract"] + df["block group"]
+    elif census_geography == "tract":
+        df["GEOID_tract"] = df["state"] + df["county"] + df["tract"]
+    elif census_geography == "county":
+        df["GEOID_county"] = df["state"] + df["county"]
+    return df
+
+def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_denominator, temp_controls):
+    logger = logging.getLogger()
+    logger.info("Temporary Total for {} ({} rows) {:,}".format(control_name, len(control_table_df), control_table_df[control_name].sum()))
+    logger.debug("head:\n{}".format(control_table_df.head()))
+
+    if scale_numerator or scale_denominator:
+        scale_numerator_geometry   = temp_controls[scale_numerator].columns[0]
+        scale_denominator_geometry = temp_controls[scale_denominator].columns[0]
+        logger.debug("Temp with numerator {} denominator {}".format(scale_numerator, scale_denominator))
+        logger.debug("  {} has geometry {} and  length {}".format(scale_numerator,
+                      scale_numerator_geometry, len(temp_controls[scale_numerator])))
+        logger.debug("  Head:\n{}".format(temp_controls[scale_numerator].head()))
+        logger.debug("  {} has geometry {} and length {}".format(scale_denominator,
+                      scale_denominator_geometry, len(temp_controls[scale_denominator])))
+        logger.debug("  Head:\n{}".format(temp_controls[scale_denominator].head()))
+
+        if len(temp_controls[scale_denominator]) == len(control_table_df):
+            control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
+            control_table_df["temp_fraction"] = control_table_df[control_name] / control_table_df[scale_denominator]
+
+            zero_denom_df = control_table_df.loc[control_table_df["temp_fraction"]==numpy.inf].copy()
+            if len(zero_denom_df) > 0:
+                logger.warn("  DROPPING Inf (sum {}):\n{}".format(zero_denom_df[control_name].sum(), str(zero_denom_df)))
+                control_table_df.loc[control_table_df["temp_fraction"]==numpy.inf, "temp_fraction"] = 0
+
+            logger.debug("Divided by {}  temp_fraction mean:{}  Head:\n{}".format(scale_denominator, control_table_df["temp_fraction"].mean(), control_table_df.head()))
+
+            numerator_df = temp_controls[scale_numerator].copy()
+            add_aggregate_geography_colums(numerator_df)
+            control_table_df = pd.merge(left=numerator_df, right=control_table_df, how="left")
+            logger.debug("Joined with num ({} rows) :\n{}".format(len(control_table_df), control_table_df.head()))
+            control_table_df[control_name] = control_table_df["temp_fraction"] * control_table_df[scale_numerator]
+            control_table_df = control_table_df[[scale_numerator_geometry, control_name]]
+            logger.debug("Final Total: {:,}  ({} rows)  Head:\n{}".format(control_table_df[control_name].sum(),
+                          len(control_table_df), control_table_df.head()))
+
+        elif len(temp_controls[scale_numerator]) == len(control_table_df):
+            raise NotImplementedError("Temp scaling by numerator of same geography not implemented yet")
+
+        else:
+            raise ValueError("Temp scaling requires numerator or denominator geography to match")
+    return control_table_df
+
+def aggregate_to_control_geo(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total):
+    logger = logging.getLogger()
+    if scale_numerator and scale_denominator:
+        assert(len(temp_controls[scale_numerator  ]) == len(control_table_df))
+        assert(len(temp_controls[scale_denominator]) == len(control_table_df))
+        logger.info("  Scaling by {}/{}".format(scale_numerator,scale_denominator))
+
+        control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_numerator  ], how="left")
+        control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
+        control_table_df[control_name] = control_table_df[control_name] * control_table_df[scale_numerator]/control_table_df[scale_denominator]
+        control_table_df.fillna(0, inplace=True)
+
+        variable_total = variable_total * temp_controls[scale_numerator][scale_numerator].sum()/temp_controls[scale_denominator][scale_denominator].sum()
+
+    if subtract_table:
+        assert(len(temp_controls[subtract_table]) == len(control_table_df))
+        logger.info("  Initial total {:,}".format(control_table_df[control_name].sum()))
+        logger.info("  Subtracting out {} with sum {:,}".format(subtract_table, temp_controls[subtract_table][subtract_table].sum()))
+        control_table_df = pd.merge(left=control_table_df, right=temp_controls[subtract_table], how="left")
+        control_table_df[control_name] = control_table_df[control_name] - control_table_df[subtract_table]
+
+        variable_total = variable_total - temp_controls[subtract_table][subtract_table].sum()
+
+    geo_mapping_df   = maz_taz_def_df[[control_geography, "GEOID_{}".format(census_geography)]].drop_duplicates()
+    control_table_df = pd.merge(left=control_table_df, right=geo_mapping_df, how="left")
+
+    final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
+
+    logger.debug("total at the end: {:,}".format(final_df[control_name].sum()))
+    if not scale_numerator:
+        diff = abs(final_df[control_name].sum() - variable_total)
+        if diff >= 0.5:
+            logger.warning(f"Control total differs from variable_total by {diff}")
+    logger.info("  => Total for {} {:,}".format(control_name, final_df[control_name].sum()))
+    return final_df
+
+def proportional_scaling(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator):
+    logger = logging.getLogger()
+    same_geo_total_df   = temp_controls[scale_denominator]
+    assert(len(same_geo_total_df) == len(control_table_df))
+
+    proportion_df = pd.merge(left=control_table_df, right=same_geo_total_df, how="left")
+    proportion_var = "{} proportion".format(control_name)
+    proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[scale_denominator]
+    logger.info("Create proportion {} at {} geography via {} using {}/{}\n{}".format(
+                  proportion_var, control_geography, census_geography,
+                  control_name, scale_denominator, proportion_df.head()))
+    logger.info("Sums:\n{}".format(proportion_df[[control_name, scale_denominator]].sum()))
+    logger.info("Mean:\n{}".format(proportion_df[[proportion_var]].mean()))
+
+    block_prop_df = pd.merge(left=maz_taz_def_df, right=proportion_df, how="left")
+    block_total_df   = temp_controls[scale_numerator]
+    block_prop_df = pd.merge(left=block_prop_df, right=block_total_df, how="left")
+
+    block_prop_df[control_name] = block_prop_df[proportion_var]*block_prop_df[scale_numerator]
+    logger.info("Multiplying proportion {}/{} (at {}) x {}\n{}".format(
+                  control_name, scale_denominator, census_geography,
+                  scale_numerator,  block_prop_df.head()))
+
+    final_df = block_prop_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
+    logger.info("Proportionally-derived Total added: {:,}".format(final_df[control_name].sum()))
+    return final_df
+
+def match_control_to_geography(
+    control_name, control_table_df, control_geography, census_geography,
+    maz_taz_def_df, temp_controls,
+    scale_numerator=None, scale_denominator=None, subtract_table=None
+):
+    logger = logging.getLogger()
     if control_geography not in ["MAZ","TAZ","COUNTY","REGION"]:
         raise ValueError("match_control_to_geography passed unsupported control geography {}".format(control_geography))
     if census_geography not in ["block","block group","tract","county subdivision","county"]:
         raise ValueError("match_control_to_geography passed unsupported census geography {}".format(census_geography))
 
-    # to verify we kept the totals
     variable_total = control_table_df[control_name].sum()
     logger.debug("Variable_total: {:,}".format(variable_total))
 
@@ -146,151 +285,30 @@ def match_control_to_geography(control_name, control_table_df, control_geography
     except:
         census_geo_index = -1
 
-    # consolidate geography columns
-    control_table_df.reset_index(drop=False, inplace=True)
-    if census_geography=="block":
-        control_table_df["GEOID_block"] = control_table_df["state"] + control_table_df["county"] + control_table_df["tract"] + control_table_df["block"]
-    elif census_geography=="block group":
-        control_table_df["GEOID_block group"] = control_table_df["state"] + control_table_df["county"] + control_table_df["tract"] + control_table_df["block group"]
-    elif census_geography=="tract":
-        control_table_df["GEOID_tract"] = control_table_df["state"] + control_table_df["county"] + control_table_df["tract"]
-    elif census_geography=="county":
-        control_table_df["GEOID_county"] = control_table_df["state"] + control_table_df["county"]
-    # drop the others
+    control_table_df = prepare_geography_columns(control_table_df, census_geography)
+    control_table_df = add_geoid_column(control_table_df, census_geography)
     control_table_df = control_table_df[["GEOID_{}".format(census_geography), control_name]]
 
-    # if this is a temp, don't go further -- we'll use it later
     if control_name.startswith("temp_"):
-        logging.info("Temporary Total for {} ({} rows) {:,}".format(control_name, len(control_table_df), control_table_df[control_name].sum()))
-        logging.debug("head:\n{}".format(control_table_df.head()))
+        return temp_table_scaling(control_table_df, control_name, scale_numerator, scale_denominator, temp_controls)
 
-        if scale_numerator or scale_denominator:
-            scale_numerator_geometry   = temp_controls[scale_numerator].columns[0]
-            scale_denominator_geometry = temp_controls[scale_denominator].columns[0]
-            # join to the one that's the same length
-            logging.debug("Temp with numerator {} denominator {}".format(scale_numerator, scale_denominator))
-            logging.debug("  {} has geometry {} and  length {}".format(scale_numerator,
-                          scale_numerator_geometry, len(temp_controls[scale_numerator])))
-            logging.debug("  Head:\n{}".format(temp_controls[scale_numerator].head()))
-            logging.debug("  {} has geometry {} and length {}".format(scale_denominator,
-                          scale_denominator_geometry, len(temp_controls[scale_denominator])))
-            logging.debug("  Head:\n{}".format(temp_controls[scale_denominator].head()))
-
-            # one should match -- try denom
-            if len(temp_controls[scale_denominator]) == len(control_table_df):
-                control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
-                control_table_df["temp_fraction"] = control_table_df[control_name] / control_table_df[scale_denominator]
-
-                # if the denom is 0, warn and convert infinite fraction to zero
-                zero_denom_df = control_table_df.loc[control_table_df["temp_fraction"]==numpy.inf].copy()
-                if len(zero_denom_df) > 0:
-                    logging.warn("  DROPPING Inf (sum {}):\n{}".format(zero_denom_df[control_name].sum(), str(zero_denom_df)))
-                    control_table_df.loc[control_table_df["temp_fraction"]==numpy.inf, "temp_fraction"] = 0
-
-                logging.debug("Divided by {}  temp_fraction mean:{}  Head:\n{}".format(scale_denominator, control_table_df["temp_fraction"].mean(), control_table_df.head()))
-
-                # but return table at numerator geography
-                numerator_df = temp_controls[scale_numerator].copy()
-                add_aggregate_geography_colums(numerator_df)
-                control_table_df = pd.merge(left=numerator_df, right=control_table_df, how="left")
-                logging.debug("Joined with num ({} rows) :\n{}".format(len(control_table_df), control_table_df.head()))
-                control_table_df[control_name] = control_table_df["temp_fraction"] * control_table_df[scale_numerator]
-                # keep only geometry column name and control
-                control_table_df = control_table_df[[scale_numerator_geometry, control_name]]
-                logging.debug("Final Total: {:,}  ({} rows)  Head:\n{}".format(control_table_df[control_name].sum(),
-                              len(control_table_df), control_table_df.head()))
-
-            elif len(temp_controls[scale_numerator]) == len(control_table_df):
-                raise NotImplementedError("Temp scaling by numerator of same geography not implemented yet")
-
-            else:
-                raise ValueError("Temp scaling requires numerator or denominator geography to match")
-        return control_table_df
-
-    # if the census geography is smaller than the target geography, this is a simple aggregation
     if census_geo_index >= 0 and census_geo_index < control_geo_index:
-        logging.info("Simple aggregation from {} to {}".format(census_geography, control_geography))
+        logger.info("Simple aggregation from {} to {}".format(census_geography, control_geography))
 
-        if scale_numerator and scale_denominator:
-            assert(len(temp_controls[scale_numerator  ]) == len(control_table_df))
-            assert(len(temp_controls[scale_denominator]) == len(control_table_df))
-            logging.info("  Scaling by {}/{}".format(scale_numerator,scale_denominator))
+        return aggregate_to_control_geo(
+            control_table_df, control_name, control_geography, census_geography,
+            maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total
+        )
 
-            control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_numerator  ], how="left")
-            control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
-            control_table_df[control_name] = control_table_df[control_name] * control_table_df[scale_numerator]/control_table_df[scale_denominator]
-            control_table_df.fillna(0, inplace=True)
-
-            variable_total = variable_total * temp_controls[scale_numerator][scale_numerator].sum()/temp_controls[scale_denominator][scale_denominator].sum()
-
-        if subtract_table:
-            assert(len(temp_controls[subtract_table]) == len(control_table_df))
-            logging.info("  Initial total {:,}".format(control_table_df[control_name].sum()))
-            logging.info("  Subtracting out {} with sum {:,}".format(subtract_table, temp_controls[subtract_table][subtract_table].sum()))
-            control_table_df = pd.merge(left=control_table_df, right=temp_controls[subtract_table], how="left")
-            control_table_df[control_name] = control_table_df[control_name] - control_table_df[subtract_table]
-
-            variable_total = variable_total - temp_controls[subtract_table][subtract_table].sum()
-
-        # we really only need these columns - control geography and the census geography
-        geo_mapping_df   = maz_taz_def_df[[control_geography, "GEOID_{}".format(census_geography)]].drop_duplicates()
-        control_table_df = pd.merge(left=control_table_df, right=geo_mapping_df, how="left")
-
-        # aggregate now
-        final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
-
-        # verify the totals didn't change
-        logging.debug("total at the end: {:,}".format(final_df[control_name].sum()))
-        if full_region and not scale_numerator: assert(abs(final_df[control_name].sum() - variable_total) < 0.5)
-
-        logging.info("  => Total for {} {:,}".format(control_name, final_df[control_name].sum()))
-        return final_df
-
-    # the census geography is larger than the target geography => proportional scaling is required
-    # proportion = column / scale_denominator  (these should be at the same geography)
-    # and then multiply by the scale_numerator (which should be at a smaller geography)
-
-    # e.g. hh_inc_15_prop = hh_inc_15 / temp_num_hh_bg   (at block group)
-    #      then multiply this by the households at the block level to get hh_inc_15 for blocks (these will be floats)
-    #      and aggregate to control geo (e.g. TAZ)
-
-    if scale_numerator == None or scale_denominator == None:
+    if scale_numerator is None or scale_denominator is None:
         msg = "Cannot go from larger census geography {} without numerator and denominator specified".format(census_geography)
-        logging.fatal(msg)
+        logger.fatal(msg)
         raise ValueError(msg)
 
-    logging.info("scale_numerator={}  scale_denominator={}".format(scale_numerator, scale_denominator))
-
-    # verify the last one matches our geography
-    same_geo_total_df   = temp_controls[scale_denominator]
-    assert(len(same_geo_total_df) == len(control_table_df))
-
-    proportion_df = pd.merge(left=control_table_df, right=same_geo_total_df, how="left")
-    proportion_var = "{} proportion".format(control_name)
-    proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[scale_denominator]
-    logging.info("Create proportion {} at {} geography via {} using {}/{}\n{}".format(
-                  proportion_var, control_geography, census_geography,
-                  control_name, scale_denominator, proportion_df.head()))
-    logging.info("Sums:\n{}".format(proportion_df[[control_name, scale_denominator]].sum()))
-    logging.info("Mean:\n{}".format(proportion_df[[proportion_var]].mean()))
-
-    # join this to the maz_taz_definition - it'll be the lowest level
-    block_prop_df = pd.merge(left=maz_taz_def_df, right=proportion_df, how="left")
-    # this is the first temp table, our multiplier
-    block_total_df   = temp_controls[scale_numerator]
-    block_prop_df = pd.merge(left=block_prop_df, right=block_total_df, how="left")
-
-    # now multiply to get total at block level
-    block_prop_df[control_name] = block_prop_df[proportion_var]*block_prop_df[scale_numerator]
-    logging.info("Multiplying proportion {}/{} (at {}) x {}\n{}".format(
-                  control_name, scale_denominator, census_geography,
-                  scale_numerator,  block_prop_df.head()))
-
-    # NOW aggregate
-    final_df = block_prop_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
-    # this won't be exact but hopefully close
-    logging.info("Proportionally-derived Total added: {:,}".format(final_df[control_name].sum()))
-    return final_df
+    return proportional_scaling(
+        control_table_df, control_name, control_geography, census_geography,
+        maz_taz_def_df, temp_controls, scale_numerator, scale_denominator
+    )
 
 def stochastic_round(my_series):
     """

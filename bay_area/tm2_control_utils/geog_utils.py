@@ -117,8 +117,18 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
     print("crosswalk columns:", cw.columns)
     print(cw.head())
 
+    control_df_reset = control_df.reset_index()
+    # Rename columns if they are integers (from MultiIndex)
+    if set([0, 1, 2, 3]).issubset(control_df_reset.columns):
+        control_df_reset = control_df_reset.rename(columns={
+            0: 'state',
+            1: 'county',
+            2: 'tract',
+            3: 'block'
+        })
+
     # Add correct GEOID column to control_df
-    control_df_with_geoid = make_geoid_column(control_df.reset_index(), geo=geo_key)
+    control_df_with_geoid = make_geoid_column(control_df_reset.reset_index(), geo=geo_key)
 
     src_col = crosswalk_col_map[geo_key]
     if src_col not in control_df_with_geoid.columns:
