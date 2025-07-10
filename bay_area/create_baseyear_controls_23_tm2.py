@@ -1,3 +1,76 @@
+"""
+create_baseyear_controls_23_tm2.py
+
+This script creates baseyear control files for the MTC Bay Area populationsim model using 2020 Census data mapped to 2010 geographies. It automates the process of downloading, transforming, and aggregating census data to produce control totals at various geographies (MAZ, TAZ, COUNTY, REGION).
+
+Main Steps and Functions:
+
+1. Geography Preparation
+   - prepare_geography_dfs(): Loads and prepares the main geography crosswalks and definitions.
+     - Returns: maz_taz_def_df, crosswalk_df
+
+2. Census Data Fetching
+   - CensusFetcher.get_census_data(): Downloads or loads from cache the required census table for a given dataset, year, table, and geography.
+     - Returns: census_table_df
+
+3. Control Table Creation
+   - create_control_table(): Combines and processes columns from the census table to match the control definition.
+     - Input: census_table_df
+     - Output: control_table_df
+
+4. Geography Interpolation (if needed)
+   - interpolate_est(): Translates census estimates from one geography year to another (e.g., 2020 to 2010).
+     - Input: control_table_df
+     - Output: interpolated DataFrame
+
+5. Scaling/Subtraction/Matching
+   - match_control_to_geography(): Scales, subtracts, and matches the control table to the final model geography (e.g., MAZ, TAZ) using crosswalks and temp controls.
+     - Input: control_table_df, maz_taz_def_df, temp_controls
+     - Output: final_df
+
+6. Integerization
+   - integerize_control(): Rounds control totals to integers and ensures consistency with crosswalks.
+     - Input: final_df, crosswalk_df
+     - Output: integerized DataFrame
+
+7. Output Writing
+   - write_outputs(): Writes the final control DataFrames to CSV files for each geography and type (households, group quarters).
+     - Input: out_df
+
+Main DataFrames:
+- maz_taz_def_df: MAZ/TAZ definitions and crosswalks
+- crosswalk_df: Detailed crosswalks for output
+- census_table_df: Raw census data for a specific table/geography
+- control_table_df: Control totals at census geography
+- final_df: Control totals at model geography (MAZ, TAZ, etc.)
+- final_control_dfs: Dictionary of all final control DataFrames by geography
+- temp_controls: Dictionary of temporary/intermediate control DataFrames
+
+Main Loop:
+- Iterates over each control geography and control definition in CONTROLS.
+- For each control, calls process_control() which orchestrates the above steps.
+- After all controls for a geography are processed, writes outputs using write_outputs().
+"""
+
+"""
+Control Table Creation in Population Synthesis
+=============================================
+
+Conceptually, the control table creation process generates a table of control totals—target values for key demographic or socioeconomic variables (such as total households, population by age group, etc.) for each geographic unit (e.g., block group, TAZ, or county). These control tables are used to ensure that the synthetic population matches known or estimated totals from authoritative sources like the Census.
+
+Conceptual Steps:
+1. Data Sourcing: Gather raw control data from census tables or other sources, often at fine geographies (block, block group, TAZ).
+2. Parsing and Cleaning: Read and clean the data, ensuring correct data types, handling missing values, and standardizing geographic identifiers (GEOIDs).
+3. Aggregation/Disaggregation: Aggregate or disaggregate data as needed to match the target geographies and control definitions.
+4. Table Construction: Build a DataFrame where each row is a geographic unit and each column is a control variable (e.g., total households, households by size, etc.).
+5. Validation: Check for missing or extra GEOIDs, zero or missing values, and ensure all required controls are present.
+6. Export: Save the control table for use in the population synthesis workflow.
+
+Purpose:
+--------
+The control table is the backbone of the population synthesis process, providing the targets that the synthetic population must match at each geography. It ensures demographic realism and consistency with observed data.
+"""
+
 USAGE = """
 Create baseyear controls for MTC Bay Area populationsim.
 

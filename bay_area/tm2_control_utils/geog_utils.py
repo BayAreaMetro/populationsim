@@ -52,42 +52,53 @@ def add_aggregate_geography_colums(table_df):
 
 def make_geoid_column(df, geo, state_fips='06'):
     """
-    Create a GEOID column matching NHGIS crosswalk format for the specified geography.
+    Robustly create or use a GEOID column for the specified geography.
+    If a suitable GEOID column already exists, use it. Otherwise, try to build from components.
     """
     df = df.copy()
     geo = geo.lower().replace("_", " ")
-    geo_specs = {
-        "block":       [("county", 3), ("tract", 6), ("block", 4)],
-        "block group": [("county", 3), ("tract", 6), ("block group", 1)],
-        "tract":       [("county", 3), ("tract", 6)],
-        "county":      [("county", 3)],
-    }
     crosswalk_col_map = {
         "block": "blk2020ge",
         "block group": "bg2020ge",
         "tract": "tr2020ge",
         "county": "cty2020ge"
     }
+    # Use existing GEOID column if present
+    geoid_col = crosswalk_col_map.get(geo)
+    # Try all reasonable alternatives for GEOID columns
+    alt_cols = [
+        geoid_col,
+        f"GEOID_{geo}",
+        "GEOID",
+        geo.replace(" ", "") + "2020ge",
+        geo.replace(" ", "_") + "2020ge",
+        geo.replace(" ", "").upper() + "2020GE"
+    ]
+    for alt in alt_cols:
+        if alt and alt in df.columns:
+            df[geoid_col] = df[alt]
+            return df
+    # Otherwise, try to build from components
+    geo_specs = {
+        "block":       [("state", 2), ("county", 3), ("tract", 6), ("block", 4)],
+        "block group": [("state", 2), ("county", 3), ("tract", 6), ("block group", 1)],
+        "tract":       [("state", 2), ("county", 3), ("tract", 6)],
+        "county":      [("state", 2), ("county", 3)],
+    }
     if geo not in geo_specs:
         raise ValueError(f"Unsupported geography: {geo}")
-
-    state_fips = str(state_fips).zfill(2)
-    parts = [state_fips]
-    for col, width in geo_specs[geo]:
+    for col, _ in geo_specs[geo]:
         if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found in DataFrame for geography '{geo}'")
-        parts.append(df[col].astype(str).str.zfill(width))
-    geoid_col = crosswalk_col_map[geo]
-    df[geoid_col] = parts[0] + df[geo_specs[geo][0][0]].astype(str).str.zfill(geo_specs[geo][0][1])
-    for i, (col, width) in enumerate(geo_specs[geo][1:], start=1):
-        df[geoid_col] += df[col].astype(str).str.zfill(width)
+            raise ValueError(f"Column '{col}' not found in DataFrame for geography '{geo}' and no suitable GEOID column present.")
+    # Build GEOID from components
+    parts = [df[col].astype(str).str.zfill(width) for col, width in geo_specs[geo]]
+    df[geoid_col] = parts[0].str.cat(parts[1:], sep='') if len(parts) > 1 else parts[0]
     return df
 
 def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
-    """
-    Interpolate a control DataFrame from one geography vintage to another,
-    using a pre-downloaded NHGIS crosswalk with weights.
-    """
+    print(f"[DEBUG] ENTER interpolate_est: geo={geo}")
+    print(f"[DEBUG] control_df.columns: {list(control_df.columns)}")
+    print(f"[DEBUG] control_df.head():\n{control_df.head()}")
     geo_key = geo.lower().replace("_", " ")
     crosswalk_col_map = {
         "block": "blk2020ge",
@@ -105,30 +116,84 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
 
     # Load crosswalk
     cw = pd.read_csv(crosswalk_path, dtype=str)
-    if "weight" in cw.columns:
-        cw["weight"] = cw["weight"].astype(float)
-        weight_col = "weight"
-    elif "WEIGHT" in cw.columns:
-        cw["WEIGHT"] = cw["WEIGHT"].astype(float)
-        weight_col = "WEIGHT"
-    else:
-        raise ValueError("Crosswalk file missing 'weight' column.")
+    # Make column names robust: strip and lowercase
+    cw.columns = cw.columns.str.strip().str.lower()
+    print("crosswalk columns (repr):", repr(cw.columns.tolist()))
+
+    # Determine weight column
+    weight_col = None
+    # Map for each geo type to the correct weight column(s)
+    geo_weight_map = {
+        "block": ["weight"],
+        "block group": ["wt_hh", "wt_pop", "wt_hu", "wt_fam", "wt_adult", "wt_ownhu", "wt_renthu"],
+        "tract": ["wt_hh", "wt_pop", "wt_hu", "wt_fam", "wt_adult", "wt_ownhu", "wt_renthu"],
+        "county": ["wt_hh", "wt_pop", "wt_hu", "wt_fam", "wt_adult", "wt_ownhu", "wt_renthu"]
+    }
+    # Try to pick the right weight column based on control name and available columns
+    data_col = [c for c in control_df.columns if c != 'index'][0]
+    for candidate in geo_weight_map.get(geo_key, []):
+        if candidate in cw.columns:
+            # Prefer hh for household, pop for population, hu for housing units, etc.
+            if 'hh' in data_col.lower() and 'hh' in candidate:
+                weight_col = candidate
+                break
+            elif 'pop' in data_col.lower() and 'pop' in candidate:
+                weight_col = candidate
+                break
+            elif 'hu' in data_col.lower() and 'hu' in candidate:
+                weight_col = candidate
+                break
+            elif 'fam' in data_col.lower() and 'fam' in candidate:
+                weight_col = candidate
+                break
+            elif 'adult' in data_col.lower() and 'adult' in candidate:
+                weight_col = candidate
+                break
+            elif 'ownhu' in data_col.lower() and 'ownhu' in candidate:
+                weight_col = candidate
+                break
+            elif 'renthu' in data_col.lower() and 'renthu' in candidate:
+                weight_col = candidate
+                break
+    if not weight_col:
+        # fallback: pick the first available weight column
+        for candidate in geo_weight_map.get(geo_key, []):
+            if candidate in cw.columns:
+                weight_col = candidate
+                break
+    if not weight_col:
+        raise ValueError(f"Crosswalk file missing appropriate weight column for {geo_key}. Columns: {cw.columns.tolist()}")
+    cw[weight_col] = cw[weight_col].astype(float)
 
     print("crosswalk columns:", cw.columns)
     print(cw.head())
 
     control_df_reset = control_df.reset_index()
-    # Rename columns if they are integers (from MultiIndex)
-    if set([0, 1, 2, 3]).issubset(control_df_reset.columns):
+    print(f"[DEBUG] Columns after reset_index: {control_df_reset.columns.tolist()}")
+    print(f"[DEBUG] Head after reset_index:\n{control_df_reset.head()}")
+    # Robustly rename columns for block and block group geographies
+    if geo_key == "block" and set([0, 1, 2, 3]).issubset(control_df_reset.columns):
         control_df_reset = control_df_reset.rename(columns={
             0: 'state',
             1: 'county',
             2: 'tract',
             3: 'block'
         })
-
+        print(f"[DEBUG] Renamed columns for block: {control_df_reset.columns.tolist()}")
+    elif geo_key == "block group" and set([0, 1, 2, 3]).issubset(control_df_reset.columns):
+        control_df_reset = control_df_reset.rename(columns={
+            0: 'state',
+            1: 'county',
+            2: 'tract',
+            3: 'block group'
+        })
+        print(f"[DEBUG] Renamed columns for block group: {control_df_reset.columns.tolist()}")
+    print(f"[DEBUG] Columns before make_geoid_column: {control_df_reset.columns.tolist()}")
+    print(f"[DEBUG] Head before make_geoid_column:\n{control_df_reset.head()}")
     # Add correct GEOID column to control_df
-    control_df_with_geoid = make_geoid_column(control_df_reset.reset_index(), geo=geo_key)
+    control_df_with_geoid = make_geoid_column(control_df_reset, geo=geo_key)
+    print(f"[DEBUG] Columns after make_geoid_column: {control_df_with_geoid.columns.tolist()}")
+    print(f"[DEBUG] Head after make_geoid_column:\n{control_df_with_geoid.head()}")
 
     src_col = crosswalk_col_map[geo_key]
     if src_col not in control_df_with_geoid.columns:
@@ -152,4 +217,6 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
               .reset_index()
               .rename(columns={target_col: src_col}))
 
+    print(f"[DEBUG] EXIT interpolate_est: merged.columns: {merged.columns.tolist()}")
+    print(f"[DEBUG] merged.head():\n{merged.head()}")
     return result

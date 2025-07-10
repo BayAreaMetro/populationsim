@@ -30,15 +30,24 @@ class CensusFetcher:
 
     def get_census_data(self, dataset, year, table, geo):
         """
-        Dataset is one of "pl" or "acs5"
-        Year is a number for the table
-        Geo is one of "block", "block group", "tract", "county subdivision" or "county"
+        Robustly load census data from a cached CSV, handling multi-row headers and ensuring correct column names.
+        Returns a DataFrame with geography columns and census variable columns.
+        Handles files where geo headers are in row 5 and data headers in row 1, as well as fallback to standard single-row header.
         """
-
-        if geo not in ["block", "block group", "tract", "county subdivision", "county"]:
-            raise ValueError(f"get_census_data received unsupported geo {geo}")
-        if table not in CENSUS_DEFINITIONS:
-            raise ValueError(f"get_census_data received unsupported table {table}")
+        print(f"[DEBUG] ENTER get_census_data: dataset={dataset}, year={year}, table={table}, geo={geo}")
+        def get_geo_index(geo):
+            if geo == "block":
+                return ["state", "county", "tract", "block"]
+            elif geo == "block group":
+                return ["state", "county", "tract", "block group"]
+            elif geo == "tract":
+                return ["state", "county", "tract"]
+            elif geo == "county subdivision":
+                return ["state", "county", "county subdivision"]
+            elif geo == "county":
+                return ["state", "county"]
+            else:
+                return []
 
         table_cache_file = os.path.join(
             LOCAL_CACHE_FOLDER,
@@ -49,54 +58,70 @@ class CensusFetcher:
         table_def = CENSUS_DEFINITIONS[table]
         table_cols = table_def[0]  # e.g. ['variable','pers_min','pers_max']
 
-        if geo == "block":
-            geo_index = ["state", "county", "tract", "block"]
-        elif geo == "block group":
-            geo_index = ["state", "county", "tract", "block group"]
-        elif geo == "tract":
-            geo_index = ["state", "county", "tract"]
-        elif geo == "county subdivision":
-            geo_index = ["state", "county", "county subdivision"]
-        elif geo == "county":
-            geo_index = ["state", "county"]
-
         if os.path.exists(table_cache_file):
             logging.info(f"Reading {table_cache_file}")
             try:
-                header_rows = len(table_cols) + 1
-                full_header = pd.read_csv(
-                    table_cache_file,
-                    header=list(range(header_rows)),
-                    nrows=0
-                )
-                all_cols = full_header.columns
-
-                raw_df = pd.read_csv(
-                    table_cache_file,
-                    dtype={col: object for col in geo_index},
-                    skiprows=header_rows,
-                    header=None
-                )
-
-                geo_part = raw_df.iloc[:, :len(geo_index)].astype(str)
-                data_part = raw_df.iloc[:, len(geo_index):]
-                data_cols = all_cols[len(geo_index):]
-                if data_part.shape[1] != len(data_cols):
-                    logging.error(
-                        f"Cached CSV has {data_part.shape[1]} data columns, "
-                        f"but expected {len(data_cols)} (from header)."
+                # Read all lines to find the correct header and variable code row
+                with open(table_cache_file, 'r', encoding='utf-8-sig') as f:
+                    lines = [line.strip().split(',') for line in f.readlines()]
+                geo_index = get_geo_index(geo)
+                # Check for expected header structure
+                if len(lines) >= 6 and len(lines[4]) >= 4 and len(lines[0]) >= 5:
+                    geo_cols = lines[4][:4]
+                    data_cols = lines[0][4:]
+                    col_names = geo_cols + data_cols
+                    print(f"[DEBUG] Using geo_cols from row 5: {geo_cols}")
+                    print(f"[DEBUG] Using data_cols from row 1: {data_cols}")
+                    print(f"[DEBUG] Final col_names: {col_names}")
+                    # Data starts on row 6 (index 5)
+                    df = pd.read_csv(
+                        table_cache_file,
+                        header=None,
+                        skiprows=5,
+                        names=col_names
                     )
-                    logging.error(f"data_part.columns: {data_part.columns}")
-                    logging.error(f"data_cols: {data_cols}")
-                    return None
-                data_part.columns = data_cols
-                data_part.index = pd.MultiIndex.from_frame(geo_part)
-                logging.info(f"Successfully read cached table: {table_cache_file} with shape {data_part.shape}")
-                return data_part
+                    # Map first four columns to standard names for downstream compatibility
+                    if len(geo_cols) == len(geo_index):
+                        rename_dict = {old: new for old, new in zip(geo_cols, geo_index)}
+                        df.rename(columns=rename_dict, inplace=True)
+                        print(f"[DEBUG] Renamed geo columns: {rename_dict}")
+                    else:
+                        print(f"[DEBUG] geo_cols and geo_index length mismatch: {geo_cols} vs {geo_index}")
+                    # Ensure geography columns are string type
+                    for col in geo_index:
+                        if col in df.columns:
+                            df[col] = df[col].astype(str)
+                    df = df.reset_index(drop=True)
+                    # Check that the sum of numeric columns is reasonable and non-zero
+                    numeric_cols = df.select_dtypes(include='number').columns
+                    for col in numeric_cols:
+                        col_sum = df[col].sum()
+                        print(f"[CHECK] Sum of column '{col}': {col_sum}")
+                        if col_sum == 0 or pd.isna(col_sum):
+                            logging.warning(f"Column '{col}' in {table_cache_file} sums to zero or NaN. Check data integrity.")
+                        elif col_sum < 100:
+                            logging.warning(f"Column '{col}' in {table_cache_file} has a suspiciously low sum: {col_sum}")
+                    print(f"[DEBUG] EXIT get_census_data: df.columns: {list(df.columns)}")
+                    print(f"[DEBUG] df.head():\n{df.head()}")
+                    logging.info(f"Read correct header cached table: {table_cache_file} with shape {df.shape}")
+                    return df
+                else:
+                    # Fallback: try reading as standard single-row header
+                    print(f"[DEBUG] Unexpected file format for {table_cache_file}. Attempting fallback read.")
+                    df = pd.read_csv(table_cache_file)
+                    numeric_cols = df.select_dtypes(include='number').columns
+                    for col in numeric_cols:
+                        col_sum = df[col].sum()
+                        print(f"[CHECK] Sum of column '{col}': {col_sum}")
+                        if col_sum == 0 or pd.isna(col_sum):
+                            logging.warning(f"Column '{col}' in {table_cache_file} sums to zero or NaN. Check data integrity.")
+                        elif col_sum < 100:
+                            logging.warning(f"Column '{col}' in {table_cache_file} has a suspiciously low sum: {col_sum}")
+                    return df
             except Exception as e:
                 logging.error(f"Error reading cached table {table_cache_file}: {e}")
                 logging.error(traceback.format_exc())
-                return None
+                raise RuntimeError(f"Failed to read census cached table: {table_cache_file}")
 
         # If no cache exists, fetch from the Census API & write cache
         multi_col_def = []
