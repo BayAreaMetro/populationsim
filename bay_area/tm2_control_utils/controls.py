@@ -3,6 +3,32 @@ import pandas as pd
 import collections
 import logging
 from tm2_control_utils.geog_utils import add_aggregate_geography_colums
+from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS
+
+
+# Utility to get GEOID column for a geography
+
+def get_geoid_col(df, geography):
+    """
+    Return the GEOID column name for the given geography in the DataFrame, or None if not found.
+    """
+    geo = geography.lower().replace('_', ' ')
+    candidates = [
+        f'GEOID_{geo}',
+        geo + '2020ge',
+        geo.replace(' ', '') + '2020ge',
+        geo.replace(' ', '_') + '2020ge',
+        geo.replace(' ', '').upper() + '2020GE',
+        'GEOID',
+    ]
+    for c in candidates:
+        if c in df.columns:
+            return c
+    # Fallback: first column containing 'GEOID'
+    for c in df.columns:
+        if 'GEOID' in c:
+            return c
+    return None
 
 
 def census_col_is_in_control(param_dict, control_dict):
@@ -114,6 +140,12 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
             geo_df = geo_df.reset_index(drop=True)
             control_df = control_df.reset_index(drop=True)
         control_df = pd.concat([geo_df, control_df], axis=1)
+    # Ensure GEOID for the most detailed geography present
+    for geo in ["block", "block group", "tract", "county"]:
+        try:
+            control_df = ensure_geoid_column(control_df, geo)
+        except Exception:
+            continue
     # Write intermediary control table to CSV for visualization
     try:
         control_df.to_csv(f"intermediate_{control_name}.csv", index=False)
@@ -184,123 +216,356 @@ def add_geoid_column(df, census_geography):
     df["GEOID_" + geo] = parts[0].str.cat(parts[1:], sep='') if len(parts) > 1 else parts[0]
     return df
 
-def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_denominator, temp_controls):
+def ensure_geoid_column(df, geography):
     """
-    Scale a control table by a numerator and/or denominator temporary control table, matching on GEOID columns.
-
-    Parameters:
-        control_table_df (pd.DataFrame): The main control table to be scaled.
-        control_name (str): The name of the control variable/column.
-        scale_numerator (str): Key for the numerator temp control table in temp_controls.
-        scale_denominator (str): Key for the denominator temp control table in temp_controls.
-        temp_controls (dict): Dictionary of temporary control tables, keyed by name.
-
-    Returns:
-        pd.DataFrame: The scaled control table.
-
-    Raises:
-        ValueError: If the GEOID columns do not match between numerator/denominator and control table.
+    Ensure the DataFrame has a GEOID column for the specified geography (block, block group, tract, county).
+    If not present, construct it from component columns with correct zero-padding, using config-driven names.
+    Returns the DataFrame with a new or existing GEOID_{geography} column.
+    Adds diagnostics to show the first few constructed GEOIDs and columns used.
+    For non-census geographies (maz, taz, region), returns df unchanged.
+    For temp controls already aggregated to MAZ level, skips GEOID construction.
     """
-    if scale_numerator or scale_denominator:
-        # Cross-check: sum and row count before merge
-        pre_merge_sum = control_table_df[control_name].sum() if control_name in control_table_df.columns else None
-        pre_merge_rows = len(control_table_df)
+    import logging
+    from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS
+    geo = geography.lower().replace('_', ' ')
+    supported = ["block", "block group", "tract", "county"]
+    colname = GEOGRAPHY_ID_COLUMNS.get(geo, {}).get('census', f'GEOID_{geo}')
+    if geo not in supported:
+        return df
+    # If already present, just return
+    if colname in df.columns:
+        return df
+    # Try to find an alternate GEOID column
+    alt_cols = [
+        colname,
+        'GEOID',
+        GEOGRAPHY_ID_COLUMNS[geo].get('crosswalk'),
+        GEOGRAPHY_ID_COLUMNS[geo].get('mapping'),
+    ]
+    for alt in alt_cols:
+        if alt and alt in df.columns:
+            df[colname] = df[alt]
+            logging.error(f"[GEOID] Used alternate GEOID column '{alt}' for '{geo}'")
+            print(f"[GEOID] Used alternate GEOID column '{alt}' for '{geo}'")
+            return df
+    # Otherwise, try to build from components using config
+    components = GEOGRAPHY_ID_COLUMNS[geo].get('components', [])
+    missing_cols = [col for col in components if col not in df.columns]
+    if missing_cols:
+        logging.error(f"[GEOID] Missing columns {missing_cols} for GEOID construction at '{geo}' level.")
+        print(f"[GEOID] Missing columns {missing_cols} for GEOID construction at '{geo}' level.")
+        
+        # For temporary controls that have been aggregated to MAZ level, we might not have component columns
+        # Check if this is a temp control that has already been aggregated to MAZ level
+        if df.index.name == 'MAZ' or 'MAZ' in df.columns:
+            logging.error(f"[GEOID] DataFrame appears to be MAZ-level temp control, skipping GEOID construction for '{geo}'")
+            print(f"[GEOID] DataFrame appears to be MAZ-level temp control, skipping GEOID construction for '{geo}'")
+            return df
+            
+        raise ValueError(f"Column(s) {missing_cols} not found in DataFrame for geography '{geo}' and no suitable GEOID column present.")
+    # Use correct zero-padding for each component
+    pad_widths = {'state': 2, 'county': 3, 'tract': 6, 'block': 4, 'block group': 1}
+    parts = [df[col].astype(str).str.zfill(pad_widths.get(col, 1)) for col in components]
+    df[colname] = parts[0].str.cat(parts[1:], sep='') if len(parts) > 1 else parts[0]
+    logging.error(f"[GEOID] Constructed {colname} from columns {components}. Sample: {df[colname].head(5).tolist()}")
+    print(f"[GEOID] Constructed {colname} from columns {components}. Sample: {df[colname].head(5).tolist()}")
+    return df
 
-        scale_numerator_geometry   = temp_controls[scale_numerator].columns[0]
-        scale_denominator_geometry = temp_controls[scale_denominator].columns[0]
-        if len(temp_controls[scale_denominator]) == len(control_table_df):
-            control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
-            # Cross-check: sum and row count after merge
-            post_merge_sum = control_table_df[control_name].sum() if control_name in control_table_df.columns else None
-            post_merge_rows = len(control_table_df)
-            if pre_merge_sum is not None and post_merge_sum is not None and not numpy.isclose(pre_merge_sum, post_merge_sum, atol=1e-2):
-                logging.warning(f"[CHECK] Sum of {control_name} changed from {pre_merge_sum} to {post_merge_sum} after merge.")
-            if pre_merge_rows != post_merge_rows:
-                logging.warning(f"[CHECK] Row count changed from {pre_merge_rows} to {post_merge_rows} after merge.")
-            control_table_df["temp_fraction"] = control_table_df[control_name] / control_table_df[scale_denominator]
-
-            zero_denom_df = control_table_df.loc[control_table_df["temp_fraction"]==numpy.inf].copy()
-            if len(zero_denom_df) > 0:
-                control_table_df.loc[control_table_df["temp_fraction"]==numpy.inf, "temp_fraction"] = 0
-
-            numerator_df = temp_controls[scale_numerator].copy()
-            add_aggregate_geography_colums(numerator_df)
-            control_table_df = pd.merge(left=numerator_df, right=control_table_df, how="left")
-            control_table_df[control_name] = control_table_df["temp_fraction"] * control_table_df[scale_numerator]
-            control_table_df = control_table_df[[scale_numerator_geometry, control_name]]
-
-            # Write intermediary scaled control table to CSV for visualization
-            try:
-                control_table_df.to_csv(f"intermediate_scaled_{control_name}.csv", index=False)
-            except Exception as e:
-                pass  # Ignore errors in writing CSV
-
-        elif len(temp_controls[scale_numerator]) == len(control_table_df):
-            raise NotImplementedError("Temp scaling by numerator of same geography not implemented yet")
-
-        else:
-            geoid_col_control = None
-            geoid_col_denom = None
-            def find_geoid_col(df):
-                for col in df.columns:
-                    if "GEOID" in col:
-                        return col
-                return None
-            geoid_col_control = find_geoid_col(control_table_df)
-            geoid_col_denom = find_geoid_col(temp_controls[scale_denominator])
-            if geoid_col_control and geoid_col_denom:
-                geoids_control = set(control_table_df[geoid_col_control].astype(str))
-                geoids_denom = set(temp_controls[scale_denominator][geoid_col_denom].astype(str))
-                missing_in_denom = geoids_control - geoids_denom
-                extra_in_denom = geoids_denom - geoids_control
-                if len(missing_in_denom) == 0 or len(extra_in_denom) == 0 or (len(missing_in_denom) + len(extra_in_denom) <= 5):
-                    pass
+def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_denominator, temp_controls, maz_taz_def_df=None, geography=None):
+    import pandas as pd
+    import numpy
+    import logging
+    
+    # Add diagnostics
+    print(f"[DEBUG] temp_table_scaling: control_name={control_name}, scale_numerator={scale_numerator}, scale_denominator={scale_denominator}")
+    print(f"[DEBUG] control_table_df columns: {list(control_table_df.columns)}")
+    print(f"[DEBUG] control_table_df head:\n{control_table_df.head()}")
+    
+    if scale_numerator and scale_numerator in temp_controls:
+        print(f"[DEBUG] scale_numerator table columns: {list(temp_controls[scale_numerator].columns)}")
+        print(f"[DEBUG] scale_numerator table head:\n{temp_controls[scale_numerator].head()}")
+    
+    if scale_denominator and scale_denominator in temp_controls:
+        print(f"[DEBUG] scale_denominator table columns: {list(temp_controls[scale_denominator].columns)}")
+        print(f"[DEBUG] scale_denominator table head:\n{temp_controls[scale_denominator].head()}")
+    
+    if geography is None:
+        for g in ["block", "block group", "tract", "county"]:
+            if get_geoid_col(control_table_df, g):
+                geography = g
+                break
+                
+    print(f"[DEBUG] Using geography: {geography}")
+    
+    # Check if temp controls are MAZ-level (already aggregated)
+    scale_denom_df = temp_controls.get(scale_denominator)
+    scale_num_df = temp_controls.get(scale_numerator) if scale_numerator else None
+    
+    is_maz_level = (scale_denom_df is not None and 
+                   (scale_denom_df.index.name == 'MAZ' or 'MAZ' in scale_denom_df.columns))
+    
+    if is_maz_level:
+        print(f"[DEBUG] Detected MAZ-level temp controls, performing MAZ-level scaling")
+        
+        # First, aggregate control_table_df to MAZ level if needed
+        if 'MAZ' not in control_table_df.columns:
+            print(f"[DEBUG] Need to aggregate control_table_df to MAZ level first")
+            # Need to use aggregate_to_control_geo to get the control to MAZ level
+            
+            if maz_taz_def_df is None:
+                raise ValueError("maz_taz_def_df is required for MAZ-level scaling")
+            
+            print(f"[DEBUG] maz_taz_def_df columns: {list(maz_taz_def_df.columns)}")
+            
+            # Aggregate to MAZ level
+            control_maz_df = aggregate_to_control_geo(
+                control_table_df, control_name, 'MAZ', geography, 
+                maz_taz_def_df, {}, None, None, None, 0
+            )
+            
+            if control_maz_df.index.name != 'MAZ':
+                if 'MAZ' in control_maz_df.columns:
+                    control_maz_df = control_maz_df.set_index('MAZ')[[control_name]]
                 else:
-                    raise ValueError("Temp scaling requires numerator or denominator geography to match")
+                    raise ValueError(f"Failed to aggregate control_table_df to MAZ level")
             else:
-                pass
-            raise ValueError("Temp scaling requires numerator or denominator geography to match")
-    return control_table_df
+                control_maz_df = control_maz_df[[control_name]]
+        else:
+            # Already has MAZ column
+            if control_table_df.index.name != 'MAZ':
+                control_maz_df = control_table_df.groupby('MAZ')[control_name].sum().to_frame()
+            else:
+                control_maz_df = control_table_df[[control_name]]
+        
+        print(f"[DEBUG] control_maz_df columns: {list(control_maz_df.columns)}")
+        print(f"[DEBUG] control_maz_df head:\n{control_maz_df.head()}")
+        
+        # Get denominator values (ensure it's indexed by MAZ)
+        if scale_denom_df.index.name != 'MAZ':
+            if 'MAZ' in scale_denom_df.columns:
+                denom_maz = scale_denom_df.set_index('MAZ')[[scale_denominator]]
+            else:
+                raise ValueError(f"Cannot determine MAZ index for scale_denominator {scale_denominator}")
+        else:
+            denom_maz = scale_denom_df[[scale_denominator]]
+        
+        # Merge and calculate fraction
+        merged = pd.merge(control_maz_df, denom_maz, left_index=True, right_index=True, how='left')
+        merged[scale_denominator] = merged[scale_denominator].fillna(0)
+        merged['temp_fraction'] = merged[control_name] / merged[scale_denominator].replace({0: numpy.nan})
+        merged['temp_fraction'] = merged['temp_fraction'].replace({numpy.inf: 0, numpy.nan: 0})
+        
+        if scale_numerator and scale_num_df is not None:
+            # Get numerator values (ensure it's indexed by MAZ)
+            if scale_num_df.index.name != 'MAZ':
+                if 'MAZ' in scale_num_df.columns:
+                    num_maz = scale_num_df.set_index('MAZ')[[scale_numerator]]
+                else:
+                    raise ValueError(f"Cannot determine MAZ index for scale_numerator {scale_numerator}")
+            else:
+                num_maz = scale_num_df[[scale_numerator]]
+            
+            merged = pd.merge(merged, num_maz, left_index=True, right_index=True, how='left')
+            merged[scale_numerator] = merged[scale_numerator].fillna(0)
+            merged[control_name] = merged['temp_fraction'] * merged[scale_numerator]
+        
+        result = merged[[control_name]]
+        print(f"[DEBUG] temp_table_scaling result columns: {list(result.columns)}")
+        print(f"[DEBUG] temp_table_scaling result head:\n{result.head()}")
+        
+        try:
+            result.to_csv(f"intermediate_scaled_{control_name}.csv")
+        except Exception:
+            pass
+        return result
+    
+    # Original logic for non-MAZ level scaling
+    geo = geography.lower().replace('_', ' ')
+    supported = ["block", "block group", "tract", "county"]
+    if geo in supported:
+        control_table_df = prepare_geoid_for_merge(control_table_df, geo)
+        denom_df = prepare_geoid_for_merge(temp_controls[scale_denominator], geo)
+        
+        # Check GEOID columns match
+        control_geoid_col = get_geoid_col(control_table_df, geo)
+        denom_geoid_col = get_geoid_col(denom_df, geo)
+        print(f"[DEBUG] control_geoid_col: {control_geoid_col}, denom_geoid_col: {denom_geoid_col}")
+        
+        if control_geoid_col != denom_geoid_col:
+            # Rename to match
+            if denom_geoid_col and control_geoid_col:
+                denom_df = denom_df.rename(columns={denom_geoid_col: control_geoid_col})
+        
+        merged = pd.merge(control_table_df, denom_df[[control_geoid_col, scale_denominator]], on=control_geoid_col, how='left', suffixes=('', '_denom'))
+        merged[scale_denominator] = merged[scale_denominator].fillna(0)
+        merged['temp_fraction'] = merged[control_name] / merged[scale_denominator].replace({0: numpy.nan})
+        merged['temp_fraction'] = merged['temp_fraction'].replace({numpy.inf: 0, numpy.nan: 0})
+        
+        if scale_numerator:
+            num_df = prepare_geoid_for_merge(temp_controls[scale_numerator], geo)
+            num_geoid_col = get_geoid_col(num_df, geo)
+            if num_geoid_col != control_geoid_col:
+                num_df = num_df.rename(columns={num_geoid_col: control_geoid_col})
+            merged = pd.merge(num_df[[control_geoid_col, scale_numerator]], merged, on=control_geoid_col, how='left', suffixes=('_num', ''))
+            merged[control_name] = merged['temp_fraction'] * merged[scale_numerator]
+            merged = merged[[control_geoid_col, control_name]]
+        else:
+            merged = merged[[control_geoid_col, control_name]]
+            
+        print(f"[DEBUG] temp_table_scaling result columns: {list(merged.columns)}")
+        print(f"[DEBUG] temp_table_scaling result head:\n{merged.head()}")
+        
+        try:
+            merged.to_csv(f"intermediate_scaled_{control_name}.csv", index=False)
+        except Exception:
+            pass
+        return merged
+    else:
+        # For synthetic geographies, just return the input DataFrame (no scaling)
+        return control_table_df
 
 def aggregate_to_control_geo(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total):
+    from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS
+    import logging
+    
+    # Diagnostics
+    print(f"[DEBUG] aggregate_to_control_geo: control_geography={control_geography}, census_geography={census_geography}")
+    print(f"[DEBUG] control_table_df columns: {list(control_table_df.columns)}")
+    print(f"[DEBUG] maz_taz_def_df columns: {list(maz_taz_def_df.columns)}")
+    print(f"[DEBUG] control_table_df head:\n{control_table_df.head()}")
+    print(f"[DEBUG] maz_taz_def_df head:\n{maz_taz_def_df.head()}")
+    
+    # Determine if we need to aggregate from census to synthetic geography
+    census_geo_lower = census_geography.lower().replace('_', ' ')
+    control_geo_lower = control_geography.lower().replace('_', ' ')
+    
+    # Get column names from config
+    census_geoid_col = GEOGRAPHY_ID_COLUMNS.get(census_geo_lower, {}).get('census', f'GEOID_{census_geo_lower}')
+    census_mapping_col = GEOGRAPHY_ID_COLUMNS.get(census_geo_lower, {}).get('mapping', f'{census_geo_lower}2020ge')
+    synth_mapping_col = GEOGRAPHY_ID_COLUMNS.get(control_geo_lower, {}).get('mapping', control_geography)
+    
+    print(f"[DEBUG] Using census_geoid_col: {census_geoid_col}")
+    print(f"[DEBUG] Using census_mapping_col: {census_mapping_col}")  
+    print(f"[DEBUG] Using synth_mapping_col: {synth_mapping_col}")
+    
+    # Ensure census GEOID is present
+    if census_geoid_col not in control_table_df.columns:
+        control_table_df = prepare_geoid_for_merge(control_table_df, census_geo_lower)
+    
+    # Handle scaling and subtraction on census geography first
     if scale_numerator and scale_denominator:
-        assert(len(temp_controls[scale_numerator  ]) == len(control_table_df))
-        assert(len(temp_controls[scale_denominator]) == len(control_table_df))
-        control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_numerator  ], how="left")
-        control_table_df = pd.merge(left=control_table_df, right=temp_controls[scale_denominator], how="left")
-        control_table_df[control_name] = control_table_df[control_name] * control_table_df[scale_numerator]/control_table_df[scale_denominator]
-        control_table_df.fillna(0, inplace=True)
-        variable_total = variable_total * temp_controls[scale_numerator][scale_numerator].sum()/temp_controls[scale_denominator][scale_denominator].sum()
-
+        num_df = prepare_geoid_for_merge(temp_controls[scale_numerator], census_geo_lower)
+        denom_df = prepare_geoid_for_merge(temp_controls[scale_denominator], census_geo_lower)
+        merged = pd.merge(control_table_df, num_df[[census_geoid_col, scale_numerator]], on=census_geoid_col, how='left')
+        merged = pd.merge(merged, denom_df[[census_geoid_col, scale_denominator]], on=census_geoid_col, how='left')
+        merged[control_name] = merged[control_name] * merged[scale_numerator] / merged[scale_denominator].replace({0: numpy.nan})
+        merged[control_name] = merged[control_name].replace({numpy.inf: 0, numpy.nan: 0})
+        merged.fillna(0, inplace=True)
+        variable_total = variable_total * num_df[scale_numerator].sum() / denom_df[scale_denominator].sum()
+        control_table_df = merged
+        
     if subtract_table:
-        assert(len(temp_controls[subtract_table]) == len(control_table_df))
-        control_table_df = pd.merge(left=control_table_df, right=temp_controls[subtract_table], how="left")
-        control_table_df[control_name] = control_table_df[control_name] - control_table_df[subtract_table]
-        variable_total = variable_total - temp_controls[subtract_table][subtract_table].sum()
-
-    geo_mapping_df   = maz_taz_def_df[[control_geography, "GEOID_{}".format(census_geography)]].drop_duplicates()
-    control_table_df = pd.merge(left=control_table_df, right=geo_mapping_df, how="left")
-    final_df         = control_table_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
+        sub_df = prepare_geoid_for_merge(temp_controls[subtract_table], census_geo_lower)
+        merged = pd.merge(control_table_df, sub_df[[census_geoid_col, subtract_table]], on=census_geoid_col, how='left')
+        merged[control_name] = merged[control_name] - merged[subtract_table]
+        variable_total = variable_total - sub_df[subtract_table].sum()
+        control_table_df = merged
+    
+    # Now map from census geography to synthetic geography if needed
+    if control_geography in ["MAZ", "TAZ", "COUNTY", "REGION"]:
+        print(f"[DEBUG] Mapping from {census_geography} to {control_geography}")
+        
+        # Check if mapping columns exist in maz_taz_def_df
+        if census_mapping_col not in maz_taz_def_df.columns:
+            raise KeyError(f"Census mapping column '{census_mapping_col}' not found in maz_taz_def_df. Available: {list(maz_taz_def_df.columns)}")
+        if synth_mapping_col not in maz_taz_def_df.columns:
+            raise KeyError(f"Synthetic mapping column '{synth_mapping_col}' not found in maz_taz_def_df. Available: {list(maz_taz_def_df.columns)}")
+        
+        # Get unique mapping and ensure consistent data types
+        geo_mapping_df = maz_taz_def_df[[synth_mapping_col, census_mapping_col]].drop_duplicates()
+        
+        # Convert both join keys to string to ensure compatibility
+        control_table_df[census_geoid_col] = control_table_df[census_geoid_col].astype(str).str.strip()
+        geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].astype(str).str.strip()
+        
+        # Ensure leading zeros are consistent based on geography type
+        if census_geography.lower() == 'block':
+            control_table_df[census_geoid_col] = control_table_df[census_geoid_col].str.zfill(15)
+            geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].str.zfill(15)
+        elif census_geography.lower() == 'block group':
+            control_table_df[census_geoid_col] = control_table_df[census_geoid_col].str.zfill(12)
+            geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].str.zfill(12)
+        elif census_geography.lower() == 'tract':
+            control_table_df[census_geoid_col] = control_table_df[census_geoid_col].str.zfill(11)
+            geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].str.zfill(11)
+        elif census_geography.lower() == 'county':
+            control_table_df[census_geoid_col] = control_table_df[census_geoid_col].str.zfill(5)
+            geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].str.zfill(5)
+        
+        print(f"[DEBUG] geo_mapping_df shape: {geo_mapping_df.shape}")
+        print(f"[DEBUG] geo_mapping_df head:\n{geo_mapping_df.head()}")
+        print(f"[DEBUG] control_table_df dtypes: {control_table_df[census_geoid_col].dtype}")
+        print(f"[DEBUG] geo_mapping_df dtypes: {geo_mapping_df[census_mapping_col].dtype}")
+        print(f"[DEBUG] control_table_df join key sample: {control_table_df[census_geoid_col].head().tolist()}")
+        print(f"[DEBUG] geo_mapping_df join key sample: {geo_mapping_df[census_mapping_col].head().tolist()}")
+        
+        # Merge control table with mapping on census GEOID
+        merged_df = pd.merge(
+            control_table_df, 
+            geo_mapping_df, 
+            left_on=census_geoid_col, 
+            right_on=census_mapping_col, 
+            how='left'
+        )
+        
+        print(f"[DEBUG] After merge, columns: {list(merged_df.columns)}")
+        print(f"[DEBUG] merged_df shape: {merged_df.shape}")
+        
+        # Check if synthetic geography column is present
+        if synth_mapping_col not in merged_df.columns:
+            raise KeyError(f"'{synth_mapping_col}' not in merged DataFrame after merge. Available: {list(merged_df.columns)}")
+        
+        # Aggregate to synthetic geography
+        final_df = merged_df.groupby(synth_mapping_col)[control_name].sum().reset_index()
+        final_df.set_index(synth_mapping_col, inplace=True)
+        final_df.index.name = control_geography
+        
+    else:
+        # For census geographies, group by the census GEOID
+        final_df = control_table_df.groupby(census_geoid_col)[control_name].sum().reset_index()
+        final_df.set_index(census_geoid_col, inplace=True)
+        final_df.index.name = control_geography
+    
+    print(f"[DEBUG] final_df shape: {final_df.shape}")
+    print(f"[DEBUG] final_df head:\n{final_df.head()}")
+    
+    # Check totals
     if not scale_numerator:
         diff = abs(final_df[control_name].sum() - variable_total)
         if diff >= 0.5:
-            pass
+            logging.warning(f"Total difference of {diff} between input and output for {control_name}")
+    
     return final_df
 
 def proportional_scaling(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator):
-    same_geo_total_df   = temp_controls[scale_denominator]
-    assert(len(same_geo_total_df) == len(control_table_df))
-
-    proportion_df = pd.merge(left=control_table_df, right=same_geo_total_df, how="left")
-    proportion_var = "{} proportion".format(control_name)
-    proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[scale_denominator]
-
-    block_prop_df = pd.merge(left=maz_taz_def_df, right=proportion_df, how="left")
-    block_total_df   = temp_controls[scale_numerator]
-    block_prop_df = pd.merge(left=block_prop_df, right=block_total_df, how="left")
-
-    block_prop_df[control_name] = block_prop_df[proportion_var]*block_prop_df[scale_numerator]
-
+    geo = control_geography.lower().replace('_', ' ')
+    control_table_df = ensure_geoid_column(control_table_df, geo)
+    denom_df = ensure_geoid_column(temp_controls[scale_denominator], geo)
+    geoid_col = get_geoid_col(control_table_df, geo)
+    control_table_df = control_table_df.rename(columns={geoid_col: 'GEOID'})
+    denom_df = denom_df.rename(columns={get_geoid_col(denom_df, geo): 'GEOID'})
+    control_table_df['GEOID'] = control_table_df['GEOID'].astype(str).str.strip()
+    denom_df['GEOID'] = denom_df['GEOID'].astype(str).str.strip()
+    proportion_df = pd.merge(control_table_df, denom_df[['GEOID', scale_denominator]], on='GEOID', how='left')
+    proportion_var = f"{control_name} proportion"
+    proportion_df[proportion_var] = proportion_df[control_name] / proportion_df[scale_denominator].replace({0: numpy.nan})
+    proportion_df[proportion_var] = proportion_df[proportion_var].replace({numpy.inf: 0, numpy.nan: 0})
+    block_prop_df = pd.merge(maz_taz_def_df, proportion_df, how='left', left_on=control_geography, right_on='GEOID')
+    num_df = ensure_geoid_column(temp_controls[scale_numerator], geo)
+    num_df = num_df.rename(columns={get_geoid_col(num_df, geo): 'GEOID'})
+    num_df['GEOID'] = num_df['GEOID'].astype(str).str.strip()
+    block_prop_df = pd.merge(block_prop_df, num_df[['GEOID', scale_numerator]], on='GEOID', how='left')
+    block_prop_df[control_name] = block_prop_df[proportion_var] * block_prop_df[scale_numerator]
     final_df = block_prop_df[[control_geography, control_name]].groupby(control_geography).aggregate(numpy.sum)
     return final_df
 
@@ -309,46 +574,35 @@ def match_control_to_geography(
     maz_taz_def_df, temp_controls,
     scale_numerator=None, scale_denominator=None, subtract_table=None
 ):
+    print(f"[DEBUG] match_control_to_geography called with control_name={control_name}, control_geography={control_geography}, census_geography={census_geography}")
+    print(f"[DEBUG] control_table_df columns: {list(control_table_df.columns)}")
+    print(f"[DEBUG] maz_taz_def_df columns: {list(maz_taz_def_df.columns)}")
+    print(temp_controls.keys())
+    print(temp_controls.values())
+    print(control_table_df.head())
+
+
+
+    # Only allow supported geographies
     if control_geography not in ["MAZ","TAZ","COUNTY","REGION"]:
-        raise ValueError("match_control_to_geography passed unsupported control geography {}".format(control_geography))
+        raise ValueError(f"match_control_to_geography passed unsupported control geography {control_geography}")
     if census_geography not in ["block","block group","tract","county subdivision","county"]:
-        raise ValueError("match_control_to_geography passed unsupported census geography {}".format(census_geography))
-
+        raise ValueError(f"match_control_to_geography passed unsupported census geography {census_geography}")
     variable_total = control_table_df[control_name].sum()
-
     GEO_HIERARCHY = { 'MAZ'   :['block','MAZ','block group','tract','county subdivision','county'],
                       'TAZ'   :['block',      'TAZ',        'tract','county subdivision','county'],
                       'COUNTY':['block',      'block group','tract','county subdivision','county','COUNTY'],
                       'REGION':['block',      'block group','tract','county subdivision','county','REGION']}
-
     control_geo_index = GEO_HIERARCHY[control_geography].index(control_geography)
     try:
         census_geo_index = GEO_HIERARCHY[control_geography].index(census_geography)
     except:
         census_geo_index = -1
-
-    control_table_df = prepare_geography_columns(control_table_df, census_geography)
-    control_table_df = add_geoid_column(control_table_df, census_geography)
-    control_table_df = control_table_df[["GEOID_{}".format(census_geography), control_name]]
-
-    if control_name.startswith("temp_"):
-        return temp_table_scaling(control_table_df, control_name, scale_numerator, scale_denominator, temp_controls)
-
-    if census_geo_index >= 0 and census_geo_index < control_geo_index:
-        return aggregate_to_control_geo(
-            control_table_df, control_name, control_geography, census_geography,
-            maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total
-        )
-
-    if scale_numerator is None or scale_denominator is None:
-        msg = "Cannot go from larger census geography {} without numerator and denominator specified".format(census_geography)
-        raise ValueError(msg)
-
-    return proportional_scaling(
-        control_table_df, control_name, control_geography, census_geography,
-        maz_taz_def_df, temp_controls, scale_numerator, scale_denominator
-    )
-
+    # Use flexible scaling/aggregation
+    if scale_numerator or scale_denominator:
+        return temp_table_scaling(control_table_df, control_name, scale_numerator, scale_denominator, temp_controls, maz_taz_def_df, geography=census_geography)
+    else:
+        return aggregate_to_control_geo(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total)
 def stochastic_round(my_series):
     """
     Performs stochastic rounding of a series and returns it.
@@ -426,3 +680,35 @@ def integerize_control(out_df, crosswalk_df, control_name):
 
 
     return out_df
+
+# Helper to prepare a DataFrame for GEOID-based merge
+
+def prepare_geoid_for_merge(df, geography):
+    """
+    For census geographies, ensure the correct GEOID column exists, rename to canonical config-driven name, and cast/strip.
+    For non-census geographies or temp controls, returns df unchanged.
+    """
+    from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS
+    geo = geography.lower().replace('_', ' ')
+    supported = ["block", "block group", "tract", "county"]
+    colname = GEOGRAPHY_ID_COLUMNS.get(geo, {}).get('census', f'GEOID_{geo}')
+    
+    # For temp controls that are already aggregated to MAZ level, skip GEOID preparation
+    if df.index.name == 'MAZ' or 'MAZ' in df.columns:
+        print(f"[DEBUG] prepare_geoid_for_merge: DataFrame appears to be MAZ-level temp control, skipping GEOID preparation for '{geo}'")
+        return df
+        
+    if geo in supported:
+        df = ensure_geoid_column(df, geo)
+        if colname in df.columns:
+            df[colname] = df[colname].astype(str).str.strip()
+    return df
+
+def get_geography_id_col(geography, table_type='mapping'):
+    """
+    Get the canonical column name for a geography and table type (census, crosswalk, mapping).
+    """
+    geo = geography.lower().replace('_', ' ')
+    if geo in GEOGRAPHY_ID_COLUMNS and table_type in GEOGRAPHY_ID_COLUMNS[geo]:
+        return GEOGRAPHY_ID_COLUMNS[geo][table_type]
+    raise ValueError(f"No canonical column for geography '{geography}' and table_type '{table_type}'")

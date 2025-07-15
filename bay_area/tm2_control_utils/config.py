@@ -467,3 +467,41 @@ CENSUS_DEFINITIONS = {
         ["C24010_073E","Female","Production, transportation, and material moving","Material moving","All"]
     ]
 }
+
+# Canonical column names for all geographies in all relevant tables
+GEOGRAPHY_ID_COLUMNS = {
+    'block': {
+        'census': 'GEOID_block',
+        'crosswalk': 'blk2020ge',
+        'mapping': 'GEOID_block',  # Use GEOID_block to match maz_taz_def_df
+        'components': ['state', 'county', 'tract', 'block'],
+    },
+    'block group': {
+        'census': 'GEOID_block group',
+        'crosswalk': 'bg2020ge',
+        'mapping': 'GEOID_block group',  # Use GEOID_block group to match maz_taz_def_df
+        'components': ['state', 'county', 'tract', 'block group'],
+    },
+    'tract': {
+        'census': 'GEOID_tract',
+        'crosswalk': 'tr2020ge',
+        'mapping': 'GEOID_tract',  # Use GEOID_tract to match maz_taz_def_df
+        'components': ['state', 'county', 'tract'],
+    },
+    'county': {
+        'census': 'GEOID_county',
+        'crosswalk': 'cty2020ge',
+        'mapping': 'GEOID_county',  # Use GEOID_county to match maz_taz_def_df
+        'components': ['state', 'county'],
+    },
+    'maz': {
+        'mapping': 'MAZ',
+    },
+    'taz': {
+        'mapping': 'TAZ',
+    },
+    'puma': {
+        'mapping': 'PUMA',
+    },
+    # Add more as needed
+}
