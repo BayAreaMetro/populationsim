@@ -49,6 +49,8 @@ class CensusFetcher:
             else:
                 return []
 
+        geo_index = get_geo_index(geo)
+        
         table_cache_file = os.path.join(
             LOCAL_CACHE_FOLDER,
             f"{dataset}_{year}_{table}_{geo}.csv"
@@ -64,60 +66,155 @@ class CensusFetcher:
                 # Read all lines to find the correct header and variable code row
                 with open(table_cache_file, 'r', encoding='utf-8-sig') as f:
                     lines = [line.strip().split(',') for line in f.readlines()]
-                geo_index = get_geo_index(geo)
+                    
                 # Check for expected header structure
                 if len(lines) >= 6 and len(lines[4]) >= 4 and len(lines[0]) >= 5:
-                    geo_cols = lines[4][:4]
-                    data_cols = lines[0][4:]
-                    col_names = geo_cols + data_cols
-                    print(f"[DEBUG] Using geo_cols from row 5: {geo_cols}")
-                    print(f"[DEBUG] Using data_cols from row 1: {data_cols}")
-                    print(f"[DEBUG] Final col_names: {col_names}")
-                    # Data starts on row 6 (index 5)
-                    df = pd.read_csv(
-                        table_cache_file,
-                        header=None,
-                        skiprows=5,
-                        names=col_names
-                    )
-                    # Map first four columns to standard names for downstream compatibility
-                    if len(geo_cols) == len(geo_index):
-                        rename_dict = {old: new for old, new in zip(geo_cols, geo_index)}
-                        df.rename(columns=rename_dict, inplace=True)
-                        print(f"[DEBUG] Renamed geo columns: {rename_dict}")
+                    print(f"[DEBUG] File has expected multi-row header structure")
+                    print(f"[DEBUG] lines[0] (data headers): {lines[0]}")
+                    print(f"[DEBUG] lines[4] (geo headers): {lines[4]}")
+                    print(f"[DEBUG] Total lines in file: {len(lines)}")
+                    
+                    # Try to detect the correct format - check multiple header rows
+                    geo_cols = []
+                    data_cols = []
+                    
+                    # Check if lines[0] contains standard variable headers
+                    if 'variable' in lines[0][0] if lines[0] else False:
+                        print(f"[DEBUG] Using standard format with variable headers")
+                        # Standard format - data headers in row 0, geo info in later rows
+                        data_cols = [col for col in lines[0] if col and col != 'variable']
+                        
+                        # Find geo headers by looking for recognizable geo column names
+                        for i in range(1, min(10, len(lines))):
+                            row = lines[i]
+                            if any(geo_name in str(cell).lower() for cell in row for geo_name in ['state', 'county', 'tract', 'block']):
+                                # Extract non-empty cells that look like geo column names
+                                potential_geo_cols = [cell for cell in row if cell and str(cell).strip()]
+                                if len(potential_geo_cols) >= 2:  # At least state and county
+                                    geo_cols = potential_geo_cols[:4]  # Take first 4 potential geo columns
+                                    print(f"[DEBUG] Found geo columns in row {i}: {geo_cols}")
+                                    break
+                        
+                        # If still no geo_cols found, use standard defaults
+                        if not geo_cols:
+                            if geo == 'block':
+                                geo_cols = ['state', 'county', 'tract', 'block']
+                            elif geo == 'tract':
+                                geo_cols = ['state', 'county', 'tract'] 
+                            elif geo == 'county':
+                                geo_cols = ['state', 'county']
+                            else:
+                                geo_cols = ['state', 'county', 'tract']
+                            print(f"[DEBUG] Using default geo components: {geo_cols}")
+                    
                     else:
-                        print(f"[DEBUG] geo_cols and geo_index length mismatch: {geo_cols} vs {geo_index}")
-                    # Ensure geography columns are string type
-                    for col in geo_index:
-                        if col in df.columns:
-                            df[col] = df[col].astype(str)
-                    df = df.reset_index(drop=True)
-                    # Check that the sum of numeric columns is reasonable and non-zero
-                    numeric_cols = df.select_dtypes(include='number').columns
-                    for col in numeric_cols:
-                        col_sum = df[col].sum()
-                        print(f"[CHECK] Sum of column '{col}': {col_sum}")
-                        if col_sum == 0 or pd.isna(col_sum):
-                            logging.warning(f"Column '{col}' in {table_cache_file} sums to zero or NaN. Check data integrity.")
-                        elif col_sum < 100:
-                            logging.warning(f"Column '{col}' in {table_cache_file} has a suspiciously low sum: {col_sum}")
-                    print(f"[DEBUG] EXIT get_census_data: df.columns: {list(df.columns)}")
-                    print(f"[DEBUG] df.head():\n{df.head()}")
-                    logging.info(f"Read correct header cached table: {table_cache_file} with shape {df.shape}")
-                    return df
+                        # Alternative format - try to detect from actual data rows
+                        print(f"[DEBUG] Using alternative format detection")
+                        
+                        # Look for a row that has numeric data (skip headers)
+                        data_start_row = None
+                        for i in range(len(lines)):
+                            row = lines[i]
+                            try:
+                                # Check if row has some numeric values (indicating data)
+                                numeric_count = sum(1 for cell in row if cell and str(cell).replace('.', '').replace('-', '').isdigit())
+                                if numeric_count >= 3:  # At least 3 numeric columns
+                                    data_start_row = i
+                                    break
+                            except:
+                                continue
+                        
+                        if data_start_row is not None:
+                            # Look backwards from data row to find headers
+                            for i in range(data_start_row - 1, -1, -1):
+                                row = lines[i]
+                                if any('variable' in str(cell).lower() or 'B08202' in str(cell) for cell in row):
+                                    data_cols = [col for col in row if col and 'B08202' in str(col)]
+                                    break
+                        
+                        # Use standard geo column names for this geography
+                        if geo == 'block':
+                            geo_cols = ['state', 'county', 'tract', 'block']
+                        elif geo == 'tract':
+                            geo_cols = ['state', 'county', 'tract'] 
+                        elif geo == 'county':
+                            geo_cols = ['state', 'county']
+                        else:
+                            geo_cols = ['state', 'county', 'tract']
+                
+                if not geo_cols:
+                    geo_cols = ['state', 'county', 'tract']  # Default fallback
+                    
+                if not data_cols:
+                    # Extract from first row if it has B-table variables
+                    data_cols = [col for col in lines[0] if col and 'B' in str(col) and '_' in str(col)]
+                
+                print(f"[DEBUG] Using geo_cols from row 5: {geo_cols}")
+                print(f"[DEBUG] Using data_cols from row 1: {data_cols}")
+                
+                # Build column names
+                col_names = geo_cols + data_cols
+                print(f"[DEBUG] Final col_names: {col_names}")
+                
+                # Skip header rows and read data
+                data_rows = []
+                for i, line in enumerate(lines):
+                    try:
+                        # Skip obvious header rows
+                        if i < 5 or not line or len([cell for cell in line if cell]) < len(geo_cols):
+                            continue
+                            
+                        # Try to identify data rows vs header rows
+                        if any(keyword in str(cell).lower() for cell in line for keyword in ['variable', 'state', 'county'] if len(str(cell)) > 10):
+                            continue
+                        
+                        # Check if this looks like a data row (has geo codes and numbers)
+                        geo_part = line[:len(geo_cols)]
+                        data_part = line[len(geo_cols):len(col_names)]
+                        
+                        if not geo_part or not all(str(cell).strip() for cell in geo_part[:2]):  # At least state and county
+                            continue
+                            
+                        # Build the row with proper length
+                        row_data = geo_part + data_part
+                        if len(row_data) < len(col_names):
+                            row_data.extend([''] * (len(col_names) - len(row_data)))
+                        elif len(row_data) > len(col_names):
+                            row_data = row_data[:len(col_names)]
+                            
+                        data_rows.append(row_data)
+                        
+                    except Exception as e:
+                        print(f"[DEBUG] Error processing line {i}: {e}")
+                        continue
+                
+                # Create DataFrame
+                df = pd.DataFrame(data_rows, columns=col_names)
+                # Map first four columns to standard names for downstream compatibility
+                if len(geo_cols) == len(geo_index):
+                    rename_dict = {old: new for old, new in zip(geo_cols, geo_index)}
+                    df.rename(columns=rename_dict, inplace=True)
+                    print(f"[DEBUG] Renamed geo columns: {rename_dict}")
                 else:
-                    # Fallback: try reading as standard single-row header
-                    print(f"[DEBUG] Unexpected file format for {table_cache_file}. Attempting fallback read.")
-                    df = pd.read_csv(table_cache_file)
-                    numeric_cols = df.select_dtypes(include='number').columns
-                    for col in numeric_cols:
-                        col_sum = df[col].sum()
-                        print(f"[CHECK] Sum of column '{col}': {col_sum}")
-                        if col_sum == 0 or pd.isna(col_sum):
-                            logging.warning(f"Column '{col}' in {table_cache_file} sums to zero or NaN. Check data integrity.")
-                        elif col_sum < 100:
-                            logging.warning(f"Column '{col}' in {table_cache_file} has a suspiciously low sum: {col_sum}")
-                    return df
+                    print(f"[DEBUG] geo_cols and geo_index length mismatch: {geo_cols} vs {geo_index}")
+                # Ensure geography columns are string type
+                for col in geo_index:
+                    if col in df.columns:
+                        df[col] = df[col].astype(str)
+                df = df.reset_index(drop=True)
+                # Check that the sum of numeric columns is reasonable and non-zero
+                numeric_cols = df.select_dtypes(include='number').columns
+                for col in numeric_cols:
+                    col_sum = df[col].sum()
+                    print(f"[CHECK] Sum of column '{col}': {col_sum}")
+                    if col_sum == 0 or pd.isna(col_sum):
+                        logging.warning(f"Column '{col}' in {table_cache_file} sums to zero or NaN. Check data integrity.")
+                    elif col_sum < 100:
+                        logging.warning(f"Column '{col}' in {table_cache_file} has a suspiciously low sum: {col_sum}")
+                print(f"[DEBUG] EXIT get_census_data: df.columns: {list(df.columns)}")
+                print(f"[DEBUG] df.head():\n{df.head()}")
+                logging.info(f"Read correct header cached table: {table_cache_file} with shape {df.shape}")
+                return df
             except Exception as e:
                 logging.error(f"Error reading cached table {table_cache_file}: {e}")
                 logging.error(traceback.format_exc())
@@ -183,3 +280,6 @@ class CensusFetcher:
         os.makedirs(os.path.dirname(table_cache_file), exist_ok=True)
         full_df.to_csv(table_cache_file, header=True, index=True)
         logging.info(f"Wrote {table_cache_file}")
+        
+        # Return the DataFrame after successful API fetch and cache write
+        return full_df

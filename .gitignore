@@ -4,8 +4,8 @@ example_test_no_integerizing/
 example_mtc/
 .idea
 .ipynb_checkpoints
-
-
+input_2023/
+local_data/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

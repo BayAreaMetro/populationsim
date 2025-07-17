@@ -3,7 +3,7 @@ import pandas as pd
 import collections
 import logging
 from tm2_control_utils.geog_utils import add_aggregate_geography_colums
-from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS
+from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS, CENSUS_DEFINITIONS
 
 
 # Utility to get GEOID column for a geography
@@ -76,8 +76,11 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
     # Debug: print dtype and unique values of data columns before summing
     data_cols = [col for col in census_table_df.columns if col not in geo_cols]
     for col in data_cols:
-        print(f"[DEBUG] dtype of {col}: {census_table_df[col].dtype}")
-        print(f"[DEBUG] unique values of {col} (sample): {census_table_df[col].unique()[:10]}")
+        try:
+            print(f"[DEBUG] dtype of {col}: {census_table_df[col].dtypes if hasattr(census_table_df[col], 'dtypes') else 'N/A'}")
+            print(f"[DEBUG] unique values of {col} (sample): {census_table_df[col].unique()[:10] if hasattr(census_table_df[col], 'unique') else 'N/A'}")
+        except Exception as e:
+            print(f"[DEBUG] Error inspecting column {col}: {e}")
 
     # If all control_dicts are empty, sum once outside the loop
     if all(len(control_dict) == 0 for control_dict in control_dict_list):
@@ -121,15 +124,44 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
                             control_df[control_name] = control_df[control_name] + control_df["temp"]
                             control_df.drop(columns="temp", inplace=True)
                 else:
-                    # Regular Index: just sum all non-geo columns (exclude geography columns)
-                    data_cols = [col for col in census_table_df.columns if col not in geo_cols]
-                    for variable_name in data_cols:
-                        col_data = census_table_df[variable_name].astype(str).str.replace(',', '').str.replace(' ', '')
-                        col_data = pd.to_numeric(col_data, errors="coerce").fillna(0)
-                        control_df["temp"] = col_data
-                        control_df[control_name] = pd.to_numeric(control_df[control_name], errors="coerce").fillna(0)
-                        control_df[control_name] = control_df[control_name] + control_df["temp"]
-                        control_df.drop(columns="temp", inplace=True)
+                    # Regular Index: Use CENSUS_DEFINITIONS to find matching columns
+                    if census_table_name in CENSUS_DEFINITIONS:
+                        table_def = CENSUS_DEFINITIONS[census_table_name]
+                        header_row = table_def[0]  # e.g. ['variable','family','pers_min','pers_max']
+                        
+                        # Find columns that match the control criteria
+                        for row in table_def[1:]:  # Skip header row
+                            if len(row) != len(header_row):
+                                continue
+                                
+                            # Create parameter dict for this census column
+                            param_dict = collections.OrderedDict()
+                            variable_name = row[0]  # e.g. 'B11016_010E'
+                            for i, param_name in enumerate(header_row[1:], 1):  # Skip 'variable'
+                                try:
+                                    param_dict[param_name] = int(row[i]) if str(row[i]).isdigit() else row[i]
+                                except (ValueError, IndexError):
+                                    param_dict[param_name] = row[i] if i < len(row) else 0
+                            
+                            # Check if this column matches the control criteria
+                            if census_col_is_in_control(param_dict, control_dict):
+                                if variable_name in census_table_df.columns:
+                                    col_data = census_table_df[variable_name].astype(str).str.replace(',', '').str.replace(' ', '')
+                                    col_data = pd.to_numeric(col_data, errors="coerce").fillna(0)
+                                    control_df["temp"] = col_data
+                                    control_df[control_name] = pd.to_numeric(control_df[control_name], errors="coerce").fillna(0)
+                                    control_df[control_name] = control_df[control_name] + control_df["temp"]
+                                    control_df.drop(columns="temp", inplace=True)
+                    else:
+                        # Fallback: sum all non-geo columns if no table definition found
+                        data_cols = [col for col in census_table_df.columns if col not in geo_cols]
+                        for variable_name in data_cols:
+                            col_data = census_table_df[variable_name].astype(str).str.replace(',', '').str.replace(' ', '')
+                            col_data = pd.to_numeric(col_data, errors="coerce").fillna(0)
+                            control_df["temp"] = col_data
+                            control_df[control_name] = pd.to_numeric(control_df[control_name], errors="coerce").fillna(0)
+                            control_df[control_name] = control_df[control_name] + control_df["temp"]
+                            control_df.drop(columns="temp", inplace=True)
             new_sum = control_df[control_name].sum()
 
     # Always include geography columns in the returned DataFrame
@@ -146,11 +178,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
             control_df = ensure_geoid_column(control_df, geo)
         except Exception:
             continue
-    # Write intermediary control table to CSV for visualization
-    try:
-        control_df.to_csv(f"intermediate_{control_name}.csv", index=False)
-    except Exception as e:
-        pass  # Ignore errors in writing CSV
+    # Skip writing intermediate control table to CSV
     return control_df
 
 
@@ -373,10 +401,7 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
         print(f"[DEBUG] temp_table_scaling result columns: {list(result.columns)}")
         print(f"[DEBUG] temp_table_scaling result head:\n{result.head()}")
         
-        try:
-            result.to_csv(f"intermediate_scaled_{control_name}.csv")
-        except Exception:
-            pass
+        # Skip writing intermediate scaled CSV
         return result
     
     # Original logic for non-MAZ level scaling
@@ -415,10 +440,7 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
         print(f"[DEBUG] temp_table_scaling result columns: {list(merged.columns)}")
         print(f"[DEBUG] temp_table_scaling result head:\n{merged.head()}")
         
-        try:
-            merged.to_csv(f"intermediate_scaled_{control_name}.csv", index=False)
-        except Exception:
-            pass
+        # Skip writing intermediate scaled CSV
         return merged
     else:
         # For synthetic geographies, just return the input DataFrame (no scaling)
@@ -712,3 +734,104 @@ def get_geography_id_col(geography, table_type='mapping'):
     if geo in GEOGRAPHY_ID_COLUMNS and table_type in GEOGRAPHY_ID_COLUMNS[geo]:
         return GEOGRAPHY_ID_COLUMNS[geo][table_type]
     raise ValueError(f"No canonical column for geography '{geography}' and table_type '{table_type}'")
+
+def write_distribution_weights_debug(control_name, control_table_df, scale_numerator, scale_denominator, 
+                                      temp_controls, maz_taz_def_df, geography):
+    """Write debugging file showing distribution weights for household size controls."""
+    import pandas as pd
+    import numpy as np
+    import os
+    
+    logger = logging.getLogger()
+    
+    # Only create debug files for household size controls
+    if not control_name.startswith('hh_size_'):
+        return
+    
+    try:
+        logger.info(f"Writing distribution weights debug file for {control_name}")
+        
+        # Get the temp control tables
+        scale_num_df = temp_controls.get(scale_numerator) if scale_numerator else None
+        scale_denom_df = temp_controls.get(scale_denominator)
+        
+        if scale_num_df is None or scale_denom_df is None:
+            logger.warning(f"Missing temp controls for {control_name}: num={scale_numerator}, denom={scale_denominator}")
+            return
+        
+        # Create debug DataFrame showing the distribution logic
+        debug_rows = []
+        
+        # First, get the block group to block relationships from maz_taz_def_df
+        if geography == 'block group':
+            # Group blocks by block group
+            block_group_mapping = maz_taz_def_df.groupby('GEOID_block group')['GEOID_block'].apply(list).to_dict()
+            
+            for bg_geoid, block_list in block_group_mapping.items():
+                # Get block group total households from denominator
+                bg_total = scale_denom_df[scale_denom_df.index.str.contains(bg_geoid[-12:], na=False)]
+                if len(bg_total) > 0:
+                    bg_households = bg_total[scale_denominator].iloc[0]
+                else:
+                    bg_households = 0
+                    
+                # Get individual block households from numerator 
+                block_households = {}
+                total_block_households = 0
+                
+                for block_geoid in block_list:
+                    block_data = scale_num_df[scale_num_df.index.str.contains(str(block_geoid), na=False)]
+                    if len(block_data) > 0:
+                        households = block_data[scale_numerator].iloc[0]
+                        block_households[block_geoid] = households
+                        total_block_households += households
+                    else:
+                        block_households[block_geoid] = 0
+                
+                # Calculate distribution weights and show how ACS data would be distributed
+                for block_geoid, block_hh in block_households.items():
+                    if total_block_households > 0:
+                        weight = block_hh / total_block_households
+                    else:
+                        weight = 0
+                        
+                    # Get ACS household size value for this block group
+                    bg_hh_size = 0
+                    control_data = control_table_df[control_table_df.index.str.contains(bg_geoid[-12:], na=False)]
+                    if len(control_data) > 0:
+                        bg_hh_size = control_data[control_name].iloc[0]
+                    
+                    distributed_value = weight * bg_hh_size
+                    
+                    debug_rows.append({
+                        'control_name': control_name,
+                        'block_group_geoid': bg_geoid,
+                        'block_geoid': block_geoid,
+                        'bg_total_households': bg_households,
+                        'block_households': block_hh,
+                        'total_blocks_households': total_block_households,
+                        'distribution_weight': weight,
+                        'bg_acs_value': bg_hh_size,
+                        'distributed_value': distributed_value
+                    })
+        
+        if debug_rows:
+            debug_df = pd.DataFrame(debug_rows)
+            
+            # Write to debug file
+            output_dir = "output_2023"
+            os.makedirs(output_dir, exist_ok=True)
+            debug_file = os.path.join(output_dir, f"distribution_weights_{control_name}.csv")
+            debug_df.to_csv(debug_file, index=False, float_format="%.6f")
+            
+            logger.info(f"Wrote distribution weights debug file: {debug_file}")
+            
+            # Also log some summary statistics
+            logger.info(f"Distribution weights summary for {control_name}:")
+            logger.info(f"  - Total block groups: {debug_df['block_group_geoid'].nunique()}")
+            logger.info(f"  - Total blocks: {len(debug_df)}")
+            logger.info(f"  - Avg distribution weight: {debug_df['distribution_weight'].mean():.4f}")
+            logger.info(f"  - Blocks with weight=0: {len(debug_df[debug_df['distribution_weight']==0])}")
+            
+    except Exception as e:
+        logger.warning(f"Failed to write distribution weights debug for {control_name}: {e}")

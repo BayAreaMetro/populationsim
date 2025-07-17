@@ -1,12 +1,30 @@
 import pandas as pd
 import collections
 
-# File paths
-MAZ_TAZ_DEF_FILE   = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
-MAZ_TAZ_PUMA_FILE  = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_county_tract_PUMA10.csv"
-MAZ_TAZ_ALL_GEOG_FILE =  "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_all_geog.csv"
-CENSUS_API_KEY_FILE = "M:\\Data\\Census\\API\\new_key\\api-key.txt"
-LOCAL_CACHE_FOLDER  = "M:\\Data\\Census\\NewCachedTablesForPopulationSimControls"
+# File paths - Network locations (M: drive)
+NETWORK_MAZ_TAZ_DEF_FILE   = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
+NETWORK_MAZ_TAZ_PUMA_FILE  = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_county_tract_PUMA10.csv"
+NETWORK_MAZ_TAZ_ALL_GEOG_FILE =  "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_all_geog.csv"
+NETWORK_CENSUS_API_KEY_FILE = "M:\\Data\\Census\\API\\new_key\\api-key.txt"
+NETWORK_CACHE_FOLDER  = "M:\\Data\\Census\\NewCachedTablesForPopulationSimControls"
+
+# Local file paths for offline work
+LOCAL_DATA_DIR = "local_data"
+LOCAL_MAZ_TAZ_DEF_FILE   = f"{LOCAL_DATA_DIR}\\gis\\blocks_mazs_tazs.csv"
+LOCAL_MAZ_TAZ_PUMA_FILE  = f"{LOCAL_DATA_DIR}\\gis\\mazs_tazs_county_tract_PUMA10.csv"
+LOCAL_MAZ_TAZ_ALL_GEOG_FILE = f"{LOCAL_DATA_DIR}\\gis\\mazs_tazs_all_geog.csv"
+LOCAL_CENSUS_API_KEY_FILE = f"{LOCAL_DATA_DIR}\\census\\api-key.txt"
+LOCAL_CACHE_FOLDER  = f"{LOCAL_DATA_DIR}\\census\\cache"
+
+# Alternative local cache folder (for manually copied cache files)
+INPUT_2023_CACHE_FOLDER = "input_2023\\NewCachedTablesForPopulationSimControls"
+
+# Active file paths (will be set based on offline mode)
+MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE
+MAZ_TAZ_PUMA_FILE = NETWORK_MAZ_TAZ_PUMA_FILE
+MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE
+CENSUS_API_KEY_FILE = NETWORK_CENSUS_API_KEY_FILE
+LOCAL_CACHE_FOLDER = NETWORK_CACHE_FOLDER
 
 # Output directories and file formats 
 HOUSEHOLDS_DIR = "households"
@@ -75,12 +93,18 @@ CONTROLS[CENSUS_EST_YEAR]['MAZ'] = collections.OrderedDict([
 # ----------------------------------------
 # MAZ controls for ACS estimate year
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    # block‐level households (occupied units) from PL redistricting file
+    # block‐level households (occupied units) from PL redistricting file - scaled to 2023
     ('temp_base_num_hh_b',    ('pl',  CENSUS_EST_YEAR, 'H1_002N',       'block',
-                               [])),
-    # block‐group–level households from PL redistricting file
+                               [], 'regional_scale')),
+    # block‐group–level households from PL redistricting file - scaled to 2023
     ('temp_base_num_hh_bg',   ('pl',  CENSUS_EST_YEAR, 'H1_002N',       'block group',
-                               [])),
+                               [], 'regional_scale')),
+    # Total population from 2020 Census - scaled to 2023 ACS estimates
+    ('tot_pop',               ('pl',  CENSUS_EST_YEAR, 'P1_001N',       'block',
+                               [], 'regional_scale')),
+    # Group quarters population from 2020 Census - scaled to 2023 ACS estimates  
+    ('gq_pop',                ('pl',  CENSUS_EST_YEAR, 'P1_003N',       'block',
+                               [], 'regional_scale')),
     # distribute ACS5 household counts down to blocks
     ('temp_num_hh_bg_to_b',   ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])],
@@ -153,6 +177,21 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     ('hh_kids_yes',           ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
                                [collections.OrderedDict([('num_kids_min',1),('num_kids_max',NKID_MAX)])],
                                'temp_num_hh_bg_to_b','temp_num_hh_kids')),
+    # ACS5 household size distribution at block‐group - TEMP CONTROL MUST COME FIRST
+    ('temp_num_hh_size',      ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+                               [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
+    ('hh_size_1',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+                               [collections.OrderedDict([('pers_min',1),('pers_max',1)])],
+                               'temp_num_hh_bg_to_b','temp_num_hh_size')),
+    ('hh_size_2',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+                               [collections.OrderedDict([('pers_min',2),('pers_max',2)])],
+                               'temp_num_hh_bg_to_b','temp_num_hh_size')),
+    ('hh_size_3',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+                               [collections.OrderedDict([('pers_min',3),('pers_max',3)])],
+                               'temp_num_hh_bg_to_b','temp_num_hh_size')),
+    ('hh_size_4_plus',        ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+                               [collections.OrderedDict([('pers_min',4),('pers_max',NPER_MAX)])],
+                               'temp_num_hh_bg_to_b','temp_num_hh_size')),
 ])
 
 
@@ -245,12 +284,12 @@ CONTROLS[CENSUS_EST_YEAR]['COUNTY'] = collections.OrderedDict([
                                  ('occ_cat3','All')]),
     ])),
     # Military
-    ('temp_gq_type_mil',      ('pl', CENSUS_EST_YEAR, 'P43', 'tract', [
+    ('temp_gq_type_mil',      ('pl', CENSUS_EST_YEAR, 'P5', 'tract', [
         collections.OrderedDict([('inst','Noninst'), ('subcategory','Military')])
     ])),
     ('pers_occ_military',     ('acs5', ACS_EST_YEAR, 'B23025', 'tract', [
         collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces')])
-    ], None, None, 'temp_gq_type_mil')),
+    ])),
 ])
 
 # copy COUNTY controls into ACS_EST_YEAR and update any 'acs5' tuples
@@ -268,6 +307,17 @@ CONTROLS[CENSUS_EST_YEAR]['REGION'] = collections.OrderedDict([
 ])
 CONTROLS[ACS_EST_YEAR]['REGION'] = collections.OrderedDict([
     ('gq_num_hh_region', 'special')
+])
+
+# ----------------------------------------
+# REGION TARGETS for scaling MAZ controls to 2023 ACS estimates
+CONTROLS[ACS_EST_YEAR]['REGION_TARGETS'] = collections.OrderedDict([
+    # Total households from ACS 2023 county estimates (B25001)
+    ('num_hh_target',     ('acs5', ACS_EST_YEAR, 'B25001', 'county', [])),
+    # Total population from ACS 2023 county estimates (B01003) 
+    ('tot_pop_target',    ('acs5', ACS_EST_YEAR, 'B01003', 'county', [])),
+    # Group quarters population from ACS 2023 county estimates (B26001)
+    ('pop_gq_target',     ('acs5', ACS_EST_YEAR, 'B26001', 'county', [])),
 ])
 
 
@@ -312,6 +362,19 @@ CENSUS_DEFINITIONS = {
         ["variable"],
         ["H1_003N"]
     ],
+    "P5": [  # PL 94-171: Group quarters population by major group quarters type
+        ["variable", "inst", "subcategory"],
+        ["P5_001N", "All", "All"],
+        ["P5_002N", "Inst", "All"],
+        ["P5_003N", "Inst", "Correctional facilities for adults"],
+        ["P5_004N", "Inst", "Juvenile facilities"],
+        ["P5_005N", "Inst", "Nursing facilities/Skilled-nursing facilities"],
+        ["P5_006N", "Inst", "Other institutional facilities"],
+        ["P5_007N", "Noninst", "All"],
+        ["P5_008N", "Noninst", "College/University student housing"],
+        ["P5_009N", "Noninst", "Military"],
+        ["P5_010N", "Noninst", "Other noninstitutional facilities"]
+    ],
     "B23025": [  # ACS5-2023: Employment status
         ["variable","inlaborforce","type","employed"],
         ["B23025_001E","All","All","All"],
@@ -325,6 +388,22 @@ CENSUS_DEFINITIONS = {
     "B26001": [  # ACS5-2023: Group quarters population
         ["variable"],
         ["B26001_001E"]
+    ],
+    "B11002": [  # ACS5-2023: Household type (including living alone)
+        ["variable"],
+        ["B11002_001E"]
+    ],
+    "B01001": [  # ACS5-2023: Sex by age
+        ["variable", "sex", "age_min", "age_max"],
+        ["B01001_001E", "All", 0, AGE_MAX],
+        ["B01001_002E", "Male", 0, AGE_MAX],
+        ["B01001_026E", "Female", 0, AGE_MAX]
+    ],
+    "B11005": [  # ACS5-2023: Household by presence of own children under 18 years
+        ["variable", "num_kids_min", "num_kids_max"],
+        ["B11005_001E", 0, NKID_MAX],
+        ["B11005_002E", 1, NKID_MAX],
+        ["B11005_011E", 0, 0]
     ],
     "B08202": [
         ["variable","workers_min","workers_max","persons_min","persons_max"],

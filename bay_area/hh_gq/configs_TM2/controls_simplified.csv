@@ -1,0 +1,17 @@
+target,geography,seed_table,importance,control_field,expression
+num_hh,MAZ,households,10000000,numhh_gq,(households.WGTP > 0) & (households.WGTP < np.inf)
+hh_size_1,MAZ,households,100000,hh_size_1_gq,households.NP == 1
+hh_size_2,MAZ,households,100000,hh_size_2,households.NP == 2
+hh_size_3,MAZ,households,100000,hh_size_3,households.NP == 3
+hh_size_4_plus,MAZ,households,100000,hh_size_4_plus,households.NP >= 4
+gq_pop,MAZ,persons,10000000,gq_pop,persons.gqtype > 0
+hh_wrks_0,TAZ,households,10000,hh_wrks_0,(households.hhgqtype==1) & (households.hh_workers_from_esr == 0)
+hh_wrks_1,TAZ,households,10000,hh_wrks_1,(households.hhgqtype==1) & (households.hh_workers_from_esr == 1)
+hh_wrks_2,TAZ,households,10000,hh_wrks_2,(households.hhgqtype==1) & (households.hh_workers_from_esr == 2)
+hh_wrks_3_plus,TAZ,households,1000000,hh_wrks_3_plus,(households.hhgqtype==1) & (households.hh_workers_from_esr >= 3)
+pers_age_00_19,TAZ,persons,10000000,pers_age_00_19,(persons.AGEP >= 0) & (persons.AGEP <= 19)
+pers_age_20_34,TAZ,persons,100000,pers_age_20_34,(persons.AGEP >= 20) & (persons.AGEP <= 34)
+pers_age_35_64,TAZ,persons,100000,pers_age_35_64,(persons.AGEP >= 35) & (persons.AGEP <= 64)
+pers_age_65_plus,TAZ,persons,100000,pers_age_65_plus,(persons.AGEP >= 65) & (persons.AGEP <= np.inf)
+hh_kids_yes,TAZ,households,1000000,hh_kids_yes,(households.HUPAC >= 1) & (households.HUPAC <= 3)
+hh_kids_no,TAZ,households,1000000,hh_kids_no,households.HUPAC == 4
