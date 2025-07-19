@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import logging
+import requests
 from census import Census
 from tm2_control_utils.config import (
     CENSUS_API_KEY_FILE,
@@ -28,6 +29,128 @@ class CensusFetcher:
         self.census = Census(self.CENSUS_API_KEY)
         logging.debug("census object instantiated")
 
+    def fetch_dhc_data(self, variables, geo_dict, year):
+        """
+        Custom DHC data fetcher using direct HTTP requests since the census library doesn't support DHC.
+        Includes caching to M: drive location for reuse.
+        """
+        logging.info(f"fetch_dhc_data called with variables={variables}, geo_dict={geo_dict}, year={year}")
+        
+        # Handle different variable formats
+        if isinstance(variables, list) and len(variables) == 1:
+            variable_name = variables[0]
+        else:
+            variable_name = variables
+            
+        # Check if this is a computed variable
+        if variable_name in CENSUS_DEFINITIONS:
+            table_def = CENSUS_DEFINITIONS[variable_name]
+            if len(table_def) > 1 and len(table_def[1]) > 1:
+                # This is a computed variable - sum multiple Census variables
+                var_list = table_def[1]
+                variables_str = ','.join(var_list)
+                logging.info(f"Computed variable {variable_name} using variables: {var_list}")
+                is_computed = True
+            else:
+                # Single variable
+                variables_str = table_def[1][0] if isinstance(table_def[1], list) else variable_name
+                is_computed = False
+        else:
+            # Direct variable name
+            variables_str = variable_name
+            is_computed = False
+
+        # Create cache file name based on the request - use same pattern as regular census files
+        for_param = geo_dict.get('for', '')
+        in_param = geo_dict.get('in', '')
+        
+        # Extract geography type from for_param (e.g., "block:*" -> "block")
+        geo_type = for_param.split(':')[0] if ':' in for_param else for_param
+        
+        # Use the same naming convention as regular census files: dataset_year_table_geo.csv
+        cache_filename = f"dhc_{year}_{variable_name}_{geo_type}.csv"
+        cache_filepath = os.path.join(LOCAL_CACHE_FOLDER, cache_filename)
+        
+        # Check for cached file first
+        if os.path.exists(cache_filepath):
+            logging.info(f"Reading DHC data from cache: {cache_filepath}")
+            try:
+                cached_df = pd.read_csv(cache_filepath)
+                # Convert back to records format for consistency
+                return cached_df.to_dict('records')
+            except Exception as e:
+                logging.warning(f"Failed to read DHC cache file {cache_filepath}: {e}")
+                # Continue to API fetch if cache read fails
+
+        # Build the API URL
+        base_url = f"https://api.census.gov/data/{year}/dec/dhc"
+        
+        params = {
+            'get': variables_str,
+            'for': for_param,
+            'in': in_param,
+            'key': self.CENSUS_API_KEY
+        }
+        
+        logging.info(f"Fetching DHC data from API: {variables_str} for {for_param} in {in_param}")
+        
+        try:
+            response = requests.get(base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert to DataFrame-like records
+            headers = data[0]
+            rows = data[1:]
+            
+            # Handle computed variables that need summing
+            if is_computed:
+                table_def = CENSUS_DEFINITIONS[variable_name]
+                var_list = table_def[1]
+                # Sum the component variables for each row
+                records = []
+                for row in rows:
+                    # Convert row to dict for easier processing
+                    row_dict = dict(zip(headers, row))
+                    
+                    # Sum the variables (convert to float first, handle missing values as 0)
+                    total = 0
+                    for var in var_list:
+                        val = row_dict.get(var, '0')
+                        try:
+                            total += float(val) if val not in ['', None] else 0
+                        except (ValueError, TypeError):
+                            total += 0
+                    
+                    # Create new record with computed total and geography columns
+                    new_record = {}
+                    # Keep all geography columns (non-variable columns)
+                    for col in headers:
+                        if col not in var_list:
+                            new_record[col] = row_dict[col]
+                    # Add computed variable
+                    new_record[variable_name] = str(total)
+                    records.append(new_record)
+            else:
+                # Return as list of dicts for consistency with census library
+                records = [dict(zip(headers, row)) for row in rows]
+                
+            # Cache the results for future use
+            try:
+                os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
+                cache_df = pd.DataFrame(records)
+                cache_df.to_csv(cache_filepath, index=False)
+                logging.info(f"Wrote DHC data to cache: {cache_filepath}")
+            except Exception as e:
+                logging.warning(f"Failed to write DHC cache file {cache_filepath}: {e}")
+                # Continue even if caching fails
+            
+            return records
+            
+        except Exception as e:
+            logging.error(f"Failed to fetch DHC data: {e}")
+            raise
+
     def get_census_data(self, dataset, year, table, geo):
         """
         Robustly load census data from a cached CSV, handling multi-row headers and ensuring correct column names.
@@ -50,6 +173,10 @@ class CensusFetcher:
                 return []
 
         geo_index = get_geo_index(geo)
+        
+        # Initialize variables to avoid UnboundLocalError
+        geo_cols = []
+        data_cols = []
         
         table_cache_file = os.path.join(
             LOCAL_CACHE_FOLDER,
@@ -241,15 +368,32 @@ class CensusFetcher:
                         'in':  f"state:{CA_STATE_FIPS} county:{county_code}"
                     }
 
-                # use the new PL endpoint for 2020 decennial, ACS5 for 2023
+                # use the new PL endpoint for 2020 decennial, DHC for detailed housing/group quarters, ACS5 for 2023
                 if dataset == "pl":
-                    api = self.census.pl  # or whatever your CensusFetcher uses for PL 94-171
+                    api = self.census.pl  # PL 94-171 Redistricting Data
+                    records = api.get([census_col[0]], geo_dict, year=year)
+                elif dataset == "dhc":
+                    # Use custom DHC fetcher since census library doesn't support DHC
+                    records = self.fetch_dhc_data([census_col[0]], geo_dict, year)
+                    # Convert records to DataFrame with proper indexing for MultiIndex compatibility
+                    county_df = pd.DataFrame.from_records(records)
+                    if len(county_df) > 0:
+                        # Set index to geography columns
+                        county_df = county_df.set_index(geo_index)
+                        # Ensure data columns are float type for consistency
+                        data_cols = [col for col in county_df.columns if col not in geo_index]
+                        for col in data_cols:
+                            county_df[col] = pd.to_numeric(county_df[col], errors='coerce').fillna(0).astype(float)
+                    else:
+                        # Handle empty results - create empty DataFrame with proper structure
+                        county_df = pd.DataFrame(index=pd.MultiIndex.from_tuples([], names=geo_index), 
+                                                columns=[census_col[0]], dtype=float)
+                        county_df = county_df.fillna(0).astype(float)
                 elif dataset == "acs5":
                     api = self.census.acs5
+                    records = api.get([census_col[0]], geo_dict, year=year)
                 else:
                     raise ValueError(f"Unsupported dataset: {dataset}")
-                
-                records = api.get([census_col[0]], geo_dict, year=year)
 
                 county_df = (
                     pd.DataFrame.from_records(records)

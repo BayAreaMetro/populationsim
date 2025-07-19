@@ -47,14 +47,14 @@ input_table_list:
     filename : geo_cross_walk_tm2.csv
     # created by create_baseyear_controls.py
   - tablename: MAZ_control_data
-    filename : maz_marginals_hhgq.csv
-    # created by create_baseyear_controls.py
+    filename : maz_marginals.csv
+    # created by create_baseyear_controls_23_tm2.py
   - tablename: TAZ_control_data
     filename : taz_marginals.csv
-    # created by create_baseyear_controls.py
+    # created by create_baseyear_controls_23_tm2.py
   - tablename: COUNTY_control_data
     filename : county_marginals.csv
-    # created by create_baseyear_controls.py
+    # created by create_baseyear_controls_23_tm2.py
 
 
 # Reserved Column Names

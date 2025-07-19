@@ -114,6 +114,15 @@ def make_geoid_column(df, geo, state_fips='06'):
     return df
 
 def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
+    logger = logging.getLogger()
+    logger.info(f"GEOGRAPHIC INTERPOLATION START: {geo} from {source_geo_year} to {target_geo_year}")
+    logger.info(f"Input control data: {len(control_df)} rows, columns: {list(control_df.columns)}")
+    
+    # Calculate input totals for comparison
+    numeric_cols = [col for col in control_df.columns if pd.api.types.is_numeric_dtype(control_df[col])]
+    input_totals = {col: control_df[col].sum() for col in numeric_cols}
+    logger.info(f"Input totals: {input_totals}")
+    
     print(f"[DEBUG] ENTER interpolate_est: geo={geo}")
     print(f"[DEBUG] control_df.columns: {list(control_df.columns)}")
     print(f"[DEBUG] control_df.head():\n{control_df.head()}")
@@ -125,7 +134,10 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
         "county": "cty2020ge"
     }
     crosswalk_path = NHGIS_CROSSWALK_PATHS.get((geo_key, source_geo_year, target_geo_year))
+    logger.info(f"Using crosswalk file: {crosswalk_path}")
+    
     if not crosswalk_path or not os.path.exists(crosswalk_path):
+        logger.error(f"NHGIS crosswalk file not found: {crosswalk_path}")
         raise FileNotFoundError(
             f"Required NHGIS crosswalk file not found for {geo_key} {source_geo_year}->{target_geo_year}.\n"
             f"Expected at: {crosswalk_path}\n"
@@ -133,9 +145,13 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
         )
 
     # Load crosswalk
+    logger.info(f"Loading crosswalk file with {geo_key} geography mapping")
     cw = pd.read_csv(crosswalk_path, dtype=str)
+    logger.info(f"Crosswalk loaded: {len(cw)} rows, {len(cw.columns)} columns")
+    
     # Make column names robust: strip and lowercase
     cw.columns = cw.columns.str.strip().str.lower()
+    logger.info(f"Crosswalk columns: {list(cw.columns)}")
     print("crosswalk columns (repr):", repr(cw.columns.tolist()))
 
     # Determine weight column
@@ -149,46 +165,63 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
     }
     # Try to pick the right weight column based on control name and available columns
     data_col = [c for c in control_df.columns if c != 'index'][0]
+    logger.info(f"Primary data column identified: {data_col}")
+    
     for candidate in geo_weight_map.get(geo_key, []):
         if candidate in cw.columns:
             # Prefer hh for household, pop for population, hu for housing units, etc.
             if 'hh' in data_col.lower() and 'hh' in candidate:
                 weight_col = candidate
+                logger.info(f"Selected weight column '{weight_col}' for household data")
                 break
             elif 'pop' in data_col.lower() and 'pop' in candidate:
                 weight_col = candidate
+                logger.info(f"Selected weight column '{weight_col}' for population data")
                 break
             elif 'hu' in data_col.lower() and 'hu' in candidate:
                 weight_col = candidate
+                logger.info(f"Selected weight column '{weight_col}' for housing unit data")
                 break
             elif 'fam' in data_col.lower() and 'fam' in candidate:
                 weight_col = candidate
+                logger.info(f"Selected weight column '{weight_col}' for family data")
                 break
             elif 'adult' in data_col.lower() and 'adult' in candidate:
                 weight_col = candidate
+                logger.info(f"Selected weight column '{weight_col}' for adult data")
                 break
             elif 'ownhu' in data_col.lower() and 'ownhu' in candidate:
                 weight_col = candidate
+                logger.info(f"Selected weight column '{weight_col}' for owner housing data")
                 break
             elif 'renthu' in data_col.lower() and 'renthu' in candidate:
                 weight_col = candidate
+                logger.info(f"Selected weight column '{weight_col}' for renter housing data")
                 break
+    
     if not weight_col:
         # fallback: pick the first available weight column
         for candidate in geo_weight_map.get(geo_key, []):
             if candidate in cw.columns:
                 weight_col = candidate
+                logger.info(f"Using fallback weight column: {weight_col}")
                 break
+    
     if not weight_col:
+        logger.error(f"No appropriate weight column found in crosswalk for {geo_key}")
         raise ValueError(f"Crosswalk file missing appropriate weight column for {geo_key}. Columns: {cw.columns.tolist()}")
+    
     cw[weight_col] = cw[weight_col].astype(float)
+    logger.info(f"Weight column statistics: min={cw[weight_col].min():.6f}, max={cw[weight_col].max():.6f}, mean={cw[weight_col].mean():.6f}")
 
     print("crosswalk columns:", cw.columns)
     print(cw.head())
 
     control_df_reset = control_df.reset_index()
+    logger.info(f"Preparing control data for merge: {len(control_df_reset)} rows")
     print(f"[DEBUG] Columns after reset_index: {control_df_reset.columns.tolist()}")
     print(f"[DEBUG] Head after reset_index:\n{control_df_reset.head()}")
+    
     # Robustly rename columns for block and block group geographies
     if geo_key == "block" and set([0, 1, 2, 3]).issubset(control_df_reset.columns):
         control_df_reset = control_df_reset.rename(columns={
@@ -197,6 +230,7 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
             2: 'tract',
             3: 'block'
         })
+        logger.info(f"Renamed numeric columns for block geography: {control_df_reset.columns.tolist()}")
         print(f"[DEBUG] Renamed columns for block: {control_df_reset.columns.tolist()}")
     elif geo_key == "block group" and set([0, 1, 2, 3]).issubset(control_df_reset.columns):
         control_df_reset = control_df_reset.rename(columns={
@@ -205,35 +239,83 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
             2: 'tract',
             3: 'block group'
         })
+        logger.info(f"Renamed numeric columns for block group geography: {control_df_reset.columns.tolist()}")
         print(f"[DEBUG] Renamed columns for block group: {control_df_reset.columns.tolist()}")
+    
     print(f"[DEBUG] Columns before make_geoid_column: {control_df_reset.columns.tolist()}")
     print(f"[DEBUG] Head before make_geoid_column:\n{control_df_reset.head()}")
+    
     # Add correct GEOID column to control_df
+    logger.info(f"Creating GEOID column for {geo_key} geography")
     control_df_with_geoid = make_geoid_column(control_df_reset, geo=geo_key)
+    logger.info(f"GEOID column created successfully: {list(control_df_with_geoid.columns)}")
     print(f"[DEBUG] Columns after make_geoid_column: {control_df_with_geoid.columns.tolist()}")
     print(f"[DEBUG] Head after make_geoid_column:\n{control_df_with_geoid.head()}")
 
     src_col = crosswalk_col_map[geo_key]
     if src_col not in control_df_with_geoid.columns:
+        logger.error(f"Required source column '{src_col}' not found for merging")
         raise ValueError(f"Column '{src_col}' not found in control_df for merging.")
 
     # Merge & weight
+    logger.info(f"Merging control data with crosswalk on column '{src_col}'")
     df = control_df_with_geoid.copy()
     df[src_col] = df[src_col].astype(str)
+    
+    # Log merge statistics
+    before_merge_count = len(df)
+    unique_source_geoids = df[src_col].nunique()
+    unique_crosswalk_geoids = cw[src_col].nunique()
+    logger.info(f"Merge preparation: {before_merge_count} control records, {unique_source_geoids} unique source GEOIDs")
+    logger.info(f"Crosswalk contains {unique_crosswalk_geoids} unique source GEOIDs")
+    
     merged = df.merge(cw, left_on=src_col, right_on=src_col, how="inner")
+    after_merge_count = len(merged)
+    logger.info(f"Merge completed: {after_merge_count} records after merge ({after_merge_count/before_merge_count*100:.1f}% match rate)")
+    
+    if after_merge_count == 0:
+        logger.error("No records matched in merge - check GEOID formats and geography alignment")
+        raise ValueError("No records found after merging with crosswalk")
 
     # Apply weights to numeric columns
     data_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c != src_col]
+    logger.info(f"Applying areal interpolation weights to {len(data_cols)} data columns: {data_cols}")
+    
     for col in data_cols:
+        original_total = merged[col].sum()
         merged[col] = merged[col] * merged[weight_col]
+        weighted_total = merged[col].sum()
+        logger.info(f"Column '{col}': original total = {original_total:,.0f}, weighted total = {weighted_total:,.0f}")
 
     # Aggregate to target geography
     target_col = [col for col in cw.columns if col.endswith(f"{target_geo_year}ge")][0]
+    logger.info(f"Aggregating to target geography using column '{target_col}'")
+    
+    # Count unique target geographies before aggregation
+    unique_targets = merged[target_col].nunique()
+    logger.info(f"Aggregating {len(merged)} records to {unique_targets} target geographies")
+    
     result = (merged
               .groupby(target_col)[data_cols]
               .sum()
               .reset_index()
               .rename(columns={target_col: src_col}))
+
+    # Calculate output totals for comparison
+    output_totals = {col: result[col].sum() for col in data_cols}
+    logger.info(f"Output totals: {output_totals}")
+    
+    # Log conservation check
+    for col in data_cols:
+        input_total = input_totals.get(col, 0)
+        output_total = output_totals.get(col, 0)
+        if input_total > 0:
+            conservation_rate = output_total / input_total
+            logger.info(f"Conservation check '{col}': {conservation_rate:.4f} ({output_total:,.0f}/{input_total:,.0f})")
+            if abs(conservation_rate - 1.0) > 0.01:  # More than 1% difference
+                logger.warning(f"Significant total change in '{col}' during interpolation: {conservation_rate:.4f}")
+    
+    logger.info(f"GEOGRAPHIC INTERPOLATION COMPLETE: {len(result)} output geographies")
 
     print(f"[DEBUG] EXIT interpolate_est: merged.columns: {merged.columns.tolist()}")
     print(f"[DEBUG] merged.head():\n{merged.head()}")

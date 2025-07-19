@@ -91,107 +91,76 @@ CONTROLS[CENSUS_EST_YEAR]['MAZ'] = collections.OrderedDict([
 ])
 
 # ----------------------------------------
-# MAZ controls for ACS estimate year
+# MAZ controls for ACS estimate year - PopulationSim expects: num_hh, group quarters
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    # block‐level households (occupied units) from PL redistricting file - scaled to 2023
-    ('temp_base_num_hh_b',    ('pl',  CENSUS_EST_YEAR, 'H1_002N',       'block',
-                               [], 'regional_scale')),
-    # block‐group–level households from PL redistricting file - scaled to 2023
-    ('temp_base_num_hh_bg',   ('pl',  CENSUS_EST_YEAR, 'H1_002N',       'block group',
-                               [], 'regional_scale')),
-    # Total population from 2020 Census - scaled to 2023 ACS estimates
-    ('tot_pop',               ('pl',  CENSUS_EST_YEAR, 'P1_001N',       'block',
-                               [], 'regional_scale')),
-    # Group quarters population from 2020 Census - scaled to 2023 ACS estimates  
-    ('gq_pop',                ('pl',  CENSUS_EST_YEAR, 'P1_003N',       'block',
-                               [], 'regional_scale')),
-    # distribute ACS5 household counts down to blocks
-    ('temp_num_hh_bg_to_b',   ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+    # Number of households (PopulationSim: num_hh) - Regional scaling applied
+    ('num_hh',                ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])],
-                               'temp_base_num_hh_b','temp_base_num_hh_bg')),
-    # ACS5 household income distribution at block‐group
-    ('temp_num_hhinc',        ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',HINC_MAX)])])),
+                               'regional_scale')),
+    # Total group quarters population from 2020 Census DHC - scaled to 2023 ACS estimates  
+    ('gq_pop',                ('dhc',  CENSUS_EST_YEAR, 'PCT9_014N',    'block',
+                               [], 'regional_scale')),
+    # Detailed group quarters by type from 2020 Census DHC - scaled to 2023 ACS estimates
+    ('gq_military',           ('dhc',  CENSUS_EST_YEAR, 'MILITARY_TOTAL', 'block',
+                               [], 'regional_scale')),
+    ('gq_university',         ('dhc',  CENSUS_EST_YEAR, 'UNIVERSITY_TOTAL', 'block',
+                               [], 'regional_scale')),
+])
+
+# ----------------------------------------
+# TAZ controls for ACS estimate year - PopulationSim expects: workers, age, children, income
+CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
+    # ACS5 household income distribution at block‐group - DIRECT AGGREGATION (no scaling needed)
     ('hh_inc_30',             ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',34999)])],
-                               'temp_num_hh_bg_to_b','temp_num_hhinc')),
+                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',29999)])])),
     ('hh_inc_30_60',          ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',35000),('hhinc_max',74999)])],
-                               'temp_num_hh_bg_to_b','temp_num_hhinc')),
+                               [collections.OrderedDict([('hhinc_min',30000),('hhinc_max',59999)])])),
     ('hh_inc_60_100',         ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',75000),('hhinc_max',124999)])],
-                               'temp_num_hh_bg_to_b','temp_num_hhinc')),
+                               [collections.OrderedDict([('hhinc_min',60000),('hhinc_max',99999)])])),
     ('hh_inc_100_plus',       ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',125000),('hhinc_max',HINC_MAX)])],
-                               'temp_num_hh_bg_to_b','temp_num_hhinc')),
-    # ACS5 workers per household at tract level
-    ('temp_num_hh_wrks',      ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
-                               [collections.OrderedDict([('workers_min',0),('workers_max',NWOR_MAX),
-                                                         ('persons_min',0), ('persons_max',NPER_MAX)])])),
+                               [collections.OrderedDict([('hhinc_min',100000),('hhinc_max',HINC_MAX)])])),
+    # ACS5 workers per household at tract level - DISAGGREGATED using household distribution
+    ('temp_hh_bg_for_tract_weights', ('acs5', ACS_EST_YEAR, 'B11016', 'block group',
+                               [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
     ('hh_wrks_0',             ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',0),('workers_max',0),
                                                          ('persons_min',0), ('persons_max',NPER_MAX)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
+                               'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
     ('hh_wrks_1',             ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',1),('workers_max',1),
                                                          ('persons_min',0), ('persons_max',NPER_MAX)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
+                               'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
     ('hh_wrks_2',             ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',2),('workers_max',2),
                                                          ('persons_min',0), ('persons_max',NPER_MAX)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
+                               'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
     ('hh_wrks_3_plus',        ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
                                [collections.OrderedDict([('workers_min',3),('workers_max',NWOR_MAX),
                                                          ('persons_min',0), ('persons_max',NPER_MAX)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_wrks')),
-    # block‐level persons‐in‐households from PL redistricting file
-    ('temp_base_num_pers_hh_b', ('pl', CENSUS_EST_YEAR, 'P1_002N', 'block', [])),
-    # block‐group–level persons‐in‐households from PL redistricting file
-    ('temp_base_num_pers_hh_bg', ('pl', CENSUS_EST_YEAR, 'P1_002N', 'block group', [])),
-    # distribute ACS5 persons‐in‐households down to blocks
-    ('temp_num_pers_hh_bg_to_b',('acs5', ACS_EST_YEAR,    'B11002',       'block group',
-                                 [collections.OrderedDict([])],
-                                 'temp_base_num_pers_hh_b','temp_base_num_pers_hh_bg')),
-    # ACS5 total persons by age at block‐group
-    ('temp_num_pers',         ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('sex','All'),
-                                                         ('age_min',0),('age_max',AGE_MAX)])])),
+                               'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
+    # ACS5 total persons by age at block‐group - DIRECT AGGREGATION (no scaling needed)
     ('pers_age_00_19',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('age_min',0),('age_max',19)])],
-                               'temp_num_pers_hh_bg_to_b','temp_num_pers')),
+                               [collections.OrderedDict([('age_min',0),('age_max',19)])])),
     ('pers_age_20_34',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('age_min',20),('age_max',34)])],
-                               'temp_num_pers_hh_bg_to_b','temp_num_pers')),
+                               [collections.OrderedDict([('age_min',20),('age_max',34)])])),
     ('pers_age_35_64',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('age_min',35),('age_max',64)])],
-                               'temp_num_pers_hh_bg_to_b','temp_num_pers')),
+                               [collections.OrderedDict([('age_min',35),('age_max',64)])])),
     ('pers_age_65_plus',      ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('age_min',65),('age_max',AGE_MAX)])],
-                               'temp_num_pers_hh_bg_to_b','temp_num_pers')),
-    # ACS5 households with children at block‐group
-    ('temp_num_hh_kids',      ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
-                               [collections.OrderedDict([('num_kids_min',0),('num_kids_max',NKID_MAX)])])),
+                               [collections.OrderedDict([('age_min',65),('age_max',AGE_MAX)])])),
+    # ACS5 households with children at block‐group - DIRECT AGGREGATION (no scaling needed)
     ('hh_kids_no',            ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
-                               [collections.OrderedDict([('num_kids_min',0),('num_kids_max',0)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_kids')),
+                               [collections.OrderedDict([('num_kids_min',0),('num_kids_max',0)])])),
     ('hh_kids_yes',           ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
-                               [collections.OrderedDict([('num_kids_min',1),('num_kids_max',NKID_MAX)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_kids')),
-    # ACS5 household size distribution at block‐group - TEMP CONTROL MUST COME FIRST
-    ('temp_num_hh_size',      ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
-                               [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
+                               [collections.OrderedDict([('num_kids_min',1),('num_kids_max',NKID_MAX)])])),
+    # ACS5 household size distribution at block‐group - moved from MAZ to TAZ level
     ('hh_size_1',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
-                               [collections.OrderedDict([('pers_min',1),('pers_max',1)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_size')),
+                               [collections.OrderedDict([('pers_min',1),('pers_max',1)])])),
     ('hh_size_2',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
-                               [collections.OrderedDict([('pers_min',2),('pers_max',2)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_size')),
+                               [collections.OrderedDict([('pers_min',2),('pers_max',2)])])),
     ('hh_size_3',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
-                               [collections.OrderedDict([('pers_min',3),('pers_max',3)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_size')),
+                               [collections.OrderedDict([('pers_min',3),('pers_max',3)])])),
     ('hh_size_4_plus',        ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
-                               [collections.OrderedDict([('pers_min',4),('pers_max',NPER_MAX)])],
-                               'temp_num_hh_bg_to_b','temp_num_hh_size')),
+                               [collections.OrderedDict([('pers_min',4),('pers_max',NPER_MAX)])])),
 ])
 
 
@@ -283,10 +252,7 @@ CONTROLS[CENSUS_EST_YEAR]['COUNTY'] = collections.OrderedDict([
                                  ('occ_cat2','Material moving'),
                                  ('occ_cat3','All')]),
     ])),
-    # Military
-    ('temp_gq_type_mil',      ('pl', CENSUS_EST_YEAR, 'P5', 'tract', [
-        collections.OrderedDict([('inst','Noninst'), ('subcategory','Military')])
-    ])),
+    # Military occupation (civilian data only)
     ('pers_occ_military',     ('acs5', ACS_EST_YEAR, 'B23025', 'tract', [
         collections.OrderedDict([('inlaborforce','Yes'),('type','Armed Forces')])
     ])),
@@ -336,6 +302,26 @@ BAY_AREA_COUNTY_FIPS  = collections.OrderedDict([
 
 CA_STATE_FIPS = "06"
 
+# Bay Area county configuration consolidation
+def get_bay_area_county_codes():
+    """Return list of Bay Area county FIPS codes (3-digit, zero-padded)."""
+    return list(BAY_AREA_COUNTY_FIPS.values())
+
+def get_bay_area_county_geoids():
+    """Return list of Bay Area county GEOIDs (5-digit: state + county)."""
+    return [CA_STATE_FIPS + county_fips for county_fips in BAY_AREA_COUNTY_FIPS.values()]
+
+def get_county_info():
+    """Return comprehensive county information dictionary."""
+    return {
+        'state_fips': CA_STATE_FIPS,
+        'county_fips_codes': list(BAY_AREA_COUNTY_FIPS.values()),
+        'county_names': list(BAY_AREA_COUNTY_FIPS.keys()),
+        'county_geoids': get_bay_area_county_geoids(),
+        'county_name_to_fips': BAY_AREA_COUNTY_FIPS,
+        'county_recode_df': COUNTY_RECODE
+    }
+
 CENSUS_DEFINITIONS = {
     # 2020 PL 94-171 Redistricting Data (block-level)
     "P1_001N": [  # Total population
@@ -361,19 +347,6 @@ CENSUS_DEFINITIONS = {
     "H1_003N": [  # Vacant housing units
         ["variable"],
         ["H1_003N"]
-    ],
-    "P5": [  # PL 94-171: Group quarters population by major group quarters type
-        ["variable", "inst", "subcategory"],
-        ["P5_001N", "All", "All"],
-        ["P5_002N", "Inst", "All"],
-        ["P5_003N", "Inst", "Correctional facilities for adults"],
-        ["P5_004N", "Inst", "Juvenile facilities"],
-        ["P5_005N", "Inst", "Nursing facilities/Skilled-nursing facilities"],
-        ["P5_006N", "Inst", "Other institutional facilities"],
-        ["P5_007N", "Noninst", "All"],
-        ["P5_008N", "Noninst", "College/University student housing"],
-        ["P5_009N", "Noninst", "Military"],
-        ["P5_010N", "Noninst", "Other noninstitutional facilities"]
     ],
     "B23025": [  # ACS5-2023: Employment status
         ["variable","inlaborforce","type","employed"],
@@ -544,6 +517,19 @@ CENSUS_DEFINITIONS = {
         ["C24010_071E","Female","Production, transportation, and material moving","Production","All"],
         ["C24010_072E","Female","Production, transportation, and material moving","Transportation","All"],
         ["C24010_073E","Female","Production, transportation, and material moving","Material moving","All"]
+    ],
+    # 2020 DHC (Demographic and Housing Characteristics) tables for group quarters
+    "PCT9_014N": [  # Total group quarters population
+        ["variable"],
+        ["PCT9_014N"]
+    ],
+    "UNIVERSITY_TOTAL": [  # University group quarters population (sum of all age/sex)
+        ["variable"],
+        ["P18_010N", "P18_020N", "P18_030N", "P18_041N", "P18_051N", "P18_061N"]
+    ],
+    "MILITARY_TOTAL": [  # Military group quarters population (sum of all age/sex)
+        ["variable"],
+        ["P18_011N", "P18_021N", "P18_031N", "P18_042N", "P18_052N", "P18_062N"]
     ]
 }
 

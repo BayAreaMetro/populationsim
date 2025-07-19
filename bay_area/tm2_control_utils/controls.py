@@ -8,27 +8,117 @@ from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS, CENSUS_DEFINITIONS
 
 # Utility to get GEOID column for a geography
 
-def get_geoid_col(df, geography):
+def get_geoid_col(df, geo):
     """
-    Return the GEOID column name for the given geography in the DataFrame, or None if not found.
+    Get the appropriate GEOID column name for a given geography.
     """
-    geo = geography.lower().replace('_', ' ')
-    candidates = [
-        f'GEOID_{geo}',
-        geo + '2020ge',
-        geo.replace(' ', '') + '2020ge',
-        geo.replace(' ', '_') + '2020ge',
-        geo.replace(' ', '').upper() + '2020GE',
-        'GEOID',
-    ]
-    for c in candidates:
-        if c in df.columns:
-            return c
-    # Fallback: first column containing 'GEOID'
-    for c in df.columns:
-        if 'GEOID' in c:
-            return c
+    geo = geo.lower().replace('_', ' ')
+    if f'GEOID_{geo}' in df.columns:
+        return f'GEOID_{geo}'
+    
+    # Check alternative column names based on geography
+    geo_mapping = {
+        'block': ['blk2020ge', 'GEOID_block', 'geoid_block'],
+        'block group': ['bg2020ge', 'GEOID_block group', 'geoid_block_group'],
+        'tract': ['tr2020ge', 'GEOID_tract', 'geoid_tract'],
+        'county': ['cty2020ge', 'GEOID_county', 'geoid_county']
+    }
+    
+    if geo in geo_mapping:
+        for col in geo_mapping[geo]:
+            if col in df.columns:
+                return col
+    
+    print(f"[WARNING] No suitable GEOID column found for geography '{geo}' in columns: {list(df.columns)}")
     return None
+
+
+def prepare_geoid_for_merge(df, geography):
+    """
+    Prepare a DataFrame for merging by ensuring it has the correct GEOID column for the geography.
+    """
+    target_col = f'GEOID_{geography}'
+    
+    if target_col in df.columns:
+        return df
+    
+    # Try to find an existing GEOID column to use or rename
+    geoid_col = get_geoid_col(df, geography)
+    if geoid_col and geoid_col != target_col:
+        df = df.copy()
+        df[target_col] = df[geoid_col]
+    
+    return df
+
+
+def disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights_df, maz_taz_def_df):
+    """
+    Disaggregate tract-level data to block group level using household distribution as weights.
+    
+    Process:
+    1. Sum household counts by tract to get tract totals
+    2. Calculate weights: hh_blockgroup / hh_tract
+    3. Apply weights: tract_value * weight -> blockgroup_value
+    
+    Args:
+        control_table_df: DataFrame with tract-level control data
+        control_name: Name of the control column
+        hh_weights_df: DataFrame with block group household counts for weighting
+        maz_taz_def_df: Geography crosswalk DataFrame
+    
+    Returns:
+        DataFrame with block group level data
+    """
+    import pandas as pd
+    
+    # Ensure we have the right geoid columns
+    control_table_df = prepare_geoid_for_merge(control_table_df, 'tract')
+    hh_weights_df = prepare_geoid_for_merge(hh_weights_df, 'block group')
+    
+    # Get tract totals by summing block group households within each tract
+    # First, get tract from block group geoid (first 11 characters: state(2) + county(3) + tract(6))
+    # Check which GEOID column is available
+    geoid_col = None
+    for col in ['GEOID_block group', 'bg2020ge', 'GEOID_bg']:
+        if col in hh_weights_df.columns:
+            geoid_col = col
+            break
+    
+    if geoid_col is None:
+        import logging
+        logger = logging.getLogger()
+        logger.error(f"No suitable GEOID column found for block group in hh_weights_df columns: {list(hh_weights_df.columns)}")
+        logger.warning("Skipping tract-to-block group disaggregation due to missing GEOID column")
+        
+        # Return an empty DataFrame with the correct structure for block group data
+        # This prevents downstream processing errors
+        empty_result = pd.DataFrame(columns=['GEOID_block group', control_name])
+        return empty_result
+    
+    hh_weights_df['GEOID_tract'] = hh_weights_df[geoid_col].str[:11]
+    
+    # Sum households by tract
+    tract_totals = hh_weights_df.groupby('GEOID_tract')[hh_weights_df.columns[1]].sum().reset_index()
+    tract_totals.columns = ['GEOID_tract', 'tract_hh_total']
+    
+    # Calculate weights: hh_blockgroup / hh_tract
+    hh_with_tract_totals = pd.merge(hh_weights_df, tract_totals, on='GEOID_tract', how='left')
+    hh_with_tract_totals['weight'] = hh_with_tract_totals[hh_weights_df.columns[1]] / hh_with_tract_totals['tract_hh_total']
+    hh_with_tract_totals['weight'] = hh_with_tract_totals['weight'].fillna(0)
+    
+    # Merge tract data with weights
+    merged = pd.merge(control_table_df, hh_with_tract_totals[['GEOID_tract', geoid_col, 'weight']], 
+                      on='GEOID_tract', how='left')
+    
+    # Apply disaggregation: tract_value * weight -> blockgroup_value
+    merged[control_name] = merged[control_name] * merged['weight']
+    merged[control_name] = merged[control_name].fillna(0)
+    
+    # Return block group level data
+    result = merged[[geoid_col, control_name]].copy()
+    result = result.rename(columns={geoid_col: get_geoid_col(hh_weights_df, 'block group')})
+    
+    return result
 
 
 def census_col_is_in_control(param_dict, control_dict):
@@ -73,14 +163,8 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
     ]
     geo_cols = [col for col in possible_geo_cols if col in census_table_df.columns]
 
-    # Debug: print dtype and unique values of data columns before summing
+    # Identify data columns (non-geography columns)
     data_cols = [col for col in census_table_df.columns if col not in geo_cols]
-    for col in data_cols:
-        try:
-            print(f"[DEBUG] dtype of {col}: {census_table_df[col].dtypes if hasattr(census_table_df[col], 'dtypes') else 'N/A'}")
-            print(f"[DEBUG] unique values of {col} (sample): {census_table_df[col].unique()[:10] if hasattr(census_table_df[col], 'unique') else 'N/A'}")
-        except Exception as e:
-            print(f"[DEBUG] Error inspecting column {col}: {e}")
 
     # If all control_dicts are empty, sum once outside the loop
     if all(len(control_dict) == 0 for control_dict in control_dict_list):
@@ -304,18 +388,100 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
     import numpy
     import logging
     
-    # Add diagnostics
-    print(f"[DEBUG] temp_table_scaling: control_name={control_name}, scale_numerator={scale_numerator}, scale_denominator={scale_denominator}")
-    print(f"[DEBUG] control_table_df columns: {list(control_table_df.columns)}")
-    print(f"[DEBUG] control_table_df head:\n{control_table_df.head()}")
+    # Enhanced logging for temp table scaling
+    logger = logging.getLogger()
+    logger.info(f"TEMP TABLE SCALING START: {control_name}")
+    logger.info(f"Scaling: {scale_numerator}/{scale_denominator}")
+    logger.info(f"Input data: {len(control_table_df)} records, geography: {geography}")
     
-    if scale_numerator and scale_numerator in temp_controls:
-        print(f"[DEBUG] scale_numerator table columns: {list(temp_controls[scale_numerator].columns)}")
-        print(f"[DEBUG] scale_numerator table head:\n{temp_controls[scale_numerator].head()}")
+    # Calculate input total
+    if control_name in control_table_df.columns:
+        input_total = control_table_df[control_name].sum()
+        logger.info(f"Input total: {input_total:,.0f}")
     
-    if scale_denominator and scale_denominator in temp_controls:
-        print(f"[DEBUG] scale_denominator table columns: {list(temp_controls[scale_denominator].columns)}")
-        print(f"[DEBUG] scale_denominator table head:\n{temp_controls[scale_denominator].head()}")
+    # Essential debug info
+    print(f"[DEBUG] temp_table_scaling: {control_name}, scale: {scale_numerator}/{scale_denominator}")
+    
+    # Special case: check for disaggregation flag
+    if scale_denominator == 'tract_to_bg_disaggregation':
+        logger.info(f"Applying tract-to-block-group disaggregation using {scale_numerator} as weights")
+        print(f"[DEBUG] Detected tract_to_bg_disaggregation flag - calling disaggregate function")
+        # Use the scale_numerator as the household weights table
+        hh_weights_df = temp_controls.get(scale_numerator)
+        if hh_weights_df is None:
+            logger.error(f"Household weights table '{scale_numerator}' not found for disaggregation")
+            raise ValueError(f"Cannot find household weights table '{scale_numerator}' for disaggregation")
+        
+        logger.info(f"Using weights from {scale_numerator}: {len(hh_weights_df)} records")
+        result = disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights_df, maz_taz_def_df)
+        
+        # If disaggregation failed (empty result), aggregate tract data directly to TAZ level
+        if result.empty:
+            logger.warning("Tract-to-block-group disaggregation failed, falling back to direct tract-to-TAZ aggregation")
+            print(f"[DEBUG] Disaggregation failed, aggregating tract data directly to TAZ level")
+            
+            if maz_taz_def_df is None:
+                logger.error("maz_taz_def_df required for TAZ aggregation fallback")
+                raise ValueError("maz_taz_def_df is required for TAZ aggregation when disaggregation fails")
+            
+            # Filter out any header rows that might have string values
+            filtered_df = control_table_df.copy()
+            
+            # Clean all columns that might have mixed types
+            for col in filtered_df.columns:
+                if col not in ['tr2020ge', 'GEOID_tract']:  # Keep geographic identifiers as-is
+                    try:
+                        # Convert to string first to handle any mixed types, then to numeric
+                        filtered_df[col] = filtered_df[col].astype(str)
+                        filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce')
+                    except Exception as e:
+                        print(f"[DEBUG] Error converting column {col} to numeric: {e}")
+            
+            # Drop any rows where the control column is NaN (was non-numeric)
+            before_filter = len(filtered_df)
+            filtered_df = filtered_df.dropna(subset=[control_name])
+            after_filter = len(filtered_df)
+            print(f"[DEBUG] Filtered out {before_filter - after_filter} non-numeric rows, remaining: {after_filter} rows")
+            
+            # Now aggregate from tract to TAZ using the crosswalk
+            print(f"[DEBUG] Aggregating tract data to TAZ level")
+            
+            # Get tract-to-TAZ mapping from maz_taz_def_df
+            tract_to_taz = maz_taz_def_df[['GEOID_tract', 'TAZ']].drop_duplicates()
+            print(f"[DEBUG] tract_to_taz mapping shape: {tract_to_taz.shape}")
+            
+            # Ensure data types match for merge
+            print(f"[DEBUG] filtered_df['tr2020ge'] dtype: {filtered_df['tr2020ge'].dtype}")
+            print(f"[DEBUG] tract_to_taz['GEOID_tract'] dtype: {tract_to_taz['GEOID_tract'].dtype}")
+            
+            # Convert both to string to ensure consistent merge
+            filtered_df['tr2020ge'] = filtered_df['tr2020ge'].astype(str)
+            tract_to_taz['GEOID_tract'] = tract_to_taz['GEOID_tract'].astype(str)
+            
+            print(f"[DEBUG] After type conversion - filtered_df['tr2020ge'] dtype: {filtered_df['tr2020ge'].dtype}")
+            print(f"[DEBUG] After type conversion - tract_to_taz['GEOID_tract'] dtype: {tract_to_taz['GEOID_tract'].dtype}")
+            
+            # Merge with tract data
+            merged_df = pd.merge(
+                filtered_df,
+                tract_to_taz,
+                left_on='tr2020ge',
+                right_on='GEOID_tract',
+                how='inner'
+            )
+            print(f"[DEBUG] After tract-to-TAZ merge: {merged_df.shape}")
+            
+            # Aggregate by TAZ
+            taz_aggregated = merged_df.groupby('TAZ')[control_name].sum().reset_index()
+            print(f"[DEBUG] After TAZ aggregation: {taz_aggregated.shape}")
+            
+            # Set TAZ as index to match expected format
+            taz_aggregated = taz_aggregated.set_index('TAZ')
+            print(f"[DEBUG] Final TAZ result shape: {taz_aggregated.shape}")
+            
+            return taz_aggregated
+        
+        return result
     
     if geography is None:
         for g in ["block", "block group", "tract", "county"]:
@@ -333,14 +499,17 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
                    (scale_denom_df.index.name == 'MAZ' or 'MAZ' in scale_denom_df.columns))
     
     if is_maz_level:
+        logger.info("Detected MAZ-level temp controls, performing MAZ-level scaling")
         print(f"[DEBUG] Detected MAZ-level temp controls, performing MAZ-level scaling")
         
         # First, aggregate control_table_df to MAZ level if needed
         if 'MAZ' not in control_table_df.columns:
+            logger.info("Aggregating control data to MAZ level first")
             print(f"[DEBUG] Need to aggregate control_table_df to MAZ level first")
             # Need to use aggregate_to_control_geo to get the control to MAZ level
             
             if maz_taz_def_df is None:
+                logger.error("maz_taz_def_df required for MAZ-level scaling")
                 raise ValueError("maz_taz_def_df is required for MAZ-level scaling")
             
             print(f"[DEBUG] maz_taz_def_df columns: {list(maz_taz_def_df.columns)}")
@@ -355,35 +524,54 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
                 if 'MAZ' in control_maz_df.columns:
                     control_maz_df = control_maz_df.set_index('MAZ')[[control_name]]
                 else:
+                    logger.error("Failed to aggregate control_table_df to MAZ level")
                     raise ValueError(f"Failed to aggregate control_table_df to MAZ level")
             else:
                 control_maz_df = control_maz_df[[control_name]]
         else:
             # Already has MAZ column
+            logger.info("Control data already has MAZ column")
             if control_table_df.index.name != 'MAZ':
                 control_maz_df = control_table_df.groupby('MAZ')[control_name].sum().to_frame()
             else:
                 control_maz_df = control_table_df[[control_name]]
         
+        logger.info(f"Control data aggregated to {len(control_maz_df)} MAZ zones")
         print(f"[DEBUG] control_maz_df columns: {list(control_maz_df.columns)}")
         print(f"[DEBUG] control_maz_df head:\n{control_maz_df.head()}")
         
         # Get denominator values (ensure it's indexed by MAZ)
+        logger.info(f"Preparing denominator data: {scale_denominator}")
         if scale_denom_df.index.name != 'MAZ':
             if 'MAZ' in scale_denom_df.columns:
                 denom_maz = scale_denom_df.set_index('MAZ')[[scale_denominator]]
             else:
+                logger.error(f"Cannot determine MAZ index for scale_denominator {scale_denominator}")
                 raise ValueError(f"Cannot determine MAZ index for scale_denominator {scale_denominator}")
         else:
             denom_maz = scale_denom_df[[scale_denominator]]
         
         # Merge and calculate fraction
+        logger.info("Calculating scaling fractions by MAZ")
         merged = pd.merge(control_maz_df, denom_maz, left_index=True, right_index=True, how='left')
         merged[scale_denominator] = merged[scale_denominator].fillna(0)
+        
+        # Log scaling statistics
+        orig_total = merged[control_name].sum()
+        denom_total = merged[scale_denominator].sum()
+        
         merged['temp_fraction'] = merged[control_name] / merged[scale_denominator].replace({0: numpy.nan})
         merged['temp_fraction'] = merged['temp_fraction'].replace({numpy.inf: 0, numpy.nan: 0})
         
+        # Log fraction statistics
+        fraction_stats = merged['temp_fraction'].describe()
+        logger.info(f"Scaling fractions - mean: {fraction_stats['mean']:.4f}, std: {fraction_stats['std']:.4f}")
+        logger.info(f"Fraction range: {fraction_stats['min']:.4f} to {fraction_stats['max']:.4f}")
+        non_zero_fractions = (merged['temp_fraction'] > 0).sum()
+        logger.info(f"MAZs with non-zero fractions: {non_zero_fractions}/{len(merged)}")
+        
         if scale_numerator and scale_num_df is not None:
+            print(f"[DEBUG] merged columns before numerator merge: {list(merged.columns)}")
             # Get numerator values (ensure it's indexed by MAZ)
             if scale_num_df.index.name != 'MAZ':
                 if 'MAZ' in scale_num_df.columns:
@@ -393,23 +581,135 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
             else:
                 num_maz = scale_num_df[[scale_numerator]]
             
-            merged = pd.merge(merged, num_maz, left_index=True, right_index=True, how='left')
-            merged[scale_numerator] = merged[scale_numerator].fillna(0)
-            merged[control_name] = merged['temp_fraction'] * merged[scale_numerator]
+            print(f"[DEBUG] num_maz columns: {list(num_maz.columns)}")
+            print(f"[DEBUG] About to merge with suffixes for potential duplicates")
+            
+            # Check if column already exists to avoid conflicts
+            if scale_numerator in merged.columns:
+                print(f"[DEBUG] Column {scale_numerator} already exists in merged, using suffixes")
+                merged = pd.merge(merged, num_maz, left_index=True, right_index=True, how='left', suffixes=('', '_num'))
+                scale_col = f"{scale_numerator}_num"
+            else:
+                merged = pd.merge(merged, num_maz, left_index=True, right_index=True, how='left')
+                scale_col = scale_numerator
+            
+            print(f"[DEBUG] merged columns after numerator merge: {list(merged.columns)}")
+            merged[scale_col] = merged[scale_col].fillna(0)
+            
+            # Special case: when numerator equals denominator for household size controls
+            if scale_numerator == scale_denominator and control_name.startswith('hh_size_'):
+                print(f"[DEBUG] Scale numerator equals denominator ({scale_numerator}) for household size control, computing proper normalization")
+                
+                print(f"[DEBUG] temp_fraction sample values: {merged['temp_fraction'].head().values}")
+                print(f"[DEBUG] scale_col sample values: {merged[scale_col].head().values}")
+                print(f"[DEBUG] control_maz_df sample values: {control_maz_df[control_name].head().values}")
+                
+                # For household size controls, we need proper normalization:
+                # final_hh_size_X = (raw_hh_size_X / sum_all_raw_hh_sizes) * num_hh
+                #
+                # We have:
+                # - control_maz_df[control_name] = raw household size counts for this category
+                # - merged[scale_col] = num_hh values
+                #
+                # We need to calculate: sum_all_raw_hh_sizes for each MAZ
+                # This requires summing all household size categories: hh_size_1 + hh_size_2 + hh_size_3 + hh_size_4_plus
+                
+                # Get all household size controls from temp_controls
+                hh_size_controls = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus']
+                available_hh_size_controls = [ctrl for ctrl in hh_size_controls if ctrl in temp_controls]
+                
+                if len(available_hh_size_controls) < 4:
+                    print(f"[DEBUG] Not all household size controls available yet, using temp_fraction scaling")
+                    merged[control_name] = merged['temp_fraction'] * merged[scale_col]
+                else:
+                    print(f"[DEBUG] All household size controls available, computing proper normalization")
+                    
+                    # Calculate the sum of all raw household sizes for each MAZ
+                    total_raw_hh_sizes = None
+                    for ctrl_name in available_hh_size_controls:
+                        # Get the control data aggregated to MAZ level
+                        ctrl_data = temp_controls[ctrl_name]
+                        if ctrl_data.index.name != 'MAZ':
+                            if 'MAZ' in ctrl_data.columns:
+                                ctrl_maz = ctrl_data.set_index('MAZ')[ctrl_name]
+                            else:
+                                print(f"[DEBUG] Cannot get MAZ-indexed data for {ctrl_name}")
+                                continue
+                        else:
+                            ctrl_maz = ctrl_data[ctrl_name]
+                        
+                        if total_raw_hh_sizes is None:
+                            total_raw_hh_sizes = ctrl_maz.copy()
+                        else:
+                            total_raw_hh_sizes += ctrl_maz
+                    
+                    if total_raw_hh_sizes is not None:
+                        # Apply the proper normalization formula
+                        raw_control = control_maz_df[control_name]
+                        num_hh_values = merged[scale_col]
+                        
+                        # Ensure indices match for the calculation
+                        total_raw_aligned = total_raw_hh_sizes.reindex(control_maz_df.index, fill_value=0)
+                        
+                        # Calculate: (raw_hh_size_X / sum_all_raw_hh_sizes) * num_hh
+                        merged[control_name] = (raw_control / total_raw_aligned.replace(0, numpy.nan)) * num_hh_values
+                        merged[control_name] = merged[control_name].fillna(0)
+                        
+                        print(f"[DEBUG] Applied proper household size normalization")
+                        print(f"[DEBUG] Result sample values: {merged[control_name].head().values}")
+                    else:
+                        print(f"[DEBUG] Failed to calculate total raw household sizes, falling back to temp_fraction")
+                        merged[control_name] = merged['temp_fraction'] * merged[scale_col]
+                        
+            elif scale_numerator == scale_denominator:
+                print(f"[DEBUG] Scale numerator equals denominator ({scale_numerator}), using temp_fraction scaling")
+                merged[control_name] = merged['temp_fraction'] * merged[scale_col]
+                print(f"[DEBUG] Result sample values: {merged[control_name].head().values}")
+            else:
+                print(f"[DEBUG] Different numerator/denominator, applying temp_fraction scaling")
+                merged[control_name] = merged['temp_fraction'] * merged[scale_col]
         
         result = merged[[control_name]]
+        
+        # Calculate final totals and log results
+        final_total = result[control_name].sum()
+        logger.info(f"MAZ-level scaling complete: {len(result)} MAZ zones, total = {final_total:,.0f}")
+        
+        if 'input_total' in locals():
+            scaling_ratio = final_total / input_total if input_total > 0 else 0
+            logger.info(f"Total scaling ratio: {scaling_ratio:.6f} ({final_total:,.0f}/{input_total:,.0f})")
+        
         print(f"[DEBUG] temp_table_scaling result columns: {list(result.columns)}")
         print(f"[DEBUG] temp_table_scaling result head:\n{result.head()}")
         
+        logger.info("TEMP TABLE SCALING COMPLETE (MAZ-level)")
         # Skip writing intermediate scaled CSV
         return result
     
     # Original logic for non-MAZ level scaling
+    logger.info(f"Applying geographic-level scaling for {geo} geography")
     geo = geography.lower().replace('_', ' ')
     supported = ["block", "block group", "tract", "county"]
     if geo in supported:
         control_table_df = prepare_geoid_for_merge(control_table_df, geo)
-        denom_df = prepare_geoid_for_merge(temp_controls[scale_denominator], geo)
+        
+        # Special handling for TAZ-level temp controls used as scaling basis
+        denom_df = temp_controls[scale_denominator]
+        if denom_df.index.name == 'TAZ':
+            logger.info(f"Mapping {scale_denominator} from TAZ level back to {geo} geography for scaling")
+            print(f"[DEBUG] {scale_denominator} is at TAZ level - need to map back to {geo} geography for scaling")
+            
+            # Map TAZ-level temp control back to block group level for scaling
+            # This uses the same mapping logic but in reverse
+            geo_mapping_df = maz_taz_def_df[['TAZ', f'GEOID_{geo}']].drop_duplicates()
+            denom_with_geo = pd.merge(denom_df.reset_index(), geo_mapping_df, on='TAZ', how='left')
+            denom_df = denom_with_geo.groupby(f'GEOID_{geo}')[scale_denominator].sum().to_frame()
+            denom_df.index.name = f'GEOID_{geo}'
+            denom_df = denom_df.reset_index()
+            logger.info(f"Mapped {scale_denominator} from TAZ to {geo} level: {len(denom_df)} records")
+            print(f"[DEBUG] Mapped {scale_denominator} from TAZ to {geo} level, shape: {denom_df.shape}")
+        else:
+            denom_df = prepare_geoid_for_merge(denom_df, geo)
         
         # Check GEOID columns match
         control_geoid_col = get_geoid_col(control_table_df, geo)
@@ -427,16 +727,40 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
         merged['temp_fraction'] = merged['temp_fraction'].replace({numpy.inf: 0, numpy.nan: 0})
         
         if scale_numerator:
-            num_df = prepare_geoid_for_merge(temp_controls[scale_numerator], geo)
+            num_df = temp_controls[scale_numerator]
+            if num_df.index.name == 'TAZ':
+                print(f"[DEBUG] {scale_numerator} is at TAZ level - need to map back to {geo} geography for scaling")
+                
+                # Map TAZ-level temp control back to block group level for scaling
+                geo_mapping_df = maz_taz_def_df[['TAZ', f'GEOID_{geo}']].drop_duplicates()
+                num_with_geo = pd.merge(num_df.reset_index(), geo_mapping_df, on='TAZ', how='left')
+                num_df = num_with_geo.groupby(f'GEOID_{geo}')[scale_numerator].sum().to_frame()
+                num_df.index.name = f'GEOID_{geo}'
+                num_df = num_df.reset_index()
+                print(f"[DEBUG] Mapped {scale_numerator} from TAZ to {geo} level, shape: {num_df.shape}")
+            else:
+                num_df = prepare_geoid_for_merge(num_df, geo)
+            
+            logger.info(f"Preparing numerator data: {scale_numerator}")
             num_geoid_col = get_geoid_col(num_df, geo)
             if num_geoid_col != control_geoid_col:
                 num_df = num_df.rename(columns={num_geoid_col: control_geoid_col})
+            
+            # Log scaling application
+            orig_total = merged[control_name].sum()
             merged = pd.merge(num_df[[control_geoid_col, scale_numerator]], merged, on=control_geoid_col, how='left', suffixes=('_num', ''))
             merged[control_name] = merged['temp_fraction'] * merged[scale_numerator]
+            scaled_total = merged[control_name].sum()
+            
+            logger.info(f"Geographic scaling applied: {orig_total:,.0f} → {scaled_total:,.0f}")
             merged = merged[[control_geoid_col, control_name]]
         else:
             merged = merged[[control_geoid_col, control_name]]
             
+        final_total = merged[control_name].sum()
+        logger.info(f"Geographic-level scaling complete: {len(merged)} records, total = {final_total:,.0f}")
+        logger.info("TEMP TABLE SCALING COMPLETE (Geographic-level)")
+        
         print(f"[DEBUG] temp_table_scaling result columns: {list(merged.columns)}")
         print(f"[DEBUG] temp_table_scaling result head:\n{merged.head()}")
         
@@ -444,6 +768,7 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
         return merged
     else:
         # For synthetic geographies, just return the input DataFrame (no scaling)
+        logger.info(f"No scaling required for synthetic geography: {geography}")
         return control_table_df
 
 def aggregate_to_control_geo(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total):
@@ -451,6 +776,10 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
     import logging
     
     # Diagnostics
+    logger = logging.getLogger()
+    logger.info(f"GEOGRAPHIC AGGREGATION START: {control_name} from {census_geography} to {control_geography}")
+    logger.info(f"Input: {len(control_table_df)} records, total = {variable_total:,.0f}")
+    
     print(f"[DEBUG] aggregate_to_control_geo: control_geography={control_geography}, census_geography={census_geography}")
     print(f"[DEBUG] control_table_df columns: {list(control_table_df.columns)}")
     print(f"[DEBUG] maz_taz_def_df columns: {list(maz_taz_def_df.columns)}")
@@ -466,45 +795,74 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
     census_mapping_col = GEOGRAPHY_ID_COLUMNS.get(census_geo_lower, {}).get('mapping', f'{census_geo_lower}2020ge')
     synth_mapping_col = GEOGRAPHY_ID_COLUMNS.get(control_geo_lower, {}).get('mapping', control_geography)
     
+    logger.info(f"Column mapping: census_geoid='{census_geoid_col}', census_mapping='{census_mapping_col}', synth_mapping='{synth_mapping_col}'")
+    
     print(f"[DEBUG] Using census_geoid_col: {census_geoid_col}")
     print(f"[DEBUG] Using census_mapping_col: {census_mapping_col}")  
     print(f"[DEBUG] Using synth_mapping_col: {synth_mapping_col}")
     
     # Ensure census GEOID is present
     if census_geoid_col not in control_table_df.columns:
+        logger.info(f"Preparing GEOID column for {census_geo_lower} geography")
         control_table_df = prepare_geoid_for_merge(control_table_df, census_geo_lower)
     
     # Handle scaling and subtraction on census geography first
     if scale_numerator and scale_denominator:
+        logger.info(f"Applying scaling: {scale_numerator}/{scale_denominator}")
         num_df = prepare_geoid_for_merge(temp_controls[scale_numerator], census_geo_lower)
         denom_df = prepare_geoid_for_merge(temp_controls[scale_denominator], census_geo_lower)
+        
+        # Log scaling statistics
+        orig_total = control_table_df[control_name].sum()
+        num_total = num_df[scale_numerator].sum() 
+        denom_total = denom_df[scale_denominator].sum()
+        scaling_factor = num_total / denom_total if denom_total > 0 else 0
+        logger.info(f"Scaling factor: {scaling_factor:.6f} ({num_total:,.0f}/{denom_total:,.0f})")
+        
         merged = pd.merge(control_table_df, num_df[[census_geoid_col, scale_numerator]], on=census_geoid_col, how='left')
         merged = pd.merge(merged, denom_df[[census_geoid_col, scale_denominator]], on=census_geoid_col, how='left')
         merged[control_name] = merged[control_name] * merged[scale_numerator] / merged[scale_denominator].replace({0: numpy.nan})
         merged[control_name] = merged[control_name].replace({numpy.inf: 0, numpy.nan: 0})
         merged.fillna(0, inplace=True)
+        
+        scaled_total = merged[control_name].sum()
+        logger.info(f"Scaling complete: {orig_total:,.0f} → {scaled_total:,.0f} (factor: {scaled_total/orig_total:.6f})")
+        
         variable_total = variable_total * num_df[scale_numerator].sum() / denom_df[scale_denominator].sum()
         control_table_df = merged
         
     if subtract_table:
+        logger.info(f"Applying subtraction: -{subtract_table}")
+        orig_total = control_table_df[control_name].sum()
         sub_df = prepare_geoid_for_merge(temp_controls[subtract_table], census_geo_lower)
+        sub_total = sub_df[subtract_table].sum()
+        logger.info(f"Subtracting {sub_total:,.0f} from {orig_total:,.0f}")
+        
         merged = pd.merge(control_table_df, sub_df[[census_geoid_col, subtract_table]], on=census_geoid_col, how='left')
         merged[control_name] = merged[control_name] - merged[subtract_table]
+        
+        final_total = merged[control_name].sum()
+        logger.info(f"Subtraction complete: {orig_total:,.0f} → {final_total:,.0f} (difference: {final_total-orig_total:,.0f})")
+        
         variable_total = variable_total - sub_df[subtract_table].sum()
         control_table_df = merged
     
     # Now map from census geography to synthetic geography if needed
     if control_geography in ["MAZ", "TAZ", "COUNTY", "REGION"]:
+        logger.info(f"Mapping from {census_geography} to {control_geography} using crosswalk")
         print(f"[DEBUG] Mapping from {census_geography} to {control_geography}")
         
         # Check if mapping columns exist in maz_taz_def_df
         if census_mapping_col not in maz_taz_def_df.columns:
+            logger.error(f"Census mapping column '{census_mapping_col}' not found in crosswalk")
             raise KeyError(f"Census mapping column '{census_mapping_col}' not found in maz_taz_def_df. Available: {list(maz_taz_def_df.columns)}")
         if synth_mapping_col not in maz_taz_def_df.columns:
+            logger.error(f"Synthetic mapping column '{synth_mapping_col}' not found in crosswalk")
             raise KeyError(f"Synthetic mapping column '{synth_mapping_col}' not found in maz_taz_def_df. Available: {list(maz_taz_def_df.columns)}")
         
         # Get unique mapping and ensure consistent data types
         geo_mapping_df = maz_taz_def_df[[synth_mapping_col, census_mapping_col]].drop_duplicates()
+        logger.info(f"Geographic mapping: {len(geo_mapping_df)} unique {census_geography}→{control_geography} relationships")
         
         # Convert both join keys to string to ensure compatibility
         control_table_df[census_geoid_col] = control_table_df[census_geoid_col].astype(str).str.strip()
@@ -514,15 +872,26 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
         if census_geography.lower() == 'block':
             control_table_df[census_geoid_col] = control_table_df[census_geoid_col].str.zfill(15)
             geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].str.zfill(15)
+            logger.info("Applied 15-digit zero-padding for block geography")
         elif census_geography.lower() == 'block group':
             control_table_df[census_geoid_col] = control_table_df[census_geoid_col].str.zfill(12)
             geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].str.zfill(12)
+            logger.info("Applied 12-digit zero-padding for block group geography")
         elif census_geography.lower() == 'tract':
             control_table_df[census_geoid_col] = control_table_df[census_geoid_col].str.zfill(11)
             geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].str.zfill(11)
+            logger.info("Applied 11-digit zero-padding for tract geography")
         elif census_geography.lower() == 'county':
             control_table_df[census_geoid_col] = control_table_df[census_geoid_col].str.zfill(5)
             geo_mapping_df[census_mapping_col] = geo_mapping_df[census_mapping_col].str.zfill(5)
+            logger.info("Applied 5-digit zero-padding for county geography")
+        
+        # Log merge preparation statistics
+        control_records = len(control_table_df)
+        unique_control_geoids = control_table_df[census_geoid_col].nunique()
+        unique_mapping_geoids = geo_mapping_df[census_mapping_col].nunique()
+        logger.info(f"Merge preparation: {control_records} control records, {unique_control_geoids} unique control GEOIDs")
+        logger.info(f"Crosswalk contains {unique_mapping_geoids} unique {census_geography} GEOIDs")
         
         print(f"[DEBUG] geo_mapping_df shape: {geo_mapping_df.shape}")
         print(f"[DEBUG] geo_mapping_df head:\n{geo_mapping_df.head()}")
@@ -532,6 +901,7 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
         print(f"[DEBUG] geo_mapping_df join key sample: {geo_mapping_df[census_mapping_col].head().tolist()}")
         
         # Merge control table with mapping on census GEOID
+        logger.info(f"Merging control data with crosswalk on {census_geoid_col}")
         merged_df = pd.merge(
             control_table_df, 
             geo_mapping_df, 
@@ -540,32 +910,56 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
             how='left'
         )
         
+        # Log merge results
+        merge_match_rate = len(merged_df) / len(control_table_df) if len(control_table_df) > 0 else 0
+        non_null_synth = merged_df[synth_mapping_col].notna().sum()
+        logger.info(f"Merge completed: {len(merged_df)} records ({merge_match_rate:.1%} match rate)")
+        logger.info(f"Records with valid {control_geography} mapping: {non_null_synth}")
+        
         print(f"[DEBUG] After merge, columns: {list(merged_df.columns)}")
         print(f"[DEBUG] merged_df shape: {merged_df.shape}")
         
         # Check if synthetic geography column is present
         if synth_mapping_col not in merged_df.columns:
+            logger.error(f"Synthetic geography column '{synth_mapping_col}' missing after merge")
             raise KeyError(f"'{synth_mapping_col}' not in merged DataFrame after merge. Available: {list(merged_df.columns)}")
         
         # Aggregate to synthetic geography
+        logger.info(f"Aggregating to {control_geography} level")
+        pre_agg_total = merged_df[control_name].sum()
+        unique_target_geog = merged_df[synth_mapping_col].nunique()
+        
         final_df = merged_df.groupby(synth_mapping_col)[control_name].sum().reset_index()
         final_df.set_index(synth_mapping_col, inplace=True)
         final_df.index.name = control_geography
         
+        post_agg_total = final_df[control_name].sum()
+        logger.info(f"Aggregation complete: {len(final_df)} {control_geography} zones, total = {post_agg_total:,.0f}")
+        logger.info(f"Total conservation: {post_agg_total/pre_agg_total:.6f}" if pre_agg_total > 0 else "Total conservation: N/A (zero input)")
+        
+        if abs(post_agg_total - pre_agg_total) > 0.01:
+            logger.warning(f"Total changed during aggregation: {pre_agg_total:,.0f} → {post_agg_total:,.0f}")
+
     else:
         # For census geographies, group by the census GEOID
+        logger.info(f"Grouping by census geography: {census_geoid_col}")
         final_df = control_table_df.groupby(census_geoid_col)[control_name].sum().reset_index()
         final_df.set_index(census_geoid_col, inplace=True)
         final_df.index.name = control_geography
+    
+    logger.info(f"GEOGRAPHIC AGGREGATION COMPLETE: {len(final_df)} output zones")
     
     print(f"[DEBUG] final_df shape: {final_df.shape}")
     print(f"[DEBUG] final_df head:\n{final_df.head()}")
     
     # Check totals
     if not scale_numerator:
-        diff = abs(final_df[control_name].sum() - variable_total)
+        final_total = final_df[control_name].sum()
+        diff = abs(final_total - variable_total)
         if diff >= 0.5:
-            logging.warning(f"Total difference of {diff} between input and output for {control_name}")
+            logger.warning(f"Total difference of {diff:,.1f} between input ({variable_total:,.0f}) and output ({final_total:,.0f}) for {control_name}")
+        else:
+            logger.info(f"Total conservation check passed: difference = {diff:.3f}")
     
     return final_df
 
@@ -596,6 +990,16 @@ def match_control_to_geography(
     maz_taz_def_df, temp_controls,
     scale_numerator=None, scale_denominator=None, subtract_table=None
 ):
+    logger = logging.getLogger()
+    logger.info(f"GEOGRAPHIC MATCHING START: {control_name}")
+    logger.info(f"Source: {census_geography} → Target: {control_geography}")
+    logger.info(f"Input: {len(control_table_df)} records")
+    
+    if scale_numerator or scale_denominator:
+        logger.info(f"Scaling parameters: {scale_numerator}/{scale_denominator}")
+    if subtract_table:
+        logger.info(f"Subtraction: -{subtract_table}")
+    
     print(f"[DEBUG] match_control_to_geography called with control_name={control_name}, control_geography={control_geography}, census_geography={census_geography}")
     print(f"[DEBUG] control_table_df columns: {list(control_table_df.columns)}")
     print(f"[DEBUG] maz_taz_def_df columns: {list(maz_taz_def_df.columns)}")
@@ -607,10 +1011,15 @@ def match_control_to_geography(
 
     # Only allow supported geographies
     if control_geography not in ["MAZ","TAZ","COUNTY","REGION"]:
+        logger.error(f"Unsupported control geography: {control_geography}")
         raise ValueError(f"match_control_to_geography passed unsupported control geography {control_geography}")
     if census_geography not in ["block","block group","tract","county subdivision","county"]:
+        logger.error(f"Unsupported census geography: {census_geography}")
         raise ValueError(f"match_control_to_geography passed unsupported census geography {census_geography}")
+        
     variable_total = control_table_df[control_name].sum()
+    logger.info(f"Input total for validation: {variable_total:,.0f}")
+    
     GEO_HIERARCHY = { 'MAZ'   :['block','MAZ','block group','tract','county subdivision','county'],
                       'TAZ'   :['block',      'TAZ',        'tract','county subdivision','county'],
                       'COUNTY':['block',      'block group','tract','county subdivision','county','COUNTY'],
@@ -620,11 +1029,27 @@ def match_control_to_geography(
         census_geo_index = GEO_HIERARCHY[control_geography].index(census_geography)
     except:
         census_geo_index = -1
+    
     # Use flexible scaling/aggregation
     if scale_numerator or scale_denominator:
-        return temp_table_scaling(control_table_df, control_name, scale_numerator, scale_denominator, temp_controls, maz_taz_def_df, geography=census_geography)
+        logger.info("Using temp table scaling approach")
+        result = temp_table_scaling(control_table_df, control_name, scale_numerator, scale_denominator, temp_controls, maz_taz_def_df, geography=census_geography)
     else:
-        return aggregate_to_control_geo(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total)
+        logger.info("Using direct aggregation approach")
+        result = aggregate_to_control_geo(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total)
+    
+    # Log final results
+    final_total = result[control_name].sum()
+    logger.info(f"GEOGRAPHIC MATCHING COMPLETE: {len(result)} {control_geography} zones, total = {final_total:,.0f}")
+    
+    if not scale_numerator:  # Only check conservation when not scaling
+        conservation_ratio = final_total / variable_total if variable_total > 0 else 1.0
+        logger.info(f"Total conservation: {conservation_ratio:.6f}")
+        if abs(conservation_ratio - 1.0) > 0.01:
+            logger.warning(f"Significant total change during geographic matching: {conservation_ratio:.6f}")
+    
+    return result
+
 def stochastic_round(my_series):
     """
     Performs stochastic rounding of a series and returns it.
@@ -702,29 +1127,7 @@ def integerize_control(out_df, crosswalk_df, control_name):
 
 
     return out_df
-
-# Helper to prepare a DataFrame for GEOID-based merge
-
-def prepare_geoid_for_merge(df, geography):
-    """
-    For census geographies, ensure the correct GEOID column exists, rename to canonical config-driven name, and cast/strip.
-    For non-census geographies or temp controls, returns df unchanged.
-    """
-    from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS
-    geo = geography.lower().replace('_', ' ')
-    supported = ["block", "block group", "tract", "county"]
-    colname = GEOGRAPHY_ID_COLUMNS.get(geo, {}).get('census', f'GEOID_{geo}')
-    
-    # For temp controls that are already aggregated to MAZ level, skip GEOID preparation
-    if df.index.name == 'MAZ' or 'MAZ' in df.columns:
-        print(f"[DEBUG] prepare_geoid_for_merge: DataFrame appears to be MAZ-level temp control, skipping GEOID preparation for '{geo}'")
-        return df
-        
-    if geo in supported:
-        df = ensure_geoid_column(df, geo)
-        if colname in df.columns:
-            df[colname] = df[colname].astype(str).str.strip()
-    return df
+# Helper to get the canonical column name for a geography
 
 def get_geography_id_col(geography, table_type='mapping'):
     """
