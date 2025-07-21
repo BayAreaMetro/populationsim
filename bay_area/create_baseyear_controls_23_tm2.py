@@ -6,6 +6,8 @@ ACS 2023 data with simplified controls to reflect current Census data availabili
 
 """
 
+import traceback
+
 
 USAGE = """
 
@@ -235,6 +237,79 @@ def check_file_accessibility_with_mode(use_local=False):
             logger.info("Try using --copy-data to copy network files to local storage, then --use-local")
         
     return all_accessible
+
+
+def show_region_targets():
+    """Display the region targets configuration as a formatted table"""
+    
+    print("="*80)
+    print("REGION TARGETS CONFIGURATION")
+    print("="*80)
+    
+    region_targets = CONTROLS[ACS_EST_YEAR]['REGION_TARGETS']
+    
+    # Create a list to store the target information
+    target_data = []
+    
+    for target_name, target_config in region_targets.items():
+        data_source, year, table, geography, variables = target_config
+        
+        # Format variables if they exist
+        var_str = ""
+        if variables:
+            var_str = ", ".join([var[0] if isinstance(var, tuple) else str(var) for var in variables])
+        else:
+            var_str = f"{table}_001E (total)"
+            
+        target_data.append({
+            'Target Name': target_name,
+            'Data Source': data_source.upper(),
+            'Year': year,
+            'Table': table,
+            'Geography': geography,
+            'Variables': var_str,
+            'Description': get_target_description(target_name, table, var_str)
+        })
+    
+    # Create DataFrame and display
+    df = pd.DataFrame(target_data)
+    
+    # Print with nice formatting
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_colwidth', 50)
+    
+    print(df.to_string(index=False))
+    print("\n")
+    
+    # Summary
+    print("SUMMARY:")
+    print(f"- Total targets: {len(target_data)}")
+    print(f"- Data sources: {', '.join(set([t['Data Source'] for t in target_data]))}")
+    print(f"- Year: {target_data[0]['Year']}")
+    print(f"- Geography level: {target_data[0]['Geography']}")
+    print("\n")
+    
+    # Show the actual configuration format
+    print("RAW CONFIGURATION:")
+    print("-" * 50)
+    for target_name, target_config in region_targets.items():
+        print(f"'{target_name}': {target_config}")
+    print("\n")
+    
+    return df
+
+def get_target_description(target_name, table, variables):
+    """Get human-readable description for each target"""
+    descriptions = {
+        'num_hh_target': 'Total occupied housing units (households)',
+        'tot_pop_target': 'Total population',
+        'pop_gq_target': 'Total group quarters population',
+        'gq_military_target': 'Military group quarters population',
+        'gq_university_target': 'University/college group quarters population'
+    }
+    
+    return descriptions.get(target_name, f'{table} - {variables}')
 
 
 def get_regional_targets(cf, logger, use_offline_fallback=True):
@@ -614,8 +689,8 @@ def process_control(
             'num_hh': 'num_hh_target',  # Add num_hh to regional scaling
             'tot_pop': 'tot_pop_target',
             'gq_pop': 'pop_gq_target',
-            'gq_military': 'pop_gq_target',
-            'gq_university': 'pop_gq_target'
+            'gq_military': 'gq_military_target',
+            'gq_university': 'gq_university_target'
         }
         
         if control_name in scaling_map and regional_targets:
@@ -731,6 +806,16 @@ def create_regional_summary(regional_targets, cf, logger):
         
         # Total households from 2020 Census PL data (block level, aggregate to region)
         h1_data = cf.get_census_data('pl', '2020', 'H1_002N', 'block')
+        logger.info(f"Census data columns: {list(h1_data.columns)}")
+        logger.info(f"Census data shape: {h1_data.shape}")
+        
+        # Check if the data has an index that includes county information
+        if hasattr(h1_data.index, 'names') and h1_data.index.names:
+            logger.info(f"Census data index names: {h1_data.index.names}")
+            # Reset index to make geographic components accessible as columns
+            h1_data = h1_data.reset_index()
+            logger.info(f"Census data columns after reset_index: {list(h1_data.columns)}")
+        
         # Filter for Bay Area counties and convert to numeric before sum
         h1_data_filtered = h1_data[h1_data['county'].isin(bay_area_counties)]
         h1_data_filtered['H1_002N'] = pd.to_numeric(h1_data_filtered['H1_002N'], errors='coerce')
@@ -759,36 +844,47 @@ def create_regional_summary(regional_targets, cf, logger):
         })
         logger.info(f"2020 Census population (blocks in Bay Area): {census_2020_population:,}")
         
-        # Total group quarters from 2020 Census DHC data (block level, aggregate to region)
-        # Use PCT20_001N which is total group quarters population from Demographic and Housing Characteristics
-        try:
-            pct20_data = cf.get_census_data('dhc', '2020', 'PCT20_001N', 'block')
-            # Filter for Bay Area counties and convert to numeric before sum  
-            pct20_data_filtered = pct20_data[pct20_data['county'].isin(bay_area_counties)]
-            pct20_data_filtered['PCT20_001N'] = pd.to_numeric(pct20_data_filtered['PCT20_001N'], errors='coerce')
-            census_2020_gq = pct20_data_filtered['PCT20_001N'].sum()
-            census_2020_data['gq_population'] = int(census_2020_gq)
-            summary_data.append({
-                'metric': 'Total Group Quarters Population',
-                'source': '2020 Census DHC PCT20_001N', 
-                'year': 2020,
-                'value': int(census_2020_gq)
-            })
-            logger.info(f"2020 Census group quarters (blocks in Bay Area): {census_2020_gq:,}")
-        except Exception as dhc_error:
-            logger.warning(f"Failed to get DHC group quarters data: {dhc_error}")
-            logger.info("Falling back to estimate: GQ = Total Population - Household Population")
-            # Calculate household population = households * average household size (estimate ~2.5)
-            estimated_household_pop = census_2020_households * 2.5
-            estimated_gq_pop = max(0, census_2020_population - estimated_household_pop)
-            census_2020_data['gq_population'] = int(estimated_gq_pop)
-            summary_data.append({
-                'metric': 'Total Group Quarters Population',
-                'source': '2020 Census Estimated (Pop - HH*2.5)', 
-                'year': 2020,
-                'value': int(estimated_gq_pop)
-            })
-            logger.info(f"2020 Census group quarters (estimated): {estimated_gq_pop:,}")
+        # Total group quarters from 2020 Census PL data (P5_001N)
+        p5_data = cf.get_census_data('pl', '2020', 'P5_001N', 'block')
+        p5_data_filtered = p5_data[p5_data['county'].isin(bay_area_counties)]
+        p5_data_filtered['P5_001N'] = pd.to_numeric(p5_data_filtered['P5_001N'], errors='coerce')
+        census_2020_gq = p5_data_filtered['P5_001N'].sum()
+        census_2020_data['gq_population'] = int(census_2020_gq)
+        summary_data.append({
+            'metric': 'Total Group Quarters Population',
+            'source': '2020 Census PL P5_001N', 
+            'year': 2020,
+            'value': int(census_2020_gq)
+        })
+        logger.info(f"2020 Census group quarters (blocks in Bay Area): {census_2020_gq:,}")
+        
+        # Military group quarters from 2020 Census PL data (P5_009N)
+        p5_mil_data = cf.get_census_data('pl', '2020', 'P5_009N', 'block')
+        p5_mil_filtered = p5_mil_data[p5_mil_data['county'].isin(bay_area_counties)]
+        p5_mil_filtered['P5_009N'] = pd.to_numeric(p5_mil_filtered['P5_009N'], errors='coerce')
+        census_2020_gq_military = p5_mil_filtered['P5_009N'].sum()
+        census_2020_data['gq_military'] = int(census_2020_gq_military)
+        summary_data.append({
+            'metric': 'Military Group Quarters Population',
+            'source': '2020 Census PL P5_009N', 
+            'year': 2020,
+            'value': int(census_2020_gq_military)
+        })
+        logger.info(f"2020 Census military group quarters (blocks in Bay Area): {census_2020_gq_military:,}")
+        
+        # University group quarters from 2020 Census PL data (P5_008N)
+        p5_univ_data = cf.get_census_data('pl', '2020', 'P5_008N', 'block')
+        p5_univ_filtered = p5_univ_data[p5_univ_data['county'].isin(bay_area_counties)]
+        p5_univ_filtered['P5_008N'] = pd.to_numeric(p5_univ_filtered['P5_008N'], errors='coerce')
+        census_2020_gq_university = p5_univ_filtered['P5_008N'].sum()
+        census_2020_data['gq_university'] = int(census_2020_gq_university)
+        summary_data.append({
+            'metric': 'University Group Quarters Population',
+            'source': '2020 Census PL P5_008N', 
+            'year': 2020,
+            'value': int(census_2020_gq_university)
+        })
+        logger.info(f"2020 Census university group quarters (blocks in Bay Area): {census_2020_gq_university:,}")
         
     except Exception as e:
         logger.warning(f"Failed to get 2020 Census regional totals: {e}")
@@ -802,7 +898,7 @@ def create_regional_summary(regional_targets, cf, logger):
             acs_2023_data['households'] = regional_targets['num_hh_target']
             summary_data.append({
                 'metric': 'Total Households',
-                'source': '2023 ACS B25001',
+                'source': '2023 ACS1 B25001',
                 'year': 2023,
                 'value': int(regional_targets['num_hh_target'])
             })
@@ -811,7 +907,7 @@ def create_regional_summary(regional_targets, cf, logger):
             acs_2023_data['population'] = regional_targets['tot_pop_target']
             summary_data.append({
                 'metric': 'Total Population',
-                'source': '2023 ACS B01003',
+                'source': '2023 ACS1 B01003',
                 'year': 2023,
                 'value': int(regional_targets['tot_pop_target'])
             })
@@ -820,14 +916,32 @@ def create_regional_summary(regional_targets, cf, logger):
             acs_2023_data['gq_population'] = regional_targets['pop_gq_target']
             summary_data.append({
                 'metric': 'Total Group Quarters Population',
-                'source': '2023 ACS B26001',
+                'source': '2023 ACS1 B26001',
                 'year': 2023,
                 'value': int(regional_targets['pop_gq_target'])
+            })
+            
+        if 'gq_military_target' in regional_targets:
+            acs_2023_data['gq_military'] = regional_targets['gq_military_target']
+            summary_data.append({
+                'metric': 'Military Group Quarters Population',
+                'source': '2023 ACS1 B26001_007E',
+                'year': 2023,
+                'value': int(regional_targets['gq_military_target'])
+            })
+            
+        if 'gq_university_target' in regional_targets:
+            acs_2023_data['gq_university'] = regional_targets['gq_university_target']
+            summary_data.append({
+                'metric': 'University Group Quarters Population',
+                'source': '2023 ACS1 B26001_006E',
+                'year': 2023,
+                'value': int(regional_targets['gq_university_target'])
             })
     
     # Calculate 2023/2020 ratios
     if census_2020_data and acs_2023_data:
-        for metric_key in ['households', 'population', 'gq_population']:
+        for metric_key in ['households', 'population', 'gq_population', 'gq_military', 'gq_university']:
             if metric_key in census_2020_data and metric_key in acs_2023_data:
                 census_2020_val = census_2020_data[metric_key]
                 acs_2023_val = acs_2023_data[metric_key]
@@ -838,7 +952,9 @@ def create_regional_summary(regional_targets, cf, logger):
                     metric_name_map = {
                         'households': 'Total Households',
                         'population': 'Total Population', 
-                        'gq_population': 'Total Group Quarters Population'
+                        'gq_population': 'Total Group Quarters Population',
+                        'gq_military': 'Military Group Quarters Population',
+                        'gq_university': 'University Group Quarters Population'
                     }
                     
                     summary_data.append({
@@ -848,8 +964,39 @@ def create_regional_summary(regional_targets, cf, logger):
                         'value': round(ratio, 4)
                     })
     
-    # Create summary DataFrame
+    # Create summary DataFrame with better column order
     summary_df = pd.DataFrame(summary_data)
+    
+    # Reorder for better readability: 2020 values, then 2023 values, then ratios
+    ordered_data = []
+    
+    # Group data by metric for better presentation
+    metrics_order = [
+        'Total Households',
+        'Total Population', 
+        'Total Group Quarters Population',
+        'Military Group Quarters Population',
+        'University Group Quarters Population'
+    ]
+    
+    for metric in metrics_order:
+        # Add 2020 data
+        df_2020 = summary_df[(summary_df['metric'] == metric) & (summary_df['year'] == 2020)]
+        if not df_2020.empty:
+            ordered_data.extend(df_2020.to_dict('records'))
+        
+        # Add 2023 data  
+        df_2023 = summary_df[(summary_df['metric'] == metric) & (summary_df['year'] == 2023)]
+        if not df_2023.empty:
+            ordered_data.extend(df_2023.to_dict('records'))
+            
+        # Add ratio data
+        df_ratio = summary_df[(summary_df['metric'] == metric) & (summary_df['year'] == 'Ratio')]
+        if not df_ratio.empty:
+            ordered_data.extend(df_ratio.to_dict('records'))
+    
+    # Create final ordered DataFrame
+    summary_df = pd.DataFrame(ordered_data)
     
     # Write summary file
     summary_file = os.path.join("output_2023", "regional_summary_2020_2023.csv")
@@ -863,10 +1010,6 @@ def create_regional_summary(regional_targets, cf, logger):
             logger.info(f"  {row['metric']} 2023/2020 Ratio: {row['value']}")
         else:
             logger.info(f"  {row['year']} {row['metric']}: {row['value']:,}")
-    
-    return summary_df
-    for _, row in summary_df.iterrows():
-        logger.info(f"  {row['year']} {row['metric']}: {row['value']:,}")
     
     return summary_df
 
@@ -1305,6 +1448,10 @@ def main():
     else:
         logger.info("Running in ONLINE mode - will fetch from Census API and update caches")
 
+    # Display region targets configuration (commented out to avoid automatic display)
+    # logger.info("Displaying current region targets configuration:")
+    # show_region_targets()
+
     logger.info("Preparing geography lookups")
     
     # Verify all input files are accessible
@@ -1335,6 +1482,9 @@ def main():
             logger.info(f"Skipping {control_geo} - no controls defined or already processed")
             continue
         
+        # Debug: Log what controls are found for each geography
+        logger.info(f">>> FOUND GEOGRAPHY: {control_geo} with {len(control_dict)} controls: {list(control_dict.keys())}")
+        
         # Process MAZ and TAZ controls (household size moved from MAZ to TAZ)
         if control_geo not in ['MAZ', 'MAZ_SCALED', 'TAZ']:
             logger.info(f"TEMPORARILY SKIPPING {control_geo} - focusing on MAZ and TAZ controls only")
@@ -1342,17 +1492,24 @@ def main():
             
         temp_controls = collections.OrderedDict()
         for control_name, control_def in control_dict.items():
-            # Handle MAZ_SCALED controls with special processing
-            if control_geo == 'MAZ_SCALED':
-                process_maz_scaled_control(
-                    control_name, control_def, cf, maz_taz_def_df, crosswalk_df, 
-                    temp_controls, final_control_dfs, regional_targets, logger
-                )
-            else:
-                process_control(
-                    control_geo, control_name, control_def,
-                    cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs, regional_targets
-                )
+            logger.info(f">>> PROCESSING CONTROL: {control_geo}.{control_name}")
+            try:
+                # Handle MAZ_SCALED controls with special processing
+                if control_geo == 'MAZ_SCALED':
+                    process_maz_scaled_control(
+                        control_name, control_def, cf, maz_taz_def_df, crosswalk_df, 
+                        temp_controls, final_control_dfs, regional_targets, logger
+                    )
+                else:
+                    process_control(
+                        control_geo, control_name, control_def,
+                        cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs, regional_targets
+                    )
+                logger.info(f">>> COMPLETED CONTROL: {control_geo}.{control_name}")
+            except Exception as e:
+                logger.error(f">>> FAILED CONTROL: {control_geo}.{control_name} - Error: {e}")
+                logger.error(f">>> Error traceback: {traceback.format_exc()}")
+                continue  # Continue with next control instead of stopping
 
         # Log summary of temp controls created for this geography
         logger.info(f"\nSUMMARY OF TEMP CONTROLS FOR {control_geo}:")

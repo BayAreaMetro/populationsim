@@ -1,10 +1,4 @@
 metric,source,year,value
-Total Households,2020 Census PL H1_002N,2020,2793526.0
-Total Population,2020 Census PL P1_001N,2020,7765629.0
-Total Group Quarters Population,2020 Census Estimated (Pop - HH*2.5),2020,781814.0
-Total Households,2023 ACS B25001,2023,2985855.0
-Total Population,2023 ACS B01003,2023,7629426.0
-Total Group Quarters Population,2023 ACS B26001,2023,155065.0
-Total Households,2023/2020 Ratio,Ratio,1.0688
-Total Population,2023/2020 Ratio,Ratio,0.9825
-Total Group Quarters Population,2023/2020 Ratio,Ratio,0.1983
+Total Households,2020 Census PL H1_002N,2020,0
+Total Households,2023 ACS1 B25001,2023,3031788
+Total Population,2023 ACS1 B01003,2023,7508799

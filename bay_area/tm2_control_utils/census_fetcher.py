@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import logging
 import requests
+import time
 from census import Census
 from tm2_control_utils.config import (
     CENSUS_API_KEY_FILE,
@@ -13,11 +14,134 @@ from tm2_control_utils.config import (
 import traceback
 
 
+class CensusApiException(Exception):
+    """Exception raised when Census API calls fail."""
+    pass
+
+
+class PLVariableProcessor:
+    """Handles PL 94-171 Redistricting dataset variables for group quarters."""
+    
+    @staticmethod
+    def get_bay_area_pl_data(variables: list, geo_dict: dict, year: str, api_key: str) -> pd.DataFrame:
+        """
+        Fetch Bay Area block-level data from PL 94-171 dataset.
+        
+        Args:
+            variables: List of PL variables (e.g., ['P5_001N', 'P5_008N', 'P5_009N'])
+            geo_dict: Geography specification (should be block level)
+            year: Census year (e.g., '2020')
+            api_key: Census API key
+        
+        Returns:
+            pd.DataFrame: Combined block-level data for all Bay Area counties
+        """
+        logging.info(f"Fetching PL data for variables: {variables}")
+        
+        # PL dataset endpoint
+        base_url = f"https://api.census.gov/data/{year}/dec/pl"
+        
+        all_blocks_data = []
+        
+        for county_name, county_fips in BAY_AREA_COUNTY_FIPS.items():
+            logging.info(f"Fetching PL blocks for {county_name} County ({county_fips})...")
+            
+            try:
+                # Build API URL
+                var_list = ",".join(variables)
+                api_url = f"{base_url}?get=NAME,{var_list}&for=block:*&in=state:{CA_STATE_FIPS}&in=county:{county_fips}&key={api_key}"
+                
+                response = requests.get(api_url, timeout=120)
+                
+                if response.status_code == 200:
+                    json_data = response.json()
+                    
+                    if json_data and len(json_data) > 1:
+                        # Convert to DataFrame
+                        county_df = pd.DataFrame(json_data[1:], columns=json_data[0])
+                        
+                        # Add county name for easier identification
+                        county_df['county_name'] = county_name
+                        
+                        # Convert numeric columns
+                        for var in variables:
+                            county_df[var] = pd.to_numeric(county_df[var], errors='coerce')
+                        
+                        logging.info(f"  {county_name}: {len(county_df):,} blocks retrieved")
+                        all_blocks_data.append(county_df)
+                
+                else:
+                    logging.error(f"  {county_name}: PL API request failed with status {response.status_code}")
+                    
+            except Exception as e:
+                logging.error(f"  {county_name}: Error fetching PL data - {e}")
+            
+            # Small delay to be respectful to Census API
+            time.sleep(0.2)
+        
+        if not all_blocks_data:
+            logging.error("No PL block data retrieved for any county!")
+            return pd.DataFrame()
+        
+        # Combine all county data
+        combined_df = pd.concat(all_blocks_data, ignore_index=True)
+        
+        total_blocks = len(combined_df)
+        logging.info(f"Combined PL data: {total_blocks:,} blocks from {len(all_blocks_data)} counties")
+        
+        return combined_df
+
+
+class DHCVariableProcessor:
+    """Handles DHC computed variables that require aggregation of multiple variables."""
+    
+    @staticmethod
+    def get_military_total(census_data: pd.DataFrame) -> pd.Series:
+        """Calculate MILITARY_TOTAL from DHC P18 variables."""
+        # Military GQ: P18_011N (male) + P18_062N (female)
+        military_cols = ['P18_011N', 'P18_062N']
+        available_cols = [col for col in military_cols if col in census_data.columns]
+        
+        if not available_cols:
+            logging.warning("No military GQ variables found in DHC data")
+            return pd.Series(0, index=census_data.index)
+        
+        # Convert to numeric and fill NaN with 0
+        military_total = pd.Series(0, index=census_data.index)
+        for col in available_cols:
+            col_data = pd.to_numeric(census_data[col], errors='coerce').fillna(0)
+            military_total += col_data
+            
+        logging.info(f"Calculated MILITARY_TOTAL from {len(available_cols)} variables: {military_total.sum():,.0f}")
+        return military_total
+    
+    @staticmethod
+    def get_university_total(census_data: pd.DataFrame) -> pd.Series:
+        """Calculate UNIVERSITY_TOTAL from DHC P18 variables."""
+        # University GQ: P18_010N (male) + P18_061N (female)  
+        university_cols = ['P18_010N', 'P18_061N']
+        available_cols = [col for col in university_cols if col in census_data.columns]
+        
+        if not available_cols:
+            logging.warning("No university GQ variables found in DHC data")
+            return pd.Series(0, index=census_data.index)
+        
+        # Convert to numeric and fill NaN with 0
+        university_total = pd.Series(0, index=census_data.index)
+        for col in available_cols:
+            col_data = pd.to_numeric(census_data[col], errors='coerce').fillna(0)
+            university_total += col_data
+            
+        logging.info(f"Calculated UNIVERSITY_TOTAL from {len(available_cols)} variables: {university_total.sum():,.0f}")
+        return university_total
+
+
 class CensusFetcher:
     """
     Class to fetch the census data needed for these controls and cache them.
 
     Uses the census python package (https://pypi.org/project/census/)
+    Enhanced with improved DHC support and error handling.
     """
 
     def __init__(self):
@@ -27,22 +151,173 @@ class CensusFetcher:
         with open(CENSUS_API_KEY_FILE) as f:
             self.CENSUS_API_KEY = f.read().strip()
         self.census = Census(self.CENSUS_API_KEY)
-        logging.debug("census object instantiated")
+        self.dhc_processor = DHCVariableProcessor()
+        self.pl_processor = PLVariableProcessor()
+        
+        # Rate limiting
+        self.last_request_time = 0
+        self.min_request_interval = 0.1  # 100ms between requests
+        
+        logging.debug("census object instantiated with DHC and PL support")
+
+    def _rate_limit(self):
+        """Enforce rate limiting between requests."""
+        elapsed = time.time() - self.last_request_time
+        if elapsed < self.min_request_interval:
+            time.sleep(self.min_request_interval - elapsed)
+        self.last_request_time = time.time()
+
+    def _make_robust_dhc_request(self, url: str, params: dict) -> pd.DataFrame:
+        """Make a robust DHC request with better error handling."""
+        self._rate_limit()
+        
+        logging.debug(f"Making DHC API request: {url}")
+        logging.debug(f"Parameters: {params}")
+        
+        try:
+            response = requests.get(url, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                try:
+                    json_data = response.json()
+                    return self._parse_census_json(json_data)
+                except requests.exceptions.JSONDecodeError as e:
+                    if "You included a key with this request, however, it is not valid." in response.text:
+                        raise CensusApiException(f"Census API key is invalid") from e
+                    else:
+                        raise CensusApiException(f"Unable to parse Census API response as JSON: {response.text}") from e
+            else:
+                error_msg = f"DHC API request failed with status {response.status_code}: {response.text}"
+                logging.error(error_msg)
+                raise CensusApiException(error_msg)
+                
+        except requests.RequestException as e:
+            error_msg = f"Network error during DHC API request: {e}"
+            logging.error(error_msg)
+            raise CensusApiException(error_msg) from e
+
+    def _parse_census_json(self, json_data) -> pd.DataFrame:
+        """Parse Census API JSON response into DataFrame with better error handling."""
+        if not isinstance(json_data, list) or len(json_data) < 1:
+            raise CensusApiException(f"Expected JSON data to be a list with at least one row, got {type(json_data)}")
+        
+        if not isinstance(json_data[0], list):
+            raise CensusApiException(f"Expected first row to be a list of column names")
+        
+        # Extract headers and data
+        headers = json_data[0]
+        data_rows = json_data[1:]
+        
+        if not data_rows:
+            logging.warning("Census API returned headers but no data rows")
+            return pd.DataFrame(columns=headers)
+        
+        df = pd.DataFrame(data_rows, columns=headers)
+        
+        # Convert numeric columns (avoid geography columns)
+        for col in df.columns:
+            if col not in ['state', 'county', 'tract', 'block', 'block group']:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        logging.info(f"Parsed DHC data: {len(df)} rows, {len(df.columns)} columns")
+        return df
+
+    def get_dhc_data_with_computed_variables(self, variables: list, geo_dict: dict, year: str) -> pd.DataFrame:
+        """
+        Fetch DHC data and compute derived variables like MILITARY_TOTAL and UNIVERSITY_TOTAL.
+        
+        Args:
+            variables: List of variables including computed ones
+            geo_dict: Geography specification
+            year: Census year (e.g., '2020')
+        """
+        logging.info(f"Fetching DHC data with computed variables: {variables}")
+        
+        # Separate base variables from computed variables
+        base_variables = []
+        computed_variables = []
+        
+        for var in variables:
+            if var in ['MILITARY_TOTAL', 'UNIVERSITY_TOTAL']:
+                computed_variables.append(var)
+                # Add the component variables we need
+                if var == 'MILITARY_TOTAL':
+                    base_variables.extend(['P18_011N', 'P18_062N'])  # Military GQ male + female
+                elif var == 'UNIVERSITY_TOTAL':
+                    base_variables.extend(['P18_010N', 'P18_061N'])  # University GQ male + female
+            else:
+                base_variables.append(var)
+        
+        # Remove duplicates while preserving order
+        base_variables = list(dict.fromkeys(base_variables))
+        
+        # Construct the DHC API URL with correct endpoint format
+        base_url = f"https://api.census.gov/data/{year}/dec/dhc"
+        
+        # Build geography string
+        geo_parts = []
+        for key, value in geo_dict.items():
+            if key == 'for':
+                geo_parts.append(f"for={value}")
+            elif key == 'in':
+                geo_parts.append(f"in={value}")
+        
+        params = {
+            'get': ','.join(base_variables),
+            'key': self.CENSUS_API_KEY
+        }
+        
+        # Add geography parameters
+        for key, value in geo_dict.items():
+            if key not in ['get', 'key']:
+                params[key] = value
+        
+        # Fetch base data
+        df = self._make_robust_dhc_request(base_url, params)
+        
+        if df.empty:
+            logging.warning("No DHC data returned from Census API")
+            return df
+        
+        # Add computed variables
+        for computed_var in computed_variables:
+            if computed_var == 'MILITARY_TOTAL':
+                df[computed_var] = self.dhc_processor.get_military_total(df)
+            elif computed_var == 'UNIVERSITY_TOTAL':
+                df[computed_var] = self.dhc_processor.get_university_total(df)
+            else:
+                logging.warning(f"Unknown computed variable: {computed_var}")
+                df[computed_var] = 0
+        
+        return df
 
     def fetch_dhc_data(self, variables, geo_dict, year):
         """
-        Custom DHC data fetcher using direct HTTP requests since the census library doesn't support DHC.
+        Enhanced DHC data fetcher with support for computed variables.
         Includes caching to M: drive location for reuse.
         """
         logging.info(f"fetch_dhc_data called with variables={variables}, geo_dict={geo_dict}, year={year}")
         
         # Handle different variable formats
-        if isinstance(variables, list) and len(variables) == 1:
-            variable_name = variables[0]
+        if isinstance(variables, list):
+            variable_list = variables
         else:
-            variable_name = variables
+            variable_list = [variables]
             
-        # Check if this is a computed variable
+        # Check if any variables are computed variables that need special handling
+        needs_computed_handling = any(var in ['MILITARY_TOTAL', 'UNIVERSITY_TOTAL'] for var in variable_list)
+        
+        if needs_computed_handling:
+            logging.info("Using enhanced computed variable handling for DHC data")
+            return self.get_dhc_data_with_computed_variables(variable_list, geo_dict, year)
+        
+        # Original logic for regular DHC variables
+        if len(variable_list) == 1:
+            variable_name = variable_list[0]
+        else:
+            variable_name = variable_list[0]  # Take first for naming
+            
+        # Check if this is a computed variable in the old format
         if variable_name in CENSUS_DEFINITIONS:
             table_def = CENSUS_DEFINITIONS[variable_name]
             if len(table_def) > 1 and len(table_def[1]) > 1:
@@ -57,7 +332,10 @@ class CensusFetcher:
                 is_computed = False
         else:
             # Direct variable name
-            variables_str = variable_name
+            if len(variable_list) == 1:
+                variables_str = variable_name
+            else:
+                variables_str = ','.join(variable_list)
             is_computed = False
 
         # Create cache file name based on the request - use same pattern as regular census files
@@ -183,6 +461,97 @@ class CensusFetcher:
             f"{dataset}_{year}_{table}_{geo}.csv"
         )
         logging.info(f"Checking for table cache at {table_cache_file}")
+
+        # Special handling for PL variables 
+        if dataset == 'pl':
+            logging.info(f"Processing PL variable: {table}")
+            
+            # Check for cached PL data first
+            if os.path.exists(table_cache_file):
+                logging.info(f"Reading PL data from cache: {table_cache_file}")
+                try:
+                    cached_df = pd.read_csv(table_cache_file)
+                    # Set proper index
+                    cached_df = cached_df.set_index(geo_index)
+                    logging.info(f"Loaded PL cached data: {len(cached_df)} rows")
+                    print(f"[DEBUG] EXIT get_census_data (PL cached): df.columns: {list(cached_df.columns)}")
+                    return cached_df
+                except Exception as e:
+                    logging.warning(f"Failed to read PL cache file {table_cache_file}: {e}")
+            
+            # Fetch fresh PL data
+            pl_variables = [table]  # PL variables are direct (e.g., P5_001N)
+            
+            # Build geo_dict for PL API call (block level only for group quarters)
+            geo_dict = {}
+            if geo == 'block':
+                geo_dict['for'] = 'block:*'
+                geo_dict['in'] = f'state:{CA_STATE_FIPS} county:*'
+            else:
+                raise ValueError(f"PL group quarters data only available at block level, not {geo}")
+            
+            # Use PL processor to get Bay Area data
+            result_df = self.pl_processor.get_bay_area_pl_data(pl_variables, geo_dict, year, self.CENSUS_API_KEY)
+            
+            if not result_df.empty:
+                # Keep only the requested variable and geography columns
+                keep_cols = geo_index + [table]
+                available_cols = [col for col in keep_cols if col in result_df.columns]
+                result_df = result_df[available_cols]
+                
+                # Set proper index
+                result_df = result_df.set_index(geo_index)
+                
+                # Cache the results
+                try:
+                    os.makedirs(os.path.dirname(table_cache_file), exist_ok=True)
+                    # Reset index for saving to CSV 
+                    save_df = result_df.reset_index()
+                    save_df.to_csv(table_cache_file, index=False)
+                    logging.info(f"Wrote PL data to cache: {table_cache_file}")
+                except Exception as e:
+                    logging.warning(f"Failed to write PL cache file {table_cache_file}: {e}")
+                
+                logging.info(f"Successfully fetched PL {table}: {len(result_df)} rows, total value: {result_df[table].sum():,.0f}")
+                print(f"[DEBUG] EXIT get_census_data (PL): df.columns: {list(result_df.columns)}")
+                return result_df
+            else:
+                logging.warning(f"No PL data returned for variable {table}")
+                return pd.DataFrame(index=pd.MultiIndex.from_tuples([], names=geo_index))
+
+        # Special handling for DHC computed variables
+        if dataset == 'dhc' and table in ['MILITARY_TOTAL', 'UNIVERSITY_TOTAL']:
+            logging.info(f"Processing DHC computed variable: {table}")
+            
+            # Build geo_dict for DHC API call
+            geo_dict = {}
+            if geo == 'block':
+                geo_dict['for'] = 'block:*'
+                geo_dict['in'] = f'state:{CA_STATE_FIPS} county:*'
+            elif geo == 'tract':
+                geo_dict['for'] = 'tract:*'
+                geo_dict['in'] = f'state:{CA_STATE_FIPS} county:*'
+            elif geo == 'county':
+                geo_dict['for'] = 'county:*'
+                geo_dict['in'] = f'state:{CA_STATE_FIPS}'
+            else:
+                raise ValueError(f"Unsupported geography for DHC computed variables: {geo}")
+            
+            # Use the enhanced DHC fetcher for computed variables
+            result_df = self.get_dhc_data_with_computed_variables([table], geo_dict, year)
+            
+            if not result_df.empty:
+                # Set proper index
+                result_df = result_df.set_index(geo_index)
+                # Create MultiIndex columns if needed
+                if table in result_df.columns:
+                    result_df = result_df[[table]]  # Keep only the computed variable column
+                logging.info(f"Successfully computed {table}: {len(result_df)} rows, total value: {result_df[table].sum():,.0f}")
+                print(f"[DEBUG] EXIT get_census_data (computed): df.columns: {list(result_df.columns)}")
+                return result_df
+            else:
+                logging.warning(f"No data returned for computed variable {table}")
+                return pd.DataFrame(index=pd.MultiIndex.from_tuples([], names=geo_index))
 
         table_def = CENSUS_DEFINITIONS[table]
         table_cols = table_def[0]  # e.g. ['variable','pers_min','pers_max']
@@ -392,14 +761,19 @@ class CensusFetcher:
                 elif dataset == "acs5":
                     api = self.census.acs5
                     records = api.get([census_col[0]], geo_dict, year=year)
+                elif dataset == "acs1":
+                    api = self.census.acs1
+                    records = api.get([census_col[0]], geo_dict, year=year)
                 else:
                     raise ValueError(f"Unsupported dataset: {dataset}")
 
-                county_df = (
-                    pd.DataFrame.from_records(records)
-                    .set_index(geo_index)
-                    .astype(float)
-                )
+                # For non-DHC datasets, use the standard DataFrame creation
+                if dataset != "dhc":
+                    county_df = (
+                        pd.DataFrame.from_records(records)
+                        .set_index(geo_index)
+                        .astype(float)
+                    )
                 df_list.append(county_df)
 
             df = pd.concat(df_list, axis=0)
@@ -417,10 +791,28 @@ class CensusFetcher:
             ]
             full_df = full_df.loc[county_tuples]
 
-        full_df.columns = pd.MultiIndex.from_tuples(
-            multi_col_def,
-            names=table_cols
-        )
+        # Create MultiIndex columns - handle computed variables differently
+        if dataset == "dhc" and table in CENSUS_DEFINITIONS:
+            table_def = CENSUS_DEFINITIONS[table]
+            if len(table_def) > 1 and len(table_def[1]) > 1:
+                # This is a computed variable - use simpler column naming
+                # The computed variable should already have the correct column name
+                # No need for MultiIndex in this case
+                logging.info(f"DHC computed variable {table} - keeping simple column structure")
+                pass  # Keep existing column structure
+            else:
+                # Single DHC variable - use MultiIndex 
+                full_df.columns = pd.MultiIndex.from_tuples(
+                    multi_col_def,
+                    names=table_cols
+                )
+        else:
+            # Regular MultiIndex for non-DHC or non-computed variables
+            full_df.columns = pd.MultiIndex.from_tuples(
+                multi_col_def,
+                names=table_cols
+            )
+            
         os.makedirs(os.path.dirname(table_cache_file), exist_ok=True)
         full_df.to_csv(table_cache_file, header=True, index=True)
         logging.info(f"Wrote {table_cache_file}")

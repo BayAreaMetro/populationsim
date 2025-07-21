@@ -80,7 +80,8 @@ CONTROLS = {
 }
 
 # ----------------------------------------
-# MAZ controls for Census estimate year
+# MAZ controls - Combined for all years (2020 Census baseline + 2023 ACS targets)
+# For 2020 Census year: direct Census/PL data at block level
 CONTROLS[CENSUS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     ('tot_pop',        ('dec', CENSUS_EST_YEAR, 'P1_001N', 'block', [])),
     ('pop_hh',         ('dec', CENSUS_EST_YEAR, 'P1_002N', 'block', [])),
@@ -90,20 +91,19 @@ CONTROLS[CENSUS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     ('vac_hu',         ('dec', CENSUS_EST_YEAR, 'H1_003N', 'block', [])),
 ])
 
-# ----------------------------------------
-# MAZ controls for ACS estimate year - PopulationSim expects: num_hh, group quarters
+# For 2023 ACS year: PopulationSim expects num_hh + group quarters with regional scaling
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    # Number of households (PopulationSim: num_hh) - Regional scaling applied
+    # Number of households (PopulationSim: num_hh) - Regional scaling to ACS1 2023 targets
     ('num_hh',                ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])],
                                'regional_scale')),
-    # Total group quarters population from 2020 Census DHC - scaled to 2023 ACS estimates  
-    ('gq_pop',                ('dhc',  CENSUS_EST_YEAR, 'PCT9_014N',    'block',
+    # Total group quarters population from 2020 Census PL 94-171 - scaled to 2023 ACS estimates  
+    ('gq_pop',                ('pl',   CENSUS_EST_YEAR, 'P5_001N',      'block',
                                [], 'regional_scale')),
-    # Detailed group quarters by type from 2020 Census DHC - scaled to 2023 ACS estimates
-    ('gq_military',           ('dhc',  CENSUS_EST_YEAR, 'MILITARY_TOTAL', 'block',
+    # Detailed group quarters by type from 2020 Census PL 94-171 - scaled to 2023 ACS estimates
+    ('gq_military',           ('pl',   CENSUS_EST_YEAR, 'P5_009N',      'block',
                                [], 'regional_scale')),
-    ('gq_university',         ('dhc',  CENSUS_EST_YEAR, 'UNIVERSITY_TOTAL', 'block',
+    ('gq_university',         ('pl',   CENSUS_EST_YEAR, 'P5_008N',      'block',
                                [], 'regional_scale')),
 ])
 
@@ -267,23 +267,24 @@ for name, tpl in CONTROLS[CENSUS_EST_YEAR]['COUNTY'].items():
     CONTROLS[ACS_EST_YEAR]['COUNTY'][name] = tuple(lst)
 
 # ----------------------------------------
-# REGION controls
+# REGION controls and targets - Combined for regional scaling operations
 CONTROLS[CENSUS_EST_YEAR]['REGION'] = collections.OrderedDict([
     ('gq_num_hh_region', 'special')
 ])
+
 CONTROLS[ACS_EST_YEAR]['REGION'] = collections.OrderedDict([
     ('gq_num_hh_region', 'special')
 ])
 
-# ----------------------------------------
-# REGION TARGETS for scaling MAZ controls to 2023 ACS estimates
+# Regional scaling targets from ACS 2023 1-year estimates (using acs1)
 CONTROLS[ACS_EST_YEAR]['REGION_TARGETS'] = collections.OrderedDict([
-    # Total households from ACS 2023 county estimates (B25001)
-    ('num_hh_target',     ('acs5', ACS_EST_YEAR, 'B25001', 'county', [])),
-    # Total population from ACS 2023 county estimates (B01003) 
-    ('tot_pop_target',    ('acs5', ACS_EST_YEAR, 'B01003', 'county', [])),
-    # Group quarters population from ACS 2023 county estimates (B26001)
-    ('pop_gq_target',     ('acs5', ACS_EST_YEAR, 'B26001', 'county', [])),
+    # Household and population targets from ACS 2023 1-year county estimates
+    ('num_hh_target',      ('acs1', ACS_EST_YEAR, 'B25001', 'county', [])),        # Total households
+    ('tot_pop_target',     ('acs1', ACS_EST_YEAR, 'B01003', 'county', [])),        # Total population
+    ('pop_gq_target',      ('acs1', ACS_EST_YEAR, 'B26001', 'county', [])),        # Total group quarters
+    # Group quarters subcategory targets from ACS 2023 1-year B26001 table
+    ('gq_military_target', ('acs1', ACS_EST_YEAR, 'B26001', 'county', [('B26001_007E',)])),  # Military quarters
+    ('gq_university_target', ('acs1', ACS_EST_YEAR, 'B26001', 'county', [('B26001_006E',)])), # University housing
 ])
 
 
@@ -360,7 +361,13 @@ CENSUS_DEFINITIONS = {
     ],
     "B26001": [  # ACS5-2023: Group quarters population
         ["variable"],
-        ["B26001_001E"]
+        ["B26001_001E", "B26001_006E", "B26001_007E"]
+    ],
+    "B26010": [  # ACS5-2023: Group quarters population by type
+        ["variable", "gq_type"],
+        ["B26010_001E", "All"],
+        ["B26010_008E", "Military"],
+        ["B26010_005E", "University"]
     ],
     "B11002": [  # ACS5-2023: Household type (including living alone)
         ["variable"],
@@ -518,18 +525,27 @@ CENSUS_DEFINITIONS = {
         ["C24010_072E","Female","Production, transportation, and material moving","Transportation","All"],
         ["C24010_073E","Female","Production, transportation, and material moving","Material moving","All"]
     ],
-    # 2020 DHC (Demographic and Housing Characteristics) tables for group quarters
-    "PCT9_014N": [  # Total group quarters population
+    # 2020 PL 94-171 Redistricting tables for group quarters (replaces DHC)
+    "P5_001N": [  # Total group quarters population
         ["variable"],
-        ["PCT9_014N"]
+        ["P5_001N"]
     ],
-    "UNIVERSITY_TOTAL": [  # University group quarters population (sum of all age/sex)
+    "P5_008N": [  # Group quarters university/college student housing 
         ["variable"],
-        ["P18_010N", "P18_020N", "P18_030N", "P18_041N", "P18_051N", "P18_061N"]
+        ["P5_008N"]
     ],
-    "MILITARY_TOTAL": [  # Military group quarters population (sum of all age/sex)
+    "P5_009N": [  # Group quarters military quarters
         ["variable"],
-        ["P18_011N", "P18_021N", "P18_031N", "P18_042N", "P18_052N", "P18_062N"]
+        ["P5_009N"]
+    ],
+    # ACS1-2023: Regional scaling targets (1-year estimates)
+    "B25001": [  # Total housing units (households)
+        ["variable"],
+        ["B25001_001E"]
+    ],
+    "B01003": [  # Total population
+        ["variable"],
+        ["B01003_001E"]
     ]
 }
 
