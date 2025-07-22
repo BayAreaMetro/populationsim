@@ -612,14 +612,15 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
                 # - merged[scale_col] = num_hh values
                 #
                 # We need to calculate: sum_all_raw_hh_sizes for each MAZ
-                # This requires summing all household size categories: hh_size_1 + hh_size_2 + hh_size_3 + hh_size_4_plus
+                # This requires summing all household size categories (dynamically determined)
                 
-                # Get all household size controls from temp_controls
-                hh_size_controls = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus']
+                # Get all household size controls from config
+                from tm2_control_utils.config import get_controls_in_category
+                hh_size_controls = get_controls_in_category('TAZ', 'household_size')
                 available_hh_size_controls = [ctrl for ctrl in hh_size_controls if ctrl in temp_controls]
                 
-                if len(available_hh_size_controls) < 4:
-                    print(f"[DEBUG] Not all household size controls available yet, using temp_fraction scaling")
+                if len(available_hh_size_controls) < len(hh_size_controls):
+                    print(f"[DEBUG] Not all household size controls available yet ({len(available_hh_size_controls)}/{len(hh_size_controls)}), using temp_fraction scaling")
                     merged[control_name] = merged['temp_fraction'] * merged[scale_col]
                 else:
                     print(f"[DEBUG] All household size controls available, computing proper normalization")

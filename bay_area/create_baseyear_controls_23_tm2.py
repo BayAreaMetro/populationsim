@@ -60,6 +60,10 @@ import numpy
 import pandas as pd
 
 from tm2_control_utils.config import *
+from tm2_control_utils import config
+from tm2_control_utils.config import (get_bay_area_county_codes, get_county_name_mapping, 
+                                    get_control_categories_for_geography, get_controls_in_category,
+                                    get_all_expected_controls_for_geography, get_missing_controls_for_geography)
 from tm2_control_utils.census_fetcher import CensusFetcher
 from tm2_control_utils.geog_utils import prepare_geography_dfs, add_aggregate_geography_colums, interpolate_est
 from tm2_control_utils.controls import create_control_table, census_col_is_in_control, match_control_to_geography, integerize_control
@@ -239,6 +243,36 @@ def check_file_accessibility_with_mode(use_local=False):
     return all_accessible
 
 
+def show_control_categories():
+    """Display the control categories configuration for all geography levels as a formatted table"""
+    
+    print("="*80)
+    print("CONTROL CATEGORIES CONFIGURATION")
+    print("="*80)
+    
+    for geography in ['MAZ', 'TAZ', 'COUNTY']:
+        print(f"\n{geography} LEVEL CONTROLS:")
+        print("-" * 40)
+        
+        categories = get_control_categories_for_geography(geography)
+        if not categories:
+            print(f"  No control categories defined for {geography}")
+            continue
+            
+        for category, controls in categories.items():
+            print(f"  {category.upper()}:")
+            for control in controls:
+                # Check if this control is actually defined in the config
+                is_defined = geography in CONTROLS.get(ACS_EST_YEAR, {}) and control in CONTROLS[ACS_EST_YEAR][geography]
+                status = "✓" if is_defined else "✗"
+                print(f"    {status} {control}")
+            print()
+    
+    print("="*80)
+    print("LEGEND: ✓ = Defined in config, ✗ = Expected but not defined")
+    print("="*80)
+
+
 def show_region_targets():
     """Display the region targets configuration as a formatted table"""
     
@@ -267,8 +301,7 @@ def show_region_targets():
             'Year': year,
             'Table': table,
             'Geography': geography,
-            'Variables': var_str,
-            'Description': get_target_description(target_name, table, var_str)
+            'Variables': var_str
         })
     
     # Create DataFrame and display
@@ -299,231 +332,213 @@ def show_region_targets():
     
     return df
 
-def get_target_description(target_name, table, variables):
-    """Get human-readable description for each target"""
-    descriptions = {
-        'num_hh_target': 'Total occupied housing units (households)',
-        'tot_pop_target': 'Total population',
-        'pop_gq_target': 'Total group quarters population',
-        'gq_military_target': 'Military group quarters population',
-        'gq_university_target': 'University/college group quarters population'
-    }
-    
-    return descriptions.get(target_name, f'{table} - {variables}')
-
-
-def get_regional_targets(cf, logger, use_offline_fallback=True):
-    """Get regional targets from ACS 2023 county data for scaling MAZ controls.
-    
-    This function first tries to read from a local cache file. If that fails and
-    use_offline_fallback is False, it fetches from Census API and saves to cache.
+def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_df, logger):
+    """Apply county-level scaling factors to MAZ controls using ACS 2023 county targets.
     
     Args:
-        cf: CensusFetcher instance
+        control_df: DataFrame with MAZ-level controls and control_name column
+        control_name: Name of the control column to scale  
+        county_targets: Dict with county FIPS codes as keys and target values
+        maz_taz_def_df: Geographic crosswalk with MAZ to county mapping
         logger: Logger instance
-        use_offline_fallback: If True, only read from local cache file
     """
-    # Check for regional targets in input_2023 cache first, then input_2023, then local cache
+    if not county_targets:
+        logger.warning(f"No county targets provided for {control_name}, skipping scaling")
+        return control_df
+    
+    logger.info(f"Applying county-level scaling to {control_name}")
+    
+    # Ensure control_df has MAZ index
+    if 'MAZ' not in control_df.columns and control_df.index.name != 'MAZ':
+        logger.error(f"Control dataframe for {control_name} missing MAZ identifier")
+        return control_df
+        
+    # Reset index if MAZ is the index
+    if control_df.index.name == 'MAZ':
+        control_df = control_df.reset_index()
+    
+    # Get county mapping from maz_taz_def_df
+    if 'GEOID_county' not in maz_taz_def_df.columns:
+        logger.error("maz_taz_def_df missing GEOID_county for county-level scaling")
+        return control_df
+    
+    # Extract county FIPS (last 3 digits) from GEOID_county
+    county_map_df = maz_taz_def_df[['MAZ', 'GEOID_county']].drop_duplicates()
+    county_map_df['county_fips'] = county_map_df['GEOID_county'].str[-3:]
+    
+    # Merge control data with county mapping
+    scaled_df = control_df.merge(county_map_df[['MAZ', 'county_fips']], on='MAZ', how='left')
+    
+    # Calculate current totals by county from 2020 Census data
+    county_current_totals = scaled_df.groupby('county_fips')[control_name].sum()
+    logger.info(f"2020 Census {control_name} totals by county: {dict(county_current_totals)}")
+    
+    # Calculate scaling factors for each county
+    county_scale_factors = {}
+    for county_fips in county_current_totals.index:
+        if county_fips in county_targets:
+            current_total = county_current_totals[county_fips]
+            target_total = county_targets[county_fips]
+            if current_total > 0:
+                scale_factor = target_total / current_total
+                county_scale_factors[county_fips] = scale_factor
+                logger.info(f"County {county_fips}: current={current_total:,.0f}, target={target_total:,.0f}, factor={scale_factor:.4f}")
+            else:
+                county_scale_factors[county_fips] = 1.0
+                logger.warning(f"County {county_fips}: current total is 0, using factor 1.0")
+        else:
+            county_scale_factors[county_fips] = 1.0
+            logger.warning(f"No target found for county {county_fips}, using factor 1.0")
+    
+    # Apply scaling factors by county
+    scaled_df['scale_factor'] = scaled_df['county_fips'].map(county_scale_factors)
+    scaled_df[control_name] = scaled_df[control_name] * scaled_df['scale_factor']
+    
+    # Return scaled dataframe with original structure
+    result_df = scaled_df[['MAZ', control_name]].set_index('MAZ')
+    
+    # Verify scaling results
+    original_total = control_df[control_name].sum()
+    scaled_total = result_df[control_name].sum()
+    logger.info(f"County scaling results for {control_name}: original={original_total:,.0f}, scaled={scaled_total:,.0f}")
+    
+    return result_df
+
+
+def get_county_targets(cf, logger, use_offline_fallback=True):
+    """Get county-level targets from ACS 2023 1-year estimates for scaling MAZ controls.
+    
+    Returns a dictionary with county FIPS codes as keys and target DataFrames as values.
+    """
+    from tm2_control_utils import config
+    from tm2_control_utils.config import COUNTY_TARGETS_FILE, INPUT_DIR, INPUT_2023_CACHE_FOLDER, LOCAL_CACHE_FOLDER, ACS_EST_YEAR, CONTROLS
+    
+    # Check for county targets cache files
     possible_cache_files = [
-        os.path.join(INPUT_2023_CACHE_FOLDER, REGIONAL_TARGETS_FILE),
-        os.path.join(INPUT_DIR, REGIONAL_TARGETS_FILE),
-        os.path.join(LOCAL_CACHE_FOLDER, REGIONAL_TARGETS_FILE)
+        os.path.join(INPUT_2023_CACHE_FOLDER, COUNTY_TARGETS_FILE),
+        os.path.join(INPUT_DIR, COUNTY_TARGETS_FILE),
+        os.path.join(LOCAL_CACHE_FOLDER, COUNTY_TARGETS_FILE)
     ]
     
-    regional_targets_file = None
+    county_targets_file = None
     for cache_file in possible_cache_files:
         if os.path.exists(cache_file):
-            regional_targets_file = cache_file
-            logger.info(f"Using regional targets cache: {cache_file}")
+            county_targets_file = cache_file
+            logger.info(f"Using county targets cache: {cache_file}")
             break
     
-    if not regional_targets_file:
-        regional_targets_file = possible_cache_files[1]  # Default to input_2023 location
-    
-    # First, try to read from local cache
-    if os.path.exists(regional_targets_file):
-        logger.info(f"Reading regional targets from local cache: {regional_targets_file}")
+    # Try to read from cache first
+    if county_targets_file:
+        logger.info(f"Reading county targets from local cache: {county_targets_file}")
         try:
-            targets_df = pd.read_csv(regional_targets_file)
-            regional_targets = dict(zip(targets_df['target_name'], targets_df['target_value']))
-            logger.info(f"Loaded {len(regional_targets)} regional targets from cache")
-            for name, value in regional_targets.items():
-                logger.info(f"  {name}: {value:,.0f}")
-            return regional_targets
+            targets_df = pd.read_csv(county_targets_file)
+            county_targets = {}
+            for _, row in targets_df.iterrows():
+                county_fips = str(row['county_fips']).zfill(3)
+                target_name = row['target_name']
+                target_value = row['target_value']
+                if county_fips not in county_targets:
+                    county_targets[county_fips] = {}
+                county_targets[county_fips][target_name] = target_value
+            
+            logger.info(f"Loaded county targets for {len(county_targets)} counties")
+            for county_fips, targets in county_targets.items():
+                logger.info(f"  County {county_fips}: {targets}")
+            return county_targets
         except Exception as e:
-            logger.error(f"Failed to read regional targets cache: {e}")
+            logger.error(f"Failed to read county targets cache: {e}")
             if use_offline_fallback:
-                logger.error("Cannot proceed in offline mode without valid regional targets cache")
+                logger.error("Cannot proceed in offline mode without valid county targets cache")
                 return {}
     
     # If offline mode and no cache, return empty
     if use_offline_fallback:
-        logger.warning("Offline mode requested but no regional targets cache found")
+        logger.warning("Offline mode requested but no county targets cache found")
         logger.info(f"To create the cache, run once without --offline flag")
         return {}
     
     # Fetch from Census API and save to cache
-    logger.info("Fetching regional targets from ACS 2023 county data and saving to cache")
-    logger.info("=== REGIONAL TARGETS: Starting API calls ===")
+    logger.info("Fetching county targets from ACS 2023 1-year estimates and saving to cache")
+    logger.info("=== COUNTY TARGETS: Starting API calls ===")
     
-    regional_targets = {}
+    county_targets = {}
     
-    # Fetch actual regional targets by summing county-level data for Bay Area counties
     try:
-        # Get the regional target table definitions from configuration
+        # Get the county target table definitions from configuration
         target_tables = {}
-        region_targets_config = CONTROLS[ACS_EST_YEAR].get('REGION_TARGETS', {})
+        county_targets_config = CONTROLS[ACS_EST_YEAR].get('COUNTY_TARGETS', {})
         
-        for target_name, control_def in region_targets_config.items():
-            if len(control_def) >= 4:  # Ensure we have the required fields
+        for target_name, control_def in county_targets_config.items():
+            if len(control_def) >= 4:
                 data_source, year, table, geography = control_def[:4]
                 target_tables[target_name] = (data_source, year, table, geography)
         
-        logger.info(f"=== REGIONAL TARGETS: Will fetch {len(target_tables)} tables from config ===")
+        logger.info(f"=== COUNTY TARGETS: Will fetch {len(target_tables)} tables from config ===")
         
-        # Try Census API first, fall back to cache file reading if it fails
+        # Fetch data from Census API
         for i, (target_name, (data_source, year, table, geography)) in enumerate(target_tables.items(), 1):
             try:
-                logger.info(f"=== REGIONAL TARGETS: API Call {i}/{len(target_tables)} ===")
+                logger.info(f"=== COUNTY TARGETS: API Call {i}/{len(target_tables)} ===")
                 logger.info(f"Fetching {target_name} from {data_source} {year} table {table}")
                 
-                # First, try using census_fetcher directly (the normal path)
-                api_success = False
-                try:
-                    logger.info(f"Attempting Census API fetch for {target_name}...")
-                    county_data = cf.get_census_data(data_source, year, table, geography)
-                    logger.info(f"Successfully retrieved {len(county_data)} counties from API for {target_name}")
-                    
-                    # Sum across all Bay Area counties to get regional total
-                    data_col = f"{table}_001E"  # The column name should be table + _001E for totals
-                    if data_col in county_data.columns:
-                        target_value = county_data[data_col].sum()
-                        regional_targets[target_name] = int(target_value)  # Convert to int for clean output
-                        logger.info(f"Successfully calculated {target_name}: {target_value:,.0f}")
-                        
-                        # Log county breakdown for verification
-                        logger.info(f"County breakdown for {target_name}:")
-                        for _, row in county_data.iterrows():
-                            county_name = row.get('county', 'Unknown')
-                            county_value = row[data_col]
-                            logger.info(f"  County {county_name}: {county_value:,.0f}")
-                        
-                        api_success = True
-                    else:
-                        logger.error(f"Column {data_col} not found in API data for {target_name}")
-                        logger.info(f"Available columns: {list(county_data.columns)}")
-                        
-                except Exception as api_error:
-                    logger.warning(f"Census API fetch failed for {target_name}: {api_error}")
-                    logger.info("Falling back to cache file reading...")
+                # Fetch county-level data
+                county_data = cf.get_census_data(data_source, year, table, geography)
+                logger.info(f"Successfully retrieved {len(county_data)} counties from API for {target_name}")
                 
-                # If API failed, try cache file reading as fallback
-                if not api_success:
-                    cache_file = os.path.join(LOCAL_CACHE_FOLDER, f"{data_source}_{year}_{table}_{geography}.csv")
-                    if os.path.exists(cache_file):
-                        logger.info(f"Reading from cache file as fallback: {cache_file}")
+                # Extract targets by county
+                data_col = f"{table}_001E"
+                if data_col in county_data.columns:
+                    # Process county data
+                    county_data_reset = county_data.reset_index()
+                    for _, row in county_data_reset.iterrows():
+                        county_fips = str(row['county']).zfill(3)
+                        target_value = int(row[data_col])
                         
-                        try:
-                            import pandas as pd
-                            
-                            # Read the file and parse the header correctly
-                            with open(cache_file, 'r') as f:
-                                first_line = f.readline().strip()
-                                
-                            # Parse the variable name from first line (format: "variable,,B25001_001E")
-                            parts = first_line.split(',')
-                            if len(parts) >= 3 and parts[2]:
-                                data_col = parts[2]  # The actual variable name like B25001_001E
-                            else:
-                                data_col = f"{table}_001E"  # fallback
-                            
-                            # Read CSV starting from line 2 (skip variable and geo headers)
-                            df = pd.read_csv(cache_file, skiprows=1, names=['state', 'county', data_col])
-                            
-                            logger.info(f"Parsed variable column from cache: {data_col}")
-                            
-                            # Convert county codes to strings and filter Bay Area counties
-                            df['county'] = df['county'].astype(str).str.zfill(3)
-                            bay_area_counties = get_bay_area_county_codes()  # Get from config instead of hardcoding
-                            bay_area_data = df[df['county'].isin(bay_area_counties)]
-                            
-                            if not bay_area_data.empty:
-                                bay_area_total = bay_area_data[data_col].sum()
-                                regional_targets[target_name] = int(bay_area_total)
-                                logger.info(f"Successfully calculated {target_name} from cache: {bay_area_total:,.0f}")
-                                
-                                # Log county breakdown for verification
-                                logger.info(f"County breakdown for {target_name} (from cache):")
-                                for _, row in bay_area_data.iterrows():
-                                    county_code = row['county']
-                                    county_value = row[data_col]
-                                    logger.info(f"  County {county_code}: {county_value:,.0f}")
-                            else:
-                                logger.warning(f"No Bay Area counties found in cache for {target_name}")
-                                
-                        except Exception as cache_error:
-                            logger.error(f"Failed to read cache file: {cache_error}")
-                            
-                    else:
-                        logger.error(f"Neither API nor cache file available for {target_name}")
-                        logger.error(f"Expected cache file: {cache_file}")
+                        if county_fips not in county_targets:
+                            county_targets[county_fips] = {}
+                        county_targets[county_fips][target_name] = target_value
+                        logger.info(f"County {county_fips}: {target_name} = {target_value:,}")
+                else:
+                    logger.error(f"Expected column {data_col} not found in {target_name} data")
                     
             except Exception as e:
                 logger.error(f"Failed to fetch {target_name}: {e}")
                 continue
         
-        if not regional_targets:
-            logger.error("Failed to fetch any regional targets from Census API")
+        if not county_targets:
+            logger.error("Failed to fetch any county targets from Census API")
             return {}
             
-        logger.info(f"Successfully calculated {len(regional_targets)} regional targets:")
-        for name, value in regional_targets.items():
-            logger.info(f"  {name}: {value:,.0f}")
-            
+        logger.info(f"Successfully calculated county targets for {len(county_targets)} counties")
+        
     except Exception as e:
-        logger.error(f"Error fetching regional targets from Census API: {e}")
+        logger.error(f"Error fetching county targets from Census API: {e}")
         return {}
     
     # Save to cache file if we successfully calculated targets
-    if regional_targets:
+    if county_targets:
         try:
-            os.makedirs(os.path.dirname(regional_targets_file), exist_ok=True)
-            targets_df = pd.DataFrame([
-                {'target_name': name, 'target_value': value, 'source_year': ACS_EST_YEAR}
-                for name, value in regional_targets.items()
-            ])
-            targets_df.to_csv(regional_targets_file, index=False)
-            logger.info(f"Saved {len(regional_targets)} regional targets to cache: {regional_targets_file}")
+            os.makedirs(os.path.dirname(county_targets_file or possible_cache_files[1]), exist_ok=True)
+            cache_file = county_targets_file or possible_cache_files[1]
+            
+            # Create cache data
+            cache_data = []
+            for county_fips, targets in county_targets.items():
+                for target_name, target_value in targets.items():
+                    cache_data.append({
+                        'county_fips': county_fips,
+                        'target_name': target_name, 
+                        'target_value': target_value,
+                        'source_year': ACS_EST_YEAR
+                    })
+            
+            targets_df = pd.DataFrame(cache_data)
+            targets_df.to_csv(cache_file, index=False)
+            logger.info(f"Saved county targets to cache: {cache_file}")
         except Exception as e:
-            logger.error(f"Failed to save regional targets to cache: {e}")
+            logger.error(f"Failed to save county targets to cache: {e}")
     
-    return regional_targets
-
-
-def apply_regional_scaling(control_df, control_name, target_name, regional_targets, logger):
-    """Apply regional scaling to MAZ controls using ACS 2023 targets."""
-    if target_name not in regional_targets:
-        logger.warning(f"No regional target found for {target_name}, skipping scaling")
-        return control_df
-    
-    # Calculate current total
-    control_cols = [col for col in control_df.columns if col not in ['MAZ', 'geography']]
-    current_total = control_df[control_cols].sum().sum()
-    target_total = regional_targets[target_name]
-    
-    if current_total == 0:
-        logger.warning(f"Current total is 0 for {control_name}, cannot scale")
-        return control_df
-    
-    # Calculate scaling factor
-    scale_factor = target_total / current_total
-    logger.info(f"Scaling {control_name}: current={current_total:,.0f}, target={target_total:,.0f}, factor={scale_factor:.4f}")
-    
-    # Apply scaling
-    scaled_df = control_df.copy()
-    scaled_df[control_cols] = scaled_df[control_cols] * scale_factor
-    
-    return scaled_df
+    return county_targets
 
 
 def process_block_distribution_control(control_name, control_def, cf, maz_taz_def_df, crosswalk_df, logger):
@@ -550,8 +565,8 @@ def process_block_distribution_control(control_name, control_def, cf, maz_taz_de
 
 
 def process_maz_scaled_control(control_name, control_def, cf, maz_taz_def_df, crosswalk_df, 
-                               temp_controls, final_control_dfs, regional_targets, logger):
-    """Process MAZ_SCALED controls with special regional scaling or block distribution."""
+                               temp_controls, final_control_dfs, logger):
+    """Process MAZ_SCALED controls with special processing or block distribution."""
     logger.info(f"Processing MAZ_SCALED control: {control_name}")
     
     # Parse the extended control definition
@@ -582,9 +597,6 @@ def process_maz_scaled_control(control_name, control_def, cf, maz_taz_def_df, cr
             maz_taz_def_df, temp_controls
         )
         
-        # Apply regional scaling
-        final_df = apply_regional_scaling(final_df, control_name, regional_targets, logger)
-        
         # Integerize (note: this function doesn't actually need crosswalk_df for MAZ level)
         final_df = integerize_control(final_df, crosswalk_df, control_name)
     
@@ -602,7 +614,7 @@ def process_maz_scaled_control(control_name, control_def, cf, maz_taz_def_df, cr
 
 
 def process_control(
-    control_geo, control_name, control_def, cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs, regional_targets=None
+    control_geo, control_name, control_def, cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs
 ):
     logger = logging.getLogger()
     logger.info(f"Creating control [{control_name}] for geography [{control_geo}]")
@@ -610,14 +622,9 @@ def process_control(
 
     # Special case for REGION/gq_pop_region
     if control_geo == "REGION" and control_name == "gq_pop_region":
-        # Use regional target if available, otherwise fall back to MAZ sum
-        if regional_targets and 'pop_gq_target' in regional_targets:
-            gq_pop_value = regional_targets['pop_gq_target']
-            logger.info(f"Using regional target for gq_pop_region: {gq_pop_value:,.0f}")
-        else:
-            # Hardcode the correct ACS 2023 target for now
-            gq_pop_value = 155065  # From B26001 table for Bay Area counties
-            logger.info(f"Using hardcoded regional target for gq_pop_region: {gq_pop_value:,.0f}")
+        # Hardcode the correct ACS 2023 target for now
+        gq_pop_value = 155065  # From B26001 table for Bay Area counties
+        logger.info(f"Using hardcoded regional target for gq_pop_region: {gq_pop_value:,.0f}")
         
         final_control_dfs[control_geo] = pd.DataFrame.from_dict(
             data={'REGION': [1], "gq_pop_region": [gq_pop_value]}
@@ -671,34 +678,20 @@ def process_control(
     else:
         logger.info(f"No geographic interpolation needed: both years are {CENSUS_GEOG_YEAR}")
 
-    # Step 4: Check for regional scaling first
-    if len(control_def) > 5 and control_def[5] == 'regional_scale':
-        # For regional scaling, do simple geographic matching without temp control scaling
-        logger.info(f"APPLYING REGIONAL SCALING for {control_name}")
+    # Step 4: Check for county_scale 
+    if len(control_def) > 5 and control_def[5] == 'county_scale':
+        # For county scaling, do simple geographic matching then apply county-specific factors
+        logger.info(f"APPLYING COUNTY SCALING for {control_name}")
         final_df = match_control_to_geography(
             control_name, control_table_df, control_geo, control_def[3],
             maz_taz_def_df, temp_controls,
             scale_numerator=None, scale_denominator=None, subtract_table=None
         )
         
-        # Apply regional scaling
-        scaling_map = {
-            'temp_base_num_hh_b': 'num_hh_target',
-            'temp_base_num_hh_bg': 'num_hh_target',
-            'temp_num_hh_size': 'num_hh_target',  # Add temp_num_hh_size to regional scaling
-            'num_hh': 'num_hh_target',  # Add num_hh to regional scaling
-            'tot_pop': 'tot_pop_target',
-            'gq_pop': 'pop_gq_target',
-            'gq_military': 'gq_military_target',
-            'gq_university': 'gq_university_target'
-        }
-        
-        if control_name in scaling_map and regional_targets:
-            target_name = scaling_map[control_name]
-            final_df = apply_regional_scaling(final_df, control_name, target_name, regional_targets, logger)
-            logger.info(f"Applied regional scaling to {control_name}")
-        else:
-            logger.warning(f"Regional scaling requested for {control_name} but no target found")
+        # Apply county-level scaling using county targets (no regional targets needed)
+        # Note: county_targets should be passed as a parameter to process_control
+        logger.warning(f"County scaling for {control_name}: requires county_targets parameter to be passed to process_control")
+            
     else:
         # Normal processing with temp control scaling
         logger.info(f"APPLYING TEMP CONTROL SCALING for {control_name}")
@@ -762,8 +755,11 @@ def process_control(
         total = final_df[control_cols].sum().sum() if control_cols else 0
         logger.info(f"FINAL CONTROL [{control_name}]: {len(final_df)} zones, total = {total:,.0f}")
         
-        # Log additional details for key controls
-        if control_name in ['num_hh', 'gq_pop', 'hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus']:
+        # Log additional details for key controls (dynamically determined)
+        key_controls = (get_controls_in_category('MAZ', 'household_counts') + 
+                       get_controls_in_category('MAZ', 'group_quarters') + 
+                       get_controls_in_category('TAZ', 'household_size'))
+        if control_name in key_controls:
             for col in control_cols[:3]:  # Log first 3 columns
                 col_total = final_df[col].sum()
                 nonzero_count = (final_df[col] > 0).sum()
@@ -790,233 +786,269 @@ def process_control(
         logger.info(f"num_hh sum: {final_df['num_hh'].sum():,.0f}")
 
 
-def create_regional_summary(regional_targets, cf, logger, final_control_dfs=None):
-    """Create a summary file with regional totals from 2020 Census and 2023 ACS.
+
+def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_file, geo_crosswalk_file, logger):
+    """Scale MAZ household counts to match 2023 county targets using county-specific scaling factors."""
+    logger.info("=" * 60)
+    logger.info("APPLYING COUNTY-LEVEL SCALING TO MAZ HOUSEHOLDS")
+    logger.info("=" * 60)
     
-    Args:
-        regional_targets: Dict of regional scaling targets from ACS
-        cf: CensusFetcher instance
-        logger: Logger instance  
-        final_control_dfs: Dict of processed control DataFrames by geography (to reuse totals)
-    """
-    import pandas as pd
-    import os
-    from tm2_control_utils import config
-    logger.info("Creating regional summary file")
+    if not all(os.path.exists(f) for f in [maz_marginals_file, county_summary_file, geo_crosswalk_file]):
+        logger.error("Required files missing for county scaling")
+        return False
     
-    # Initialize summary data dictionary with rows as requested
-    summary_data = {
-        'Total Households': {'2020_Census': 0, '2023_ACS': 0},
-        'GQ Pop': {'2020_Census': 0, '2023_ACS': 0},
-        'GQ Military': {'2020_Census': 0, '2023_ACS': 0},
-        'GQ University': {'2020_Census': 0, '2023_ACS': 0}
-    }
-    
-    # Get 2020 Census regional totals from already processed MAZ controls if available
     try:
-        if final_control_dfs and 'MAZ' in final_control_dfs:
-            maz_df = final_control_dfs['MAZ']
-            logger.info(f"Using already-processed MAZ controls with columns: {list(maz_df.columns)}")
-            
-            # Extract totals from already-processed MAZ controls
-            if 'gq_pop' in maz_df.columns:
-                gq_total = int(maz_df['gq_pop'].sum())
-                summary_data['GQ Pop']['2020_Census'] = gq_total
-                logger.info(f"2020 Census group quarters (from MAZ): {gq_total:,}")
-                
-            if 'gq_military' in maz_df.columns:
-                gq_military = int(maz_df['gq_military'].sum())
-                summary_data['GQ Military']['2020_Census'] = gq_military
-                logger.info(f"2020 Census military GQ (from MAZ): {gq_military:,}")
-                
-            if 'gq_university' in maz_df.columns:
-                gq_university = int(maz_df['gq_university'].sum())
-                summary_data['GQ University']['2020_Census'] = gq_university
-                logger.info(f"2020 Census university GQ (from MAZ): {gq_university:,}")
-                
-            if 'num_hh' in maz_df.columns:
-                households = int(maz_df['num_hh'].sum())
-                summary_data['Total Households']['2020_Census'] = households
-                logger.info(f"2020 Census households (from MAZ): {households:,}")
+        # Read input files
+        maz_df = pd.read_csv(maz_marginals_file)
+        county_summary_df = pd.read_csv(county_summary_file)
+        crosswalk_df = pd.read_csv(geo_crosswalk_file)
+        
+        logger.info(f"Loaded MAZ marginals: {len(maz_df)} rows")
+        logger.info(f"Loaded county summary: {len(county_summary_df)} counties")
+        logger.info(f"Loaded crosswalk: {len(crosswalk_df)} MAZ zones")
+        
+        # Create scaling factor mapping from County FIPS to scaling factor
+        county_scale_map = {}
+        for _, row in county_summary_df.iterrows():
+            county_fips = f"{int(row['County_FIPS']):03d}"  # Ensure 3-digit format
+            county_scale_map[county_fips] = row['Scaling_Factor']
+        
+        logger.info(f"County scaling factors: {county_scale_map}")
+        
+        # Merge MAZ data with county information
+        maz_with_county = maz_df.merge(crosswalk_df[['MAZ', 'COUNTY']], on='MAZ', how='left')
+        
+        # Convert COUNTY column to 3-digit string format for mapping
+        maz_with_county['county_fips'] = maz_with_county['COUNTY'].astype(int).apply(lambda x: f"{x:03d}")
+        
+        # Apply county scaling factors to num_hh
+        maz_with_county['scale_factor'] = maz_with_county['county_fips'].map(county_scale_map)
+        
+        # Check for missing scaling factors
+        missing_scale = maz_with_county['scale_factor'].isna().sum()
+        if missing_scale > 0:
+            logger.warning(f"Missing scaling factors for {missing_scale} MAZ zones")
+            maz_with_county['scale_factor'] = maz_with_county['scale_factor'].fillna(1.0)
+        
+        # Calculate original total before scaling
+        original_hh_total = maz_with_county['num_hh'].sum()
+        
+        # Apply scaling
+        maz_with_county['num_hh'] = (maz_with_county['num_hh'] * maz_with_county['scale_factor']).round().astype(int)
+        
+        # Calculate new total after scaling
+        scaled_hh_total = maz_with_county['num_hh'].sum()
+        
+        logger.info(f"Household scaling results:")
+        logger.info(f"  Original total: {original_hh_total:,.0f}")
+        logger.info(f"  Scaled total: {scaled_hh_total:,.0f}")
+        logger.info(f"  Change: {scaled_hh_total - original_hh_total:+,.0f} ({(scaled_hh_total/original_hh_total - 1)*100:+.2f}%)")
+        
+        # Log scaling by county
+        county_results = maz_with_county.groupby('county_fips').agg({
+            'num_hh': 'sum',
+            'scale_factor': 'first'
+        }).reset_index()
+        
+        logger.info(f"\nScaling results by county:")
+        for _, row in county_results.iterrows():
+            # Safe county name lookup
+            county_match = county_summary_df[county_summary_df['County_FIPS'].astype(str).str.zfill(3) == row['county_fips']]['County_Name']
+            if len(county_match) > 0:
+                county_name = county_match.iloc[0]
             else:
-                # If num_hh not in MAZ (it's ACS data), get households from 2020 Census directly
-                logger.info("num_hh not in MAZ controls, reading 2020 Census households directly")
-                households_data = cf.get_census_data('pl', 2020, 'H1_002N', 'block')
-                
-                if 'county' in households_data.columns:
-                    from tm2_control_utils.config import get_bay_area_county_codes
-                    bay_area_counties = get_bay_area_county_codes()
-                    households_data['county_str'] = households_data['county'].astype(str).str.zfill(3)
-                    bay_area_data = households_data[households_data['county_str'].isin(bay_area_counties)]
-                    
-                    if len(bay_area_data) > 0:
-                        bay_area_data['H1_002N'] = pd.to_numeric(bay_area_data['H1_002N'], errors='coerce')
-                        households_total = int(bay_area_data['H1_002N'].sum())
-                        summary_data['Total Households']['2020_Census'] = households_total
-                        logger.info(f"2020 Census households (direct): {households_total:,}")
-                    else:
-                        logger.warning("No Bay Area household data found")
-                        
-        else:
-            logger.info("MAZ controls not available, will read PL data directly")
-            # Fallback to reading PL data directly (original approach but fixed)
-            def process_census_data(variable, data_name):
-                try:
-                    data = cf.get_census_data('pl', 2020, variable, 'block')
-                    logger.info(f"Loaded {data_name}: {len(data)} rows")
-                    
-                    if 'county' in data.columns:
-                        from tm2_control_utils.config import get_bay_area_county_codes
-                        bay_area_counties = get_bay_area_county_codes()
-                        data['county_str'] = data['county'].astype(str).str.zfill(3)
-                        bay_area_data = data[data['county_str'].isin(bay_area_counties)]
-                        logger.info(f"Filtered {data_name} to Bay Area: {len(bay_area_data)} rows")
-                        
-                        if len(bay_area_data) > 0:
-                            bay_area_data[variable] = pd.to_numeric(bay_area_data[variable], errors='coerce')
-                            total = int(bay_area_data[variable].sum())
-                            logger.info(f"2020 Census {data_name}: {total:,}")
-                            return total
-                    return 0
-                except Exception as e:
-                    logger.warning(f"Failed to process {data_name}: {e}")
-                    return 0
-            
-            summary_data['Total Households']['2020_Census'] = process_census_data('H1_002N', 'households')
-            summary_data['GQ Pop']['2020_Census'] = process_census_data('P5_001N', 'total group quarters')
-            summary_data['GQ Military']['2020_Census'] = process_census_data('P5_009N', 'military group quarters')
-            summary_data['GQ University']['2020_Census'] = process_census_data('P5_008N', 'university group quarters')
-            
+                county_name = f"County_{row['county_fips']}"
+            logger.info(f"  {county_name}: {row['num_hh']:,.0f} households (factor: {row['scale_factor']:.4f})")
+        
+        # Write updated MAZ marginals file
+        output_columns = ['MAZ', 'num_hh', 'gq_pop', 'gq_military', 'gq_university', 'gq_other']
+        maz_with_county[output_columns].to_csv(maz_marginals_file, index=False)
+        
+        logger.info(f"Updated MAZ marginals file: {maz_marginals_file}")
+        logger.info("County-level scaling completed successfully")
+        
+        return True
+        
     except Exception as e:
-        logger.warning(f"Failed to get 2020 Census regional totals: {e}")
-        import traceback
+        logger.error(f"Error applying county scaling: {e}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
+        return False
 
-    # Add 2023 ACS regional targets
-    if regional_targets:
-        if 'num_hh_target' in regional_targets:
-            summary_data['Total Households']['2023_ACS'] = int(regional_targets['num_hh_target'])
-            logger.info(f"2023 ACS households target: {regional_targets['num_hh_target']:,}")
-            
-        if 'pop_gq_target' in regional_targets:
-            summary_data['GQ Pop']['2023_ACS'] = int(regional_targets['pop_gq_target'])
-            logger.info(f"2023 ACS group quarters target: {regional_targets['pop_gq_target']:,}")
-            
-        if 'gq_military_target' in regional_targets:
-            summary_data['GQ Military']['2023_ACS'] = int(regional_targets['gq_military_target'])
-            logger.info(f"2023 ACS military group quarters target: {regional_targets['gq_military_target']:,}")
-            
-        if 'gq_university_target' in regional_targets:
-            summary_data['GQ University']['2023_ACS'] = int(regional_targets['gq_university_target'])
-            logger.info(f"2023 ACS university group quarters target: {regional_targets['gq_university_target']:,}")
-    else:
-        logger.warning("No regional targets available - 2023 ACS columns will be zero")
 
-    # Create DataFrame in the requested format
-    summary_df = pd.DataFrame.from_dict(summary_data, orient='index')
-    summary_df.index.name = 'Metric'
-    summary_df = summary_df.reset_index()
-
-    # Write to output file  
-    output_path = os.path.join(config.PRIMARY_OUTPUT_DIR, config.REGIONAL_SUMMARY_FILE)
-    summary_df.to_csv(output_path, index=False)
-    logger.info(f"Wrote regional summary file: {output_path}")
+def validate_maz_controls(maz_marginals_file, county_targets, logger):
+    """Validate that MAZ control totals match county targets and provide detailed comparison."""
+    logger.info("=" * 60)
+    logger.info("VALIDATING MAZ CONTROL TOTALS AGAINST COUNTY TARGETS")
+    logger.info("=" * 60)
     
-    # Log summary statistics
-    logger.info("Regional Summary:")
-    logger.info(f"  2020 Total Households: {summary_data['Total Households']['2020_Census']:,}")
-    logger.info(f"  2023 Total Households: {summary_data['Total Households']['2023_ACS']:,}")
+    if not os.path.exists(maz_marginals_file):
+        logger.error(f"MAZ marginals file not found: {maz_marginals_file}")
+        return False
     
-    return summary_df
+    if not county_targets:
+        logger.warning("No county targets available for validation")
+        return False
     
-    # Get 2020 Census regional totals from block-level data
+    # Read MAZ marginals file
     try:
         import pandas as pd
-        from tm2_control_utils.config import get_bay_area_county_codes
-        bay_area_counties = get_bay_area_county_codes()
-        logger.info(f"Aggregating 2020 Census data for Bay Area counties: {bay_area_counties}")
-        
-        def process_census_data(table, variable, data_name):
-            """Helper function to process census data and filter by Bay Area counties."""
-            try:
-                data = cf.get_census_data('pl', '2020', variable, 'block')
-                logger.info(f"Loaded {data_name} data: {data.shape[0]} rows")
-                
-                # Reset index to access geographic components
-                if hasattr(data.index, 'names') and data.index.names:
-                    data = data.reset_index()
-                
-                # Ensure county column exists and filter for Bay Area
-                if 'county' in data.columns:
-                    # Convert county to string and ensure 3-digit format for matching
-                    data['county_str'] = data['county'].astype(str).str.zfill(3)
-                    bay_area_data = data[data['county_str'].isin(bay_area_counties)]
-                    logger.info(f"Filtered to Bay Area counties: {bay_area_data.shape[0]} rows")
-                    
-                    # Convert to numeric and sum
-                    bay_area_data[variable] = pd.to_numeric(bay_area_data[variable], errors='coerce')
-                    total = bay_area_data[variable].sum()
-                    logger.info(f"2020 Census {data_name}: {total:,}")
-                    return int(total) if not pd.isna(total) else 0
-                else:
-                    # If no county column, sum all data (assuming it's already filtered)
-                    logger.warning(f"No county column found for {data_name}, summing all data")
-                    if variable in data.columns:
-                        data[variable] = pd.to_numeric(data[variable], errors='coerce')
-                        total = data[variable].sum()
-                        logger.info(f"2020 Census {data_name} (all data): {total:,}")
-                        return int(total)
-                    else:
-                        logger.warning(f"Variable {variable} not found in data columns: {list(data.columns)}")
-                        return 0
-            except Exception as e:
-                logger.warning(f"Failed to process {data_name}: {e}")
-                return 0
-        
-        # Process each metric
-        summary_data['Total Households']['2020_Census'] = process_census_data('pl', 'H1_002N', 'households')
-        summary_data['GQ Pop']['2020_Census'] = process_census_data('pl', 'P5_001N', 'total group quarters')
-        summary_data['GQ Military']['2020_Census'] = process_census_data('pl', 'P5_009N', 'military group quarters')
-        summary_data['GQ University']['2020_Census'] = process_census_data('pl', 'P5_008N', 'university group quarters')
-        
+        maz_df = pd.read_csv(maz_marginals_file)
+        logger.info(f"Loaded MAZ marginals file with {len(maz_df)} rows and {len(maz_df.columns)} columns")
+        logger.info(f"Available MAZ columns: {list(maz_df.columns)}")
     except Exception as e:
-        logger.warning(f"Failed to get 2020 Census regional totals: {e}")
+        logger.error(f"Failed to read MAZ marginals file: {e}")
+        return False
+    
+    validation_passed = True
+    
+    # Calculate regional totals from county targets
+    logger.info("\nCOMPARING MAZ TOTALS vs COUNTY TARGET TOTALS:")
+    logger.info("-" * 60)
+    
+    # Sum up county targets to get regional totals
+    total_hh_target = sum(county_info.get('num_hh_target_by_county', 0) 
+                         for county_info in county_targets.values() 
+                         if isinstance(county_info, dict))
+    
+    # Check household totals
+    if 'num_hh' in maz_df.columns:
+        maz_total_hh = maz_df['num_hh'].sum()
+        diff_hh = abs(maz_total_hh - total_hh_target)
+        pct_diff_hh = (diff_hh / total_hh_target) * 100 if total_hh_target > 0 else 0
+        status = "PASS" if pct_diff_hh <= 1.0 else "FAIL"
+        
+        logger.info(f"{'num_hh':15} | MAZ Total: {maz_total_hh:>10,.0f} | Target: {total_hh_target:>10,.0f} | Diff: {maz_total_hh - total_hh_target:>+10,.0f} | {pct_diff_hh:>6.2f}% | {status}")
+        
+        if pct_diff_hh > 1.0:
+            validation_passed = False
+    
+    # Check other controls if available
+    if 'gq_pop' in maz_df.columns:
+        gq_total = maz_df['gq_pop'].sum()
+        logger.info(f"{'gq_pop':15} | MAZ Total: {gq_total:>10,.0f} | (No county target available)")
+    
+    # Summary
+    logger.info("\n" + "=" * 60)
+    if validation_passed:
+        logger.info("SUCCESS: MAZ controls match county targets within 1% tolerance")
+    else:
+        logger.error("FAILED: MAZ controls differ from county targets by more than 1%")
+    logger.info("=" * 60)
+    
+    return validation_passed
+
+
+def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
+    """Create county summary file showing county-specific scaling factors and results.
+    
+    This file provides county-specific comparison between 2020 Census baseline data and 2023 ACS targets
+    that are used for county-level scaling in populationsim.
+    
+    Args:
+        county_targets: Dictionary of targets from ACS 2023 (both county and regional data) 
+        cf: CensusFetcher instance for accessing Census data
+        logger: Logger instance
+        final_control_dfs: Dictionary of processed control dataframes (optional)
+    
+    Returns:
+        pd.DataFrame: County-level summary comparison data
+    """
+    logger.info("Creating county summary file")
+    
+    # Get Bay Area county information
+    bay_area_counties = get_bay_area_county_codes()
+    county_name_map = get_county_name_mapping()
+    
+    # Initialize summary data - one row per county
+    summary_rows = []
+    
+    try:
+        
+        for county_fips in bay_area_counties:
+            county_name = county_name_map.get(county_fips, f"County {county_fips}")
+            logger.info(f"Processing county summary for {county_name} (FIPS: {county_fips})")
+            
+            # Initialize county row
+            county_row = {
+                'County_FIPS': county_fips,
+                'County_Name': county_name,
+                '2020_Census_Households': 0,
+                '2023_ACS_Households': 0,
+                'Scaling_Factor': 0.0
+            }
+            
+            # Get 2020 Census county totals from block-level data using config
+            try:
+                # Get household control definition from config
+                maz_controls = CONTROLS[ACS_EST_YEAR]['MAZ']
+                if 'num_hh' in maz_controls:
+                    data_source, year, table, geography = maz_controls['num_hh'][:4]
+                    logger.debug(f"Using config for household data: {data_source}, {year}, {table}, {geography}")
+                    
+                    # Get household data using config parameters
+                    household_data = cf.get_census_data(data_source, year, table, geography)
+                    if household_data is not None and not household_data.empty:
+                        household_data_reset = household_data.reset_index()
+                        if 'county' in household_data_reset.columns:
+                            household_data_reset['county_str'] = household_data_reset['county'].astype(str).str.zfill(3)
+                            county_data = household_data_reset[household_data_reset['county_str'] == county_fips]
+                            if len(county_data) > 0:
+                                county_data[table] = pd.to_numeric(county_data[table], errors='coerce')
+                                hh_2020 = int(county_data[table].sum())
+                                county_row['2020_Census_Households'] = hh_2020
+                                logger.info(f"  {county_name}: 2020 Census households = {hh_2020:,}")
+                else:
+                    logger.warning(f"num_hh control not found in config for {ACS_EST_YEAR}")
+                            
+            except Exception as e:
+                logger.warning(f"Failed to get 2020 Census data for {county_name}: {e}")
+            
+            # Get 2023 ACS targets for this county from the county_targets dictionary
+            if county_fips in county_targets:
+                county_targets_info = county_targets[county_fips]
+                if 'num_hh_target_by_county' in county_targets_info:
+                    hh_2023 = county_targets_info['num_hh_target_by_county']
+                    county_row['2023_ACS_Households'] = int(hh_2023)
+                    logger.info(f"  {county_name}: 2023 ACS households target = {hh_2023:,}")
+                    
+                    # Calculate scaling factor
+                    if county_row['2020_Census_Households'] > 0:
+                        scaling_factor = hh_2023 / county_row['2020_Census_Households']
+                        county_row['Scaling_Factor'] = scaling_factor
+                        logger.info(f"  {county_name}: Household scaling factor = {scaling_factor:.4f}")
+            else:
+                logger.warning(f"No county targets found for {county_name} (FIPS: {county_fips})")
+            
+            summary_rows.append(county_row)
+            
+    except Exception as e:
+        logger.error(f"Error creating county summary: {e}")
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
+        return pd.DataFrame()  # Return empty DataFrame on error
     
-    # Add 2023 ACS regional targets
-    if regional_targets:
-        if 'num_hh_target' in regional_targets:
-            summary_data['Total Households']['2023_ACS'] = int(regional_targets['num_hh_target'])
-            logger.info(f"2023 ACS households target: {regional_targets['num_hh_target']:,}")
-            
-        if 'pop_gq_target' in regional_targets:
-            summary_data['GQ Pop']['2023_ACS'] = int(regional_targets['pop_gq_target'])
-            logger.info(f"2023 ACS group quarters target: {regional_targets['pop_gq_target']:,}")
-            
-        if 'gq_military_target' in regional_targets:
-            summary_data['GQ Military']['2023_ACS'] = int(regional_targets['gq_military_target'])
-            logger.info(f"2023 ACS military group quarters target: {regional_targets['gq_military_target']:,}")
-            
-        if 'gq_university_target' in regional_targets:
-            summary_data['GQ University']['2023_ACS'] = int(regional_targets['gq_university_target'])
-            logger.info(f"2023 ACS university group quarters target: {regional_targets['gq_university_target']:,}")
-    else:
-        logger.warning("No regional targets available - 2023 ACS columns will be zero")
+    # Create DataFrame from summary rows
+    summary_df = pd.DataFrame(summary_rows)
     
-    # Create DataFrame in the requested format
-    summary_df = pd.DataFrame.from_dict(summary_data, orient='index')
-    summary_df.index.name = 'Metric'
+    # Write to output file
+    output_path = os.path.join(config.PRIMARY_OUTPUT_DIR, config.COUNTY_SUMMARY_FILE)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    summary_df.to_csv(output_path, index=False)
+    logger.info(f"Wrote county summary file: {output_path}")
     
-    # Write summary file
-    summary_file = os.path.join(PRIMARY_OUTPUT_DIR, REGIONAL_SUMMARY_FILE)
-    os.makedirs(os.path.dirname(summary_file), exist_ok=True)
-    summary_df.to_csv(summary_file)
+    # Log summary statistics
+    logger.info("County Summary Statistics:")
+    total_2020_hh = summary_df['2020_Census_Households'].sum()
+    total_2023_hh = summary_df['2023_ACS_Households'].sum()
+    regional_scaling_factor = total_2023_hh / total_2020_hh if total_2020_hh > 0 else 0
+    logger.info(f"  Total 2020 Census Households: {total_2020_hh:,}")
+    logger.info(f"  Total 2023 ACS Households: {total_2023_hh:,}")
+    logger.info(f"  Regional Avg Scaling Factor: {regional_scaling_factor:.4f}")
     
-    logger.info(f"Wrote regional summary file: {summary_file}")
-    logger.info("Regional Summary:")
-    logger.info(f"  2020 Total Households: {summary_data['Total Households']['2020_Census']:,}")
-    logger.info(f"  2023 Total Households: {summary_data['Total Households']['2023_ACS']:,}")
+    # Log scaling factor range
+    non_zero_factors = summary_df[summary_df['Scaling_Factor'] > 0]['Scaling_Factor']
+    if len(non_zero_factors) > 0:
+        logger.info(f"  County Scaling Factor Range: {non_zero_factors.min():.4f} to {non_zero_factors.max():.4f}")
     
     return summary_df
 
@@ -1187,7 +1219,7 @@ def log_control_statistics(control_geo, out_df, logger):
     
     if control_geo == 'MAZ':
         # Check household size consistency if we have both num_hh and household size controls
-        hh_size_cols = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus']
+        hh_size_cols = get_controls_in_category('TAZ', 'household_size')  # Household size controls are at TAZ level
         available_hh_size_cols = [col for col in hh_size_cols if col in out_df.columns and out_df[col].sum() > 0]
         
         if 'num_hh' in out_df.columns and len(available_hh_size_cols) > 0:
@@ -1212,7 +1244,7 @@ def log_control_statistics(control_geo, out_df, logger):
     
     elif control_geo == 'TAZ':
         # Check if household size controls exist at TAZ level
-        hh_size_cols = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus']
+        hh_size_cols = get_controls_in_category('TAZ', 'household_size')
         available_hh_size_cols = [col for col in hh_size_cols if col in out_df.columns and out_df[col].sum() > 0]
         
         if len(available_hh_size_cols) > 0:
@@ -1226,7 +1258,7 @@ def log_control_statistics(control_geo, out_df, logger):
             logger.info(f"  Total: {hh_size_total:,.0f}")
         
         # Check income distribution
-        income_cols = ['hh_inc_30', 'hh_inc_30_60', 'hh_inc_60_100', 'hh_inc_100_plus']
+        income_cols = get_controls_in_category('TAZ', 'household_income')
         available_income_cols = [col for col in income_cols if col in out_df.columns and out_df[col].sum() > 0]
         
         if len(available_income_cols) > 0:
@@ -1240,7 +1272,7 @@ def log_control_statistics(control_geo, out_df, logger):
             logger.info(f"  Total: {income_total:,.0f}")
         
         # Check age distribution
-        age_cols = ['pers_age_00_19', 'pers_age_20_34', 'pers_age_35_64', 'pers_age_65_plus']
+        age_cols = get_controls_in_category('TAZ', 'person_age')
         available_age_cols = [col for col in age_cols if col in out_df.columns and out_df[col].sum() > 0]
         
         if len(available_age_cols) > 0:
@@ -1311,42 +1343,27 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         output_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
         
     elif control_geo == 'TAZ':
-        # TAZ expects: hh_inc_30, hh_inc_30_60, hh_inc_60_100, hh_inc_100_plus, hh_wrks_0, hh_wrks_1, hh_wrks_2, hh_wrks_3_plus, 
-        #              pers_age_00_19, pers_age_20_34, pers_age_35_64, pers_age_65_plus, hh_kids_no, hh_kids_yes, hh_size_1, hh_size_2, hh_size_3, hh_size_4_plus
-        # We can provide: hh_wrks_0, hh_wrks_1, hh_wrks_2, hh_wrks_3_plus, pers_age_00_19, pers_age_20_34, pers_age_35_64, pers_age_65_plus, hh_kids_no, hh_kids_yes, hh_size_1, hh_size_2, hh_size_3, hh_size_4_plus
-        # Missing: hh_inc_30, hh_inc_30_60, hh_inc_60_100, hh_inc_100_plus (no longer reliable at tract level)
+        # Add any missing expected controls as zeros for TAZ level
+        existing_controls = list(out_df.columns)
+        missing_by_category = get_missing_controls_for_geography('TAZ', existing_controls)
         
-        # Add missing income columns as zeros since this data is no longer reliably available at tract level
-        if 'hh_inc_30' not in out_df.columns:
-            out_df['hh_inc_30'] = 0
-        if 'hh_inc_30_60' not in out_df.columns:
-            out_df['hh_inc_30_60'] = 0
-        if 'hh_inc_60_100' not in out_df.columns:
-            out_df['hh_inc_60_100'] = 0
-        if 'hh_inc_100_plus' not in out_df.columns:
-            out_df['hh_inc_100_plus'] = 0
-            
+        for category, missing_controls in missing_by_category.items():
+            for control in missing_controls:
+                out_df[control] = 0
+                logger.info(f"Added missing {category} control '{control}' as zeros (data not available or reliable)")
+        
         output_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
         
     elif control_geo == 'COUNTY':
-        # COUNTY expects: pers_occ_management, pers_occ_professional, pers_occ_services, pers_occ_retail, pers_occ_manual, pers_occ_military
-        # We can provide: None (occupation data no longer reliable at tract level)
-        # Missing: All occupation controls (Census has reduced detail and geographic granularity)
+        # Add any missing expected controls as zeros for COUNTY level
+        existing_controls = list(out_df.columns)
+        missing_by_category = get_missing_controls_for_geography('COUNTY', existing_controls)
         
-        # Add missing occupation columns as zeros since this data is no longer available with sufficient reliability
-        if 'pers_occ_management' not in out_df.columns:
-            out_df['pers_occ_management'] = 0
-        if 'pers_occ_professional' not in out_df.columns:
-            out_df['pers_occ_professional'] = 0
-        if 'pers_occ_services' not in out_df.columns:
-            out_df['pers_occ_services'] = 0
-        if 'pers_occ_retail' not in out_df.columns:
-            out_df['pers_occ_retail'] = 0
-        if 'pers_occ_manual' not in out_df.columns:
-            out_df['pers_occ_manual'] = 0
-        if 'pers_occ_military' not in out_df.columns:
-            out_df['pers_occ_military'] = 0
-            
+        for category, missing_controls in missing_by_category.items():
+            for control in missing_controls:
+                out_df[control] = 0
+                logger.info(f"Added missing {category} control '{control}' as zeros (data not available or reliable)")
+        
         output_file = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_MARGINALS_FILE)
         
     else:
@@ -1382,8 +1399,9 @@ def normalize_household_size_controls(control_table_df, control_name, temp_contr
         logger: Logger instance
     """
     
-    # Only apply to household size controls
-    if not control_name.startswith('hh_size_'):
+    # Only apply to household size controls (dynamically determined)
+    household_size_controls = get_controls_in_category('TAZ', 'household_size')
+    if control_name not in household_size_controls:
         return control_table_df
     
     # Check if we have num_hh available for normalization
@@ -1423,14 +1441,19 @@ def main():
     parser = argparse.ArgumentParser(description='Create baseyear controls for PopulationSim using ACS 2023 data')
     parser.add_argument('--offline', action='store_true', 
                        help='Run in offline mode using only cached data (no network required). '
-                            f'Regional targets will be read from {INPUT_DIR}/{REGIONAL_TARGETS_FILE}. '
-                            'If this file does not exist, run once without --offline to create it.')
+                            'County targets will be read from cache files. '
+                            'If cache files do not exist, run once without --offline to create them.')
     parser.add_argument('--copy-data', action='store_true',
                        help='Copy essential data files from network (M:) drive to local storage for offline work. '
                             'Creates local_data/ directory structure and copies required GIS and census files.')
     parser.add_argument('--use-local', action='store_true',
                        help='Use local data files instead of network (M:) drive. '
                             'Requires data to be copied first with --copy-data.')
+    parser.add_argument('--run-test', action='store_true',
+                       help='Run output structure validation test after control generation. '
+                            'Validates that output files match expected structure from 2015 examples.')
+    parser.add_argument('--test-verbose', action='store_true',
+                       help='Run validation test in verbose mode (implies --run-test).')
     args = parser.parse_args()
     
     # Handle copy-data operation first
@@ -1481,8 +1504,8 @@ def main():
             return 1
 
     if args.offline:
-        logger.info("Running in OFFLINE mode - using only cached data")
-        logger.info(f"Regional targets will be read from {INPUT_DIR}/{REGIONAL_TARGETS_FILE}")
+        logger.info("Running in OFFLINE mode - using only cached data") 
+        logger.info("County targets will be read from cached files")
     else:
         logger.info("Running in ONLINE mode - will fetch from Census API and update caches")
 
@@ -1506,14 +1529,14 @@ def main():
         logger.error("Input file verification failed, exiting")
         sys.exit(1)
 
-    # Step 1: Process regional targets first to establish scaling factors
-    regional_targets = {}
-    if 'REGION_TARGETS' in CONTROLS[ACS_EST_YEAR]:
-        regional_targets = get_regional_targets(cf, logger, use_offline_fallback=args.offline)
+    # Step 1: Process county targets first to establish scaling factors
+    county_targets = {}  # Updated variable name to reflect county-level approach
+    if 'COUNTY_TARGETS' in CONTROLS[ACS_EST_YEAR]:
+        county_targets = get_county_targets(cf, logger, use_offline_fallback=args.offline)
 
     for control_geo, control_dict in CONTROLS[ACS_EST_YEAR].items():
-        # Skip empty control dictionaries and already processed regional targets
-        if not control_dict or control_geo == 'REGION_TARGETS':
+        # Skip empty control dictionaries and already processed county targets
+        if not control_dict or control_geo == 'COUNTY_TARGETS':
             logger.info(f"Skipping {control_geo} - no controls defined or already processed")
             continue
         
@@ -1533,12 +1556,12 @@ def main():
                 if control_geo == 'MAZ_SCALED':
                     process_maz_scaled_control(
                         control_name, control_def, cf, maz_taz_def_df, crosswalk_df, 
-                        temp_controls, final_control_dfs, regional_targets, logger
+                        temp_controls, final_control_dfs, county_targets, logger
                     )
                 else:
                     process_control(
                         control_geo, control_name, control_def,
-                        cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs, regional_targets
+                        cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs
                     )
                 logger.info(f">>> COMPLETED CONTROL: {control_geo}.{control_name}")
             except Exception as e:
@@ -1559,11 +1582,27 @@ def main():
         out_df = final_control_dfs[control_geo].copy()
         write_outputs(control_geo, out_df, crosswalk_df)
         
-        # After writing MAZ controls, immediately validate against regional targets
-        if control_geo == 'MAZ' and regional_targets:
-            logger.info("Performing immediate MAZ validation after successful regional targets fetch")
+        # After writing MAZ controls, apply county-level scaling to households
+        if control_geo == 'MAZ' and county_targets:
+            logger.info("Applying county-level scaling to MAZ households")
             maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
-            validate_maz_controls(maz_marginals_file, regional_targets, logger)
+            county_summary_file = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_SUMMARY_FILE)
+            geo_crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
+            
+            # Apply county scaling to MAZ households
+            scaling_success = scale_maz_households_to_county_targets(
+                maz_marginals_file, county_summary_file, geo_crosswalk_file, logger
+            )
+            
+            if scaling_success:
+                logger.info("County scaling applied successfully - validating results")
+                validate_maz_controls(maz_marginals_file, county_targets, logger)
+            else:
+                logger.error("County scaling failed - skipping validation")
+        elif control_geo == 'MAZ':
+            logger.info("No county targets available - skipping county scaling")
+            maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
+            validate_maz_controls(maz_marginals_file, county_targets, logger)
     
     # Handle COUNTY separately since we have no data but need to create empty file for populationsim
     # TEMPORARILY COMMENTED OUT - focusing on MAZ controls only
@@ -1596,13 +1635,37 @@ def main():
     crosswalk_df[available_cols].to_csv(crosswalk_file, index=False)
     logger.info(f"Wrote geographic crosswalk file {crosswalk_file}")
 
-    # Create regional summary file comparing 2020 Census and 2023 ACS totals
+    # Create county summary file showing county-level scaling factors and results
     # (Called after control processing to reuse already-calculated totals)
-    create_regional_summary(regional_targets, cf, logger, final_control_dfs)
+    create_county_summary(county_targets, cf, logger, final_control_dfs)
 
-    # Validate MAZ controls against regional targets
+    # Validate MAZ controls against county targets
     maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
-    validate_maz_controls(maz_marginals_file, regional_targets, logger)
+    validate_maz_controls(maz_marginals_file, county_targets, logger)
+
+    # Run output structure validation test if requested
+    if args.test_verbose or args.run_test:
+        logger.info("Running output structure validation test")
+        try:
+            from test_output_structure import OutputStructureTest
+            test_runner = OutputStructureTest(verbose=args.test_verbose)
+            test_results = test_runner.run_all_tests()
+            
+            if test_results['success']:
+                logger.info("✓ Output structure validation PASSED")
+                logger.info(f"All {test_results['tests_run']} validation tests completed successfully")
+            else:
+                logger.error("✗ Output structure validation FAILED")
+                logger.error(f"{test_results['failures']} out of {test_results['tests_run']} tests failed")
+                for failure in test_results.get('failure_details', []):
+                    logger.error(f"  - {failure}")
+        except ImportError as e:
+            logger.error(f"Could not import test_output_structure: {e}")
+        except Exception as e:
+            logger.error(f"Error running output structure test: {e}")
+            logger.error(f"Test error traceback: {traceback.format_exc()}")
+
+    logger.info("Control file generation completed successfully!")
 
 
 if __name__ == '__main__':

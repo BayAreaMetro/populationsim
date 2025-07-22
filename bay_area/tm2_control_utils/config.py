@@ -46,8 +46,10 @@ MAZ_MARGINALS_FILE = "maz_marginals.csv"
 TAZ_MARGINALS_FILE = "taz_marginals.csv"
 COUNTY_MARGINALS_FILE = "county_marginals.csv"
 GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
-REGIONAL_TARGETS_FILE = "regional_targets_acs2023.csv"
-REGIONAL_SUMMARY_FILE = "regional_summary_2020_2023.csv"
+
+# County file names (configurable) 
+COUNTY_TARGETS_FILE = "county_targets_acs2023.csv"
+COUNTY_SUMMARY_FILE = "county_summary_2020_2023.csv"
 
 
 # Define required crosswalks as (source_year, target_year, geography)
@@ -107,9 +109,9 @@ CONTROLS[CENSUS_EST_YEAR]['MAZ'] = collections.OrderedDict([
 
 # For 2023 ACS year: PopulationSim expects num_hh + group quarters 
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    # Number of households (PopulationSim: num_hh) - Start with 2020 Census H1_002N, scale to ACS1 2023 targets
+    # Number of households (PopulationSim: num_hh) - Start with 2020 Census H1_002N, apply county-level scaling factors
     ('num_hh',                ('pl',  CENSUS_EST_YEAR, 'H1_002N',      'block',
-                               [], 'regional_scale')),
+                               [], 'county_scale')),
     # Group quarters from 2020 Census PL 94-171 - keep at 2020 levels (no detailed ACS1 targets available)
     ('gq_pop',                ('pl',   CENSUS_EST_YEAR, 'P5_001N',      'block',
                                [])),
@@ -289,13 +291,14 @@ CONTROLS[ACS_EST_YEAR]['REGION'] = collections.OrderedDict([
     ('gq_num_hh_region', 'special')
 ])
 
-# Regional scaling targets from ACS 2023 1-year estimates (using acs1)
-CONTROLS[ACS_EST_YEAR]['REGION_TARGETS'] = collections.OrderedDict([
-    # Household and population targets from ACS 2023 1-year county estimates
-    ('num_hh_target',      ('acs1', ACS_EST_YEAR, 'B25001', 'county', [])),        # Total households
-    ('tot_pop_target',     ('acs1', ACS_EST_YEAR, 'B01003', 'county', [])),        # Total population
+# County-level scaling targets from ACS 2023 1-year estimates (using acs1)
+# These will be used as county-specific scaling factors applied to 2020 Census occupied housing units
+CONTROLS[ACS_EST_YEAR]['COUNTY_TARGETS'] = collections.OrderedDict([
+    # Household targets from ACS 2023 1-year county estimates (by county)
+    ('num_hh_target_by_county',  ('acs1', ACS_EST_YEAR, 'B25001', 'county', [])),        # Total households by county
+    ('tot_pop_target_by_county', ('acs1', ACS_EST_YEAR, 'B01003', 'county', [])),        # Total population by county
     # Note: Group quarters subcategory variables (B26001_006E, B26001_007E) are not available in ACS1
-    # Using 2020 Census PL data for group quarters (no regional scaling)
+    # Using 2020 Census PL data for group quarters (no county-level scaling)
 ])
 
 
@@ -333,6 +336,10 @@ def get_county_info():
         'county_name_to_fips': BAY_AREA_COUNTY_FIPS,
         'county_recode_df': COUNTY_RECODE
     }
+
+def get_county_name_mapping():
+    """Return mapping of county FIPS codes to county names."""
+    return dict(zip(BAY_AREA_COUNTY_FIPS.values(), BAY_AREA_COUNTY_FIPS.keys()))
 
 CENSUS_DEFINITIONS = {
     # 2020 PL 94-171 Redistricting Data (block-level)
@@ -602,3 +609,125 @@ GEOGRAPHY_ID_COLUMNS = {
     },
     # Add more as needed
 }
+
+
+# ============================================================================
+# CONTROL CATEGORIES - Define groups of related controls for validation and analysis
+# ============================================================================
+
+# Control categories for different geography levels
+# These are dynamically extracted from the CONTROLS configuration but can be overridden here
+CONTROL_CATEGORIES = {
+    'MAZ': {
+        'household_counts': ['num_hh'],
+        'group_quarters': ['gq_pop', 'gq_military', 'gq_university', 'gq_other'],
+    },
+    'TAZ': {
+        'household_income': ['hh_inc_30', 'hh_inc_30_60', 'hh_inc_60_100', 'hh_inc_100_plus'],
+        'household_workers': ['hh_wrks_0', 'hh_wrks_1', 'hh_wrks_2', 'hh_wrks_3_plus'],
+        'person_age': ['pers_age_00_19', 'pers_age_20_34', 'pers_age_35_64', 'pers_age_65_plus'],
+        'household_children': ['hh_kids_no', 'hh_kids_yes'],
+        'household_size': ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus'],
+    },
+    'COUNTY': {
+        'person_occupation': ['pers_occ_management', 'pers_occ_professional', 'pers_occ_services', 
+                             'pers_occ_retail', 'pers_occ_manual', 'pers_occ_military'],
+    }
+}
+
+
+def get_control_categories_for_geography(geography):
+    """
+    Get control categories for a specific geography level.
+    Returns a dictionary of category_name -> list of control names.
+    
+    This function dynamically extracts control categories from the CONTROLS configuration,
+    or falls back to the static CONTROL_CATEGORIES if controls are missing.
+    """
+    categories = {}
+    
+    # Try to get from current CONTROLS configuration
+    if geography in CONTROLS.get(ACS_EST_YEAR, {}):
+        control_names = list(CONTROLS[ACS_EST_YEAR][geography].keys())
+        
+        # Group controls by patterns (prefix-based categorization)
+        for control_name in control_names:
+            if control_name.startswith('temp_'):
+                continue  # Skip temp controls
+                
+            if control_name.startswith('hh_size_'):
+                categories.setdefault('household_size', []).append(control_name)
+            elif control_name.startswith('hh_inc_'):
+                categories.setdefault('household_income', []).append(control_name)
+            elif control_name.startswith('hh_wrks_'):
+                categories.setdefault('household_workers', []).append(control_name)
+            elif control_name.startswith('hh_kids_'):
+                categories.setdefault('household_children', []).append(control_name)
+            elif control_name.startswith('pers_age_'):
+                categories.setdefault('person_age', []).append(control_name)
+            elif control_name.startswith('pers_occ_'):
+                categories.setdefault('person_occupation', []).append(control_name)
+            elif control_name.startswith('gq_'):
+                categories.setdefault('group_quarters', []).append(control_name)
+            elif control_name == 'num_hh':
+                categories.setdefault('household_counts', []).append(control_name)
+            else:
+                categories.setdefault('other', []).append(control_name)
+    
+    # Fall back to static configuration if nothing found or supplement missing categories
+    if geography in CONTROL_CATEGORIES:
+        for category, controls in CONTROL_CATEGORIES[geography].items():
+            if category not in categories:
+                categories[category] = controls
+            else:
+                # Merge, avoiding duplicates
+                for control in controls:
+                    if control not in categories[category]:
+                        categories[category].append(control)
+    
+    return categories
+
+
+def get_controls_in_category(geography, category):
+    """
+    Get all controls in a specific category for a geography.
+    Returns a list of control names, or empty list if category doesn't exist.
+    """
+    categories = get_control_categories_for_geography(geography)
+    return categories.get(category, [])
+
+
+def get_all_expected_controls_for_geography(geography):
+    """
+    Get all expected controls for a geography level.
+    Returns a list of all control names that should exist for this geography.
+    """
+    if geography in CONTROLS.get(ACS_EST_YEAR, {}):
+        return list(CONTROLS[ACS_EST_YEAR][geography].keys())
+    
+    # Fall back to categories if no controls defined
+    categories = get_control_categories_for_geography(geography)
+    all_controls = []
+    for control_list in categories.values():
+        all_controls.extend(control_list)
+    return all_controls
+
+
+def get_missing_controls_for_geography(geography, existing_controls):
+    """
+    Get controls that are expected but missing from the existing_controls list.
+    Returns a dictionary of {category: [missing_control_names]}.
+    """
+    expected_controls = get_all_expected_controls_for_geography(geography)
+    missing_controls = [ctrl for ctrl in expected_controls if ctrl not in existing_controls]
+    
+    # Group missing controls by category
+    categories = get_control_categories_for_geography(geography)
+    missing_by_category = {}
+    
+    for category, controls in categories.items():
+        missing_in_category = [ctrl for ctrl in controls if ctrl in missing_controls]
+        if missing_in_category:
+            missing_by_category[category] = missing_in_category
+    
+    return missing_by_category
