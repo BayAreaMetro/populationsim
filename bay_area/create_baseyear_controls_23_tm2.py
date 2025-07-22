@@ -325,9 +325,9 @@ def get_regional_targets(cf, logger, use_offline_fallback=True):
     """
     # Check for regional targets in input_2023 cache first, then input_2023, then local cache
     possible_cache_files = [
-        os.path.join(INPUT_2023_CACHE_FOLDER, "regional_targets_acs2023.csv"),
-        os.path.join("input_2023", "regional_targets_acs2023.csv"),
-        os.path.join(LOCAL_CACHE_FOLDER, "regional_targets_acs2023.csv")
+        os.path.join(INPUT_2023_CACHE_FOLDER, REGIONAL_TARGETS_FILE),
+        os.path.join(INPUT_DIR, REGIONAL_TARGETS_FILE),
+        os.path.join(LOCAL_CACHE_FOLDER, REGIONAL_TARGETS_FILE)
     ]
     
     regional_targets_file = None
@@ -790,12 +790,144 @@ def process_control(
         logger.info(f"num_hh sum: {final_df['num_hh'].sum():,.0f}")
 
 
-def create_regional_summary(regional_targets, cf, logger):
-    """Create a summary file with regional totals from 2020 Census and 2023 ACS."""
+def create_regional_summary(regional_targets, cf, logger, final_control_dfs=None):
+    """Create a summary file with regional totals from 2020 Census and 2023 ACS.
+    
+    Args:
+        regional_targets: Dict of regional scaling targets from ACS
+        cf: CensusFetcher instance
+        logger: Logger instance  
+        final_control_dfs: Dict of processed control DataFrames by geography (to reuse totals)
+    """
+    import pandas as pd
+    import os
+    from tm2_control_utils import config
     logger.info("Creating regional summary file")
     
-    summary_data = []
-    census_2020_data = {}
+    # Initialize summary data dictionary with rows as requested
+    summary_data = {
+        'Total Households': {'2020_Census': 0, '2023_ACS': 0},
+        'GQ Pop': {'2020_Census': 0, '2023_ACS': 0},
+        'GQ Military': {'2020_Census': 0, '2023_ACS': 0},
+        'GQ University': {'2020_Census': 0, '2023_ACS': 0}
+    }
+    
+    # Get 2020 Census regional totals from already processed MAZ controls if available
+    try:
+        if final_control_dfs and 'MAZ' in final_control_dfs:
+            maz_df = final_control_dfs['MAZ']
+            logger.info(f"Using already-processed MAZ controls with columns: {list(maz_df.columns)}")
+            
+            # Extract totals from already-processed MAZ controls
+            if 'gq_pop' in maz_df.columns:
+                gq_total = int(maz_df['gq_pop'].sum())
+                summary_data['GQ Pop']['2020_Census'] = gq_total
+                logger.info(f"2020 Census group quarters (from MAZ): {gq_total:,}")
+                
+            if 'gq_military' in maz_df.columns:
+                gq_military = int(maz_df['gq_military'].sum())
+                summary_data['GQ Military']['2020_Census'] = gq_military
+                logger.info(f"2020 Census military GQ (from MAZ): {gq_military:,}")
+                
+            if 'gq_university' in maz_df.columns:
+                gq_university = int(maz_df['gq_university'].sum())
+                summary_data['GQ University']['2020_Census'] = gq_university
+                logger.info(f"2020 Census university GQ (from MAZ): {gq_university:,}")
+                
+            if 'num_hh' in maz_df.columns:
+                households = int(maz_df['num_hh'].sum())
+                summary_data['Total Households']['2020_Census'] = households
+                logger.info(f"2020 Census households (from MAZ): {households:,}")
+            else:
+                # If num_hh not in MAZ (it's ACS data), get households from 2020 Census directly
+                logger.info("num_hh not in MAZ controls, reading 2020 Census households directly")
+                households_data = cf.get_census_data('pl', 2020, 'H1_002N', 'block')
+                
+                if 'county' in households_data.columns:
+                    from tm2_control_utils.config import get_bay_area_county_codes
+                    bay_area_counties = get_bay_area_county_codes()
+                    households_data['county_str'] = households_data['county'].astype(str).str.zfill(3)
+                    bay_area_data = households_data[households_data['county_str'].isin(bay_area_counties)]
+                    
+                    if len(bay_area_data) > 0:
+                        bay_area_data['H1_002N'] = pd.to_numeric(bay_area_data['H1_002N'], errors='coerce')
+                        households_total = int(bay_area_data['H1_002N'].sum())
+                        summary_data['Total Households']['2020_Census'] = households_total
+                        logger.info(f"2020 Census households (direct): {households_total:,}")
+                    else:
+                        logger.warning("No Bay Area household data found")
+                        
+        else:
+            logger.info("MAZ controls not available, will read PL data directly")
+            # Fallback to reading PL data directly (original approach but fixed)
+            def process_census_data(variable, data_name):
+                try:
+                    data = cf.get_census_data('pl', 2020, variable, 'block')
+                    logger.info(f"Loaded {data_name}: {len(data)} rows")
+                    
+                    if 'county' in data.columns:
+                        from tm2_control_utils.config import get_bay_area_county_codes
+                        bay_area_counties = get_bay_area_county_codes()
+                        data['county_str'] = data['county'].astype(str).str.zfill(3)
+                        bay_area_data = data[data['county_str'].isin(bay_area_counties)]
+                        logger.info(f"Filtered {data_name} to Bay Area: {len(bay_area_data)} rows")
+                        
+                        if len(bay_area_data) > 0:
+                            bay_area_data[variable] = pd.to_numeric(bay_area_data[variable], errors='coerce')
+                            total = int(bay_area_data[variable].sum())
+                            logger.info(f"2020 Census {data_name}: {total:,}")
+                            return total
+                    return 0
+                except Exception as e:
+                    logger.warning(f"Failed to process {data_name}: {e}")
+                    return 0
+            
+            summary_data['Total Households']['2020_Census'] = process_census_data('H1_002N', 'households')
+            summary_data['GQ Pop']['2020_Census'] = process_census_data('P5_001N', 'total group quarters')
+            summary_data['GQ Military']['2020_Census'] = process_census_data('P5_009N', 'military group quarters')
+            summary_data['GQ University']['2020_Census'] = process_census_data('P5_008N', 'university group quarters')
+            
+    except Exception as e:
+        logger.warning(f"Failed to get 2020 Census regional totals: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+
+    # Add 2023 ACS regional targets
+    if regional_targets:
+        if 'num_hh_target' in regional_targets:
+            summary_data['Total Households']['2023_ACS'] = int(regional_targets['num_hh_target'])
+            logger.info(f"2023 ACS households target: {regional_targets['num_hh_target']:,}")
+            
+        if 'pop_gq_target' in regional_targets:
+            summary_data['GQ Pop']['2023_ACS'] = int(regional_targets['pop_gq_target'])
+            logger.info(f"2023 ACS group quarters target: {regional_targets['pop_gq_target']:,}")
+            
+        if 'gq_military_target' in regional_targets:
+            summary_data['GQ Military']['2023_ACS'] = int(regional_targets['gq_military_target'])
+            logger.info(f"2023 ACS military group quarters target: {regional_targets['gq_military_target']:,}")
+            
+        if 'gq_university_target' in regional_targets:
+            summary_data['GQ University']['2023_ACS'] = int(regional_targets['gq_university_target'])
+            logger.info(f"2023 ACS university group quarters target: {regional_targets['gq_university_target']:,}")
+    else:
+        logger.warning("No regional targets available - 2023 ACS columns will be zero")
+
+    # Create DataFrame in the requested format
+    summary_df = pd.DataFrame.from_dict(summary_data, orient='index')
+    summary_df.index.name = 'Metric'
+    summary_df = summary_df.reset_index()
+
+    # Write to output file  
+    output_path = os.path.join(config.PRIMARY_OUTPUT_DIR, config.REGIONAL_SUMMARY_FILE)
+    summary_df.to_csv(output_path, index=False)
+    logger.info(f"Wrote regional summary file: {output_path}")
+    
+    # Log summary statistics
+    logger.info("Regional Summary:")
+    logger.info(f"  2020 Total Households: {summary_data['Total Households']['2020_Census']:,}")
+    logger.info(f"  2023 Total Households: {summary_data['Total Households']['2023_ACS']:,}")
+    
+    return summary_df
     
     # Get 2020 Census regional totals from block-level data
     try:
@@ -804,87 +936,48 @@ def create_regional_summary(regional_targets, cf, logger):
         bay_area_counties = get_bay_area_county_codes()
         logger.info(f"Aggregating 2020 Census data for Bay Area counties: {bay_area_counties}")
         
-        # Total households from 2020 Census PL data (block level, aggregate to region)
-        h1_data = cf.get_census_data('pl', '2020', 'H1_002N', 'block')
-        logger.info(f"Census data columns: {list(h1_data.columns)}")
-        logger.info(f"Census data shape: {h1_data.shape}")
+        def process_census_data(table, variable, data_name):
+            """Helper function to process census data and filter by Bay Area counties."""
+            try:
+                data = cf.get_census_data('pl', '2020', variable, 'block')
+                logger.info(f"Loaded {data_name} data: {data.shape[0]} rows")
+                
+                # Reset index to access geographic components
+                if hasattr(data.index, 'names') and data.index.names:
+                    data = data.reset_index()
+                
+                # Ensure county column exists and filter for Bay Area
+                if 'county' in data.columns:
+                    # Convert county to string and ensure 3-digit format for matching
+                    data['county_str'] = data['county'].astype(str).str.zfill(3)
+                    bay_area_data = data[data['county_str'].isin(bay_area_counties)]
+                    logger.info(f"Filtered to Bay Area counties: {bay_area_data.shape[0]} rows")
+                    
+                    # Convert to numeric and sum
+                    bay_area_data[variable] = pd.to_numeric(bay_area_data[variable], errors='coerce')
+                    total = bay_area_data[variable].sum()
+                    logger.info(f"2020 Census {data_name}: {total:,}")
+                    return int(total) if not pd.isna(total) else 0
+                else:
+                    # If no county column, sum all data (assuming it's already filtered)
+                    logger.warning(f"No county column found for {data_name}, summing all data")
+                    if variable in data.columns:
+                        data[variable] = pd.to_numeric(data[variable], errors='coerce')
+                        total = data[variable].sum()
+                        logger.info(f"2020 Census {data_name} (all data): {total:,}")
+                        return int(total)
+                    else:
+                        logger.warning(f"Variable {variable} not found in data columns: {list(data.columns)}")
+                        return 0
+            except Exception as e:
+                logger.warning(f"Failed to process {data_name}: {e}")
+                return 0
         
-        # Check if the data has an index that includes county information
-        if hasattr(h1_data.index, 'names') and h1_data.index.names:
-            logger.info(f"Census data index names: {h1_data.index.names}")
-            # Reset index to make geographic components accessible as columns
-            h1_data = h1_data.reset_index()
-            logger.info(f"Census data columns after reset_index: {list(h1_data.columns)}")
-        
-        # Filter for Bay Area counties and convert to numeric before sum
-        h1_data_filtered = h1_data[h1_data['county'].isin(bay_area_counties)]
-        h1_data_filtered['H1_002N'] = pd.to_numeric(h1_data_filtered['H1_002N'], errors='coerce')
-        census_2020_households = h1_data_filtered['H1_002N'].sum()
-        census_2020_data['households'] = int(census_2020_households)
-        summary_data.append({
-            'metric': 'Total Households',
-            'source': '2020 Census PL H1_002N',
-            'year': 2020,
-            'value': int(census_2020_households)
-        })
-        logger.info(f"2020 Census households (blocks in Bay Area): {census_2020_households:,}")
-        
-        # Total population from 2020 Census PL data (block level, aggregate to region)
-        p1_data = cf.get_census_data('pl', '2020', 'P1_001N', 'block')
-        # Filter for Bay Area counties and convert to numeric before sum
-        p1_data_filtered = p1_data[p1_data['county'].isin(bay_area_counties)]
-        p1_data_filtered['P1_001N'] = pd.to_numeric(p1_data_filtered['P1_001N'], errors='coerce')
-        census_2020_population = p1_data_filtered['P1_001N'].sum()
-        census_2020_data['population'] = int(census_2020_population)
-        summary_data.append({
-            'metric': 'Total Population', 
-            'source': '2020 Census PL P1_001N',
-            'year': 2020,
-            'value': int(census_2020_population)
-        })
-        logger.info(f"2020 Census population (blocks in Bay Area): {census_2020_population:,}")
-        
-        # Total group quarters from 2020 Census PL data (P5_001N)
-        p5_data = cf.get_census_data('pl', '2020', 'P5_001N', 'block')
-        p5_data_filtered = p5_data[p5_data['county'].isin(bay_area_counties)]
-        p5_data_filtered['P5_001N'] = pd.to_numeric(p5_data_filtered['P5_001N'], errors='coerce')
-        census_2020_gq = p5_data_filtered['P5_001N'].sum()
-        census_2020_data['gq_population'] = int(census_2020_gq)
-        summary_data.append({
-            'metric': 'Total Group Quarters Population',
-            'source': '2020 Census PL P5_001N', 
-            'year': 2020,
-            'value': int(census_2020_gq)
-        })
-        logger.info(f"2020 Census group quarters (blocks in Bay Area): {census_2020_gq:,}")
-        
-        # Military group quarters from 2020 Census PL data (P5_009N)
-        p5_mil_data = cf.get_census_data('pl', '2020', 'P5_009N', 'block')
-        p5_mil_filtered = p5_mil_data[p5_mil_data['county'].isin(bay_area_counties)]
-        p5_mil_filtered['P5_009N'] = pd.to_numeric(p5_mil_filtered['P5_009N'], errors='coerce')
-        census_2020_gq_military = p5_mil_filtered['P5_009N'].sum()
-        census_2020_data['gq_military'] = int(census_2020_gq_military)
-        summary_data.append({
-            'metric': 'Military Group Quarters Population',
-            'source': '2020 Census PL P5_009N', 
-            'year': 2020,
-            'value': int(census_2020_gq_military)
-        })
-        logger.info(f"2020 Census military group quarters (blocks in Bay Area): {census_2020_gq_military:,}")
-        
-        # University group quarters from 2020 Census PL data (P5_008N)
-        p5_univ_data = cf.get_census_data('pl', '2020', 'P5_008N', 'block')
-        p5_univ_filtered = p5_univ_data[p5_univ_data['county'].isin(bay_area_counties)]
-        p5_univ_filtered['P5_008N'] = pd.to_numeric(p5_univ_filtered['P5_008N'], errors='coerce')
-        census_2020_gq_university = p5_univ_filtered['P5_008N'].sum()
-        census_2020_data['gq_university'] = int(census_2020_gq_university)
-        summary_data.append({
-            'metric': 'University Group Quarters Population',
-            'source': '2020 Census PL P5_008N', 
-            'year': 2020,
-            'value': int(census_2020_gq_university)
-        })
-        logger.info(f"2020 Census university group quarters (blocks in Bay Area): {census_2020_gq_university:,}")
+        # Process each metric
+        summary_data['Total Households']['2020_Census'] = process_census_data('pl', 'H1_002N', 'households')
+        summary_data['GQ Pop']['2020_Census'] = process_census_data('pl', 'P5_001N', 'total group quarters')
+        summary_data['GQ Military']['2020_Census'] = process_census_data('pl', 'P5_009N', 'military group quarters')
+        summary_data['GQ University']['2020_Census'] = process_census_data('pl', 'P5_008N', 'university group quarters')
         
     except Exception as e:
         logger.warning(f"Failed to get 2020 Census regional totals: {e}")
@@ -892,131 +985,47 @@ def create_regional_summary(regional_targets, cf, logger):
         logger.error(f"Full traceback: {traceback.format_exc()}")
     
     # Add 2023 ACS regional targets
-    acs_2023_data = {}
     if regional_targets:
         if 'num_hh_target' in regional_targets:
-            acs_2023_data['households'] = regional_targets['num_hh_target']
-            summary_data.append({
-                'metric': 'Total Households',
-                'source': '2023 ACS1 B25001',
-                'year': 2023,
-                'value': int(regional_targets['num_hh_target'])
-            })
-        
-        if 'tot_pop_target' in regional_targets:
-            acs_2023_data['population'] = regional_targets['tot_pop_target']
-            summary_data.append({
-                'metric': 'Total Population',
-                'source': '2023 ACS1 B01003',
-                'year': 2023,
-                'value': int(regional_targets['tot_pop_target'])
-            })
+            summary_data['Total Households']['2023_ACS'] = int(regional_targets['num_hh_target'])
+            logger.info(f"2023 ACS households target: {regional_targets['num_hh_target']:,}")
             
         if 'pop_gq_target' in regional_targets:
-            acs_2023_data['gq_population'] = regional_targets['pop_gq_target']
-            summary_data.append({
-                'metric': 'Total Group Quarters Population',
-                'source': '2023 ACS1 B26001',
-                'year': 2023,
-                'value': int(regional_targets['pop_gq_target'])
-            })
+            summary_data['GQ Pop']['2023_ACS'] = int(regional_targets['pop_gq_target'])
+            logger.info(f"2023 ACS group quarters target: {regional_targets['pop_gq_target']:,}")
             
         if 'gq_military_target' in regional_targets:
-            acs_2023_data['gq_military'] = regional_targets['gq_military_target']
-            summary_data.append({
-                'metric': 'Military Group Quarters Population',
-                'source': '2023 ACS1 B26001_007E',
-                'year': 2023,
-                'value': int(regional_targets['gq_military_target'])
-            })
+            summary_data['GQ Military']['2023_ACS'] = int(regional_targets['gq_military_target'])
+            logger.info(f"2023 ACS military group quarters target: {regional_targets['gq_military_target']:,}")
             
         if 'gq_university_target' in regional_targets:
-            acs_2023_data['gq_university'] = regional_targets['gq_university_target']
-            summary_data.append({
-                'metric': 'University Group Quarters Population',
-                'source': '2023 ACS1 B26001_006E',
-                'year': 2023,
-                'value': int(regional_targets['gq_university_target'])
-            })
+            summary_data['GQ University']['2023_ACS'] = int(regional_targets['gq_university_target'])
+            logger.info(f"2023 ACS university group quarters target: {regional_targets['gq_university_target']:,}")
+    else:
+        logger.warning("No regional targets available - 2023 ACS columns will be zero")
     
-    # Calculate 2023/2020 ratios
-    if census_2020_data and acs_2023_data:
-        for metric_key in ['households', 'population', 'gq_population', 'gq_military', 'gq_university']:
-            if metric_key in census_2020_data and metric_key in acs_2023_data:
-                census_2020_val = census_2020_data[metric_key]
-                acs_2023_val = acs_2023_data[metric_key]
-                
-                if census_2020_val > 0:
-                    ratio = acs_2023_val / census_2020_val
-                    
-                    metric_name_map = {
-                        'households': 'Total Households',
-                        'population': 'Total Population', 
-                        'gq_population': 'Total Group Quarters Population',
-                        'gq_military': 'Military Group Quarters Population',
-                        'gq_university': 'University Group Quarters Population'
-                    }
-                    
-                    summary_data.append({
-                        'metric': metric_name_map[metric_key],
-                        'source': '2023/2020 Ratio',
-                        'year': 'Ratio',
-                        'value': round(ratio, 4)
-                    })
-    
-    # Create summary DataFrame with better column order
-    summary_df = pd.DataFrame(summary_data)
-    
-    # Reorder for better readability: 2020 values, then 2023 values, then ratios
-    ordered_data = []
-    
-    # Group data by metric for better presentation
-    metrics_order = [
-        'Total Households',
-        'Total Population', 
-        'Total Group Quarters Population',
-        'Military Group Quarters Population',
-        'University Group Quarters Population'
-    ]
-    
-    for metric in metrics_order:
-        # Add 2020 data
-        df_2020 = summary_df[(summary_df['metric'] == metric) & (summary_df['year'] == 2020)]
-        if not df_2020.empty:
-            ordered_data.extend(df_2020.to_dict('records'))
-        
-        # Add 2023 data  
-        df_2023 = summary_df[(summary_df['metric'] == metric) & (summary_df['year'] == 2023)]
-        if not df_2023.empty:
-            ordered_data.extend(df_2023.to_dict('records'))
-            
-        # Add ratio data
-        df_ratio = summary_df[(summary_df['metric'] == metric) & (summary_df['year'] == 'Ratio')]
-        if not df_ratio.empty:
-            ordered_data.extend(df_ratio.to_dict('records'))
-    
-    # Create final ordered DataFrame
-    summary_df = pd.DataFrame(ordered_data)
+    # Create DataFrame in the requested format
+    summary_df = pd.DataFrame.from_dict(summary_data, orient='index')
+    summary_df.index.name = 'Metric'
     
     # Write summary file
-    summary_file = os.path.join("output_2023", "regional_summary_2020_2023.csv")
+    summary_file = os.path.join(PRIMARY_OUTPUT_DIR, REGIONAL_SUMMARY_FILE)
     os.makedirs(os.path.dirname(summary_file), exist_ok=True)
-    summary_df.to_csv(summary_file, index=False)
+    summary_df.to_csv(summary_file)
     
     logger.info(f"Wrote regional summary file: {summary_file}")
     logger.info("Regional Summary:")
-    for _, row in summary_df.iterrows():
-        if row['year'] == 'Ratio':
-            logger.info(f"  {row['metric']} 2023/2020 Ratio: {row['value']}")
-        else:
-            logger.info(f"  {row['year']} {row['metric']}: {row['value']:,}")
+    logger.info(f"  2020 Total Households: {summary_data['Total Households']['2020_Census']:,}")
+    logger.info(f"  2023 Total Households: {summary_data['Total Households']['2023_ACS']:,}")
     
     return summary_df
 
 
 def validate_maz_controls(maz_marginals_file, regional_targets, logger):
-    """Validate that MAZ control totals match regional targets."""
-    logger.info("Validating MAZ control totals against regional targets")
+    """Validate that MAZ control totals match regional targets and provide detailed comparison."""
+    logger.info("=" * 60)
+    logger.info("VALIDATING MAZ CONTROL TOTALS AGAINST REGIONAL TARGETS")
+    logger.info("=" * 60)
     
     if not os.path.exists(maz_marginals_file):
         logger.error(f"MAZ marginals file not found: {maz_marginals_file}")
@@ -1030,9 +1039,54 @@ def validate_maz_controls(maz_marginals_file, regional_targets, logger):
     try:
         maz_df = pd.read_csv(maz_marginals_file)
         logger.info(f"Loaded MAZ marginals file with {len(maz_df)} rows and {len(maz_df.columns)} columns")
+        logger.info(f"Available MAZ columns: {list(maz_df.columns)}")
     except Exception as e:
         logger.error(f"Failed to read MAZ marginals file: {e}")
         return False
+    
+    validation_passed = True
+    
+    # Create comprehensive comparison table
+    logger.info("\nCOMPREHENSIVE MAZ TOTALS vs REGIONAL TARGETS:")
+    logger.info("-" * 60)
+    
+    # Define all MAZ columns to check with their corresponding regional targets
+    maz_target_mapping = {
+        'num_hh': 'num_hh_target',
+        'gq_pop': 'pop_gq_target', 
+        'gq_military': 'gq_military_target',
+        'gq_university': 'gq_university_target'
+    }
+    
+    # Check each MAZ control against its regional target
+    for maz_col, target_key in maz_target_mapping.items():
+        if maz_col in maz_df.columns:
+            maz_total = maz_df[maz_col].sum()
+            
+            if target_key in regional_targets:
+                regional_target = regional_targets[target_key]
+                diff = maz_total - regional_target
+                pct_diff = (abs(diff) / regional_target) * 100 if regional_target > 0 else 0
+                status = "PASS" if pct_diff <= 1.0 else "FAIL"
+                
+                logger.info(f"{maz_col:15} | MAZ Total: {maz_total:>10,.0f} | Target: {regional_target:>10,.0f} | Diff: {diff:>+10,.0f} | {pct_diff:>6.2f}% | {status}")
+                
+                if pct_diff > 1.0:
+                    validation_passed = False
+            else:
+                logger.info(f"{maz_col:15} | MAZ Total: {maz_total:>10,.0f} | Target: {'N/A':>10} | No regional target available")
+        else:
+            if target_key in regional_targets:
+                logger.warning(f"{maz_col:15} | Column not found in MAZ file but target exists: {regional_targets[target_key]:>10,.0f}")
+    
+    # Check for additional MAZ columns without targets
+    logger.info("\nADDITIONAL MAZ COLUMNS (no regional targets):")
+    logger.info("-" * 45)
+    
+    other_cols = [col for col in maz_df.columns if col not in maz_target_mapping and col not in ['GEOID', 'MAZ', 'TAZ', 'COUNTY']]
+    for col in other_cols:
+        total = maz_df[col].sum()
+        logger.info(f"{col:25} | Total: {total:>12,.0f}")
     
     validation_passed = True
     
@@ -1043,31 +1097,9 @@ def validate_maz_controls(maz_marginals_file, regional_targets, logger):
         diff_hh = abs(maz_total_hh - regional_target_hh)
         pct_diff_hh = (diff_hh / regional_target_hh) * 100 if regional_target_hh > 0 else 0
         
-        logger.info(f"Total Households - MAZ sum: {maz_total_hh:,.0f}, Regional target: {regional_target_hh:,.0f}, Diff: {diff_hh:,.0f} ({pct_diff_hh:.2f}%)")
-        
         if pct_diff_hh > 1.0:  # Allow 1% tolerance
             logger.error(f"VALIDATION FAILED: Household totals differ by more than 1% ({pct_diff_hh:.2f}%)")
             validation_passed = False
-        else:
-            logger.info("PASS: Household totals validation passed")
-    
-    # Check household size consistency
-    hh_size_cols = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus']
-    available_hh_size_cols = [col for col in hh_size_cols if col in maz_df.columns]
-    
-    if len(available_hh_size_cols) > 0 and 'num_hh' in maz_df.columns:
-        maz_total_hh = maz_df['num_hh'].sum()
-        maz_sum_hh_sizes = maz_df[available_hh_size_cols].sum().sum()
-        diff_hh_sizes = abs(maz_total_hh - maz_sum_hh_sizes)
-        pct_diff_hh_sizes = (diff_hh_sizes / maz_total_hh) * 100 if maz_total_hh > 0 else 0
-        
-        logger.info(f"Household Size Consistency - num_hh sum: {maz_total_hh:,.0f}, hh_size_* sum: {maz_sum_hh_sizes:,.0f}, Diff: {diff_hh_sizes:,.0f} ({pct_diff_hh_sizes:.2f}%)")
-        
-        if pct_diff_hh_sizes > 1.0:  # Allow 1% tolerance
-            logger.error(f"VALIDATION FAILED: Household size totals differ from num_hh by more than 1% ({pct_diff_hh_sizes:.2f}%)")
-            validation_passed = False
-        else:
-            logger.info("PASS: Household size consistency validation passed")
     
     # Check group quarters population
     if 'gq_pop' in maz_df.columns and 'pop_gq_target' in regional_targets:
@@ -1076,19 +1108,30 @@ def validate_maz_controls(maz_marginals_file, regional_targets, logger):
         diff_gq = abs(maz_total_gq - regional_target_gq)
         pct_diff_gq = (diff_gq / regional_target_gq) * 100 if regional_target_gq > 0 else 0
         
-        logger.info(f"Group Quarters Population - MAZ sum: {maz_total_gq:,.0f}, Regional target: {regional_target_gq:,.0f}, Diff: {diff_gq:,.0f} ({pct_diff_gq:.2f}%)")
-        
         if pct_diff_gq > 1.0:  # Allow 1% tolerance
-            logger.error(f"VALIDATION FAILED: Group quarters totals differ by more than 1% ({pct_diff_gq:.2f}%)")
             validation_passed = False
-        else:
-            logger.info("PASS: Group quarters population validation passed")
+    
+    # Check group quarters subcategories
+    gq_subcats = ['gq_military', 'gq_university']
+    target_subcats = ['gq_military_target', 'gq_university_target']
+    
+    for gq_col, target_col in zip(gq_subcats, target_subcats):
+        if gq_col in maz_df.columns and target_col in regional_targets:
+            maz_total = maz_df[gq_col].sum()
+            regional_target = regional_targets[target_col]
+            diff = abs(maz_total - regional_target)
+            pct_diff = (diff / regional_target) * 100 if regional_target > 0 else 0
+            
+            if pct_diff > 1.0:  # Allow 1% tolerance
+                validation_passed = False
     
     # Summary
+    logger.info("\n" + "=" * 60)
     if validation_passed:
-        logger.info("SUCCESS: ALL VALIDATIONS PASSED - MAZ controls match regional targets")
+        logger.info("SUCCESS: ALL VALIDATIONS PASSED - MAZ controls match regional targets within 1% tolerance")
     else:
-        logger.error("FAILED: VALIDATION FAILED - MAZ controls do not match regional targets")
+        logger.error("FAILED: VALIDATION FAILED - Some MAZ controls differ from regional targets by more than 1%")
+    logger.info("=" * 60)
     
     return validation_passed
 
@@ -1265,7 +1308,7 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         # Household size controls moved to TAZ level for better data quality
         # Group quarters now include detailed type breakdown from 2020 Census DHC data
         
-        output_file = os.path.join("hh_gq", "data", "maz_marginals.csv")
+        output_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
         
     elif control_geo == 'TAZ':
         # TAZ expects: hh_inc_30, hh_inc_30_60, hh_inc_60_100, hh_inc_100_plus, hh_wrks_0, hh_wrks_1, hh_wrks_2, hh_wrks_3_plus, 
@@ -1283,7 +1326,7 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         if 'hh_inc_100_plus' not in out_df.columns:
             out_df['hh_inc_100_plus'] = 0
             
-        output_file = os.path.join("hh_gq", "data", "taz_marginals.csv")
+        output_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
         
     elif control_geo == 'COUNTY':
         # COUNTY expects: pers_occ_management, pers_occ_professional, pers_occ_services, pers_occ_retail, pers_occ_manual, pers_occ_military
@@ -1304,11 +1347,11 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         if 'pers_occ_military' not in out_df.columns:
             out_df['pers_occ_military'] = 0
             
-        output_file = os.path.join("hh_gq", "data", "county_marginals.csv")
+        output_file = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_MARGINALS_FILE)
         
     else:
         # For other geographies, use the generic format
-        output_file = os.path.join("output_2023", f"{control_geo.lower()}_{ACS_EST_YEAR}_marginals.csv")
+        output_file = os.path.join(PRIMARY_OUTPUT_DIR, f"{control_geo.lower()}_{ACS_EST_YEAR}_marginals.csv")
     
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -1322,11 +1365,6 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         out_df.to_csv(output_file, index=False)
     
     logger.info(f"Wrote {control_geo} marginals file: {output_file} with {len(control_cols)} controls")
-    
-    # Also write to output_2023 for reference/debugging
-    reference_file = os.path.join("output_2023", f"{control_geo.lower()}_{ACS_EST_YEAR}_all_controls.csv")
-    out_df.to_csv(reference_file, index=False, float_format="%.5f")
-    logger.info(f"Wrote reference file: {reference_file}")
 
 
 def normalize_household_size_controls(control_table_df, control_name, temp_controls, logger):
@@ -1385,7 +1423,7 @@ def main():
     parser = argparse.ArgumentParser(description='Create baseyear controls for PopulationSim using ACS 2023 data')
     parser.add_argument('--offline', action='store_true', 
                        help='Run in offline mode using only cached data (no network required). '
-                            'Regional targets will be read from input_2023/regional_targets_acs2023.csv. '
+                            f'Regional targets will be read from {INPUT_DIR}/{REGIONAL_TARGETS_FILE}. '
                             'If this file does not exist, run once without --offline to create it.')
     parser.add_argument('--copy-data', action='store_true',
                        help='Copy essential data files from network (M:) drive to local storage for offline work. '
@@ -1444,7 +1482,7 @@ def main():
 
     if args.offline:
         logger.info("Running in OFFLINE mode - using only cached data")
-        logger.info("Regional targets will be read from input_2023/regional_targets_acs2023.csv")
+        logger.info(f"Regional targets will be read from {INPUT_DIR}/{REGIONAL_TARGETS_FILE}")
     else:
         logger.info("Running in ONLINE mode - will fetch from Census API and update caches")
 
@@ -1473,9 +1511,6 @@ def main():
     if 'REGION_TARGETS' in CONTROLS[ACS_EST_YEAR]:
         regional_targets = get_regional_targets(cf, logger, use_offline_fallback=args.offline)
 
-    # Create regional summary file comparing 2020 Census and 2023 ACS totals
-    create_regional_summary(regional_targets, cf, logger)
-
     for control_geo, control_dict in CONTROLS[ACS_EST_YEAR].items():
         # Skip empty control dictionaries and already processed regional targets
         if not control_dict or control_geo == 'REGION_TARGETS':
@@ -1485,9 +1520,9 @@ def main():
         # Debug: Log what controls are found for each geography
         logger.info(f">>> FOUND GEOGRAPHY: {control_geo} with {len(control_dict)} controls: {list(control_dict.keys())}")
         
-        # Process MAZ and TAZ controls (household size moved from MAZ to TAZ)
-        if control_geo not in ['MAZ', 'MAZ_SCALED', 'TAZ']:
-            logger.info(f"TEMPORARILY SKIPPING {control_geo} - focusing on MAZ and TAZ controls only")
+        # Process MAZ, TAZ, and COUNTY controls (household size moved from MAZ to TAZ)
+        if control_geo not in ['MAZ', 'MAZ_SCALED', 'TAZ', 'COUNTY']:
+            logger.info(f"TEMPORARILY SKIPPING {control_geo} - focusing on MAZ, TAZ, and COUNTY controls only")
             continue
             
         temp_controls = collections.OrderedDict()
@@ -1523,6 +1558,12 @@ def main():
         logger.info(f"Preparing final controls files for {control_geo}")
         out_df = final_control_dfs[control_geo].copy()
         write_outputs(control_geo, out_df, crosswalk_df)
+        
+        # After writing MAZ controls, immediately validate against regional targets
+        if control_geo == 'MAZ' and regional_targets:
+            logger.info("Performing immediate MAZ validation after successful regional targets fetch")
+            maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
+            validate_maz_controls(maz_marginals_file, regional_targets, logger)
     
     # Handle COUNTY separately since we have no data but need to create empty file for populationsim
     # TEMPORARILY COMMENTED OUT - focusing on MAZ controls only
@@ -1541,7 +1582,7 @@ def main():
     #     write_outputs('COUNTY', county_df, crosswalk_df)
 
     # Write geographic crosswalk file in expected location
-    crosswalk_file = os.path.join("hh_gq", "data", "geo_cross_walk_tm2.csv")
+    crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
     
     # Ensure we have the expected columns for populationsim
     expected_crosswalk_cols = ['MAZ', 'TAZ', 'COUNTY', 'county_name', 'COUNTYFP10', 'TRACTCE10', 'PUMA']
@@ -1554,14 +1595,13 @@ def main():
     # Write the crosswalk file with available columns
     crosswalk_df[available_cols].to_csv(crosswalk_file, index=False)
     logger.info(f"Wrote geographic crosswalk file {crosswalk_file}")
-    
-    # Also write to output_2023 for reference
-    reference_crosswalk = os.path.join("output_2023", f"geo_crosswalk_{ACS_EST_YEAR}.csv")
-    crosswalk_df.to_csv(reference_crosswalk, index=False)
-    logger.info(f"Wrote reference crosswalk file {reference_crosswalk}")
+
+    # Create regional summary file comparing 2020 Census and 2023 ACS totals
+    # (Called after control processing to reuse already-calculated totals)
+    create_regional_summary(regional_targets, cf, logger, final_control_dfs)
 
     # Validate MAZ controls against regional targets
-    maz_marginals_file = os.path.join("hh_gq", "data", "maz_marginals.csv")
+    maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
     validate_maz_controls(maz_marginals_file, regional_targets, logger)
 
 

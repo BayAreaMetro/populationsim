@@ -27,13 +27,27 @@ CENSUS_API_KEY_FILE = NETWORK_CENSUS_API_KEY_FILE
 LOCAL_CACHE_FOLDER = NETWORK_CACHE_FOLDER
 
 # Output directories and file formats 
-HOUSEHOLDS_DIR = "households"
-GROUP_QUARTERS_DIR = "group_quarters"
-DATA_SUBDIR = "data"
+HOUSEHOLDS_DIR = "output_2023"
+GROUP_QUARTERS_DIR = "output_2023"
+DATA_SUBDIR = ""  # No subdirectory, write directly to output_2023
 GEO_CROSSWALK_FILE = "geo_cross_walk.csv"
 MAZ_HH_POP_FILE = "maz_data_hh_pop.csv"
 OUTPUT_DIR_FMT = "output_{}"
 CONTROL_FILE_FMT = "{}_{}_controls.csv"
+
+# Primary output directory (configurable)
+PRIMARY_OUTPUT_DIR = "output_2023"
+
+# Input directories
+INPUT_DIR = "input_2023"
+
+# Output file names (configurable)
+MAZ_MARGINALS_FILE = "maz_marginals.csv"
+TAZ_MARGINALS_FILE = "taz_marginals.csv"
+COUNTY_MARGINALS_FILE = "county_marginals.csv"
+GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
+REGIONAL_TARGETS_FILE = "regional_targets_acs2023.csv"
+REGIONAL_SUMMARY_FILE = "regional_summary_2020_2023.csv"
 
 
 # Define required crosswalks as (source_year, target_year, geography)
@@ -83,28 +97,27 @@ CONTROLS = {
 # MAZ controls - Combined for all years (2020 Census baseline + 2023 ACS targets)
 # For 2020 Census year: direct Census/PL data at block level
 CONTROLS[CENSUS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    ('tot_pop',        ('dec', CENSUS_EST_YEAR, 'P1_001N', 'block', [])),
-    ('pop_hh',         ('dec', CENSUS_EST_YEAR, 'P1_002N', 'block', [])),
-    ('pop_gq',         ('dec', CENSUS_EST_YEAR, 'P1_003N', 'block', [])),
-    ('tot_hu',         ('dec', CENSUS_EST_YEAR, 'H1_001N', 'block', [])),
-    ('occ_hu',         ('dec', CENSUS_EST_YEAR, 'H1_002N', 'block', [])),
-    ('vac_hu',         ('dec', CENSUS_EST_YEAR, 'H1_003N', 'block', [])),
+    ('tot_pop',        ('pl', CENSUS_EST_YEAR, 'P1_001N', 'block', [])),
+    ('pop_hh',         ('pl', CENSUS_EST_YEAR, 'P1_002N', 'block', [])),
+    ('pop_gq',         ('pl', CENSUS_EST_YEAR, 'P1_003N', 'block', [])),
+    ('tot_hu',         ('pl', CENSUS_EST_YEAR, 'H1_001N', 'block', [])),
+    ('occ_hu',         ('pl', CENSUS_EST_YEAR, 'H1_002N', 'block', [])),
+    ('vac_hu',         ('pl', CENSUS_EST_YEAR, 'H1_003N', 'block', [])),
 ])
 
-# For 2023 ACS year: PopulationSim expects num_hh + group quarters with regional scaling
+# For 2023 ACS year: PopulationSim expects num_hh + group quarters 
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    # Number of households (PopulationSim: num_hh) - Regional scaling to ACS1 2023 targets
-    ('num_hh',                ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
-                               [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])],
-                               'regional_scale')),
-    # Total group quarters population from 2020 Census PL 94-171 - scaled to 2023 ACS estimates  
+    # Number of households (PopulationSim: num_hh) - Start with 2020 Census H1_002N, scale to ACS1 2023 targets
+    ('num_hh',                ('pl',  CENSUS_EST_YEAR, 'H1_002N',      'block',
+                               [], 'regional_scale')),
+    # Group quarters from 2020 Census PL 94-171 - keep at 2020 levels (no detailed ACS1 targets available)
     ('gq_pop',                ('pl',   CENSUS_EST_YEAR, 'P5_001N',      'block',
-                               [], 'regional_scale')),
-    # Detailed group quarters by type from 2020 Census PL 94-171 - scaled to 2023 ACS estimates
+                               [])),
+    # Detailed group quarters by type from 2020 Census PL 94-171 - keep at 2020 levels
     ('gq_military',           ('pl',   CENSUS_EST_YEAR, 'P5_009N',      'block',
-                               [], 'regional_scale')),
+                               [])),
     ('gq_university',         ('pl',   CENSUS_EST_YEAR, 'P5_008N',      'block',
-                               [], 'regional_scale')),
+                               [])),
 ])
 
 # ----------------------------------------
@@ -281,10 +294,8 @@ CONTROLS[ACS_EST_YEAR]['REGION_TARGETS'] = collections.OrderedDict([
     # Household and population targets from ACS 2023 1-year county estimates
     ('num_hh_target',      ('acs1', ACS_EST_YEAR, 'B25001', 'county', [])),        # Total households
     ('tot_pop_target',     ('acs1', ACS_EST_YEAR, 'B01003', 'county', [])),        # Total population
-    ('pop_gq_target',      ('acs1', ACS_EST_YEAR, 'B26001', 'county', [])),        # Total group quarters
-    # Group quarters subcategory targets from ACS 2023 1-year B26001 table
-    ('gq_military_target', ('acs1', ACS_EST_YEAR, 'B26001', 'county', [('B26001_007E',)])),  # Military quarters
-    ('gq_university_target', ('acs1', ACS_EST_YEAR, 'B26001', 'county', [('B26001_006E',)])), # University housing
+    # Note: Group quarters subcategory variables (B26001_006E, B26001_007E) are not available in ACS1
+    # Using 2020 Census PL data for group quarters (no regional scaling)
 ])
 
 
@@ -546,6 +557,11 @@ CENSUS_DEFINITIONS = {
     "B01003": [  # Total population
         ["variable"],
         ["B01003_001E"]
+    ],
+    # ACS1 B26001 - only total group quarters available (no subcategories)
+    "B26001_ACS1": [  # Total group quarters population (ACS1 version)
+        ["variable"],
+        ["B26001_001E"]
     ]
 }
 

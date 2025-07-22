@@ -1,4 +1,5 @@
-metric,source,year,value
-Total Households,2020 Census PL H1_002N,2020,0
-Total Households,2023 ACS1 B25001,2023,3031788
-Total Population,2023 ACS1 B01003,2023,7508799
+Metric,2020_Census,2023_ACS
+Total Households,3031765,3031788
+GQ Pop,174844,0
+GQ Military,1684,0
+GQ University,50693,0

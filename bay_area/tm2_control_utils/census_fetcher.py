@@ -222,6 +222,296 @@ class CensusFetcher:
         logging.info(f"Parsed DHC data: {len(df)} rows, {len(df.columns)} columns")
         return df
 
+    def _parse_cached_census_file(self, file_path: str, dataset: str, table: str, geo: str, geo_index: list) -> pd.DataFrame:
+        """
+        Robust parser for different census cached file formats.
+        
+        Args:
+            file_path: Path to cached CSV file
+            dataset: Dataset type ('acs1', 'acs5', 'pl')
+            table: Table name (e.g., 'B01003', 'H1_002N')
+            geo: Geography level ('county', 'tract', 'block', etc.)
+            geo_index: Expected geography column names
+            
+        Returns:
+            pd.DataFrame: Parsed data with proper columns
+        """
+        logging.info(f"Parsing cached file: {file_path} (dataset: {dataset}, table: {table}, geo: {geo})")
+        
+        try:
+            # Read raw file content
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
+                content = f.read().strip()
+            
+            if not content:
+                logging.error(f"Empty file: {file_path}")
+                return None
+                
+            lines = content.split('\n')
+            if len(lines) < 2:
+                logging.error(f"File has fewer than 2 lines: {file_path}")
+                return None
+            
+            # Detect delimiter
+            delimiter = '\t' if '\t' in lines[0] else ','
+            
+            # Parse based on dataset type
+            if dataset == 'acs1':
+                return self._parse_acs1_format(lines, delimiter, geo_index)
+            elif dataset == 'acs5':
+                return self._parse_acs5_format(lines, delimiter, geo_index)
+            elif dataset == 'pl':
+                return self._parse_pl_format(lines, delimiter, geo_index)
+            else:
+                # Try simple CSV format
+                return self._parse_simple_csv(lines, delimiter, geo_index)
+                
+        except Exception as e:
+            logging.error(f"Error parsing {file_path}: {e}")
+            logging.error(traceback.format_exc())
+            return None
+
+    def _parse_acs1_format(self, lines: list, delimiter: str, geo_index: list) -> pd.DataFrame:
+        """Parse ACS1 format: 2-row header with variables and geography."""
+        if len(lines) < 3:
+            return None
+            
+        # ACS1 format:
+        # Row 1: variable[delim][empty][delim]variable_code (e.g., "variable,,B25001_001E")
+        # Row 2: geo_col1[delim]geo_col2[delim][empty] (e.g., "state,county,")
+        # Row 3+: geo_data[delim]geo_data[delim]value (e.g., "06,001,646309.0")
+        
+        # Parse header row to get variable names
+        header_parts = lines[0].split(delimiter)
+        data_cols = []
+        for part in header_parts:
+            part = part.strip()
+            if part and part != 'variable' and ('B' in part or 'P' in part or 'H' in part):
+                data_cols.append(part)
+        
+        # Parse geography row to get geo column names  
+        geo_parts = lines[1].split(delimiter)
+        geo_cols = []
+        for part in geo_parts:
+            part = part.strip()
+            if part and part in ['state', 'county', 'tract', 'block', 'block group']:
+                geo_cols.append(part)
+        
+        # If we don't have proper geo columns, use the expected ones
+        if not geo_cols:
+            geo_cols = geo_index.copy() if geo_index else ['state', 'county']
+        
+        logging.info(f"ACS1 parsing: geo_cols={geo_cols}, data_cols={data_cols}")
+        
+        # Build complete column list
+        all_cols = geo_cols + data_cols
+        
+        # Parse data rows (starting from row 3)
+        data_rows = []
+        for line in lines[2:]:
+            line = line.strip()
+            if line:
+                row_values = [val.strip() for val in line.split(delimiter)]
+                # Remove empty trailing values
+                while row_values and not row_values[-1]:
+                    row_values.pop()
+                    
+                if len(row_values) >= len(geo_cols):
+                    # Ensure row has correct length
+                    while len(row_values) < len(all_cols):
+                        row_values.append('0')
+                    data_rows.append(row_values[:len(all_cols)])
+        
+        if not data_rows:
+            logging.warning("No data rows found in ACS1 file")
+            return None
+            
+        logging.info(f"Parsed {len(data_rows)} ACS1 data rows")
+        
+        # Create DataFrame
+        df = pd.DataFrame(data_rows, columns=all_cols)
+        
+        # Convert data columns to numeric
+        for col in data_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+        # Ensure geography columns are strings  
+        for col in geo_cols:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+        
+        # Rename geography columns to match expected names if needed
+        if len(geo_cols) == len(geo_index):
+            rename_dict = dict(zip(geo_cols, geo_index))
+            df.rename(columns=rename_dict, inplace=True)
+            logging.info(f"Renamed geo columns: {rename_dict}")
+        
+        logging.info(f"Parsed ACS1 format: {len(df)} rows, {len(df.columns)} columns")
+        return df
+
+    def _parse_acs5_format(self, lines: list, delimiter: str, geo_index: list) -> pd.DataFrame:
+        """Parse ACS5 format: Multi-row header with metadata and geography."""
+        if len(lines) < 6:
+            return None
+            
+        # ACS5 format typically has:
+        # Multiple header rows with variable names, metadata
+        # Then data rows starting with geography codes
+        
+        # Find the first data row by looking for rows that start with "06" (California state code)
+        data_start_row = None
+        for i, line in enumerate(lines):
+            cells = [cell.strip() for cell in line.split(delimiter)]
+            if len(cells) >= 2 and cells[0] == '06' and cells[1].isdigit():
+                data_start_row = i
+                break
+        
+        if data_start_row is None:
+            logging.warning("Could not find data rows starting with '06' in ACS5 file")
+            return None
+        
+        logging.info(f"Found ACS5 data starting at row {data_start_row}")
+        
+        # Find variable definitions row (contains B-table variables)
+        variable_row = None
+        for i in range(data_start_row):  # Only check header rows
+            cells = [cell.strip() for cell in lines[i].split(delimiter)]
+            # Look for cells with B-table format (e.g., B19001_001E, B08202_001E)
+            b_vars = [cell for cell in cells if cell and 'B' in cell and '_' in cell and 'E' in cell]
+            if len(b_vars) >= 3:  # Need at least a few variables
+                variable_row = i
+                logging.info(f"Found variable row {i} with {len(b_vars)} B-variables")
+                break
+        
+        if variable_row is None:
+            logging.warning("Could not identify variable row in ACS5 file")
+            return None
+        
+        # Extract variable columns from the variable row
+        var_cells = lines[variable_row].split(delimiter)
+        data_cols = []
+        for cell in var_cells:
+            cell = cell.strip()
+            if cell and 'B' in cell and '_' in cell and 'E' in cell:
+                data_cols.append(cell)
+        
+        logging.info(f"Found {len(data_cols)} data columns: {data_cols[:5]}...")
+        
+        # Use standard geography columns based on geography level
+        geo_cols = geo_index.copy() if geo_index else ['state', 'county']
+        
+        # Build complete column list
+        all_cols = geo_cols + data_cols
+        
+        # Parse data rows starting from data_start_row
+        data_rows = []
+        for i in range(data_start_row, len(lines)):
+            line = lines[i].strip()
+            if line:
+                row_values = [val.strip() for val in line.split(delimiter)]
+                if len(row_values) >= len(geo_cols):
+                    # Take first len(geo_cols) as geography, then data columns
+                    geo_part = row_values[:len(geo_cols)]
+                    data_part = row_values[len(geo_cols):len(geo_cols) + len(data_cols)]
+                    
+                    # Ensure we have enough data values
+                    while len(data_part) < len(data_cols):
+                        data_part.append('0')
+                    
+                    # Combine geo and data parts
+                    full_row = geo_part + data_part[:len(data_cols)]
+                    data_rows.append(full_row)
+        
+        if not data_rows:
+            logging.warning("No data rows found in ACS5 file")
+            return None
+            
+        logging.info(f"Parsed {len(data_rows)} data rows")
+        
+        # Create DataFrame
+        df = pd.DataFrame(data_rows, columns=all_cols)
+        
+        # Convert data columns to numeric
+        for col in data_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+        # Ensure geography columns are strings
+        for col in geo_cols:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+        
+        logging.info(f"Parsed ACS5 format: {len(df)} rows, {len(df.columns)} columns")
+        return df
+
+    def _parse_pl_format(self, lines: list, delimiter: str, geo_index: list) -> pd.DataFrame:
+        """Parse PL format: Simple single-header format."""
+        if len(lines) < 2:
+            return None
+            
+        # PL format is simple: header row + data rows
+        header = [col.strip() for col in lines[0].split(delimiter)]
+        
+        data_rows = []
+        for line in lines[1:]:
+            if line.strip():
+                row_values = [val.strip() for val in line.split(delimiter)]
+                if len(row_values) == len(header):
+                    data_rows.append(row_values)
+        
+        if not data_rows:
+            return None
+            
+        df = pd.DataFrame(data_rows, columns=header)
+        
+        # Convert appropriate columns to numeric (keep geography as strings)
+        for col in df.columns:
+            if col not in geo_index:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+        logging.info(f"Parsed PL format: {len(df)} rows, {len(df.columns)} columns")
+        return df
+
+    def _parse_simple_csv(self, lines: list, delimiter: str, geo_index: list) -> pd.DataFrame:
+        """Parse as simple CSV with header row."""
+        if len(lines) < 2:
+            return None
+            
+        # Try to find a reasonable header row
+        header_row = 0
+        for i, line in enumerate(lines[:5]):
+            cells = [cell.strip() for cell in line.split(delimiter)]
+            # Look for a row that has reasonable column names
+            if len(cells) >= 3 and not all(cell.isdigit() for cell in cells[:3]):
+                header_row = i
+                break
+        
+        header = [col.strip() for col in lines[header_row].split(delimiter)]
+        
+        data_rows = []
+        for line in lines[header_row + 1:]:
+            if line.strip():
+                row_values = [val.strip() for val in line.split(delimiter)]
+                if len(row_values) >= len(geo_index):  # At least enough for geography
+                    # Pad or trim to match header length
+                    while len(row_values) < len(header):
+                        row_values.append('0')
+                    data_rows.append(row_values[:len(header)])
+        
+        if not data_rows:
+            return None
+            
+        df = pd.DataFrame(data_rows, columns=header)
+        
+        # Convert numeric columns
+        for col in df.columns:
+            if col not in geo_index:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+        logging.info(f"Parsed simple CSV: {len(df)} rows, {len(df.columns)} columns")
+        return df
+
     def get_dhc_data_with_computed_variables(self, variables: list, geo_dict: dict, year: str) -> pd.DataFrame:
         """
         Fetch DHC data and compute derived variables like MILITARY_TOTAL and UNIVERSITY_TOTAL.
@@ -559,157 +849,14 @@ class CensusFetcher:
         if os.path.exists(table_cache_file):
             logging.info(f"Reading {table_cache_file}")
             try:
-                # Read all lines to find the correct header and variable code row
-                with open(table_cache_file, 'r', encoding='utf-8-sig') as f:
-                    lines = [line.strip().split(',') for line in f.readlines()]
+                # Robust parser for different census file formats
+                df = self._parse_cached_census_file(table_cache_file, dataset, table, geo, geo_index)
+                if df is not None:
+                    return df
                     
-                # Check for expected header structure
-                if len(lines) >= 6 and len(lines[4]) >= 4 and len(lines[0]) >= 5:
-                    print(f"[DEBUG] File has expected multi-row header structure")
-                    print(f"[DEBUG] lines[0] (data headers): {lines[0]}")
-                    print(f"[DEBUG] lines[4] (geo headers): {lines[4]}")
-                    print(f"[DEBUG] Total lines in file: {len(lines)}")
-                    
-                    # Try to detect the correct format - check multiple header rows
-                    geo_cols = []
-                    data_cols = []
-                    
-                    # Check if lines[0] contains standard variable headers
-                    if 'variable' in lines[0][0] if lines[0] else False:
-                        print(f"[DEBUG] Using standard format with variable headers")
-                        # Standard format - data headers in row 0, geo info in later rows
-                        data_cols = [col for col in lines[0] if col and col != 'variable']
-                        
-                        # Find geo headers by looking for recognizable geo column names
-                        for i in range(1, min(10, len(lines))):
-                            row = lines[i]
-                            if any(geo_name in str(cell).lower() for cell in row for geo_name in ['state', 'county', 'tract', 'block']):
-                                # Extract non-empty cells that look like geo column names
-                                potential_geo_cols = [cell for cell in row if cell and str(cell).strip()]
-                                if len(potential_geo_cols) >= 2:  # At least state and county
-                                    geo_cols = potential_geo_cols[:4]  # Take first 4 potential geo columns
-                                    print(f"[DEBUG] Found geo columns in row {i}: {geo_cols}")
-                                    break
-                        
-                        # If still no geo_cols found, use standard defaults
-                        if not geo_cols:
-                            if geo == 'block':
-                                geo_cols = ['state', 'county', 'tract', 'block']
-                            elif geo == 'tract':
-                                geo_cols = ['state', 'county', 'tract'] 
-                            elif geo == 'county':
-                                geo_cols = ['state', 'county']
-                            else:
-                                geo_cols = ['state', 'county', 'tract']
-                            print(f"[DEBUG] Using default geo components: {geo_cols}")
-                    
-                    else:
-                        # Alternative format - try to detect from actual data rows
-                        print(f"[DEBUG] Using alternative format detection")
-                        
-                        # Look for a row that has numeric data (skip headers)
-                        data_start_row = None
-                        for i in range(len(lines)):
-                            row = lines[i]
-                            try:
-                                # Check if row has some numeric values (indicating data)
-                                numeric_count = sum(1 for cell in row if cell and str(cell).replace('.', '').replace('-', '').isdigit())
-                                if numeric_count >= 3:  # At least 3 numeric columns
-                                    data_start_row = i
-                                    break
-                            except:
-                                continue
-                        
-                        if data_start_row is not None:
-                            # Look backwards from data row to find headers
-                            for i in range(data_start_row - 1, -1, -1):
-                                row = lines[i]
-                                if any('variable' in str(cell).lower() or 'B08202' in str(cell) for cell in row):
-                                    data_cols = [col for col in row if col and 'B08202' in str(col)]
-                                    break
-                        
-                        # Use standard geo column names for this geography
-                        if geo == 'block':
-                            geo_cols = ['state', 'county', 'tract', 'block']
-                        elif geo == 'tract':
-                            geo_cols = ['state', 'county', 'tract'] 
-                        elif geo == 'county':
-                            geo_cols = ['state', 'county']
-                        else:
-                            geo_cols = ['state', 'county', 'tract']
-                
-                if not geo_cols:
-                    geo_cols = ['state', 'county', 'tract']  # Default fallback
-                    
-                if not data_cols:
-                    # Extract from first row if it has B-table variables
-                    data_cols = [col for col in lines[0] if col and 'B' in str(col) and '_' in str(col)]
-                
-                print(f"[DEBUG] Using geo_cols from row 5: {geo_cols}")
-                print(f"[DEBUG] Using data_cols from row 1: {data_cols}")
-                
-                # Build column names
-                col_names = geo_cols + data_cols
-                print(f"[DEBUG] Final col_names: {col_names}")
-                
-                # Skip header rows and read data
-                data_rows = []
-                for i, line in enumerate(lines):
-                    try:
-                        # Skip obvious header rows
-                        if i < 5 or not line or len([cell for cell in line if cell]) < len(geo_cols):
-                            continue
-                            
-                        # Try to identify data rows vs header rows
-                        if any(keyword in str(cell).lower() for cell in line for keyword in ['variable', 'state', 'county'] if len(str(cell)) > 10):
-                            continue
-                        
-                        # Check if this looks like a data row (has geo codes and numbers)
-                        geo_part = line[:len(geo_cols)]
-                        data_part = line[len(geo_cols):len(col_names)]
-                        
-                        if not geo_part or not all(str(cell).strip() for cell in geo_part[:2]):  # At least state and county
-                            continue
-                            
-                        # Build the row with proper length
-                        row_data = geo_part + data_part
-                        if len(row_data) < len(col_names):
-                            row_data.extend([''] * (len(col_names) - len(row_data)))
-                        elif len(row_data) > len(col_names):
-                            row_data = row_data[:len(col_names)]
-                            
-                        data_rows.append(row_data)
-                        
-                    except Exception as e:
-                        print(f"[DEBUG] Error processing line {i}: {e}")
-                        continue
-                
-                # Create DataFrame
-                df = pd.DataFrame(data_rows, columns=col_names)
-                # Map first four columns to standard names for downstream compatibility
-                if len(geo_cols) == len(geo_index):
-                    rename_dict = {old: new for old, new in zip(geo_cols, geo_index)}
-                    df.rename(columns=rename_dict, inplace=True)
-                    print(f"[DEBUG] Renamed geo columns: {rename_dict}")
-                else:
-                    print(f"[DEBUG] geo_cols and geo_index length mismatch: {geo_cols} vs {geo_index}")
-                # Ensure geography columns are string type
-                for col in geo_index:
-                    if col in df.columns:
-                        df[col] = df[col].astype(str)
-                df = df.reset_index(drop=True)
-                # Check that the sum of numeric columns is reasonable and non-zero
-                numeric_cols = df.select_dtypes(include='number').columns
-                for col in numeric_cols:
-                    col_sum = df[col].sum()
-                    print(f"[CHECK] Sum of column '{col}': {col_sum}")
-                    if col_sum == 0 or pd.isna(col_sum):
-                        logging.warning(f"Column '{col}' in {table_cache_file} sums to zero or NaN. Check data integrity.")
-                    elif col_sum < 100:
-                        logging.warning(f"Column '{col}' in {table_cache_file} has a suspiciously low sum: {col_sum}")
-                print(f"[DEBUG] EXIT get_census_data: df.columns: {list(df.columns)}")
-                print(f"[DEBUG] df.head():\n{df.head()}")
-                logging.info(f"Read correct header cached table: {table_cache_file} with shape {df.shape}")
+                # Fallback to simple CSV read if custom parser fails
+                logging.warning(f"Custom parser failed for {table_cache_file}, trying simple CSV read")
+                df = pd.read_csv(table_cache_file)
                 return df
             except Exception as e:
                 logging.error(f"Error reading cached table {table_cache_file}: {e}")
