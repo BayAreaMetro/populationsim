@@ -22,7 +22,6 @@ import sys
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import argparse
 import logging
 from typing import Dict, List, Tuple, Optional, Any
 
@@ -592,17 +591,11 @@ class OutputStructureTest:
 
 def main():
     """Main function to run the output structure test."""
-    parser = argparse.ArgumentParser(description='Test output file structure against expected format')
-    parser.add_argument('--verbose', '-v', action='store_true', 
-                       help='Enable verbose logging')
-    parser.add_argument('--output-dir', '-o', type=str, default=None,
-                       help='Output directory to test (default: output_2023)')
-    
-    args = parser.parse_args()
+
     
     # Create and run the test
-    test = OutputStructureTest(verbose=args.verbose)
-    success = test.run_full_test(output_dir=args.output_dir)
+    test = OutputStructureTest(verbose=True)
+    success = test.run_full_test(output_dir='output_2023')
     
     # Exit with appropriate code
     sys.exit(0 if success else 1)

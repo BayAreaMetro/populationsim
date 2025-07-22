@@ -6,50 +6,59 @@ ACS 2023 data with simplified controls to reflect current Census data availabili
 
 """
 
-import traceback
+
 
 
 USAGE = """
 
 
+Here’s an updated workflow description reflecting your current process:
 
-This script creates populationsim-compatible control files using only reliably available 
-ACS 2023 data, with zero-fill strategy for discontinued Census variables.
+This script creates populationsim-compatible control files using only reliably available
+ACS 2023 data, with a zero-fill strategy for discontinued Census variables and full county-level scaling.
 
-1) CACHE MANAGEMENT: Downloads ACS 2023 tables to input_2023/census_cache/ directory.
-   - One CSV file per census table with descriptive column headers
-   - Automatic cache validation and refresh capability
-   - To force re-download: remove specific cache files
+1) CACHE MANAGEMENT:
 
-2) GEOGRAPHY INTERPOLATION: Converts 2020 Census estimates to 2010 Census geographies:
-   - 2020 Census data → 2010 Census geographies using areal interpolation crosswalks
-   - Required because MAZ/TAZ system was built on 2010 Census geography boundaries
-   - Uses proportional allocation based on area and demographic weights
-   - Handles block→block, block group→block group, tract→tract interpolation
+Downloads ACS 2023 tables to census_cache directory.
+One CSV file per census table with descriptive column headers.
+Automatic cache validation and refresh capability.
+To force re-download: remove specific cache files.
+2) GEOGRAPHY INTERPOLATION:
 
-3) AVAILABLE CONTROLS PROCESSING:
-   - MAZ Level: Total households (B25001), group quarters (B26001)  
-   - TAZ Level: Workers (B08202), age groups (B01001), children (B09001), household size (B11016)
-   - County Level: Basic geographic identifiers only
-   
+Converts 2020 Census estimates to 2010 Census geographies using areal interpolation crosswalks.
+Required because MAZ/TAZ system was built on 2010 Census geography boundaries.
+Uses proportional allocation based on area and demographic weights.
+Handles block→block, block group→block group, tract→tract interpolation.
+3) CONTROL PROCESSING (Config-Driven):
+
+All controls (MAZ, TAZ, COUNTY) are dynamically specified in the configuration.
+MAZ Level: Total households, group quarters, and other controls as defined in config.
+TAZ Level: Workers, age groups, children, household size, income, etc.
+COUNTY Level: All controls and targets as defined in config.
 4) MISSING CONTROLS HANDLING:
-   - Detailed GQ types (gq_type_univ, gq_type_mil): Zero-filled with documentation
-   - Income categories (hh_inc_30, hh_inc_60, etc.): Basic categories only where available
-   - Occupation data (pers_occ_*): Zero-filled as Census no longer provides county detail
 
-5) REGIONAL SCALING: Applies ACS 2023 county totals for accurate population scaling:
-   - Total households: Sum of county B25001 estimates
-   - Group quarters: 155,065 from regional B26001 aggregation
-   - Population totals: B01003 county estimates aggregated to region
+Controls not available in current ACS/Census are zero-filled, with documentation.
+All expected controls are defined in the config for flexibility and extensibility.
+5) COUNTY-LEVEL SCALING:
 
-6) OUTPUT FORMAT: Creates populationsim-compatible marginals files:
-   - maz_marginals.csv: MAZ-level controls (households, GQ)
-   - taz_marginals.csv: TAZ-level controls (workers, age groups, children, household size)
-   - county_marginals.csv: County-level controls and region totals
-   - All files compatible with populationsim expected format and column headers
+Applies ACS 2023 county targets as scaling factors to MAZ household estimates.
+Scaling factors are calculated from county summary and applied using the geographic crosswalk.
+Ensures MAZ-level household totals match ACS county targets.
+6) OUTPUT FORMAT:
+
+Creates populationsim-compatible marginals files:
+maz_marginals.csv: MAZ-level controls (households, group quarters, etc.)
+taz_marginals.csv: TAZ-level controls (workers, age groups, children, household size, income, etc.)
+county_marginals.csv: County-level controls and region totals
+county_summary_2020_2023.csv: County scaling factors and validation
+geo_cross_walk_tm2.csv: Geographic crosswalk
+All files are compatible with populationsim expected format and column headers.
+7) STRUCTURE VALIDATION:
+
+Automated validation step compares output file columns, types, and names to reference examples.
+Ensures outputs match expected structure, except for documented changes.
 """
 
-import argparse
 import collections
 import logging
 import os
@@ -58,6 +67,7 @@ import shutil
 from pathlib import Path
 import numpy
 import pandas as pd
+import traceback
 
 from tm2_control_utils.config import *
 from tm2_control_utils import config
@@ -540,7 +550,8 @@ def get_county_targets(cf, logger, use_offline_fallback=True):
     
     return county_targets
 
-
+""" This is for if we wanted to distribute block group controls from household size from the ACS down to a smaller scale. In prior Census
+implementations household size was available at block level. Because it is no longer available at block level, we just moved the control to block group level"""
 def process_block_distribution_control(control_name, control_def, cf, maz_taz_def_df, crosswalk_df, logger):
     """Process household size controls using block group → block → MAZ distribution."""
     logger.info(f"Processing block distribution control: {control_name} - PLACEHOLDER IMPLEMENTATION")
@@ -802,28 +813,21 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
         maz_df = pd.read_csv(maz_marginals_file)
         county_summary_df = pd.read_csv(county_summary_file)
         crosswalk_df = pd.read_csv(geo_crosswalk_file)
+        county_summary_df['county_name']= county_summary_df['County_Name']
         
         logger.info(f"Loaded MAZ marginals: {len(maz_df)} rows")
         logger.info(f"Loaded county summary: {len(county_summary_df)} counties")
         logger.info(f"Loaded crosswalk: {len(crosswalk_df)} MAZ zones")
-        
-        # Create scaling factor mapping from County FIPS to scaling factor
-        county_scale_map = {}
-        for _, row in county_summary_df.iterrows():
-            county_fips = f"{int(row['County_FIPS']):03d}"  # Ensure 3-digit format
-            county_scale_map[county_fips] = row['Scaling_Factor']
-        
-        logger.info(f"County scaling factors: {county_scale_map}")
+
         
         # Merge MAZ data with county information
-        maz_with_county = maz_df.merge(crosswalk_df[['MAZ', 'COUNTY']], on='MAZ', how='left')
-        
-        # Convert COUNTY column to 3-digit string format for mapping
-        maz_with_county['county_fips'] = maz_with_county['COUNTY'].astype(int).apply(lambda x: f"{x:03d}")
-        
+        maz_with_county = maz_df.merge(crosswalk_df[['MAZ', 'county_name']], on='MAZ', how='left')
+        maz_with_county = maz_with_county.merge(county_summary_df, on='county_name', how='left')
+
+
         # Apply county scaling factors to num_hh
-        maz_with_county['scale_factor'] = maz_with_county['county_fips'].map(county_scale_map)
-        
+        maz_with_county['scale_factor'] = maz_with_county['Scaling_Factor'].fillna(1.0)  # Default to 1.0 if no factor
+
         # Check for missing scaling factors
         missing_scale = maz_with_county['scale_factor'].isna().sum()
         if missing_scale > 0:
@@ -845,20 +849,12 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
         logger.info(f"  Change: {scaled_hh_total - original_hh_total:+,.0f} ({(scaled_hh_total/original_hh_total - 1)*100:+.2f}%)")
         
         # Log scaling by county
-        county_results = maz_with_county.groupby('county_fips').agg({
+        county_results = maz_with_county.groupby('county_name').agg({
             'num_hh': 'sum',
             'scale_factor': 'first'
         }).reset_index()
         
-        logger.info(f"\nScaling results by county:")
-        for _, row in county_results.iterrows():
-            # Safe county name lookup
-            county_match = county_summary_df[county_summary_df['County_FIPS'].astype(str).str.zfill(3) == row['county_fips']]['County_Name']
-            if len(county_match) > 0:
-                county_name = county_match.iloc[0]
-            else:
-                county_name = f"County_{row['county_fips']}"
-            logger.info(f"  {county_name}: {row['num_hh']:,.0f} households (factor: {row['scale_factor']:.4f})")
+   
         
         # Write updated MAZ marginals file
         output_columns = ['MAZ', 'num_hh', 'gq_pop', 'gq_military', 'gq_university', 'gq_other']
@@ -937,7 +933,7 @@ def validate_maz_controls(maz_marginals_file, county_targets, logger):
     
     return validation_passed
 
-
+# To Do: Generalize using the configuration, we shouldn't be specifically mentioning 2020, and 2023 datasets
 def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
     """Create county summary file showing county-specific scaling factors and results.
     
@@ -1052,7 +1048,7 @@ def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
     
     return summary_df
 
-
+# TO DO: Generalize using the configuration, we shouldn't mention specific column names if possible
 def validate_maz_controls(maz_marginals_file, regional_targets, logger):
     """Validate that MAZ control totals match regional targets and provide detailed comparison."""
     logger.info("=" * 60)
@@ -1438,39 +1434,8 @@ def normalize_household_size_controls(control_table_df, control_name, temp_contr
 
 # ... existing code ...
 def main():
-    parser = argparse.ArgumentParser(description='Create baseyear controls for PopulationSim using ACS 2023 data')
-    parser.add_argument('--offline', action='store_true', 
-                       help='Run in offline mode using only cached data (no network required). '
-                            'County targets will be read from cache files. '
-                            'If cache files do not exist, run once without --offline to create them.')
-    parser.add_argument('--copy-data', action='store_true',
-                       help='Copy essential data files from network (M:) drive to local storage for offline work. '
-                            'Creates local_data/ directory structure and copies required GIS and census files.')
-    parser.add_argument('--use-local', action='store_true',
-                       help='Use local data files instead of network (M:) drive. '
-                            'Requires data to be copied first with --copy-data.')
-    parser.add_argument('--run-test', action='store_true',
-                       help='Run output structure validation test after control generation. '
-                            'Validates that output files match expected structure from 2015 examples.')
-    parser.add_argument('--test-verbose', action='store_true',
-                       help='Run validation test in verbose mode (implies --run-test).')
-    args = parser.parse_args()
-    
-    # Handle copy-data operation first
-    if args.copy_data:
-        # Set up logging for copy operation
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-        ch.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p'))
-        logger.addHandler(ch)
-        
-        logger.info("Starting data copy operation from network to local storage")
-        copied_files = copy_network_data_to_local()
-        logger.info(f"Data copy completed. {len(copied_files)} files copied to local_data/")
-        logger.info("You can now use --use-local to work with the local data")
-        return
+
+
     
     pd.set_option("display.width", 500)
     pd.set_option("display.float_format", "{:,.2f}".format)
@@ -1489,29 +1454,22 @@ def main():
     fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p'))
     logger.addHandler(fh)
 
+    # I'd set things up so I can run locally, but I'm not sure if we need this long term
+
     # Configure file paths based on mode
-    if args.use_local:
-        logger.info("Using LOCAL data mode - reading from local_data/ directory")
-        configure_file_paths(use_local=True)
-        if not check_file_accessibility_with_mode(use_local=True):
-            logger.error("Cannot access required local files. Run with --copy-data first.")
-            return 1
-    else:
-        logger.info("Using NETWORK data mode - reading from M: drive")
-        configure_file_paths(use_local=False)
-        if not check_file_accessibility_with_mode(use_local=False):
+    # if args.use_local:
+    #     logger.info("Using LOCAL data mode - reading from local_data/ directory")
+    #     configure_file_paths(use_local=True)
+    #     if not check_file_accessibility_with_mode(use_local=True):
+    #         logger.error("Cannot access required local files. Run with --copy-data first.")
+    #         return 1
+    # else:
+    logger.info("Using NETWORK data mode - reading from M: drive")
+    configure_file_paths(use_local=False)
+    if not check_file_accessibility_with_mode(use_local=False):
             logger.error("Cannot access required network files. Try --copy-data then --use-local.")
             return 1
 
-    if args.offline:
-        logger.info("Running in OFFLINE mode - using only cached data") 
-        logger.info("County targets will be read from cached files")
-    else:
-        logger.info("Running in ONLINE mode - will fetch from Census API and update caches")
-
-    # Display region targets configuration (commented out to avoid automatic display)
-    # logger.info("Displaying current region targets configuration:")
-    # show_region_targets()
 
     logger.info("Preparing geography lookups")
     
@@ -1529,10 +1487,10 @@ def main():
         logger.error("Input file verification failed, exiting")
         sys.exit(1)
 
-    # Step 1: Process county targets first to establish scaling factors
+    # Step 1: Process county targets first to establish scaling factors for MAZ household estimates
     county_targets = {}  # Updated variable name to reflect county-level approach
     if 'COUNTY_TARGETS' in CONTROLS[ACS_EST_YEAR]:
-        county_targets = get_county_targets(cf, logger, use_offline_fallback=args.offline)
+        county_targets = get_county_targets(cf, logger, use_offline_fallback=True)
 
     for control_geo, control_dict in CONTROLS[ACS_EST_YEAR].items():
         # Skip empty control dictionaries and already processed county targets
@@ -1549,6 +1507,8 @@ def main():
             continue
             
         temp_controls = collections.OrderedDict()
+
+        # THIS IS WHERE MOST OF THE WORK IS DONE
         for control_name, control_def in control_dict.items():
             logger.info(f">>> PROCESSING CONTROL: {control_geo}.{control_name}")
             try:
@@ -1644,24 +1604,23 @@ def main():
     validate_maz_controls(maz_marginals_file, county_targets, logger)
 
     # Run output structure validation test if requested
-    if args.test_verbose or args.run_test:
-        logger.info("Running output structure validation test")
-        try:
-            from test_output_structure import OutputStructureTest
-            test_runner = OutputStructureTest(verbose=args.test_verbose)
-            test_results = test_runner.run_all_tests()
+    logger.info("Running output structure validation test")
+    try:
+        from test_output_structure import OutputStructureTest
+        test_runner = OutputStructureTest(verbose=True)
+        test_results = test_runner.run_all_tests()
             
-            if test_results['success']:
+        if test_results['success']:
                 logger.info("✓ Output structure validation PASSED")
                 logger.info(f"All {test_results['tests_run']} validation tests completed successfully")
-            else:
+        else:
                 logger.error("✗ Output structure validation FAILED")
                 logger.error(f"{test_results['failures']} out of {test_results['tests_run']} tests failed")
                 for failure in test_results.get('failure_details', []):
                     logger.error(f"  - {failure}")
-        except ImportError as e:
+    except ImportError as e:
             logger.error(f"Could not import test_output_structure: {e}")
-        except Exception as e:
+    except Exception as e:
             logger.error(f"Error running output structure test: {e}")
             logger.error(f"Test error traceback: {traceback.format_exc()}")
 
