@@ -96,18 +96,7 @@ CONTROLS = {
 }
 
 # ----------------------------------------
-# MAZ controls - Combined for all years (2020 Census baseline + 2023 ACS targets)
-# For 2020 Census year: direct Census/PL data at block level
-CONTROLS[CENSUS_EST_YEAR]['MAZ'] = collections.OrderedDict([
-    ('tot_pop',        ('pl', CENSUS_EST_YEAR, 'P1_001N', 'block', [])),
-    ('pop_hh',         ('pl', CENSUS_EST_YEAR, 'P1_002N', 'block', [])),
-    ('pop_gq',         ('pl', CENSUS_EST_YEAR, 'P1_003N', 'block', [])),
-    ('tot_hu',         ('pl', CENSUS_EST_YEAR, 'H1_001N', 'block', [])),
-    ('occ_hu',         ('pl', CENSUS_EST_YEAR, 'H1_002N', 'block', [])),
-    ('vac_hu',         ('pl', CENSUS_EST_YEAR, 'H1_003N', 'block', [])),
-])
-
-# For 2023 ACS year: PopulationSim expects num_hh + group quarters 
+# MAZ controls for ACS estimate year - PopulationSim expects: num_hh + group quarters 
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     # Number of households (PopulationSim: num_hh) - Start with 2020 Census H1_002N, apply county-level scaling factors
     ('num_hh',                ('pl',  CENSUS_EST_YEAR, 'H1_002N',      'block',
@@ -153,15 +142,19 @@ CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
                                [collections.OrderedDict([('workers_min',3),('workers_max',NWOR_MAX),
                                                          ('persons_min',0), ('persons_max',NPER_MAX)])],
                                'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
-    # ACS5 total persons by age at block‐group - DIRECT AGGREGATION (no scaling needed)
-    ('pers_age_00_19',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('age_min',0),('age_max',19)])])),
-    ('pers_age_20_34',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('age_min',20),('age_max',34)])])),
-    ('pers_age_35_64',        ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('age_min',35),('age_max',64)])])),
-    ('pers_age_65_plus',      ('acs5', ACS_EST_YEAR,    'B01001',       'block group',
-                               [collections.OrderedDict([('age_min',65),('age_max',AGE_MAX)])])),
+    # ACS5 total persons by age at tract level - DISAGGREGATION NEEDED (tract -> block group -> TAZ)
+    ('pers_age_00_19',        ('acs5', ACS_EST_YEAR,    'B01001',       'tract',
+                               [collections.OrderedDict([('age_min',0),('age_max',19)])], 
+                               'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
+    ('pers_age_20_34',        ('acs5', ACS_EST_YEAR,    'B01001',       'tract',
+                               [collections.OrderedDict([('age_min',20),('age_max',34)])], 
+                               'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
+    ('pers_age_35_64',        ('acs5', ACS_EST_YEAR,    'B01001',       'tract',
+                               [collections.OrderedDict([('age_min',35),('age_max',64)])], 
+                               'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
+    ('pers_age_65_plus',      ('acs5', ACS_EST_YEAR,    'B01001',       'tract',
+                               [collections.OrderedDict([('age_min',65),('age_max',AGE_MAX)])], 
+                               'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
     # ACS5 households with children at block‐group - DIRECT AGGREGATION (no scaling needed)
     ('hh_kids_no',            ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
                                [collections.OrderedDict([('num_kids_min',0),('num_kids_max',0)])])),
@@ -391,11 +384,59 @@ CENSUS_DEFINITIONS = {
         ["variable"],
         ["B11002_001E"]
     ],
-    "B01001": [  # ACS5-2023: Sex by age
+    "B01001": [  # ACS5-2023: Sex by age - Complete age breakdown
         ["variable", "sex", "age_min", "age_max"],
         ["B01001_001E", "All", 0, AGE_MAX],
         ["B01001_002E", "Male", 0, AGE_MAX],
-        ["B01001_026E", "Female", 0, AGE_MAX]
+        ["B01001_026E", "Female", 0, AGE_MAX],
+        # Male age categories
+        ["B01001_003E", "Male", 0, 4],
+        ["B01001_004E", "Male", 5, 9],
+        ["B01001_005E", "Male", 10, 14],
+        ["B01001_006E", "Male", 15, 17],
+        ["B01001_007E", "Male", 18, 19],
+        ["B01001_008E", "Male", 20, 20],
+        ["B01001_009E", "Male", 21, 21],
+        ["B01001_010E", "Male", 22, 24],
+        ["B01001_011E", "Male", 25, 29],
+        ["B01001_012E", "Male", 30, 34],
+        ["B01001_013E", "Male", 35, 39],
+        ["B01001_014E", "Male", 40, 44],
+        ["B01001_015E", "Male", 45, 49],
+        ["B01001_016E", "Male", 50, 54],
+        ["B01001_017E", "Male", 55, 59],
+        ["B01001_018E", "Male", 60, 61],
+        ["B01001_019E", "Male", 62, 64],
+        ["B01001_020E", "Male", 65, 66],
+        ["B01001_021E", "Male", 67, 69],
+        ["B01001_022E", "Male", 70, 74],
+        ["B01001_023E", "Male", 75, 79],
+        ["B01001_024E", "Male", 80, 84],
+        ["B01001_025E", "Male", 85, AGE_MAX],
+        # Female age categories
+        ["B01001_027E", "Female", 0, 4],
+        ["B01001_028E", "Female", 5, 9],
+        ["B01001_029E", "Female", 10, 14],
+        ["B01001_030E", "Female", 15, 17],
+        ["B01001_031E", "Female", 18, 19],
+        ["B01001_032E", "Female", 20, 20],
+        ["B01001_033E", "Female", 21, 21],
+        ["B01001_034E", "Female", 22, 24],
+        ["B01001_035E", "Female", 25, 29],
+        ["B01001_036E", "Female", 30, 34],
+        ["B01001_037E", "Female", 35, 39],
+        ["B01001_038E", "Female", 40, 44],
+        ["B01001_039E", "Female", 45, 49],
+        ["B01001_040E", "Female", 50, 54],
+        ["B01001_041E", "Female", 55, 59],
+        ["B01001_042E", "Female", 60, 61],
+        ["B01001_043E", "Female", 62, 64],
+        ["B01001_044E", "Female", 65, 66],
+        ["B01001_045E", "Female", 67, 69],
+        ["B01001_046E", "Female", 70, 74],
+        ["B01001_047E", "Female", 75, 79],
+        ["B01001_048E", "Female", 80, 84],
+        ["B01001_049E", "Female", 85, AGE_MAX]
     ],
     "B11005": [  # ACS5-2023: Household by presence of own children under 18 years
         ["variable", "num_kids_min", "num_kids_max"],

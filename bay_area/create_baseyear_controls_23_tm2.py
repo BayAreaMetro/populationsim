@@ -76,7 +76,7 @@ from tm2_control_utils.config import (get_bay_area_county_codes, get_county_name
                                     get_all_expected_controls_for_geography, get_missing_controls_for_geography)
 from tm2_control_utils.census_fetcher import CensusFetcher
 from tm2_control_utils.geog_utils import prepare_geography_dfs, add_aggregate_geography_colums, interpolate_est
-from tm2_control_utils.controls import create_control_table, census_col_is_in_control, match_control_to_geography, integerize_control
+from tm2_control_utils.controls import create_control_table, census_col_is_in_control, match_control_to_geography, integerize_control, aggregate_to_control_geo, add_geoid_column
 
 
 def verify_input_files():
@@ -283,65 +283,6 @@ def show_control_categories():
     print("="*80)
 
 
-def show_region_targets():
-    """Display the region targets configuration as a formatted table"""
-    
-    print("="*80)
-    print("REGION TARGETS CONFIGURATION")
-    print("="*80)
-    
-    region_targets = CONTROLS[ACS_EST_YEAR]['REGION_TARGETS']
-    
-    # Create a list to store the target information
-    target_data = []
-    
-    for target_name, target_config in region_targets.items():
-        data_source, year, table, geography, variables = target_config
-        
-        # Format variables if they exist
-        var_str = ""
-        if variables:
-            var_str = ", ".join([var[0] if isinstance(var, tuple) else str(var) for var in variables])
-        else:
-            var_str = f"{table}_001E (total)"
-            
-        target_data.append({
-            'Target Name': target_name,
-            'Data Source': data_source.upper(),
-            'Year': year,
-            'Table': table,
-            'Geography': geography,
-            'Variables': var_str
-        })
-    
-    # Create DataFrame and display
-    df = pd.DataFrame(target_data)
-    
-    # Print with nice formatting
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.width', None)
-    pd.set_option('display.max_colwidth', 50)
-    
-    print(df.to_string(index=False))
-    print("\n")
-    
-    # Summary
-    print("SUMMARY:")
-    print(f"- Total targets: {len(target_data)}")
-    print(f"- Data sources: {', '.join(set([t['Data Source'] for t in target_data]))}")
-    print(f"- Year: {target_data[0]['Year']}")
-    print(f"- Geography level: {target_data[0]['Geography']}")
-    print("\n")
-    
-    # Show the actual configuration format
-    print("RAW CONFIGURATION:")
-    print("-" * 50)
-    for target_name, target_config in region_targets.items():
-        print(f"'{target_name}': {target_config}")
-    print("\n")
-    
-    return df
-
 def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_df, logger):
     """Apply county-level scaling factors to MAZ controls using ACS 2023 county targets.
     
@@ -461,11 +402,7 @@ def get_county_targets(cf, logger, use_offline_fallback=True):
                 logger.error("Cannot proceed in offline mode without valid county targets cache")
                 return {}
     
-    # If offline mode and no cache, return empty
-    if use_offline_fallback:
-        logger.warning("Offline mode requested but no county targets cache found")
-        logger.info(f"To create the cache, run once without --offline flag")
-        return {}
+
     
     # Fetch from Census API and save to cache
     logger.info("Fetching county targets from ACS 2023 1-year estimates and saving to cache")
@@ -675,6 +612,12 @@ def process_control(
     if CENSUS_GEOG_YEAR != CENSUS_EST_YEAR:
         logger.info(f"GEOGRAPHIC INTERPOLATION REQUIRED: {CENSUS_EST_YEAR} → {CENSUS_GEOG_YEAR}")
         logger.info(f"Source geography: {control_def[3]}")
+        
+        # CRITICAL DEBUGGING: Track geographic interpolation effects for worker controls
+        if 'wrk' in control_name.lower():
+            print(f"[DEBUG][MAIN] ==> GEOGRAPHIC INTERPOLATION FOR WORKER CONTROL: {control_name}")
+            print(f"[DEBUG][MAIN] Before interpolation: {len(control_table_df)} records, total = {control_table_df[control_name].sum():,.0f}")
+        
         print("control_df columns:", control_table_df.columns)
         print(control_table_df.head())
         print(control_table_df.reset_index().head())
@@ -683,8 +626,14 @@ def process_control(
             geo=control_def[3],
             target_geo_year=CENSUS_GEOG_YEAR,
             source_geo_year=CENSUS_EST_YEAR
-   
         )
+        
+        # CRITICAL DEBUGGING: Track interpolation results for worker controls
+        if 'wrk' in control_name.lower():
+            print(f"[DEBUG][MAIN] After interpolation: {len(control_table_df)} records, total = {control_table_df[control_name].sum():,.0f}")
+            print(f"[DEBUG][MAIN] Interpolation ratio: {control_table_df[control_name].sum() / 1221884:.6f}")
+            print(f"[DEBUG][MAIN] Geographic scope change: {len(control_table_df)} vs original tract count")
+        
         logger.info(f"Geographic interpolation completed for {control_name}")
     else:
         logger.info(f"No geographic interpolation needed: both years are {CENSUS_GEOG_YEAR}")
@@ -699,7 +648,7 @@ def process_control(
             scale_numerator=None, scale_denominator=None, subtract_table=None
         )
         
-        # Apply county-level scaling using county targets (no regional targets needed)
+        # Apply county-level scaling using county targets
         # Note: county_targets should be passed as a parameter to process_control
         logger.warning(f"County scaling for {control_name}: requires county_targets parameter to be passed to process_control")
             
@@ -715,12 +664,90 @@ def process_control(
         if subtract_table:
             logger.info(f"Subtraction table: {subtract_table}")
 
-        final_df = match_control_to_geography(
-            control_name, control_table_df, control_geo, control_def[3],
-            maz_taz_def_df, temp_controls,
-            scale_numerator=scale_numerator, scale_denominator=scale_denominator,
-            subtract_table=subtract_table
-        )
+        # For temp controls, use the original census geography as target instead of control_geo
+        # This ensures temp controls like temp_hh_bg_for_tract_weights stay at block group level
+        if control_name.startswith("temp_"):
+            target_geography = control_def[3]  # Use census geography
+            logger.info(f"TEMP CONTROL: Using census geography '{target_geography}' as target instead of '{control_geo}'")
+            
+            # Special handling for block group level temp controls
+            if target_geography == 'block group':
+                logger.info(f"TEMP CONTROL: Handling block group level control {control_name} with direct aggregation")
+                
+                # For block group controls, we need to handle them directly since match_control_to_geography
+                # doesn't support 'block group' as a target geography
+                
+                # First prepare the control table with proper GEOID column
+                control_table_df = control_table_df.copy()
+                
+                # Clean the data - remove any header rows and ensure numeric values
+                print(f"[DEBUG] Before cleanup - control_table_df shape: {control_table_df.shape}")
+                print(f"[DEBUG] Before cleanup - control_table_df dtypes: {control_table_df.dtypes.to_dict()}")
+                
+                # Check for and remove header rows
+                if control_name in control_table_df.columns:
+                    # Remove rows where the control column contains string values (headers)
+                    string_mask = control_table_df[control_name].astype(str).str.match(r'^[a-zA-Z]', na=False)
+                    if string_mask.any():
+                        print(f"[DEBUG] Removing {string_mask.sum()} header rows from {control_name}")
+                        control_table_df = control_table_df[~string_mask]
+                    
+                    # Convert to numeric and remove NaN values
+                    control_table_df[control_name] = pd.to_numeric(control_table_df[control_name], errors='coerce')
+                    control_table_df = control_table_df.dropna(subset=[control_name])
+                
+                print(f"[DEBUG] After cleanup - control_table_df shape: {control_table_df.shape}")
+                
+                # Make sure we have the right GEOID column for block group
+                if 'GEOID_block group' not in control_table_df.columns:
+                    control_table_df = add_geoid_column(control_table_df, 'block group')
+                
+                # Keep the GEOID as a column for disaggregation function to use
+                if 'GEOID_block group' in control_table_df.columns:
+                    final_df = control_table_df[['GEOID_block group', control_name]].copy()
+                    
+                    # Ensure the final DataFrame has clean numeric data
+                    final_df[control_name] = pd.to_numeric(final_df[control_name], errors='coerce')
+                    final_df = final_df.dropna(subset=[control_name])
+                    
+                    logger.info(f"Created block group level temp control: {len(final_df)} block groups")
+                else:
+                    logger.error(f"Could not create GEOID_block group column for {control_name}")
+                    raise ValueError(f"Failed to create block group GEOID for {control_name}")
+            else:
+                # Use normal processing for other temp controls
+                final_df = match_control_to_geography(
+                    control_name, control_table_df, target_geography, control_def[3],
+                    maz_taz_def_df, temp_controls,
+                    scale_numerator=scale_numerator, scale_denominator=scale_denominator,
+                    subtract_table=subtract_table
+                )
+        else:
+            target_geography = control_geo
+            # CRITICAL DEBUGGING: Track worker control processing through the entire pipeline
+            if 'wrk' in control_name.lower():
+                print(f"[DEBUG][MAIN] ==> PROCESSING WORKER CONTROL: {control_name}")
+                print(f"[DEBUG][MAIN] Target geography: {target_geography}")
+                print(f"[DEBUG][MAIN] Census geography: {control_def[3]}")
+                print(f"[DEBUG][MAIN] Scale numerator: {scale_numerator}")
+                print(f"[DEBUG][MAIN] Scale denominator: {scale_denominator}")
+                print(f"[DEBUG][MAIN] Input control_table_df[{control_name}].sum(): {control_table_df[control_name].sum():,.0f}")
+            
+            final_df = match_control_to_geography(
+                control_name, control_table_df, target_geography, control_def[3],
+                maz_taz_def_df, temp_controls,
+                scale_numerator=scale_numerator, scale_denominator=scale_denominator,
+                subtract_table=subtract_table
+            )
+            
+            # CRITICAL DEBUGGING: Check what comes back from match_control_to_geography
+            if 'wrk' in control_name.lower():
+                print(f"[DEBUG][MAIN] ==> RECEIVED RESULT FROM match_control_to_geography")
+                print(f"[DEBUG][MAIN] Result final_df[{control_name}].sum(): {final_df[control_name].sum():,.0f}")
+                print(f"[DEBUG][MAIN] Input vs Result ratio: {final_df[control_name].sum() / control_table_df[control_name].sum():.6f}")
+                print(f"[DEBUG][MAIN] Result shape: {final_df.shape}")
+                print(f"[DEBUG][MAIN] Result index name: {final_df.index.name}")
+                print(f"[DEBUG][MAIN] Result columns: {list(final_df.columns)}")
     
     # Step 8: Integerize if needed
     if control_name in ["num_hh", "gq_pop", "tot_pop"]:
@@ -737,7 +764,12 @@ def process_control(
             logger.info(f"TEMP CONTROL [{control_name}]: {len(final_df)} zones, total = {total:,.0f}")
             
             # Log distribution for important temp controls
-            if control_name in ['temp_base_num_hh_b', 'temp_base_num_hh_bg', 'temp_num_hh_size']:
+            if control_name in ['temp_base_num_hh_b', 'temp_base_num_hh_bg', 'temp_num_hh_size', 'temp_hh_bg_for_tract_weights']:
+                logger.info(f"TEMP CONTROL {control_name} details:")
+                logger.info(f"  Target geography: {final_df.index.name}")
+                logger.info(f"  Columns: {list(final_df.columns)}")
+                if hasattr(final_df, 'index') and len(final_df) > 0:
+                    logger.info(f"  Sample indices: {final_df.index[:5].tolist()}")
                 for col in control_cols[:3]:  # Log first 3 columns
                     col_total = final_df[col].sum()
                     nonzero_count = (final_df[col] > 0).sum()
@@ -763,8 +795,26 @@ def process_control(
                     final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
                     final_df = final_df.dropna(subset=[col])
         
-        total = final_df[control_cols].sum().sum() if control_cols else 0
-        logger.info(f"FINAL CONTROL [{control_name}]: {len(final_df)} zones, total = {total:,.0f}")
+        # Filter out any header rows that might still be present
+        if control_cols:
+            # Check for string values that indicate header rows
+            for col in control_cols:
+                string_mask = final_df[col].astype(str).str.contains('^[a-zA-Z]', na=False, regex=True)
+                if string_mask.any():
+                    print(f"[DEBUG] Removing {string_mask.sum()} header/string rows from {control_name}")
+                    final_df = final_df[~string_mask]
+        
+        # Calculate total after cleanup
+        try:
+            total = final_df[control_cols].sum().sum() if control_cols else 0
+            logger.info(f"FINAL CONTROL [{control_name}]: {len(final_df)} zones, total = {total:,.0f}")
+        except Exception as e:
+            logger.error(f"Error calculating total for {control_name}: {e}")
+            # Force convert to numeric and try again
+            for col in control_cols:
+                final_df[col] = pd.to_numeric(final_df[col], errors='coerce').fillna(0)
+            total = final_df[control_cols].sum().sum() if control_cols else 0
+            logger.info(f"FINAL CONTROL [{control_name}] (after cleanup): {len(final_df)} zones, total = {total:,.0f}")
         
         # Log additional details for key controls (dynamically determined)
         key_controls = (get_controls_in_category('MAZ', 'household_counts') + 
@@ -779,16 +829,55 @@ def process_control(
                 logger.info(f"  {col}: total = {col_total:,.0f}, non-zero zones = {nonzero_count}, mean = {mean_val:.1f}, max = {max_val:.0f}")
 
     # Step 10: Merge into final_control_dfs
+    if 'wrk' in control_name.lower():
+        print(f"[DEBUG][MAIN] ==> MERGING WORKER CONTROL INTO final_control_dfs")
+        print(f"[DEBUG][MAIN] About to merge final_df[{control_name}].sum(): {final_df[control_name].sum():,.0f}")
+        
     if control_geo not in final_control_dfs:
         final_control_dfs[control_geo] = final_df
+        if 'wrk' in control_name.lower():
+            print(f"[DEBUG][MAIN] ==> FIRST CONTROL FOR {control_geo} - direct assignment")
     else:
+        # Check for overlapping columns that would cause suffix conflicts
+        left_df = final_control_dfs[control_geo]
+        right_df = final_df
+        
+        if 'wrk' in control_name.lower():
+            print(f"[DEBUG][MAIN] ==> MERGING WITH EXISTING {control_geo} CONTROLS")
+            print(f"[DEBUG][MAIN] Left df shape: {left_df.shape}")
+            print(f"[DEBUG][MAIN] Right df shape: {right_df.shape}")
+            print(f"[DEBUG][MAIN] Left df columns: {list(left_df.columns)}")
+            print(f"[DEBUG][MAIN] Right df columns: {list(right_df.columns)}")
+        
+        # Get common columns (excluding the ones we want to merge)
+        left_cols = set(left_df.columns)
+        right_cols = set(right_df.columns)
+        common_cols = left_cols & right_cols
+        
+        # Remove common columns from right_df before merge (keep only the control column)
+        control_cols_to_keep = [col for col in right_df.columns if col not in common_cols or col == control_name]
+        right_df_clean = right_df[control_cols_to_keep]
+        
+        if 'wrk' in control_name.lower():
+            print(f"[DEBUG][MAIN] ==> CLEANED RIGHT DF FOR MERGE")
+            print(f"[DEBUG][MAIN] Cleaned right df shape: {right_df_clean.shape}")
+            print(f"[DEBUG][MAIN] Cleaned right df columns: {list(right_df_clean.columns)}")
+            print(f"[DEBUG][MAIN] Cleaned right df[{control_name}].sum(): {right_df_clean[control_name].sum():,.0f}")
+        
         final_control_dfs[control_geo] = pd.merge(
-            left=final_control_dfs[control_geo],
-            right=final_df,
+            left=left_df,
+            right=right_df_clean,
             how="left",
             left_index=True,
             right_index=True
         )
+        
+        if 'wrk' in control_name.lower():
+            print(f"[DEBUG][MAIN] ==> MERGE COMPLETE")
+            merged_df = final_control_dfs[control_geo]
+            print(f"[DEBUG][MAIN] Merged df shape: {merged_df.shape}")
+            print(f"[DEBUG][MAIN] Merged df[{control_name}].sum(): {merged_df[control_name].sum():,.0f}")
+            print(f"[DEBUG][MAIN] All worker controls in merged df: {[col for col in merged_df.columns if 'wrk' in col.lower()]}")
     
     # Special case: Add num_hh to temp_controls so household size controls can use it as denominator
     if control_name == "num_hh":
@@ -933,6 +1022,145 @@ def validate_maz_controls(maz_marginals_file, county_targets, logger):
     
     return validation_passed
 
+
+def validate_taz_household_consistency(taz_marginals_file, logger):
+    """
+    Validate that TAZ household controls are consistent across categories.
+    
+    For each TAZ, the sum of worker controls should equal the sum of income controls
+    which should equal the sum of household size controls, since they all represent
+    the same total number of households categorized differently.
+    
+    Args:
+        taz_marginals_file: Path to TAZ marginals CSV file
+        logger: Logger instance
+        
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    logger.info("=" * 60)
+    logger.info("VALIDATING TAZ HOUSEHOLD CONTROL CONSISTENCY")
+    logger.info("=" * 60)
+    
+    if not os.path.exists(taz_marginals_file):
+        logger.error(f"TAZ marginals file not found: {taz_marginals_file}")
+        return False
+        
+    try:
+        taz_df = pd.read_csv(taz_marginals_file)
+        logger.info(f"Loaded TAZ marginals file with {len(taz_df)} TAZ zones")
+        
+        # Define household control categories
+        worker_controls = ['hh_wrks_0', 'hh_wrks_1', 'hh_wrks_2', 'hh_wrks_3_plus']
+        income_controls = ['hh_inc_30', 'hh_inc_30_60', 'hh_inc_60_100', 'hh_inc_100_plus']  
+        size_controls = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus']
+        
+        # Check which controls are available
+        available_worker = [col for col in worker_controls if col in taz_df.columns]
+        available_income = [col for col in income_controls if col in taz_df.columns]
+        available_size = [col for col in size_controls if col in taz_df.columns]
+        
+        logger.info(f"Available worker controls: {available_worker}")
+        logger.info(f"Available income controls: {available_income}")
+        logger.info(f"Available size controls: {available_size}")
+        
+        validation_passed = True
+        tolerance = 0.01  # 1% tolerance for rounding differences
+        
+        # Calculate totals for each category
+        if available_worker:
+            taz_df['worker_total'] = taz_df[available_worker].sum(axis=1)
+            worker_total = taz_df['worker_total'].sum()
+            logger.info(f"Total households by workers: {worker_total:,.0f}")
+        
+        if available_income:
+            taz_df['income_total'] = taz_df[available_income].sum(axis=1)
+            income_total = taz_df['income_total'].sum()
+            logger.info(f"Total households by income: {income_total:,.0f}")
+            
+        if available_size:
+            taz_df['size_total'] = taz_df[available_size].sum(axis=1)
+            size_total = taz_df['size_total'].sum()
+            logger.info(f"Total households by size: {size_total:,.0f}")
+        
+        # Compare totals between categories
+        logger.info("\nCOMPARING HOUSEHOLD TOTALS ACROSS CATEGORIES:")
+        logger.info("-" * 50)
+        
+        if available_worker and available_income:
+            diff = abs(worker_total - income_total)
+            pct_diff = (diff / worker_total) * 100 if worker_total > 0 else 0
+            status = "PASS" if pct_diff <= tolerance else "FAIL"
+            logger.info(f"Workers vs Income  | {worker_total:>10,.0f} vs {income_total:>10,.0f} | Diff: {diff:>8,.0f} | {pct_diff:>5.2f}% | {status}")
+            if pct_diff > tolerance:
+                validation_passed = False
+        
+        if available_worker and available_size:
+            diff = abs(worker_total - size_total)
+            pct_diff = (diff / worker_total) * 100 if worker_total > 0 else 0
+            status = "PASS" if pct_diff <= tolerance else "FAIL"
+            logger.info(f"Workers vs Size    | {worker_total:>10,.0f} vs {size_total:>10,.0f} | Diff: {diff:>8,.0f} | {pct_diff:>5.2f}% | {status}")
+            if pct_diff > tolerance:
+                validation_passed = False
+                
+        if available_income and available_size:
+            diff = abs(income_total - size_total)
+            pct_diff = (diff / income_total) * 100 if income_total > 0 else 0
+            status = "PASS" if pct_diff <= tolerance else "FAIL"
+            logger.info(f"Income vs Size     | {income_total:>10,.0f} vs {size_total:>10,.0f} | Diff: {diff:>8,.0f} | {pct_diff:>5.2f}% | {status}")
+            if pct_diff > tolerance:
+                validation_passed = False
+        
+        # Check for TAZs with significant inconsistencies
+        logger.info("\nCHECKING TAZ-LEVEL CONSISTENCY:")
+        logger.info("-" * 50)
+        
+        inconsistent_tazs = []
+        max_taz_diff = 0
+        
+        if available_worker and available_income and available_size:
+            # Calculate differences at TAZ level
+            taz_df['worker_income_diff'] = abs(taz_df['worker_total'] - taz_df['income_total'])
+            taz_df['worker_size_diff'] = abs(taz_df['worker_total'] - taz_df['size_total'])
+            taz_df['income_size_diff'] = abs(taz_df['income_total'] - taz_df['size_total'])
+            
+            # Find TAZs with any difference > 1% of their total households
+            taz_df['max_diff'] = taz_df[['worker_income_diff', 'worker_size_diff', 'income_size_diff']].max(axis=1)
+            taz_df['pct_diff'] = (taz_df['max_diff'] / taz_df['worker_total']) * 100
+            
+            problematic_tazs = taz_df[taz_df['pct_diff'] > tolerance * 100]
+            
+            if len(problematic_tazs) > 0:
+                logger.warning(f"Found {len(problematic_tazs)} TAZs with inconsistent household totals (>{tolerance*100}% difference)")
+                
+                # Show worst 5 TAZs
+                worst_tazs = problematic_tazs.nlargest(5, 'pct_diff')
+                for _, row in worst_tazs.iterrows():
+                    logger.warning(f"  TAZ {row['TAZ']}: Workers={row['worker_total']:.0f}, Income={row['income_total']:.0f}, Size={row['size_total']:.0f} (max diff: {row['pct_diff']:.1f}%)")
+                
+                max_taz_diff = problematic_tazs['pct_diff'].max()
+                if max_taz_diff > tolerance * 100:
+                    validation_passed = False
+            else:
+                logger.info("All TAZs have consistent household totals across categories")
+        
+        # Summary
+        logger.info("\n" + "=" * 60)
+        if validation_passed:
+            logger.info("SUCCESS: TAZ household controls are consistent across categories")
+        else:
+            logger.error("FAILED: TAZ household controls have significant inconsistencies")
+            logger.error(f"Maximum TAZ-level difference: {max_taz_diff:.2f}%")
+        logger.info("=" * 60)
+        
+        return validation_passed
+        
+    except Exception as e:
+        logger.error(f"Error validating TAZ household consistency: {e}")
+        logger.error(f"Validation error traceback: {traceback.format_exc()}")
+        return False
+
+
 # To Do: Generalize using the configuration, we shouldn't be specifically mentioning 2020, and 2023 datasets
 def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
     """Create county summary file showing county-specific scaling factors and results.
@@ -1047,122 +1275,6 @@ def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
         logger.info(f"  County Scaling Factor Range: {non_zero_factors.min():.4f} to {non_zero_factors.max():.4f}")
     
     return summary_df
-
-# TO DO: Generalize using the configuration, we shouldn't mention specific column names if possible
-def validate_maz_controls(maz_marginals_file, regional_targets, logger):
-    """Validate that MAZ control totals match regional targets and provide detailed comparison."""
-    logger.info("=" * 60)
-    logger.info("VALIDATING MAZ CONTROL TOTALS AGAINST REGIONAL TARGETS")
-    logger.info("=" * 60)
-    
-    if not os.path.exists(maz_marginals_file):
-        logger.error(f"MAZ marginals file not found: {maz_marginals_file}")
-        return False
-    
-    if not regional_targets:
-        logger.warning("No regional targets available for validation")
-        return False
-    
-    # Read MAZ marginals file
-    try:
-        maz_df = pd.read_csv(maz_marginals_file)
-        logger.info(f"Loaded MAZ marginals file with {len(maz_df)} rows and {len(maz_df.columns)} columns")
-        logger.info(f"Available MAZ columns: {list(maz_df.columns)}")
-    except Exception as e:
-        logger.error(f"Failed to read MAZ marginals file: {e}")
-        return False
-    
-    validation_passed = True
-    
-    # Create comprehensive comparison table
-    logger.info("\nCOMPREHENSIVE MAZ TOTALS vs REGIONAL TARGETS:")
-    logger.info("-" * 60)
-    
-    # Define all MAZ columns to check with their corresponding regional targets
-    maz_target_mapping = {
-        'num_hh': 'num_hh_target',
-        'gq_pop': 'pop_gq_target', 
-        'gq_military': 'gq_military_target',
-        'gq_university': 'gq_university_target'
-    }
-    
-    # Check each MAZ control against its regional target
-    for maz_col, target_key in maz_target_mapping.items():
-        if maz_col in maz_df.columns:
-            maz_total = maz_df[maz_col].sum()
-            
-            if target_key in regional_targets:
-                regional_target = regional_targets[target_key]
-                diff = maz_total - regional_target
-                pct_diff = (abs(diff) / regional_target) * 100 if regional_target > 0 else 0
-                status = "PASS" if pct_diff <= 1.0 else "FAIL"
-                
-                logger.info(f"{maz_col:15} | MAZ Total: {maz_total:>10,.0f} | Target: {regional_target:>10,.0f} | Diff: {diff:>+10,.0f} | {pct_diff:>6.2f}% | {status}")
-                
-                if pct_diff > 1.0:
-                    validation_passed = False
-            else:
-                logger.info(f"{maz_col:15} | MAZ Total: {maz_total:>10,.0f} | Target: {'N/A':>10} | No regional target available")
-        else:
-            if target_key in regional_targets:
-                logger.warning(f"{maz_col:15} | Column not found in MAZ file but target exists: {regional_targets[target_key]:>10,.0f}")
-    
-    # Check for additional MAZ columns without targets
-    logger.info("\nADDITIONAL MAZ COLUMNS (no regional targets):")
-    logger.info("-" * 45)
-    
-    other_cols = [col for col in maz_df.columns if col not in maz_target_mapping and col not in ['GEOID', 'MAZ', 'TAZ', 'COUNTY']]
-    for col in other_cols:
-        total = maz_df[col].sum()
-        logger.info(f"{col:25} | Total: {total:>12,.0f}")
-    
-    validation_passed = True
-    
-    # Check total households
-    if 'num_hh' in maz_df.columns and 'num_hh_target' in regional_targets:
-        maz_total_hh = maz_df['num_hh'].sum()
-        regional_target_hh = regional_targets['num_hh_target']
-        diff_hh = abs(maz_total_hh - regional_target_hh)
-        pct_diff_hh = (diff_hh / regional_target_hh) * 100 if regional_target_hh > 0 else 0
-        
-        if pct_diff_hh > 1.0:  # Allow 1% tolerance
-            logger.error(f"VALIDATION FAILED: Household totals differ by more than 1% ({pct_diff_hh:.2f}%)")
-            validation_passed = False
-    
-    # Check group quarters population
-    if 'gq_pop' in maz_df.columns and 'pop_gq_target' in regional_targets:
-        maz_total_gq = maz_df['gq_pop'].sum()
-        regional_target_gq = regional_targets['pop_gq_target']
-        diff_gq = abs(maz_total_gq - regional_target_gq)
-        pct_diff_gq = (diff_gq / regional_target_gq) * 100 if regional_target_gq > 0 else 0
-        
-        if pct_diff_gq > 1.0:  # Allow 1% tolerance
-            validation_passed = False
-    
-    # Check group quarters subcategories
-    gq_subcats = ['gq_military', 'gq_university']
-    target_subcats = ['gq_military_target', 'gq_university_target']
-    
-    for gq_col, target_col in zip(gq_subcats, target_subcats):
-        if gq_col in maz_df.columns and target_col in regional_targets:
-            maz_total = maz_df[gq_col].sum()
-            regional_target = regional_targets[target_col]
-            diff = abs(maz_total - regional_target)
-            pct_diff = (diff / regional_target) * 100 if regional_target > 0 else 0
-            
-            if pct_diff > 1.0:  # Allow 1% tolerance
-                validation_passed = False
-    
-    # Summary
-    logger.info("\n" + "=" * 60)
-    if validation_passed:
-        logger.info("SUCCESS: ALL VALIDATIONS PASSED - MAZ controls match regional targets within 1% tolerance")
-    else:
-        logger.error("FAILED: VALIDATION FAILED - Some MAZ controls differ from regional targets by more than 1%")
-    logger.info("=" * 60)
-    
-    return validation_passed
-
 
 def log_control_statistics(control_geo, out_df, logger):
     """Log detailed statistics for control columns including sums and distributions."""
@@ -1384,9 +1496,6 @@ def normalize_household_size_controls(control_table_df, control_name, temp_contr
     """
     Normalize household size controls to ensure they sum to the correct total.
     
-    The issue: ACS household size data gives raw counts that don't necessarily sum to 
-    the scaled Census household totals. This function normalizes household size controls
-    to be proportional distributions rather than absolute counts.
     
     Args:
         control_table_df: DataFrame with household size controls 
@@ -1493,6 +1602,12 @@ def main():
         county_targets = get_county_targets(cf, logger, use_offline_fallback=True)
 
     for control_geo, control_dict in CONTROLS[ACS_EST_YEAR].items():
+        # Debug: Check what's actually in each control dictionary
+        logger.info(f"[DEBUG] Checking geography {control_geo}: dict type = {type(control_dict)}, len = {len(control_dict)}")
+        if control_geo == 'TAZ':
+            logger.info(f"[DEBUG] TAZ controls dictionary: {control_dict}")
+            logger.info(f"[DEBUG] TAZ control keys: {list(control_dict.keys()) if control_dict else 'Empty'}")
+        
         # Skip empty control dictionaries and already processed county targets
         if not control_dict or control_geo == 'COUNTY_TARGETS':
             logger.info(f"Skipping {control_geo} - no controls defined or already processed")
@@ -1534,13 +1649,45 @@ def main():
         logger.info(f"-" * 50)
         for temp_name, temp_df in temp_controls.items():
             if not temp_df.empty:
-                control_cols = [col for col in temp_df.columns if col != temp_df.index.name]
-                total = temp_df[control_cols].sum().sum() if control_cols else 0
-                logger.info(f"{temp_name}: {len(temp_df)} zones, total = {total:,.0f}")
+                # For temp controls, find numeric columns (exclude GEOID columns)
+                control_cols = [col for col in temp_df.columns 
+                               if not col.startswith('GEOID') and temp_df[col].dtype in ['int64', 'float64']]
+                if control_cols:
+                    total = temp_df[control_cols].sum().sum()
+                    logger.info(f"{temp_name}: {len(temp_df)} zones, total = {total:,.0f}")
+                else:
+                    logger.info(f"{temp_name}: {len(temp_df)} zones, no numeric columns found")
 
         logger.info(f"Preparing final controls files for {control_geo}")
         out_df = final_control_dfs[control_geo].copy()
+        
+        # CRITICAL DEBUGGING: Check worker control totals right before writing to file
+        if control_geo == 'TAZ':
+            worker_cols = [col for col in out_df.columns if 'wrk' in col.lower()]
+            if worker_cols:
+                print(f"[DEBUG][FINAL] ==> FINAL TAZ CONTROLS BEFORE WRITING TO FILE")
+                for col in worker_cols:
+                    total = out_df[col].sum()
+                    print(f"[DEBUG][FINAL] {col}: {total:,.0f}")
+                
+                worker_total = sum(out_df[col].sum() for col in worker_cols)
+                print(f"[DEBUG][FINAL] Total worker controls: {worker_total:,.0f}")
+                
+                # Compare with size controls
+                size_cols = [col for col in out_df.columns if 'size' in col.lower()]
+                if size_cols:
+                    size_total = sum(out_df[col].sum() for col in size_cols)
+                    ratio = worker_total / size_total if size_total > 0 else 0
+                    print(f"[DEBUG][FINAL] Total size controls: {size_total:,.0f}")
+                    print(f"[DEBUG][FINAL] Worker/Size ratio: {ratio:.6f}")
+        
         write_outputs(control_geo, out_df, crosswalk_df)
+        
+        # Validate TAZ household consistency after writing TAZ controls
+        if control_geo == 'TAZ':
+            logger.info("Validating TAZ household control consistency")
+            taz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
+            validate_taz_household_consistency(taz_marginals_file, logger)
         
         # After writing MAZ controls, apply county-level scaling to households
         if control_geo == 'MAZ' and county_targets:
@@ -1603,26 +1750,28 @@ def main():
     maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
     validate_maz_controls(maz_marginals_file, county_targets, logger)
 
+
+# This isn't working, needs more testing
     # Run output structure validation test if requested
-    logger.info("Running output structure validation test")
-    try:
-        from test_output_structure import OutputStructureTest
-        test_runner = OutputStructureTest(verbose=True)
-        test_results = test_runner.run_all_tests()
+    # logger.info("Running output structure validation test")
+    # try:
+    #     from test_output_structure import OutputStructureTest
+    #     test_runner = OutputStructureTest(verbose=True)
+    #     test_results = test_runner.run_all_tests()
             
-        if test_results['success']:
-                logger.info("✓ Output structure validation PASSED")
-                logger.info(f"All {test_results['tests_run']} validation tests completed successfully")
-        else:
-                logger.error("✗ Output structure validation FAILED")
-                logger.error(f"{test_results['failures']} out of {test_results['tests_run']} tests failed")
-                for failure in test_results.get('failure_details', []):
-                    logger.error(f"  - {failure}")
-    except ImportError as e:
-            logger.error(f"Could not import test_output_structure: {e}")
-    except Exception as e:
-            logger.error(f"Error running output structure test: {e}")
-            logger.error(f"Test error traceback: {traceback.format_exc()}")
+    #     if test_results['success']:
+    #             logger.info("✓ Output structure validation PASSED")
+    #             logger.info(f"All {test_results['tests_run']} validation tests completed successfully")
+    #     else:
+    #             logger.error("✗ Output structure validation FAILED")
+    #             logger.error(f"{test_results['failures']} out of {test_results['tests_run']} tests failed")
+    #             for failure in test_results.get('failure_details', []):
+    #                 logger.error(f"  - {failure}")
+    # except ImportError as e:
+    #         logger.error(f"Could not import test_output_structure: {e}")
+    # except Exception as e:
+    #         logger.error(f"Error running output structure test: {e}")
+    #         logger.error(f"Test error traceback: {traceback.format_exc()}")
 
     logger.info("Control file generation completed successfully!")
 

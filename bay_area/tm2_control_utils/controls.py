@@ -71,54 +71,246 @@ def disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights
     """
     import pandas as pd
     
-    # Ensure we have the right geoid columns
+    import logging
+    logger = logging.getLogger()
+    logger.info(f"[TRACT2BG] Starting tract-to-block group disaggregation for '{control_name}'")
+    print(f"[DEBUG][TRACT2BG] ==> DISAGGREGATION START: {control_name}")
+    print(f"[DEBUG][TRACT2BG] Input control_table_df shape: {control_table_df.shape}")
+    print(f"[DEBUG][TRACT2BG] Input hh_weights_df shape: {hh_weights_df.shape}")
+    print(f"[DEBUG][TRACT2BG] Input control total: {control_table_df[control_name].sum():,.0f}")
+    
     control_table_df = prepare_geoid_for_merge(control_table_df, 'tract')
     hh_weights_df = prepare_geoid_for_merge(hh_weights_df, 'block group')
-    
-    # Get tract totals by summing block group households within each tract
-    # First, get tract from block group geoid (first 11 characters: state(2) + county(3) + tract(6))
-    # Check which GEOID column is available
+
+    print(f"[DEBUG][TRACT2BG] Columns in control_table_df: {list(control_table_df.columns)}")
+    print(f"[DEBUG][TRACT2BG] Columns in hh_weights_df: {list(hh_weights_df.columns)}")
+
+
+    # Try to find or construct a block group GEOID column
     geoid_col = None
+    print(f"[DEBUG][TRACT2BG] Available columns in hh_weights_df: {list(hh_weights_df.columns)}")
     for col in ['GEOID_block group', 'bg2020ge', 'GEOID_bg']:
+        print(f"[DEBUG][TRACT2BG] Checking for column: '{col}' - exists: {col in hh_weights_df.columns}")
         if col in hh_weights_df.columns:
             geoid_col = col
             break
-    
+
+    # If no block group GEOID found, construct it from components
     if geoid_col is None:
-        import logging
-        logger = logging.getLogger()
-        logger.error(f"No suitable GEOID column found for block group in hh_weights_df columns: {list(hh_weights_df.columns)}")
-        logger.warning("Skipping tract-to-block group disaggregation due to missing GEOID column")
-        
-        # Return an empty DataFrame with the correct structure for block group data
-        # This prevents downstream processing errors
-        empty_result = pd.DataFrame(columns=['GEOID_block group', control_name])
-        return empty_result
+        print(f"[DEBUG][TRACT2BG] No existing block group GEOID found, constructing from components")
+        if all(col in hh_weights_df.columns for col in ['state', 'county', 'tract', 'block group']):
+            hh_weights_df['GEOID_block_group'] = (
+                hh_weights_df['state'].astype(str).str.zfill(2) +
+                hh_weights_df['county'].astype(str).str.zfill(3) +
+                hh_weights_df['tract'].astype(str).str.zfill(6) +
+                hh_weights_df['block group'].astype(str).str.zfill(1)
+            )
+            geoid_col = 'GEOID_block_group'
+            print(f"[DEBUG][TRACT2BG] Constructed block group GEOID, sample: {hh_weights_df[geoid_col].head().tolist()}")
+        else:
+            raise ValueError("Cannot construct block group GEOID - missing required columns")
+
+    print(f"[DEBUG][TRACT2BG] Using block group GEOID column: {geoid_col}")
     
     hh_weights_df['GEOID_tract'] = hh_weights_df[geoid_col].str[:11]
+    print(f"[DEBUG][TRACT2BG] Created GEOID_tract in hh_weights_df, sample: {hh_weights_df[['GEOID_tract', geoid_col]].head().to_dict()}")
+
+    # CRITICAL DEBUG: Check the household weights DataFrame structure
+    # Find the actual household weights column
+    tract_hh_col = None
+    for col in hh_weights_df.columns:
+        if 'temp_hh_bg_for_tract_weights' in col:
+            tract_hh_col = col
+            break
+    
+    if tract_hh_col is None:
+        raise ValueError("Cannot find household weights column in hh_weights_df")
+        
+    print(f"[DEBUG][TRACT2BG] Using household count column: {tract_hh_col}")
+    print(f"[DEBUG][TRACT2BG] Household weights sum: {hh_weights_df[tract_hh_col].sum():,.0f}")
+    print(f"[DEBUG][TRACT2BG] Household weights head:\n{hh_weights_df.head()}")
     
     # Sum households by tract
-    tract_totals = hh_weights_df.groupby('GEOID_tract')[hh_weights_df.columns[1]].sum().reset_index()
+    tract_totals = hh_weights_df.groupby('GEOID_tract')[tract_hh_col].sum().reset_index()
     tract_totals.columns = ['GEOID_tract', 'tract_hh_total']
+    print(f"[DEBUG][TRACT2BG] Tract totals shape: {tract_totals.shape}")
+    print(f"[DEBUG][TRACT2BG] Tract totals sum: {tract_totals['tract_hh_total'].sum():,.0f}")
+    print(f"[DEBUG][TRACT2BG] Tract totals head: {tract_totals.head()}")
+
+    # CRITICAL FIX: Only include block groups that are within tracts present after interpolation
+    # Get the set of tracts that survived the geographic interpolation
+    input_tract_geoids = set(control_table_df['GEOID_tract'].unique())
+    print(f"[DEBUG][TRACT2BG] Input tract GEOIDs: {len(input_tract_geoids)} unique tracts")
+    
+    # Debug: Check what tracts we have in hh_weights_df
+    weights_tract_geoids = set(hh_weights_df['GEOID_tract'].unique())
+    print(f"[DEBUG][TRACT2BG] Block group file has: {len(weights_tract_geoids)} unique tracts")
+    print(f"[DEBUG][TRACT2BG] Tract overlap: {len(input_tract_geoids & weights_tract_geoids)} tracts in both")
+    print(f"[DEBUG][TRACT2BG] Extra tracts in BG file: {len(weights_tract_geoids - input_tract_geoids)}")
+    
+    # Filter hh_weights_df to only include block groups within these tracts
+    original_bg_count = len(hh_weights_df)
+    hh_weights_df = hh_weights_df[hh_weights_df['GEOID_tract'].isin(input_tract_geoids)]
+    filtered_bg_count = len(hh_weights_df)
+    print(f"[DEBUG][TRACT2BG] Filtered block groups: {original_bg_count} -> {filtered_bg_count} (kept {filtered_bg_count/original_bg_count:.1%})")
     
     # Calculate weights: hh_blockgroup / hh_tract
     hh_with_tract_totals = pd.merge(hh_weights_df, tract_totals, on='GEOID_tract', how='left')
-    hh_with_tract_totals['weight'] = hh_with_tract_totals[hh_weights_df.columns[1]] / hh_with_tract_totals['tract_hh_total']
+    hh_with_tract_totals['weight'] = hh_with_tract_totals[tract_hh_col] / hh_with_tract_totals['tract_hh_total']
     hh_with_tract_totals['weight'] = hh_with_tract_totals['weight'].fillna(0)
-    
+    print(f"[DEBUG][TRACT2BG] Weights calculated - shape: {hh_with_tract_totals.shape}")
+    print(f"[DEBUG][TRACT2BG] Weight sum by tract check: {hh_with_tract_totals.groupby('GEOID_tract')['weight'].sum().head()}")
+    print(f"[DEBUG][TRACT2BG] Weight statistics: min={hh_with_tract_totals['weight'].min():.4f}, max={hh_with_tract_totals['weight'].max():.4f}")
+
     # Merge tract data with weights
+    print(f"[DEBUG][TRACT2BG] Merging tract control data with block group weights...")
     merged = pd.merge(control_table_df, hh_with_tract_totals[['GEOID_tract', geoid_col, 'weight']], 
                       on='GEOID_tract', how='left')
+    print(f"[DEBUG][TRACT2BG] After merge shape: {merged.shape}")
+    print(f"[DEBUG][TRACT2BG] Original tract records: {len(control_table_df)}")
+    print(f"[DEBUG][TRACT2BG] After merge records: {len(merged)}")
     
+    # CRITICAL: Check if we're getting multiple records per tract
+    orig_tract_count = len(control_table_df)
+    final_tract_count = len(merged)
+    expansion_ratio = final_tract_count / orig_tract_count
+    print(f"[DEBUG][TRACT2BG] ** EXPANSION RATIO: {expansion_ratio:.2f} **")
+    if expansion_ratio > 1.1:  # More than 10% increase
+        print(f"[DEBUG][TRACT2BG] *** WARNING: Significant expansion detected! Original={orig_tract_count}, Final={final_tract_count}")
+        
+        # Check which tracts have multiple records
+        tract_counts = merged['GEOID_tract'].value_counts()
+        multi_tracts = tract_counts[tract_counts > 1]
+        print(f"[DEBUG][TRACT2BG] Tracts with multiple records: {len(multi_tracts)}")
+        if len(multi_tracts) > 0:
+            sample_tract = multi_tracts.index[0]
+            sample_data = merged[merged['GEOID_tract'] == sample_tract]
+            print(f"[DEBUG][TRACT2BG] Sample multi-record tract {sample_tract}:")
+            print(f"[DEBUG][TRACT2BG] {sample_data[['GEOID_tract', geoid_col, control_name, 'weight']].to_dict()}")
+
     # Apply disaggregation: tract_value * weight -> blockgroup_value
+    original_sum = merged[control_name].sum()
     merged[control_name] = merged[control_name] * merged['weight']
     merged[control_name] = merged[control_name].fillna(0)
+    final_sum = merged[control_name].sum()
+    ratio = final_sum / original_sum if original_sum > 0 else 0
     
-    # Return block group level data
-    result = merged[[geoid_col, control_name]].copy()
-    result = result.rename(columns={geoid_col: get_geoid_col(hh_weights_df, 'block group')})
+    print(f"[DEBUG][TRACT2BG] *** DISAGGREGATION RESULT ***")
+    print(f"[DEBUG][TRACT2BG] Original sum: {original_sum:,.0f}")
+    print(f"[DEBUG][TRACT2BG] Final sum: {final_sum:,.0f}")
+    print(f"[DEBUG][TRACT2BG] ** RATIO (final/original): {ratio:.4f} **")
     
-    return result
+    if abs(ratio - 1.0) > 0.01:  # More than 1% change
+        print(f"[DEBUG][TRACT2BG] *** WARNING: Significant sum change! Expected ~1.0, got {ratio:.4f}")
+
+    # Step 2: Aggregate from block group level to TAZ level
+    print(f"[DEBUG][TRACT2BG] ==> Starting block group to TAZ aggregation")
+    
+    # Get block group to TAZ mapping from maz_taz_def_df
+    if 'GEOID_block group' not in maz_taz_def_df.columns or 'TAZ' not in maz_taz_def_df.columns:
+        logger.error("Missing block group to TAZ mapping columns in maz_taz_def_df")
+        print(f"[DEBUG][TRACT2BG] maz_taz_def_df columns: {list(maz_taz_def_df.columns)}")
+        raise ValueError("Cannot aggregate to TAZ level - missing geographic mapping")
+    
+    print(f"[DEBUG][TRACT2BG] Available columns in maz_taz_def_df: {list(maz_taz_def_df.columns)}")
+    
+    # Check if we have weighting columns for proper apportionment
+    potential_weight_cols = [col for col in maz_taz_def_df.columns if any(w in col.lower() for w in ['weight', 'area', 'pop', 'hh', 'proportion', 'fraction'])]
+    print(f"[DEBUG][TRACT2BG] Potential weight columns: {potential_weight_cols}")
+    
+    # Get the mapping and ensure consistent data types - USE MAZ-BASED APPORTIONMENT
+    # Since block groups can span multiple TAZs, we need to apportion based on MAZ counts
+    bg_taz_mapping = maz_taz_def_df[['GEOID_block group', 'TAZ', 'MAZ']].copy()
+    bg_taz_mapping['GEOID_block group'] = bg_taz_mapping['GEOID_block group'].astype(str)
+    
+    print(f"[DEBUG][TRACT2BG] Total MAZ-TAZ-BG records: {len(bg_taz_mapping)}")
+    
+    # Count MAZs per block group per TAZ for apportionment weights
+    maz_counts = bg_taz_mapping.groupby(['GEOID_block group', 'TAZ']).size().reset_index(name='maz_count')
+    total_maz_per_bg = maz_counts.groupby('GEOID_block group')['maz_count'].transform('sum')
+    maz_counts['weight'] = maz_counts['maz_count'] / total_maz_per_bg
+    
+    print(f"[DEBUG][TRACT2BG] Block group-TAZ relationships after MAZ counting: {len(maz_counts)}")
+    
+    # Check that weights sum to 1.0 for each block group
+    weight_sums = maz_counts.groupby('GEOID_block group')['weight'].sum()
+    weight_check = weight_sums.describe()
+    print(f"[DEBUG][TRACT2BG] Weight sum check - min:{weight_check['min']:.4f}, max:{weight_check['max']:.4f}, mean:{weight_check['mean']:.4f}")
+    
+    if weight_check['min'] < 0.99 or weight_check['max'] > 1.01:
+        print(f"[DEBUG][TRACT2BG] *** WARNING: Weight normalization issue detected ***")
+    
+    bg_to_taz = maz_counts[['GEOID_block group', 'TAZ', 'weight']].copy()
+    
+    # CRITICAL CHECK: Look for block groups with multiple TAZ mappings
+    bg_counts = bg_to_taz['GEOID_block group'].value_counts()
+    multi_taz_bgs = bg_counts[bg_counts > 1]
+    if len(multi_taz_bgs) > 0:
+        print(f"[DEBUG][TRACT2BG] Block groups spanning multiple TAZs: {len(multi_taz_bgs)}")
+        sample_bg = multi_taz_bgs.index[0]
+        sample_mappings = bg_to_taz[bg_to_taz['GEOID_block group'] == sample_bg]
+        print(f"[DEBUG][TRACT2BG] Sample multi-TAZ BG {sample_bg}: TAZs={sample_mappings['TAZ'].tolist()}, weights={sample_mappings['weight'].tolist()}")
+    else:
+        print(f"[DEBUG][TRACT2BG] All block groups map to single TAZs")
+    
+    # Prepare the disaggregated block group data for aggregation
+    bg_result = merged[[geoid_col, control_name]].copy()
+    bg_result[geoid_col] = bg_result[geoid_col].astype(str)
+    
+    # CRITICAL FIX: Normalize GEOID formats by removing leading zeros
+    # The crosswalk data has GEOIDs without leading zeros while Census data has them
+    bg_result[geoid_col] = bg_result[geoid_col].str.lstrip('0')
+    bg_to_taz['GEOID_block group'] = bg_to_taz['GEOID_block group'].str.lstrip('0')
+    
+    print(f"[DEBUG][TRACT2BG] BG result shape before TAZ merge: {bg_result.shape}")
+    print(f"[DEBUG][TRACT2BG] BG result sum before TAZ merge: {bg_result[control_name].sum():,.0f}")
+    
+    # Merge block group data with weighted TAZ mapping
+    bg_with_taz = pd.merge(
+        bg_result, 
+        bg_to_taz, 
+        left_on=geoid_col, 
+        right_on='GEOID_block group', 
+        how='left'
+    )
+    
+    print(f"[DEBUG][TRACT2BG] After BG-to-TAZ merge shape: {bg_with_taz.shape}")
+    print(f"[DEBUG][TRACT2BG] After BG-to-TAZ merge sum (before apportionment): {bg_with_taz[control_name].sum():,.0f}")
+    
+    # Apply weights to apportion block group values across TAZs
+    bg_with_taz[control_name] = bg_with_taz[control_name] * bg_with_taz['weight'].fillna(1.0)
+    
+    print(f"[DEBUG][TRACT2BG] After apportionment sum: {bg_with_taz[control_name].sum():,.0f}")
+    
+    # Check for unmatched block groups
+    unmatched_bgs = bg_with_taz['TAZ'].isna().sum()
+    if unmatched_bgs > 0:
+        logger.warning(f"Found {unmatched_bgs} block groups without TAZ mapping")
+        print(f"[DEBUG][TRACT2BG] Warning: {unmatched_bgs} block groups without TAZ mapping")
+    
+    # Aggregate from block group to TAZ level
+    taz_result = bg_with_taz.groupby('TAZ')[control_name].sum().reset_index()
+    taz_result = taz_result.set_index('TAZ')
+    
+    print(f"[DEBUG][TRACT2BG] ==> FINAL TAZ RESULT")
+    print(f"[DEBUG][TRACT2BG] TAZ result shape: {taz_result.shape}")
+    print(f"[DEBUG][TRACT2BG] TAZ result sum: {taz_result[control_name].sum():,.0f}")
+    print(f"[DEBUG][TRACT2BG] ** OVERALL RATIO (TAZ/tract): {taz_result[control_name].sum() / control_table_df[control_name].sum():.4f} **")
+
+    # CRITICAL VALIDATION: Check if total matches expected input
+    expected_total = control_table_df[control_name].sum()
+    actual_total = taz_result[control_name].sum()
+    ratio = actual_total / expected_total if expected_total > 0 else 0
+    
+    if abs(ratio - 1.0) > 0.05:  # More than 5% difference
+        print(f"[DEBUG][TRACT2BG] *** WARNING: SIGNIFICANT TOTAL CHANGE ***")
+        print(f"[DEBUG][TRACT2BG] Expected: {expected_total:,.0f}")
+        print(f"[DEBUG][TRACT2BG] Actual: {actual_total:,.0f}")
+        print(f"[DEBUG][TRACT2BG] Ratio: {ratio:.4f}")
+        print(f"[DEBUG][TRACT2BG] This suggests geographic scope differences or data issues")
+
+    logger.info(f"[TRACT2BG] Completed tract-to-block group-to-TAZ disaggregation for '{control_name}'")
+    return taz_result
 
 
 def census_col_is_in_control(param_dict, control_dict):
@@ -156,6 +348,12 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
     Given a control list of ordered dictionary (e.g. [{"pers_min":1, "pers_max":NPER_MAX}]) for a specific control,
     returns a version of the census table with just the relevant column, plus geography columns.
     """
+
+    import logging
+    logger = logging.getLogger()
+    logger.info(f"[CREATE_CONTROL_TABLE] Building '{control_name}' from census_table '{census_table_name}'")
+    logger.info(f"[CREATE_CONTROL_TABLE] Input DataFrame shape: {census_table_df.shape}, columns: {list(census_table_df.columns)}")
+
     # Identify geography columns (those present in census_table_df and likely to be geo columns)
     possible_geo_cols = [
         'state', 'county', 'tract', 'block', 'block group',
@@ -168,6 +366,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
 
     # If all control_dicts are empty, sum once outside the loop
     if all(len(control_dict) == 0 for control_dict in control_dict_list):
+        logger.info(f"[CREATE_CONTROL_TABLE] All control_dicts empty for '{control_name}', summing all data columns: {data_cols}")
         summed = census_table_df[data_cols].apply(
             lambda x: pd.to_numeric(x.astype(str).str.replace(',', '').str.replace(' ', ''), errors="coerce").fillna(0)
         ).sum(axis=1)
@@ -177,8 +376,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
         for control_dict in control_dict_list:
             # If control_dict is empty, always sum all non-geo columns (even if there are multiple columns)
             if len(control_dict) == 0:
-                data_cols = [col for col in census_table_df.columns if col not in geo_cols]
-                # Clean and sum all data columns at once
+                logger.info(f"[CREATE_CONTROL_TABLE] control_dict empty for '{control_name}', summing all data columns: {data_cols}")
                 summed = census_table_df[data_cols].apply(
                     lambda x: pd.to_numeric(x.astype(str).str.replace(',', '').str.replace(' ', ''), errors="coerce").fillna(0)
                 ).sum(axis=1)
@@ -186,6 +384,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
             else:
                 # Handle both MultiIndex and regular Index
                 if isinstance(census_table_df.columns, pd.MultiIndex):
+                    logger.info(f"[CREATE_CONTROL_TABLE] MultiIndex detected for '{control_name}'")
                     for colnum in range(len(census_table_df.columns.levels[0])):
                         param_dict = collections.OrderedDict()
                         variable_name = census_table_df.columns.get_level_values(0)[colnum]
@@ -196,11 +395,13 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
                             except:
                                 param_dict[param] = census_table_df.columns.get_level_values(paramnum)[colnum]
                         if param_dict == control_dict:
+                            logger.info(f"[CREATE_CONTROL_TABLE] param_dict matches control_dict for '{control_name}', using variable: {variable_name}")
                             control_df["temp"] = census_table_df[variable_name]
                             control_df[control_name] = census_table_df[variable_name]
                             control_df.drop(columns="temp", inplace=True)
                             break
                         if census_col_is_in_control(param_dict, control_dict):
+                            logger.info(f"[CREATE_CONTROL_TABLE] param_dict in control for '{control_name}', adding variable: {variable_name}")
                             control_df["temp"] = census_table_df[variable_name]
                             # Ensure temp and control_name columns are numeric before summing
                             control_df["temp"] = pd.to_numeric(control_df["temp"], errors="coerce").fillna(0)
@@ -212,12 +413,10 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
                     if census_table_name in CENSUS_DEFINITIONS:
                         table_def = CENSUS_DEFINITIONS[census_table_name]
                         header_row = table_def[0]  # e.g. ['variable','family','pers_min','pers_max']
-                        
                         # Find columns that match the control criteria
                         for row in table_def[1:]:  # Skip header row
                             if len(row) != len(header_row):
                                 continue
-                                
                             # Create parameter dict for this census column
                             param_dict = collections.OrderedDict()
                             variable_name = row[0]  # e.g. 'B11016_010E'
@@ -226,10 +425,10 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
                                     param_dict[param_name] = int(row[i]) if str(row[i]).isdigit() else row[i]
                                 except (ValueError, IndexError):
                                     param_dict[param_name] = row[i] if i < len(row) else 0
-                            
                             # Check if this column matches the control criteria
                             if census_col_is_in_control(param_dict, control_dict):
                                 if variable_name in census_table_df.columns:
+                                    logger.info(f"[CREATE_CONTROL_TABLE] Adding variable '{variable_name}' to '{control_name}'")
                                     col_data = census_table_df[variable_name].astype(str).str.replace(',', '').str.replace(' ', '')
                                     col_data = pd.to_numeric(col_data, errors="coerce").fillna(0)
                                     control_df["temp"] = col_data
@@ -238,6 +437,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
                                     control_df.drop(columns="temp", inplace=True)
                     else:
                         # Fallback: sum all non-geo columns if no table definition found
+                        logger.info(f"[CREATE_CONTROL_TABLE] No CENSUS_DEFINITIONS for '{census_table_name}', summing all data columns for '{control_name}'")
                         data_cols = [col for col in census_table_df.columns if col not in geo_cols]
                         for variable_name in data_cols:
                             col_data = census_table_df[variable_name].astype(str).str.replace(',', '').str.replace(' ', '')
@@ -247,6 +447,7 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
                             control_df[control_name] = control_df[control_name] + control_df["temp"]
                             control_df.drop(columns="temp", inplace=True)
             new_sum = control_df[control_name].sum()
+            logger.info(f"[CREATE_CONTROL_TABLE] After processing control_dict, '{control_name}' sum: {new_sum}")
 
     # Always include geography columns in the returned DataFrame
     if geo_cols:
@@ -262,6 +463,12 @@ def create_control_table(control_name, control_dict_list, census_table_name, cen
             control_df = ensure_geoid_column(control_df, geo)
         except Exception:
             continue
+    if 'GEOID_block group' in control_df.columns and 'GEOID_block' in control_df.columns:
+        logger.info(f"[CREATE_CONTROL_TABLE] Aggregating '{control_name}' from block to block group level.")
+        control_df = control_df.groupby('GEOID_block group')[control_name].sum().reset_index()
+        control_df.set_index('GEOID_block group', inplace=True)
+
+    logger.info(f"[CREATE_CONTROL_TABLE] Final DataFrame for '{control_name}' shape: {control_df.shape}, index: {control_df.index.name}")
     # Skip writing intermediate control table to CSV
     return control_df
 
@@ -405,7 +612,12 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
     # Special case: check for disaggregation flag
     if scale_denominator == 'tract_to_bg_disaggregation':
         logger.info(f"Applying tract-to-block-group disaggregation using {scale_numerator} as weights")
-        print(f"[DEBUG] Detected tract_to_bg_disaggregation flag - calling disaggregate function")
+        print(f"[DEBUG][PIPELINE] ==> TRACT-TO-BG DISAGGREGATION DETECTED")
+        print(f"[DEBUG][PIPELINE] Control: {control_name}")
+        print(f"[DEBUG][PIPELINE] Input total: {control_table_df[control_name].sum():,.0f}")
+        logger.debug(f"Control Table df '{control_table_df}' ")
+        logger.debug(f"Control name '{control_name}' ")
+        logger.debug(f"Temporary controls '{temp_controls}' ")
         # Use the scale_numerator as the household weights table
         hh_weights_df = temp_controls.get(scale_numerator)
         if hh_weights_df is None:
@@ -413,12 +625,22 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
             raise ValueError(f"Cannot find household weights table '{scale_numerator}' for disaggregation")
         
         logger.info(f"Using weights from {scale_numerator}: {len(hh_weights_df)} records")
+        print(f"[DEBUG][PIPELINE] About to call disaggregate_tract_to_block_group...")
         result = disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights_df, maz_taz_def_df)
+        print(f"[DEBUG][PIPELINE] ==> DISAGGREGATION COMPLETE")
+        print(f"[DEBUG][PIPELINE] Result total: {result[control_name].sum():,.0f}")
+        print(f"[DEBUG][PIPELINE] Input vs Result ratio: {result[control_name].sum() / control_table_df[control_name].sum():.6f}")
+        
+        # CRITICAL: Check if result is empty and handle fallback
+        if result.empty:
+            logger.warning("Tract-to-block-group disaggregation failed, falling back to direct tract-to-TAZ aggregation")
+            print(f"[DEBUG][PIPELINE] *** WARNING: Disaggregation returned empty result! ***")
         
         # If disaggregation failed (empty result), aggregate tract data directly to TAZ level
         if result.empty:
             logger.warning("Tract-to-block-group disaggregation failed, falling back to direct tract-to-TAZ aggregation")
-            print(f"[DEBUG] Disaggregation failed, aggregating tract data directly to TAZ level")
+            print(f"[DEBUG][PIPELINE] *** WARNING: Disaggregation returned empty result! ***")
+            print(f"[DEBUG][PIPELINE] Executing fallback to direct tract-to-TAZ aggregation")
             
             if maz_taz_def_df is None:
                 logger.error("maz_taz_def_df required for TAZ aggregation fallback")
@@ -481,6 +703,9 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
             
             return taz_aggregated
         
+        print(f"[DEBUG][PIPELINE] ==> RETURNING DISAGGREGATION RESULT")
+        print(f"[DEBUG][PIPELINE] Final result shape: {result.shape}")
+        print(f"[DEBUG][PIPELINE] Final result total: {result[control_name].sum():,.0f}")
         return result
     
     if geography is None:
