@@ -162,6 +162,10 @@ def disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights
     print(f"[DEBUG][TRACT2BG] Weight sum by tract check: {hh_with_tract_totals.groupby('GEOID_tract')['weight'].sum().head()}")
     print(f"[DEBUG][TRACT2BG] Weight statistics: min={hh_with_tract_totals['weight'].min():.4f}, max={hh_with_tract_totals['weight'].max():.4f}")
 
+    # CRITICAL FIX: Calculate the true original sum BEFORE merging (before expansion)
+    true_original_sum = control_table_df[control_name].sum()
+    print(f"[DEBUG][TRACT2BG] True original sum (before merge): {true_original_sum:,.0f}")
+
     # Merge tract data with weights
     print(f"[DEBUG][TRACT2BG] Merging tract control data with block group weights...")
     merged = pd.merge(control_table_df, hh_with_tract_totals[['GEOID_tract', geoid_col, 'weight']], 
@@ -189,15 +193,19 @@ def disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights
             print(f"[DEBUG][TRACT2BG] {sample_data[['GEOID_tract', geoid_col, control_name, 'weight']].to_dict()}")
 
     # Apply disaggregation: tract_value * weight -> blockgroup_value
-    original_sum = merged[control_name].sum()
+    # CRITICAL FIX: Calculate the true original sum BEFORE the merge to avoid inflated totals
+    true_original_sum = control_table_df[control_name].sum()
+    inflated_sum_before_weighting = merged[control_name].sum()
+    print(f"[DEBUG][TRACT2BG] True original sum (before merge): {true_original_sum:,.0f}")
+    print(f"[DEBUG][TRACT2BG] Inflated sum (after merge, before weighting): {inflated_sum_before_weighting:,.0f}")
     merged[control_name] = merged[control_name] * merged['weight']
     merged[control_name] = merged[control_name].fillna(0)
     final_sum = merged[control_name].sum()
-    ratio = final_sum / original_sum if original_sum > 0 else 0
+    ratio = final_sum / true_original_sum if true_original_sum > 0 else 0
     
     print(f"[DEBUG][TRACT2BG] *** DISAGGREGATION RESULT ***")
-    print(f"[DEBUG][TRACT2BG] Original sum: {original_sum:,.0f}")
-    print(f"[DEBUG][TRACT2BG] Final sum: {final_sum:,.0f}")
+    print(f"[DEBUG][TRACT2BG] True original sum: {true_original_sum:,.0f}")
+    print(f"[DEBUG][TRACT2BG] Final sum after disaggregation: {final_sum:,.0f}")
     print(f"[DEBUG][TRACT2BG] ** RATIO (final/original): {ratio:.4f} **")
     
     if abs(ratio - 1.0) > 0.01:  # More than 1% change

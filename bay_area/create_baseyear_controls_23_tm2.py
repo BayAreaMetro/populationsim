@@ -592,8 +592,37 @@ def process_control(
         geo=control_def[3]
     )
 
+    # CRITICAL DEBUGGING: Check raw Census API data for worker controls
+    if 'wrk' in control_name.lower():
+        print(f"[DEBUG][RAW] ==> RAW CENSUS DATA FOR {control_name}")
+        print(f"[DEBUG][RAW] Raw census_table_df shape: {census_table_df.shape}")
+        print(f"[DEBUG][RAW] Raw census_table_df columns: {list(census_table_df.columns)}")
+        if len(census_table_df) > 0:
+            print(f"[DEBUG][RAW] Sample tract data:")
+            print(census_table_df.head(5))
+        # Check if any columns look like they might be summed/aggregated
+        numeric_cols = census_table_df.select_dtypes(include=['number']).columns
+        for col in numeric_cols[:5]:  # Check first 5 numeric columns
+            col_total = census_table_df[col].sum()
+            col_mean = census_table_df[col].mean()
+            col_max = census_table_df[col].max()
+            print(f"[DEBUG][RAW] Column {col}: total={col_total:,.0f}, mean={col_mean:.1f}, max={col_max:.0f}")
+
     # Step 2: Create control table
     control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
+    
+    # CRITICAL DEBUGGING: Check control table creation for worker controls
+    if 'wrk' in control_name.lower():
+        print(f"[DEBUG][CREATE] ==> AFTER create_control_table FOR {control_name}")
+        print(f"[DEBUG][CREATE] Control table shape: {control_table_df.shape}")
+        print(f"[DEBUG][CREATE] Control table columns: {list(control_table_df.columns)}")
+        if control_name in control_table_df.columns:
+            control_total = control_table_df[control_name].sum()
+            control_mean = control_table_df[control_name].mean()
+            control_max = control_table_df[control_name].max()
+            print(f"[DEBUG][CREATE] {control_name}: total={control_total:,.0f}, mean={control_mean:.1f}, max={control_max:.0f}")
+            print(f"[DEBUG][CREATE] Sample control values:")
+            print(control_table_df[[control_name]].head(5))
 
     # Step 2.1: Normalize household size controls if needed
     control_table_df = normalize_household_size_controls(control_table_df, control_name, temp_controls, logger)

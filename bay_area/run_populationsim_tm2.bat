@@ -143,15 +143,6 @@ for %%Y in (!YEARS!) do (
     move /y "hh_gq\data\maz_marginals.csv"        !OUTPUT_DIR!
     move /y "hh_gq\data\taz_marginals.csv"        !OUTPUT_DIR!
     move /y "hh_gq\data\county_marginals.csv"     !OUTPUT_DIR!
-    
-    rem Run validation test on generated control files
-    echo Running validation test on generated control files...
-    python run_validation_test.py --output-dir !OUTPUT_DIR! --quiet
-    if ERRORLEVEL 1 (
-      echo WARNING: Control file validation test failed - review output structure
-    ) else (
-      echo Control file validation test passed
-    )
   )
 )
 

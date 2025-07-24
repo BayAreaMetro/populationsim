@@ -51,6 +51,15 @@ GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
 COUNTY_TARGETS_FILE = "county_targets_acs2023.csv"
 COUNTY_SUMMARY_FILE = "county_summary_2020_2023.csv"
 
+# ----------------------------------------
+# Mapping configuration (optional)
+ENABLE_TAZ_MAPPING = True  # Set to False to disable map generation
+TAZ_SHAPEFILE_DIR = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz"
+TAZ_SHAPEFILE_NAME = "taz_shapes.shp"  # Adjust to actual shapefile name
+TAZ_JOIN_FIELD = "TAZ"  # Field name in shapefile to join on (could be TAZ, TAZ_ID, etc.)
+MAP_OUTPUT_DIR = "output_2023"  # Directory for map outputs
+MAP_OUTPUT_FORMAT = "html"  # Output format: 'html', 'png', or 'both'
+
 
 # Define required crosswalks as (source_year, target_year, geography)
 # if you don't need geography crosswalks, you can set the two years to the same value
@@ -450,24 +459,7 @@ CENSUS_DEFINITIONS = {
         ["B08202_002E",0,0,0,NPER_MAX],
         ["B08202_003E",1,1,0,NPER_MAX],
         ["B08202_004E",2,2,0,NPER_MAX],
-        ["B08202_005E",3,NWOR_MAX,0,NPER_MAX],
-        ["B08202_006E",0,NWOR_MAX,1,1],
-        ["B08202_007E",0,0,1,1],
-        ["B08202_008E",1,1,1,1],
-        ["B08202_009E",0,NWOR_MAX,2,2],
-        ["B08202_010E",0,0,2,2],
-        ["B08202_011E",1,1,2,2],
-        ["B08202_012E",2,2,2,2],
-        ["B08202_013E",0,NWOR_MAX,3,3],
-        ["B08202_014E",0,0,3,3],
-        ["B08202_015E",1,1,3,3],
-        ["B08202_016E",2,2,3,3],
-        ["B08202_017E",3,3,3,3],
-        ["B08202_018E",0,NWOR_MAX,4,NPER_MAX],
-        ["B08202_019E",0,0,4,NPER_MAX],
-        ["B08202_020E",1,1,4,NPER_MAX],
-        ["B08202_021E",2,2,4,NPER_MAX],
-        ["B08202_022E",3,NWOR_MAX,4,NPER_MAX]
+        ["B08202_005E",3,NWOR_MAX,0,NPER_MAX]
     ],
     "B11016": [
         ["variable","family","pers_min","pers_max"],
