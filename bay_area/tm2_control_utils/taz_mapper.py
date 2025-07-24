@@ -135,9 +135,9 @@ class TAZMapper:
             else:
                 raise ValueError("No TAZ field found in data")
                 
-        # Ensure both fields are same type
-        self.taz_data[taz_data_field] = self.taz_data[taz_data_field].astype(str)
-        self.taz_shapes[self.join_field] = self.taz_shapes[self.join_field].astype(str)
+        # Ensure both fields are same type - convert to int for proper matching
+        self.taz_data[taz_data_field] = self.taz_data[taz_data_field].astype(int)
+        self.taz_shapes[self.join_field] = self.taz_shapes[self.join_field].astype(int)
         
         # Merge data
         self.merged_data = self.taz_shapes.merge(
