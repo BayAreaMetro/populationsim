@@ -54,9 +54,9 @@ COUNTY_SUMMARY_FILE = "county_summary_2020_2023.csv"
 # ----------------------------------------
 # Mapping configuration (optional)
 ENABLE_TAZ_MAPPING = True  # Set to False to disable map generation
-TAZ_SHAPEFILE_DIR = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz"
-TAZ_SHAPEFILE_NAME = "taz_shapes.shp"  # Adjust to actual shapefile name
-TAZ_JOIN_FIELD = "TAZ"  # Field name in shapefile to join on (could be TAZ, TAZ_ID, etc.)
+TAZ_SHAPEFILE_DIR = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles"
+TAZ_SHAPEFILE_NAME = "tazs_TM2_v2_2.shp"  # Actual TAZ shapefile name
+TAZ_JOIN_FIELD = "taz"  # Field name in shapefile (lowercase 'taz')
 MAP_OUTPUT_DIR = "output_2023"  # Directory for map outputs
 MAP_OUTPUT_FORMAT = "html"  # Output format: 'html', 'png', or 'both'
 
