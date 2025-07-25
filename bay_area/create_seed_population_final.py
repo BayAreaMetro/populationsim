@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
 """
 Create PUMS seed population for Bay Area PopulationSim
-Final version incorporating lessons learned
+Final version incorporating lessons learned and CPI income conversion
+
+Key Features:
+- Downloads PUMS data for all Bay Area PUMAs (66 total including PUMA 07707)
+- Processes household income using ADJINC adjustment factor
+- Converts income from 2023$ to 2010$ purchasing power using CPI-U deflation
+- Creates income breakpoint analysis consistent with PopulationSim control files
+- Handles both household and person files with chunked processing for memory efficiency
+
+Income Conversion:
+- PUMS provides income in survey year dollars adjusted to 2023$ via ADJINC
+- We convert 2023$ to 2010$ using deflation factor of 0.725 (based on ~38% cumulative inflation)
+- This ensures consistency with control file breakpoints representing 2010 purchasing power
+- Final output includes both hh_income_2023 and hh_income_2010 columns
 """
 
 import pandas as pd
@@ -12,6 +25,9 @@ import requests
 from urllib3.exceptions import InsecureRequestWarning
 import warnings
 warnings.filterwarnings('ignore', category=InsecureRequestWarning)
+
+# Import our CPI conversion utilities
+from cpi_conversion import convert_2023_to_2010_dollars
 
 def create_seed_population():
     """Create seed population from PUMS data"""
@@ -183,6 +199,33 @@ def create_seed_population():
         final_households = pd.concat(all_households, ignore_index=True)
         print(f"   Total households: {len(final_households):,}")
         
+        # Process household income conversion from 2023$ to 2010$
+        print(f"   🔄 Converting household income from 2023$ to 2010$ purchasing power...")
+        
+        # Check if required income columns exist
+        if 'HINCP' in final_households.columns and 'ADJINC' in final_households.columns:
+            # Calculate 2023 dollar income (PUMS standard adjustment)
+            # ADJINC adjustment factor (divide by 1,000,000 per PUMS documentation)
+            ONE_MILLION = 1000000
+            final_households['hh_income_2023'] = (final_households['ADJINC'] / ONE_MILLION) * final_households['HINCP'].fillna(0)
+            
+            # Convert 2023$ to 2010$ using CPI deflation
+            final_households['hh_income_2010'] = convert_2023_to_2010_dollars(final_households['hh_income_2023'])
+            
+            # Round to nearest dollar for cleaner data
+            final_households['hh_income_2010'] = final_households['hh_income_2010'].round().astype(int)
+            final_households['hh_income_2023'] = final_households['hh_income_2023'].round().astype(int)
+            
+            print(f"      ✅ Income conversion completed")
+            print(f"      Sample 2023$: {final_households['hh_income_2023'].head().tolist()}")
+            print(f"      Sample 2010$: {final_households['hh_income_2010'].head().tolist()}")
+            print(f"      Mean income 2023$: ${final_households['hh_income_2023'].mean():,.0f}")
+            print(f"      Mean income 2010$: ${final_households['hh_income_2010'].mean():,.0f}")
+        else:
+            print(f"      ⚠️  Warning: HINCP or ADJINC columns not found, skipping income conversion")
+            missing_cols = [col for col in ['HINCP', 'ADJINC'] if col not in final_households.columns]
+            print(f"      Missing columns: {missing_cols}")
+        
         # Save households
         print(f"   Saving to: {h_output}")
         final_households.to_csv(h_output, index=False)
@@ -210,6 +253,17 @@ def create_seed_population():
     print(f"   Persons: {len(final_persons):,}")
     print(f"   PUMAs covered: {len(unique_pumas)}")
     print(f"   PUMA list: {unique_pumas}")
+    
+    # Income summary if available
+    if 'hh_income_2010' in final_households.columns:
+        print(f"\n💰 INCOME SUMMARY (2010 purchasing power):")
+        print(f"   Mean household income: ${final_households['hh_income_2010'].mean():,.0f}")
+        print(f"   Median household income: ${final_households['hh_income_2010'].median():,.0f}")
+        print(f"   Income breakpoint analysis:")
+        print(f"      <$30K:  {(final_households['hh_income_2010'] < 30000).sum():,} households ({(final_households['hh_income_2010'] < 30000).mean()*100:.1f}%)")
+        print(f"      $30-60K: {((final_households['hh_income_2010'] >= 30000) & (final_households['hh_income_2010'] < 60000)).sum():,} households ({((final_households['hh_income_2010'] >= 30000) & (final_households['hh_income_2010'] < 60000)).mean()*100:.1f}%)")
+        print(f"      $60-100K: {((final_households['hh_income_2010'] >= 60000) & (final_households['hh_income_2010'] < 100000)).sum():,} households ({((final_households['hh_income_2010'] >= 60000) & (final_households['hh_income_2010'] < 100000)).mean()*100:.1f}%)")
+        print(f"      $100K+: {(final_households['hh_income_2010'] >= 100000).sum():,} households ({(final_households['hh_income_2010'] >= 100000).mean()*100:.1f}%)")
     
     return h_output, p_output
 

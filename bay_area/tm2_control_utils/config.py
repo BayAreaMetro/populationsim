@@ -106,6 +106,14 @@ CONTROLS = {
 
 # ----------------------------------------
 # MAZ controls for ACS estimate year - PopulationSim expects: num_hh + group quarters 
+# 
+# NOTE: Income breakpoints adjusted to represent 2010 purchasing power using 2023 dollars.
+# Adjustments based on:
+# - CPI-U inflation adjustment: ~38% cumulative inflation from 2010 to 2023
+# - Regional income distribution patterns from ACS 2010 Bay Area data
+# - Maintains 4-category structure for PopulationSim compatibility
+# - 2010 purchasing power: $0-30K, $30-60K, $60-100K, $100K+
+# - 2023 dollar equivalents: $0-41K, $41-83K, $83-138K, $138K+ (inflated for purchasing power parity) 
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     # Number of households (PopulationSim: num_hh) - Start with 2020 Census H1_002N, apply county-level scaling factors
     ('num_hh',                ('pl',  CENSUS_EST_YEAR, 'H1_002N',      'block',
@@ -124,14 +132,17 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
 # TAZ controls for ACS estimate year - PopulationSim expects: workers, age, children, income
 CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
     # ACS5 household income distribution at block‐group - DIRECT AGGREGATION (no scaling needed)
+    # Income breakpoints adjusted to 2023 dollars representing 2010 purchasing power
+    # Methodology: Applied ~38% inflation based on CPI-U 2010-2023 cumulative inflation
+    # to convert 2010 income categories ($0-30K, $30-60K, $60-100K, $100K+) to 2023 equivalent purchasing power
     ('hh_inc_30',             ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',29999)])])),
+                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',41399)])])),
     ('hh_inc_30_60',          ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',30000),('hhinc_max',59999)])])),
+                               [collections.OrderedDict([('hhinc_min',41400),('hhinc_max',82799)])])),
     ('hh_inc_60_100',         ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',60000),('hhinc_max',99999)])])),
+                               [collections.OrderedDict([('hhinc_min',82800),('hhinc_max',137999)])])),
     ('hh_inc_100_plus',       ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',100000),('hhinc_max',HINC_MAX)])])),
+                               [collections.OrderedDict([('hhinc_min',138000),('hhinc_max',HINC_MAX)])])),
     # ACS5 workers per household at tract level - DISAGGREGATED using household distribution
     ('temp_hh_bg_for_tract_weights', ('acs5', ACS_EST_YEAR, 'B11016', 'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
