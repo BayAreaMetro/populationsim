@@ -7,6 +7,11 @@
 echo on
 setlocal EnableDelayedExpansion
 
+:: Set up PopulationSim conda environment
+set CONDA_PATH=C:\Users\schildress\AppData\Local\anaconda3
+set POPSIM_ENV=popsim
+set PYTHON_PATH=%CONDA_PATH%\envs\%POPSIM_ENV%\python.exe
+
 :: should be TM1 or TM2
 set MODELTYPE=TM2
 set YEAR=2023
@@ -45,7 +50,7 @@ if "%TEST_PUMA%" NEQ "" (
 :create_seed
 if not exist hh_gq\data\seed_households.csv (
   echo Creating seed population files...
-  python create_seed_population.py
+  "%PYTHON_PATH%" create_seed_population.py
   if ERRORLEVEL 1 goto error
 )
 
@@ -91,6 +96,7 @@ for %%Y in (!YEARS!) do (
       copy /y "%TMPATH%\maz_marginals.csv"    hh_gq\data\maz_marginals.csv
       copy /y "%TMPATH%\taz2_marginals.csv"   hh_gq\data\taz_marginals.csv
       copy /y "%TMPATH%\county_marginals.csv" hh_gq\data\county_marginals.csv
+      copy /y "%TMPATH%\geo_cross_walk_tm2.csv" hh_gq\data\geo_cross_walk_tm2.csv
 
       rem Verify that the file copy MUST succeed or we'll run populationsim with the wrong input
       fc /b "%TMPATH%\maz_marginals.csv"    hh_gq\data\maz_marginals.csv > nul
@@ -99,12 +105,15 @@ for %%Y in (!YEARS!) do (
       if errorlevel 1 goto error
       fc /b "%TMPATH%\county_marginals.csv" hh_gq\data\county_marginals.csv > nul
       if errorlevel 1 goto error
+      fc /b "%TMPATH%\geo_cross_walk_tm2.csv" hh_gq\data\geo_cross_walk_tm2.csv > nul
+      if errorlevel 1 goto error
 
     )
     if !YEAR!==2023 (
       copy /y "%TMPATH%\maz_marginals.csv"    hh_gq\data\maz_marginals.csv
       copy /y "%TMPATH%\taz_marginals.csv"   hh_gq\data\taz_marginals.csv
       copy /y "%TMPATH%\county_marginals.csv" hh_gq\data\county_marginals.csv
+      copy /y "%TMPATH%\geo_cross_walk_tm2_filtered.csv" hh_gq\data\geo_cross_walk_tm2.csv
 
       rem Verify that the file copy MUST succeed or we'll run populationsim with the wrong input
       fc /b "%TMPATH%\maz_marginals.csv"    hh_gq\data\maz_marginals.csv > nul
@@ -113,12 +122,14 @@ for %%Y in (!YEARS!) do (
       if errorlevel 1 goto error
       fc /b "%TMPATH%\county_marginals.csv" hh_gq\data\county_marginals.csv > nul
       if errorlevel 1 goto error
+      fc /b "%TMPATH%\geo_cross_walk_tm2_filtered.csv" hh_gq\data\geo_cross_walk_tm2.csv > nul
+      if errorlevel 1 goto error
 
     )
   )
   echo RUN_NUM=[!RUN_NUM!]
   rem add combined hh gq columns (e.g. make gq into one-person households)
-  python add_hhgq_combined_controls.py --model_type !MODELTYPE!
+  "%PYTHON_PATH%" add_hhgq_combined_controls.py --model_type !MODELTYPE!
   if ERRORLEVEL 1 goto error
 
  
@@ -137,12 +148,12 @@ for %%Y in (!YEARS!) do (
     echo poputionsim output files exist in !OUTPUT_DIR! already.
   )
   if not exist !OUTPUT_DIR!\synthetic_households.csv (
-    python run_populationsim.py --config hh_gq\configs_%MODELTYPE% --output !OUTPUT_DIR! --data hh_gq\data
+    "%PYTHON_PATH%" run_populationsim.py --config hh_gq\configs_%MODELTYPE% --output !OUTPUT_DIR! --data hh_gq\data
     if ERRORLEVEL 1 goto error
   )
 
   rem Postprocess and recode
-  python postprocess_recode.py !TEST_PUMA_FLAG! --model_type !MODELTYPE! --directory !OUTPUT_DIR! --year !YEAR!
+  "%PYTHON_PATH%" postprocess_recode.py !TEST_PUMA_FLAG! --model_type !MODELTYPE! --directory !OUTPUT_DIR! --year !YEAR!
   if ERRORLEVEL 1 goto error
   rem Note: this creates OUTPUT_DIR\summary_melt.csv so copy validation.twb into place
   copy /y validation.twb !OUTPUT_DIR!

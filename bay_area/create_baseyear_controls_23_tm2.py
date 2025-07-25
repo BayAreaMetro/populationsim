@@ -12,15 +12,16 @@ ACS 2023 data with simplified controls to reflect current Census data availabili
 USAGE = """
 
 
-Here’s an updated workflow description reflecting your current process:
+This script creates populationsim-compatible control files using multiple Census data sources
+including ACS 2023 5-year estimates and 2020 Decennial Census data.
 
-This script creates populationsim-compatible control files using only reliably available
-ACS 2023 data, with a zero-fill strategy for discontinued Census variables and full county-level scaling.
+1) DATA DOWNLOADING AND CACHE MANAGEMENT:
 
-1) CACHE MANAGEMENT:
-
-Downloads ACS 2023 tables to census_cache directory.
-One CSV file per census table with descriptive column headers.
+Downloads multiple Census datasets via Census API:
+- ACS 2023 5-year estimates (tract, block group levels for detailed demographics)
+- ACS 2023 1-year estimates (county level for scaling targets only)
+- 2020 Decennial Census data (block level for base geography and household counts)
+One CSV file per census table with descriptive column headers in census_cache directory.
 Automatic cache validation and refresh capability.
 To force re-download: remove specific cache files.
 2) GEOGRAPHY INTERPOLATION:
@@ -32,18 +33,20 @@ Handles block→block, block group→block group, tract→tract interpolation.
 3) CONTROL PROCESSING (Config-Driven):
 
 All controls (MAZ, TAZ, COUNTY) are dynamically specified in the configuration.
-MAZ Level: Total households, group quarters, and other controls as defined in config.
-TAZ Level: Workers, age groups, children, household size, income, etc.
-COUNTY Level: All controls and targets as defined in config.
-4) MISSING CONTROLS HANDLING:
+MAZ Level: Household and group quarters totals from 2020 Census block data.
+TAZ Level: Worker, age, household characteristics from ACS tract summary data.
+COUNTY Level: County-level ACS targets for scaling and control totals.
+4) MAJOR DATA SOURCES BY CONTROL LEVEL:
 
-Controls not available in current ACS/Census are zero-filled, with documentation.
-All expected controls are defined in the config for flexibility and extensibility.
+MAZ Level: Primarily derived from 2020 Census block-level data aggregated to MAZ geography.
+TAZ Level: Primarily derived from ACS tract-level data aggregated to TAZ geography.
+County Level: Primarily derived from ACS county-level data for scaling and targets.
 5) COUNTY-LEVEL SCALING:
 
-Applies ACS 2023 county targets as scaling factors to MAZ household estimates.
+Applies ACS 2023 1-year county estimates as scaling targets to MAZ household totals.
+Uses more current 1-year estimates (vs 5-year) for county-level scaling factors.
 Scaling factors are calculated from county summary and applied using the geographic crosswalk.
-Ensures MAZ-level household totals match ACS county targets.
+Ensures MAZ-level household totals match ACS 2023 1-year county targets.
 6) OUTPUT FORMAT:
 
 Creates populationsim-compatible marginals files:

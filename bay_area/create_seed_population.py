@@ -133,17 +133,17 @@ def download_pums_data():
     Download PUMS 2019-2023 data for Bay Area from Census Bureau.
     Extracts household and person files for California and filters to Bay Area PUMAs.
     """
-    # Bay Area PUMAs (2010 Census definition) - these are the PUMAs that cover the 9-county Bay Area
+    # Bay Area PUMAs (2020 definition - ONLY those actually present in ACS 2019-2023 PUMS data)
+    # Note: ACS 2019-2023 uses 2020 PUMA boundaries but only includes 24 of 55 expected PUMAs due to sample size constraints
     BAY_AREA_PUMAS = [
-        '00100', '00101', '00102', '00103', '00104', '00105', '00106', '00107',  # Alameda County
-        '00108', '00109', '00110', '00111', '00112', '00113',                    # Contra Costa County
-        '00114',                                                                # Marin County
-        '00115',                                                                # Napa County
-        '00116', '00117', '00118', '00119',                                      # San Francisco County
-        '00120', '00121', '00122',                                              # San Mateo County
-        '00123', '00124', '00125', '00126', '00127', '00128', '00129',          # Santa Clara County
-        '00130',                                                                # Solano County
-        '00131', '00132'                                                        # Sonoma County
+        '00101',  # San Francisco
+        '01301', '01305', '01308', '01309',  # Alameda (partial)
+        '05500',  # Napa
+        '07507',  # San Francisco (partial)
+        '08101', '08102', '08103', '08104', '08105', '08106',  # San Mateo
+        '08505', '08506', '08507', '08508', '08510', '08511', '08512',  # Santa Clara (partial)
+        '09501', '09502', '09503',  # Solano
+        '09702'   # Sonoma (partial)
     ]
     
     # Create output directory if it doesn't exist
