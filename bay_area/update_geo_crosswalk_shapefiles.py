@@ -49,6 +49,10 @@ def update_geo_crosswalk_with_shapefiles():
                 elif ("taz" in filename or "taz2" in filename or "traffic" in filename) and not taz_shapefile:
                     taz_shapefile = str(file) 
                     print(f"   Found TAZ shapefile: {taz_shapefile}")
+                elif ("puma" in filename and "06" in filename) and not puma_2020_shapefile:
+                    # Prioritize California-specific PUMA files (FIPS 06)
+                    puma_2020_shapefile = str(file)
+                    print(f"   Found California PUMA shapefile: {puma_2020_shapefile}")
                 elif ("puma" in filename and ("2020" in filename or "20" in filename)) and not puma_2020_shapefile:
                     puma_2020_shapefile = str(file)
                     print(f"   Found 2020 PUMA shapefile: {puma_2020_shapefile}")
@@ -97,11 +101,11 @@ def update_geo_crosswalk_with_shapefiles():
         maz_gdf = gpd.read_file(maz_shapefile)
         print(f"   MAZ records: {len(maz_gdf):,}")
         
-        # Load 2020 PUMA boundaries  
+        # Load 2020 PUMA boundaries (California-only file) 
         print(f"   Loading 2020 PUMA shapefile: {puma_2020_shapefile}")
         puma_gdf = gpd.read_file(puma_2020_shapefile)
         
-        # Filter for California PUMAs
+        # Safety check: Filter for California PUMAs (should already be CA-only if using tl_2022_06_puma20.shp)
         if 'STATEFP' in puma_gdf.columns:
             puma_gdf = puma_gdf[puma_gdf['STATEFP'] == '06']  # California
         elif 'STATEFP20' in puma_gdf.columns:

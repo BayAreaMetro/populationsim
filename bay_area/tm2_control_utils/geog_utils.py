@@ -10,31 +10,82 @@ from tm2_control_utils.config import *
 def prepare_geography_dfs():
     """
     Reads and prepares MAZ/TAZ definition and crosswalk DataFrames.
+    Uses the updated geo_cross_walk_tm2_updated.csv file with 2020 PUMA definitions.
     Returns:
         maz_taz_def_df: DataFrame with MAZ/TAZ definitions and attributes.
         crosswalk_df:   DataFrame with MAZ/TAZ/PUMA/COUNTY crosswalk.
     """
-    if os.path.exists(MAZ_TAZ_ALL_GEOG_FILE):
-        maz_taz_def_df = pd.read_csv(MAZ_TAZ_ALL_GEOG_FILE)
-    else:
-        maz_taz_def_df = pd.read_csv(MAZ_TAZ_DEF_FILE)
-        maz_taz_def_df.rename(columns={"maz": "MAZ", "taz": "TAZ"}, inplace=True)
-        maz_taz_def_df["GEOID_block"] = "0" + maz_taz_def_df["GEOID10"].astype(str)
-        add_aggregate_geography_colums(maz_taz_def_df)
-        maz_taz_def_df.drop("GEOID10", axis="columns", inplace=True)
-        maz_taz_def_df = pd.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
-
-        taz_puma_df = pd.read_csv(MAZ_TAZ_PUMA_FILE)
-        taz_puma_df.rename(columns={"PUMA10": "PUMA"}, inplace=True)
-        maz_taz_def_df = pd.merge(left=maz_taz_def_df, right=taz_puma_df[["TAZ", "MAZ", "PUMA"]], how="left")
-
+    logger = logging.getLogger(__name__)
+    
+    # Check if the updated crosswalk file exists in the output directory
+    # Since GEO_CROSSWALK_TM2_FILE is just the filename, we need to construct the full path
+    output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output_2023')
+    updated_crosswalk_path = os.path.join(output_dir, GEO_CROSSWALK_TM2_FILE)
+    
+    if os.path.exists(updated_crosswalk_path):
+        logger.info(f"Using updated crosswalk file with 2020 PUMA definitions: {updated_crosswalk_path}")
+        crosswalk_df = pd.read_csv(updated_crosswalk_path)
+        
+        # Load MAZ/TAZ definitions
+        if os.path.exists(MAZ_TAZ_ALL_GEOG_FILE):
+            maz_taz_def_df = pd.read_csv(MAZ_TAZ_ALL_GEOG_FILE)
+        else:
+            maz_taz_def_df = pd.read_csv(MAZ_TAZ_DEF_FILE)
+            maz_taz_def_df.rename(columns={"maz": "MAZ", "taz": "TAZ"}, inplace=True)
+            maz_taz_def_df["GEOID_block"] = "0" + maz_taz_def_df["GEOID10"].astype(str)
+            add_aggregate_geography_colums(maz_taz_def_df)
+            maz_taz_def_df.drop("GEOID10", axis="columns", inplace=True)
+            maz_taz_def_df = pd.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
+        
+        # Merge with updated crosswalk to get 2020 PUMA definitions
+        maz_taz_def_df = pd.merge(
+            left=maz_taz_def_df,
+            right=crosswalk_df[["MAZ", "TAZ", "PUMA", "COUNTY", "county_name"]],
+            on=["MAZ", "TAZ"],
+            how="left",
+            suffixes=('_def', '_crosswalk')
+        )
+        
+        # Use crosswalk PUMA values (2020 definitions) over original PUMA values
+        if 'PUMA_crosswalk' in maz_taz_def_df.columns:
+            maz_taz_def_df['PUMA'] = maz_taz_def_df['PUMA_crosswalk']
+            maz_taz_def_df.drop(['PUMA_crosswalk'], axis=1, inplace=True)
+        
+        if 'COUNTY_crosswalk' in maz_taz_def_df.columns:
+            maz_taz_def_df['COUNTY'] = maz_taz_def_df['COUNTY_crosswalk'] 
+            maz_taz_def_df.drop(['COUNTY_crosswalk'], axis=1, inplace=True)
+            
+        if 'county_name_crosswalk' in maz_taz_def_df.columns:
+            maz_taz_def_df['county_name'] = maz_taz_def_df['county_name_crosswalk']
+            maz_taz_def_df.drop(['county_name_crosswalk'], axis=1, inplace=True)
+        
+        # Ensure PUMA is properly typed and filter out missing values
         maz_taz_def_df["PUMA"] = maz_taz_def_df["PUMA"].astype("Int64")
         maz_taz_def_df = maz_taz_def_df[maz_taz_def_df["PUMA"].notna()]
+        
+        logger.info(f"Loaded {len(maz_taz_def_df)} MAZ records with updated 2020 PUMA definitions")
+        logger.info(f"Unique PUMAs in dataset: {sorted(maz_taz_def_df['PUMA'].dropna().unique())}")
+        
+    else:
+        # Updated crosswalk file is required for 2020 PUMA definitions
+        logger.error(f"Updated crosswalk file required but not found at {updated_crosswalk_path}")
+        logger.error("The static PUMA file process has been deprecated to ensure 2020 PUMA definitions are used")
+        logger.error("Please ensure the updated crosswalk file is available in the output directory")
+        raise FileNotFoundError(
+            f"Required updated crosswalk file not found: {updated_crosswalk_path}\n"
+            "This file contains the 2020 PUMA definitions including PUMA 07707.\n"
+            "The old static PUMA file process has been deprecated to avoid using outdated 2010 PUMA definitions."
+        )
 
-        # Skip saving intermediate geography file
-
-    crosswalk_df = maz_taz_def_df.loc[maz_taz_def_df["MAZ"] > 0]
-    crosswalk_df = crosswalk_df[["MAZ", "TAZ", "PUMA", "COUNTY", "county_name", "REGION"]].drop_duplicates()
+    # Ensure crosswalk has consistent structure
+    if 'REGION' not in crosswalk_df.columns and 'REGION' in maz_taz_def_df.columns:
+        # Add REGION to crosswalk if available in maz_taz_def_df
+        region_map = maz_taz_def_df[['MAZ', 'REGION']].drop_duplicates()
+        crosswalk_df = crosswalk_df.merge(region_map, on='MAZ', how='left')
+    
+    # Final crosswalk structure
+    available_cols = [col for col in ["MAZ", "TAZ", "PUMA", "COUNTY", "county_name", "REGION"] if col in crosswalk_df.columns]
+    crosswalk_df = crosswalk_df[available_cols].drop_duplicates()
     crosswalk_df.sort_values(by="MAZ", inplace=True)
 
     return maz_taz_def_df, crosswalk_df

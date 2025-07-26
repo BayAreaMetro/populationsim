@@ -15,7 +15,10 @@ CPI_FACTORS = {
     2000: 0.483,  # 2000$ purchasing power relative to 2023$ (deflation factor ~0.483)
     2010: 0.725,  # 2010$ purchasing power relative to 2023$ (deflation factor ~0.725)
     2015: 0.833,  # 2015$ purchasing power relative to 2023$ (approximate)
-    2020: 0.909,  # 2020$ purchasing power relative to 2023$ (approximate)
+    2019: 0.888,  # 2019$ purchasing power relative to 2023$ 
+    2020: 0.909,  # 2020$ purchasing power relative to 2023$ 
+    2021: 0.932,  # 2021$ purchasing power relative to 2023$ 
+    2022: 0.964,  # 2022$ purchasing power relative to 2023$ 
     2023: 1.000,  # 2023$ purchasing power (baseline)
 }
 

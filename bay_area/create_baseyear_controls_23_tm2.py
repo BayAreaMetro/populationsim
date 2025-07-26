@@ -86,13 +86,12 @@ def verify_input_files():
     """Verify that all required input files are accessible."""
     logger = logging.getLogger()
     
-    from tm2_control_utils.config import MAZ_TAZ_DEF_FILE, MAZ_TAZ_PUMA_FILE, MAZ_TAZ_ALL_GEOG_FILE, CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
+    from tm2_control_utils.config import MAZ_TAZ_DEF_FILE, MAZ_TAZ_ALL_GEOG_FILE, CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
     
     logger.info("Checking file accessibility")
     
     required_files = [
         ("MAZ/TAZ definitions", MAZ_TAZ_DEF_FILE),
-        ("MAZ/TAZ PUMA mapping", MAZ_TAZ_PUMA_FILE), 
         ("MAZ/TAZ all geography", MAZ_TAZ_ALL_GEOG_FILE),
         ("Census API key", CENSUS_API_KEY_FILE),
     ]
@@ -131,7 +130,6 @@ def copy_network_data_to_local():
     # Define the files to copy
     files_to_copy = [
         (NETWORK_MAZ_TAZ_DEF_FILE, LOCAL_MAZ_TAZ_DEF_FILE),
-        (NETWORK_MAZ_TAZ_PUMA_FILE, LOCAL_MAZ_TAZ_PUMA_FILE),
         (NETWORK_MAZ_TAZ_ALL_GEOG_FILE, LOCAL_MAZ_TAZ_ALL_GEOG_FILE),
         (NETWORK_CENSUS_API_KEY_FILE, LOCAL_CENSUS_API_KEY_FILE),
     ]
@@ -184,12 +182,11 @@ def configure_file_paths(use_local=False):
     Configure file paths based on whether to use local or network storage.
     Updates the global config variables.
     """
-    global MAZ_TAZ_DEF_FILE, MAZ_TAZ_PUMA_FILE, MAZ_TAZ_ALL_GEOG_FILE
+    global MAZ_TAZ_DEF_FILE, MAZ_TAZ_ALL_GEOG_FILE
     global CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
     
     if use_local:
         MAZ_TAZ_DEF_FILE = LOCAL_MAZ_TAZ_DEF_FILE
-        MAZ_TAZ_PUMA_FILE = LOCAL_MAZ_TAZ_PUMA_FILE  
         MAZ_TAZ_ALL_GEOG_FILE = LOCAL_MAZ_TAZ_ALL_GEOG_FILE
         CENSUS_API_KEY_FILE = LOCAL_CENSUS_API_KEY_FILE
         
@@ -202,7 +199,6 @@ def configure_file_paths(use_local=False):
             print(f"Using local_data cache directory: {LOCAL_CACHE_FOLDER}")
     else:
         MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE
-        MAZ_TAZ_PUMA_FILE = NETWORK_MAZ_TAZ_PUMA_FILE
         MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE
         CENSUS_API_KEY_FILE = NETWORK_CENSUS_API_KEY_FILE
         
@@ -232,7 +228,6 @@ def check_file_accessibility_with_mode(use_local=False):
     
     required_files = [
         ("MAZ/TAZ definitions", MAZ_TAZ_DEF_FILE),
-        ("MAZ/TAZ PUMA mapping", MAZ_TAZ_PUMA_FILE),
         ("MAZ/TAZ all geography", MAZ_TAZ_ALL_GEOG_FILE),
         ("Census API key", CENSUS_API_KEY_FILE),
         ("census cache directory", LOCAL_CACHE_FOLDER),

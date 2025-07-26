@@ -3,7 +3,6 @@ import collections
 
 # File paths - Network locations (M: drive)
 NETWORK_MAZ_TAZ_DEF_FILE   = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\blocks_mazs_tazs.csv"
-NETWORK_MAZ_TAZ_PUMA_FILE  = "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_county_tract_PUMA10.csv"
 NETWORK_MAZ_TAZ_ALL_GEOG_FILE =  "M:\\Data\\GIS layers\\TM2_maz_taz_v2.2\\mazs_tazs_all_geog.csv"
 NETWORK_CENSUS_API_KEY_FILE = "M:\\Data\\Census\\API\\new_key\\api-key.txt"
 NETWORK_CACHE_FOLDER  = "M:\\Data\\Census\\NewCachedTablesForPopulationSimControls"
@@ -11,7 +10,6 @@ NETWORK_CACHE_FOLDER  = "M:\\Data\\Census\\NewCachedTablesForPopulationSimContro
 # Local file paths for offline work
 LOCAL_DATA_DIR = "local_data"
 LOCAL_MAZ_TAZ_DEF_FILE   = f"{LOCAL_DATA_DIR}\\gis\\blocks_mazs_tazs.csv"
-LOCAL_MAZ_TAZ_PUMA_FILE  = f"{LOCAL_DATA_DIR}\\gis\\mazs_tazs_county_tract_PUMA10.csv"
 LOCAL_MAZ_TAZ_ALL_GEOG_FILE = f"{LOCAL_DATA_DIR}\\gis\\mazs_tazs_all_geog.csv"
 LOCAL_CENSUS_API_KEY_FILE = f"{LOCAL_DATA_DIR}\\census\\api-key.txt"
 LOCAL_CACHE_FOLDER  = f"{LOCAL_DATA_DIR}\\census\\cache"
@@ -21,7 +19,6 @@ INPUT_2023_CACHE_FOLDER = "input_2023\\NewCachedTablesForPopulationSimControls"
 
 # Active file paths (will be set based on offline mode)
 MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE
-MAZ_TAZ_PUMA_FILE = NETWORK_MAZ_TAZ_PUMA_FILE
 MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE
 CENSUS_API_KEY_FILE = NETWORK_CENSUS_API_KEY_FILE
 LOCAL_CACHE_FOLDER = NETWORK_CACHE_FOLDER
@@ -45,7 +42,7 @@ INPUT_DIR = "input_2023"
 MAZ_MARGINALS_FILE = "maz_marginals.csv"
 TAZ_MARGINALS_FILE = "taz_marginals.csv"
 COUNTY_MARGINALS_FILE = "county_marginals.csv"
-GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
+GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2_updated.csv"  # Updated to include all 66 Bay Area PUMAs including 07707
 
 # County file names (configurable) 
 COUNTY_TARGETS_FILE = "county_targets_acs2023.csv"
