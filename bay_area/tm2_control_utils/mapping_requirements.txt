@@ -1,0 +1,13 @@
+# Additional requirements for TAZ mapping functionality
+# Install with: pip install -r mapping_requirements.txt
+
+geopandas>=0.11.0
+folium>=0.12.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Note: geopandas depends on several geospatial libraries:
+# - fiona (for reading shapefiles)
+# - shapely (for geometric operations)  
+# - pyproj (for coordinate transformations)
+# These are typically installed automatically with geopandas

@@ -1,11 +1,11 @@
 """
-Create seed files for MTC Bay Area populationsim from PUMS 2017-2021.
+Create seed files for MTC Bay Area populationsim from PUMS 2019-2023.
 
 Columns used:
 - PUMA (housing and person), to filter to bay area for housing and person records
 - ESR (person), Employment Status Recode, to count workers per housing record
 - SERIALNO (hh and person), to group persons to housing record, to count workers per housing record
-- ADJINC and HINCP (hh), used to adjust household income to 2010 dollars
+- ADJINC and HINCP (hh), used to adjust household income to 2023 dollars
 - NP (housing), to filter out vacant unitsf
 - TYPEHUGQ (housing), to filter to households and non-institutional group quarters
 - MIL (person), to inform gqtype for group quarters persons
@@ -13,7 +13,7 @@ Columns used:
 
 New columns in housing records file:
 - hh_workers_from_esr: count of employed persons in household
-- hh_income_2021     : household income in 2010 dollars, based on HINCP and ADJINC
+- hh_income_2023     : household income in 2023 dollars, based on HINCP and ADJINC
 - unique_hh_id       : integer unique id for housing unit, starting with 1
 - hhgqtype           : 0 for non gq, 1 is college student, 2 is military, 3 is other
 - PWGT               : for group quarters file only, transfered from person records
@@ -32,7 +32,7 @@ PUMS_HOUSING_RECORD_COLUMNS = [
     "DIVISION",             # Division code based on 2010 Census definitions
     "PUMA",                 # Public use microdata area code based on 2010 Census definition
     "REGION",               # Region code
-    "ST",                   # State code
+    "STATE",                # State code (was "ST" in older data)
     "ADJINC",               # Adjustment factor for income and earnings dollar amounts
     "WGTP",                 # Housing unit weight
     "NP",                   # Number of person records associated with this housing record
@@ -49,7 +49,7 @@ PUMS_HOUSING_RECORD_COLUMNS = [
 NEW_HOUSING_RECORD_COLUMNS = [
     "COUNTY",               # MTC county code
     "hh_workers_from_esr",  # count of employed persons in household
-    "hh_income_2010",       # household income in 2010 dollars, based on HINCP and ADJINC
+    "hh_income_2023",       # household income in 2023 dollars, based on HINCP and ADJINC
     "unique_hh_id",         # integer unique id for housing unit, starting with 1
     "gqtype",               # group quarters type: 0: household (not gq), 1 college, 2 military, 3 other
     "hh_income_2000",       # household income in 2000 dollars for tm1
@@ -61,7 +61,7 @@ PUMS_PERSON_RECORD_COLUMNS = [
     "SERIALNO",             # Housing unit/GQ person serial number
     "SPORDER",              # Person number
     "PUMA",                 # Public use microdata area code based on 2010 Census definition
-    "ST",                   # State code
+    "STATE",                # State code (was "ST" in older data)
     "PWGTP",                # Person weight
     "AGEP",                 # Age
     "COW",                  # Class of worker
@@ -72,7 +72,7 @@ PUMS_PERSON_RECORD_COLUMNS = [
     "SCHL",                 # Educational attainment
     "SEX",                  # Sex
     "WKHP",                 # Usual hours worked per week past 12 months
-    "WKW",                  # Weeks worked during past 12 months
+    "WKWN",                 # Weeks worked during past 12 months (was "WKW" in older data)
     "ESR",                  # Employment status recode
     "HISP",                 # Recoded detailed Hispanic origin
     "NAICSP",               # North American Industry Classification System (NAICS) recode for 2018 and later based on 2017 NAICS codes
@@ -100,11 +100,20 @@ NEW_PERSON_RECORD_COLUMNS = [
 
 import logging, os, pathlib, sys, time
 import numpy, pandas
+import requests
+import zipfile
+from io import BytesIO
+import ssl
+import urllib.request
+import urllib3
 
-CROSSWALK_FILE      = pathlib.Path("hh_gq/data/geo_cross_walk_tm1.csv")
-PUMS_INPUT_DIR      = pathlib.Path("M:/Data/Census/PUMS/PUMS 2017-21")
-PUMS_HOUSEHOLD_FILE = "hbayarea1721.csv"
-PUMS_PERSON_FILE    = "pbayarea1721.csv"
+# Suppress SSL warnings for corporate networks
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+CROSSWALK_FILE      = pathlib.Path("output_2023/geo_cross_walk_tm2.csv")
+PUMS_INPUT_DIR      = pathlib.Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23")
+PUMS_HOUSEHOLD_FILE = "hbayarea1923.csv"
+PUMS_PERSON_FILE    = "pbayarea1923.csv"
 
 # First two characters of socp00 or socp10 to occupation code
 # occupation: 
@@ -118,6 +127,101 @@ PUMS_PERSON_FILE    = "pbayarea1721.csv"
 OCCUPATION = pandas.DataFrame(data=
     {"soc"       :["11","13","15","17","19","21","23","25","27","29","31","33","35","37","39","41","43","45","47","49","51","53","55"],
      "occupation":[   1,   2,   2,   2,   2,   3,   2,   2,   3,   2,   3,   3,   4,   5,   3,   4,   3,   5,   5,   5,   5,   5,   6]})
+
+def download_pums_data():
+    """
+    Download PUMS 2019-2023 data for Bay Area from Census Bureau.
+    Extracts household and person files for California and filters to Bay Area PUMAs.
+    """
+    # Bay Area PUMAs (2020 definition - ONLY those actually present in ACS 2019-2023 PUMS data)
+    # Note: ACS 2019-2023 uses 2020 PUMA boundaries but only includes 24 of 55 expected PUMAs due to sample size constraints
+    BAY_AREA_PUMAS = [
+        '00101',  # San Francisco
+        '01301', '01305', '01308', '01309',  # Alameda (partial)
+        '05500',  # Napa
+        '07507',  # San Francisco (partial)
+        '08101', '08102', '08103', '08104', '08105', '08106',  # San Mateo
+        '08505', '08506', '08507', '08508', '08510', '08511', '08512',  # Santa Clara (partial)
+        '09501', '09502', '09503',  # Solano
+        '09702'   # Sonoma (partial)
+    ]
+    
+    # Create output directory if it doesn't exist
+    PUMS_INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # URLs for 5-year ACS PUMS 2019-2023 data
+    base_url = "https://www2.census.gov/programs-surveys/acs/data/pums/2023/5-Year/"
+    
+    files_to_download = [
+        {
+            'url': f"{base_url}csv_hca.zip",
+            'zip_filename': 'psam_h06.csv',  # California household file
+            'output_filename': PUMS_HOUSEHOLD_FILE,
+            'record_type': 'household'
+        },
+        {
+            'url': f"{base_url}csv_pca.zip", 
+            'zip_filename': 'psam_p06.csv',  # California person file
+            'output_filename': PUMS_PERSON_FILE,
+            'record_type': 'person'
+        }
+    ]
+    
+    for file_info in files_to_download:
+        output_path = PUMS_INPUT_DIR / file_info['output_filename']
+        
+        # Skip if file already exists
+        if output_path.exists():
+            logging.info(f"File {output_path} already exists, skipping download")
+            continue
+            
+        logging.info(f"Downloading {file_info['url']}")
+        
+        try:
+            # Download the zip file with SSL verification disabled for corporate networks
+            logging.info(f"Downloading {file_info['url']}")
+            
+            # Try with requests first, then urllib if that fails
+            try:
+                response = requests.get(file_info['url'], stream=True, verify=False)
+                response.raise_for_status()
+                zip_content = response.content
+            except Exception as e:
+                logging.warning(f"Requests failed: {e}. Trying urllib...")
+                # Create SSL context that doesn't verify certificates
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                
+                with urllib.request.urlopen(file_info['url'], context=ssl_context) as response:
+                    zip_content = response.read()
+            
+            # Extract the specific file from the zip
+            with zipfile.ZipFile(BytesIO(zip_content)) as zip_file:
+                if file_info['zip_filename'] not in zip_file.namelist():
+                    logging.error(f"File {file_info['zip_filename']} not found in zip")
+                    continue
+                    
+                logging.info(f"Extracting {file_info['zip_filename']} and filtering to Bay Area PUMAs")
+                
+                # Read the CSV file from the zip
+                with zip_file.open(file_info['zip_filename']) as csv_file:
+                    df = pandas.read_csv(csv_file, dtype={'PUMA': str})
+                    
+                    # Filter to Bay Area PUMAs
+                    bay_area_df = df[df['PUMA'].isin(BAY_AREA_PUMAS)]
+                    
+                    logging.info(f"Filtered from {len(df):,} to {len(bay_area_df):,} {file_info['record_type']} records")
+                    
+                    # Save the filtered data
+                    bay_area_df.to_csv(output_path, index=False)
+                    logging.info(f"Saved Bay Area {file_info['record_type']} data to {output_path}")
+                    
+        except Exception as e:
+            logging.error(f"Error downloading {file_info['url']}: {e}")
+            continue
+    
+    logging.info("PUMS data download completed")
 
 def clean_types(df):
     """
@@ -146,7 +250,11 @@ if __name__ == '__main__':
     pandas.options.display.max_rows = 1000
 
     NOW = time.strftime("%Y%b%d_%H%M")
-    LOG_FILE = pathlib.Path("hh_gq/data") / "create_seed_population_{}.log".format(NOW)
+    LOG_FILE = pathlib.Path("output_2023") / "create_seed_population_{}.log".format(NOW)
+    
+    # Ensure output directory exists
+    pathlib.Path("output_2023").mkdir(exist_ok=True)
+    
     print("Creating log file {}".format(LOG_FILE))
 
     # create logger
@@ -162,6 +270,10 @@ if __name__ == '__main__':
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p'))
     logger.addHandler(fh)
+
+    # Download PUMS data if needed
+    logging.info("Checking for PUMS data...")
+    download_pums_data()
 
     pums_hu_file   = os.path.join(PUMS_INPUT_DIR, PUMS_HOUSEHOLD_FILE)
     pums_hu_df     = pandas.read_csv(pums_hu_file, usecols=PUMS_HOUSING_RECORD_COLUMNS)
@@ -227,7 +339,7 @@ if __name__ == '__main__':
     pums_pers_df['employ_status'] = 999
     pums_pers_df.loc[ pums_pers_df.employed == 1, 'employ_status'] = 2 # part-time worker
     pums_pers_df.loc[ (pums_pers_df.employed == 1)&
-                      ((pums_pers_df.WKW==1)|(pums_pers_df.WKW==2)|(pums_pers_df.WKW==3)|(pums_pers_df.WKW==4))&
+                      ((pums_pers_df.WKWN==1)|(pums_pers_df.WKWN==2)|(pums_pers_df.WKWN==3)|(pums_pers_df.WKWN==4))&
                       (pums_pers_df.WKHP>=35), 'employ_status'] = 1 # full-time worker
     pums_pers_df.loc[ (pums_pers_df.ESR==0),   'employ_status'] = 4 # student under 16
     pums_pers_df.loc[ (pums_pers_df.ESR==6)|(pums_pers_df.ESR==3), 'employ_status'] = 3  # not in the labor force
@@ -268,17 +380,18 @@ if __name__ == '__main__':
 
     # put income in constant year dollars
     #
-    # From PUMS Data Dictionary (M:\Data\Census\PUMS\PUMS 2017-21\PUMS_Data_Dictionary_2017-2021.pdf):
+    # From PUMS Data Dictionary for 2019-2023 ACS 5-Year:
     #  Adjustment factor for income and earnings dollar amounts (6 implied decimal places)
-    #      1117630 .2017 factor (1.011189 * 1.10526316)
-    #      1093093 .2018 factor (1.013097 * 1.07896160)
-    #      1070512 .2019 factor (1.010145 * 1.05976096)
-    #      1053131 .2020 factor (1.006149 * 1.04669465)
-    #      1029928 .2021 factor (1.029928 * 1.00000000)
-    # From PUMS User Guide (2017_2021ACS_PUMS_User_Guide.pdf):
+    #  For 2019-2023 5-year data, ADJINC adjusts to 2023 dollars:
+    #      1169154 .2019 factor
+    #      1143072 .2020 factor  
+    #      1115009 .2021 factor
+    #      1052090 .2022 factor
+    #      1000000 .2023 factor (1.000000 * 1.00000000)
+    # From PUMS User Guide:
     #  G. Note on Income and Earnings Inflation Factor (ADJINC)
     #  Divide ADJINC by 1,000,000 to obtain the inflation adjustment factor and multiply it to
-    #  the PUMS variable value to adjust it to 2021 dollars. Variables requiring ADJINC on the
+    #  the PUMS variable value to adjust it to 2023 dollars. Variables requiring ADJINC on the
     #  Housing Unit file are FINCP and HINCP. Variables requiring ADJINC on the Person
     #  files are: INTP, OIP, PAP, PERNP, PINCP, RETP, SEMP, SSIP, SSP, and WAGP.
 
@@ -294,11 +407,12 @@ if __name__ == '__main__':
     pums_hu_df.drop(columns=["PINCP"], inplace=True)                                    # we're done with PINCP
 
     ONE_MILLION = 1000000
-    pums_hu_df['hh_income_2021'] = (pums_hu_df.ADJINC / ONE_MILLION) * pums_hu_df.HINCP
+    pums_hu_df['hh_income_2023'] = (pums_hu_df.ADJINC / ONE_MILLION) * pums_hu_df.HINCP
 
-    # add household income in 2000 dollars, by deflating hh_income_2021
+    # add household income in 2000 dollars, by deflating hh_income_2023
     # https://github.com/BayAreaMetro/modeling-website/wiki/InflationAssumptions
-    pums_hu_df['hh_income_2000'] = pums_hu_df['hh_income_2021']/1.81
+    # Convert 2023 dollars to 2000 dollars (approximate deflation factor)
+    pums_hu_df['hh_income_2000'] = pums_hu_df['hh_income_2023']/2.07
 
     # extract the occupation code -- first two characters
     pums_pers_df['soc'] = pums_pers_df.SOCP.str[:2]                                   
@@ -393,11 +507,23 @@ if __name__ == '__main__':
     clean_types(pums_pers_df)
 
     # write combined housing records and person records
-    if not os.path.exists(pathlib.Path("hh_gq\data")): os.mkdir(pathlib.Path("hh_gq\data"))
-    outfile = pathlib.Path("hh_gq\data\seed_households.csv")
+    outfile = pathlib.Path("output_2023/seed_households.csv")
     pums_hu_df.to_csv(outfile, index=False)
     logging.info("Wrote household and group quarters housing records to {}".format(outfile))
 
-    outfile = pathlib.Path("hh_gq\data\seed_persons.csv")
+    outfile = pathlib.Path("output_2023/seed_persons.csv")
     pums_pers_df.to_csv(outfile, index=False)
     logging.info("Wrote household and group quarters person  records to {}".format(outfile))
+
+    # Copy seed files to hh_gq/data directory for populationsim
+    import shutil
+    hh_gq_data_dir = pathlib.Path("hh_gq/data")
+    hh_gq_data_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Copy household file
+    shutil.copy2("output_2023/seed_households.csv", "hh_gq/data/seed_households.csv")
+    logging.info("Copied seed_households.csv to hh_gq/data/")
+    
+    # Copy person file  
+    shutil.copy2("output_2023/seed_persons.csv", "hh_gq/data/seed_persons.csv")
+    logging.info("Copied seed_persons.csv to hh_gq/data/")
