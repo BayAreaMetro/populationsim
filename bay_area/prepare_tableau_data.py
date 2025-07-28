@@ -210,47 +210,113 @@ class TableauDataPreparer:
         return output_path
         
     def prepare_taz_marginals(self):
-        """Prepare TAZ marginals with standardized join fields."""
+        """Prepare TAZ marginals with standardized join fields and 2015-2023 comparison."""
         print(f"\n📊 Processing TAZ marginals...")
         
-        taz_file = os.path.join(self.data_dir, 'taz_marginals.csv')
-        if not os.path.exists(taz_file):
-            print(f"   ❌ TAZ marginals not found: {taz_file}")
+        # Load 2023 data
+        taz_file_2023 = os.path.join(self.data_dir, 'taz_marginals.csv')
+        if not os.path.exists(taz_file_2023):
+            print(f"   ❌ 2023 TAZ marginals not found: {taz_file_2023}")
             return None
             
-        # Load data
-        taz_df = pd.read_csv(taz_file)
-        print(f"   Loaded {len(taz_df):,} TAZ records")
-        print(f"   Original columns: {list(taz_df.columns)}")
+        taz_2023 = pd.read_csv(taz_file_2023)
+        print(f"   Loaded {len(taz_2023):,} TAZ records for 2023")
         
-        # Standardize TAZ ID field
-        if 'TAZ' in taz_df.columns:
-            taz_df['TAZ_ID'] = taz_df['TAZ'].astype(int)
+        # Standardize TAZ ID field for 2023
+        if 'TAZ' in taz_2023.columns:
+            taz_2023['TAZ_ID'] = taz_2023['TAZ'].astype(int)
         else:
-            print(f"   ❌ No TAZ field found")
+            print(f"   ❌ No TAZ field found in 2023 data")
             return None
+        
+        # Load 2015 data for comparison
+        taz_file_2015 = os.path.join('example_controls_2015', 'taz2_marginals.csv')
+        if os.path.exists(taz_file_2015):
+            print(f"   📅 Loading 2015 TAZ data for comparison...")
+            taz_2015 = pd.read_csv(taz_file_2015)
+            print(f"   Loaded {len(taz_2015):,} TAZ records for 2015")
             
+            # Standardize TAZ ID field for 2015
+            if 'TAZ' in taz_2015.columns:
+                taz_2015['TAZ_ID'] = taz_2015['TAZ'].astype(int)
+            else:
+                print(f"   ❌ No TAZ field found in 2015 data")
+                taz_2015 = None
+        else:
+            print(f"   ⚠️  2015 TAZ data not found: {taz_file_2015}")
+            taz_2015 = None
+        
+        # Start with 2023 data
+        final_df = taz_2023.copy()
+        
+        # Add 2015 comparison if available
+        if taz_2015 is not None:
+            print(f"   🔄 Creating 2015-2023 comparison columns...")
+            
+            # Find common columns between 2015 and 2023 (excluding TAZ/TAZ_ID)
+            cols_2023 = set(taz_2023.columns) - {'TAZ', 'TAZ_ID'}
+            cols_2015 = set(taz_2015.columns) - {'TAZ', 'TAZ_ID'}
+            common_cols = sorted(cols_2023.intersection(cols_2015))
+            
+            print(f"   Common data columns: {len(common_cols)}")
+            print(f"   Columns for comparison: {common_cols}")
+            
+            # Join 2015 data to 2023 data
+            taz_2015_subset = taz_2015[['TAZ_ID'] + common_cols].copy()
+            
+            # Add suffix to 2015 columns for clarity
+            rename_dict = {col: f"{col}_2015" for col in common_cols}
+            taz_2015_subset = taz_2015_subset.rename(columns=rename_dict)
+            
+            # Merge with 2023 data
+            final_df = final_df.merge(taz_2015_subset, on='TAZ_ID', how='left')
+            
+            # Create difference columns for common indicators
+            diff_cols_created = 0
+            for col in common_cols:
+                col_2023 = col
+                col_2015 = f"{col}_2015"
+                diff_col = f"{col}_2023-2015_diff"
+                
+                if col_2023 in final_df.columns and col_2015 in final_df.columns:
+                    final_df[diff_col] = final_df[col_2023] - final_df[col_2015]
+                    diff_cols_created += 1
+            
+            print(f"   ✅ Created {diff_cols_created} difference columns")
+            
+            # Summary of changes
+            if diff_cols_created > 0:
+                print(f"   📈 Sample changes (TAZ 1):")
+                sample_taz = final_df[final_df['TAZ_ID'] == 1].iloc[0] if len(final_df[final_df['TAZ_ID'] == 1]) > 0 else None
+                if sample_taz is not None:
+                    for col in common_cols[:3]:  # Show first 3 for brevity
+                        val_2023 = sample_taz[col]
+                        val_2015 = sample_taz[f"{col}_2015"]
+                        diff = sample_taz[f"{col}_2023-2015_diff"]
+                        print(f"      {col}: 2015={val_2015}, 2023={val_2023}, diff={diff}")
+        
         # Ensure all numeric fields are proper types for Tableau
         numeric_cols = []
-        for col in taz_df.columns:
+        for col in final_df.columns:
             if col not in ['TAZ', 'TAZ_ID']:
-                if pd.api.types.is_numeric_dtype(taz_df[col]):
+                if pd.api.types.is_numeric_dtype(final_df[col]):
                     # Convert to int if possible (for count data), otherwise float
-                    if taz_df[col].notna().all() and (taz_df[col] % 1 == 0).all():
-                        taz_df[col] = taz_df[col].astype(int)
+                    if final_df[col].notna().all() and (final_df[col] % 1 == 0).all():
+                        final_df[col] = final_df[col].astype(int)
                         numeric_cols.append(col)
                     else:
-                        taz_df[col] = taz_df[col].astype(float)
+                        final_df[col] = final_df[col].astype(float)
                         numeric_cols.append(col)
         
         print(f"   Numeric columns: {len(numeric_cols)}")
+        print(f"   Final columns: {len(final_df.columns)}")
         
         # Save to file
         output_path = os.path.join(self.output_dir, 'taz_marginals_tableau.csv')
-        taz_df.to_csv(output_path, index=False)
+        final_df.to_csv(output_path, index=False)
         
         print(f"   ✅ TAZ marginals saved: {output_path}")
-        print(f"   TAZ ID range: {taz_df['TAZ_ID'].min()} - {taz_df['TAZ_ID'].max()}")
+        print(f"   TAZ ID range: {final_df['TAZ_ID'].min()} - {final_df['TAZ_ID'].max()}")
         
         return output_path
         

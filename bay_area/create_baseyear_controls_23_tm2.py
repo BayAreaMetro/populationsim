@@ -1188,6 +1188,116 @@ def validate_taz_household_consistency(taz_marginals_file, logger):
         return False
 
 
+def summarize_maz_households_by_taz(logger):
+    """
+    Summarize MAZ household totals by TAZ using the geographic crosswalk.
+    Adds hh_from_maz column to TAZ marginals for comparison with other household estimates.
+    
+    Args:
+        logger: Logger instance for output
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    logger.info("=" * 60)
+    logger.info("SUMMARIZING MAZ HOUSEHOLDS BY TAZ")
+    logger.info("=" * 60)
+    
+    try:
+        # File paths
+        maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
+        taz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
+        geo_crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
+        
+        # Check if required files exist
+        if not os.path.exists(maz_marginals_file):
+            logger.error(f"MAZ marginals file not found: {maz_marginals_file}")
+            return False
+            
+        if not os.path.exists(taz_marginals_file):
+            logger.error(f"TAZ marginals file not found: {taz_marginals_file}")
+            return False
+            
+        if not os.path.exists(geo_crosswalk_file):
+            logger.error(f"Geographic crosswalk file not found: {geo_crosswalk_file}")
+            return False
+        
+        # Load data
+        logger.info("Loading MAZ marginals, TAZ marginals, and geographic crosswalk")
+        maz_df = pd.read_csv(maz_marginals_file)
+        taz_df = pd.read_csv(taz_marginals_file)
+        crosswalk_df = pd.read_csv(geo_crosswalk_file)
+        
+        logger.info(f"Loaded {len(maz_df):,} MAZ zones with households")
+        logger.info(f"Loaded {len(taz_df):,} TAZ zones")
+        logger.info(f"Loaded {len(crosswalk_df):,} crosswalk records")
+        
+        # Merge MAZ households with crosswalk to get TAZ mapping
+        maz_taz = maz_df.merge(crosswalk_df[['MAZ', 'TAZ']], on='MAZ', how='left')
+        
+        # Check for missing TAZ mappings
+        missing_taz = maz_taz['TAZ'].isna().sum()
+        if missing_taz > 0:
+            logger.warning(f"{missing_taz} MAZ zones have no TAZ mapping")
+            maz_taz = maz_taz.dropna(subset=['TAZ'])
+        
+        # Sum MAZ households by TAZ
+        logger.info("Summarizing MAZ households by TAZ")
+        taz_hh_from_maz = maz_taz.groupby('TAZ')['num_hh'].sum().reset_index()
+        taz_hh_from_maz.rename(columns={'num_hh': 'hh_from_maz'}, inplace=True)
+        
+        logger.info(f"Summarized to {len(taz_hh_from_maz):,} TAZ zones")
+        logger.info(f"Total households from MAZ: {taz_hh_from_maz['hh_from_maz'].sum():,.0f}")
+        
+        # Merge with existing TAZ marginals
+        taz_updated = taz_df.merge(taz_hh_from_maz, on='TAZ', how='left')
+        
+        # Fill missing values with 0 (TAZs with no MAZs)
+        taz_updated['hh_from_maz'] = taz_updated['hh_from_maz'].fillna(0)
+        
+        # Log comparison with existing household controls if available
+        hh_cols = [col for col in taz_updated.columns if col.startswith('hh_') and col != 'hh_from_maz']
+        if hh_cols:
+            logger.info("\n--- HOUSEHOLD COMPARISON ---")
+            logger.info(f"Households from MAZ aggregation: {taz_updated['hh_from_maz'].sum():,.0f}")
+            
+            # Focus on household size controls for comparison
+            size_cols = [col for col in hh_cols if 'size' in col]
+            if size_cols:
+                size_total = sum(taz_updated[col].sum() for col in size_cols)
+                logger.info(f"Households from TAZ size controls: {size_total:,.0f}")
+                
+                difference = abs(taz_updated['hh_from_maz'].sum() - size_total)
+                pct_diff = (difference / taz_updated['hh_from_maz'].sum()) * 100 if taz_updated['hh_from_maz'].sum() > 0 else 0
+                logger.info(f"Difference: {difference:,.0f} ({pct_diff:.1f}%)")
+        
+        # Write updated TAZ marginals file
+        logger.info(f"Writing updated TAZ marginals with hh_from_maz column")
+        taz_updated.to_csv(taz_marginals_file, index=False)
+        
+        # Validation summary
+        total_maz_hh = maz_df['num_hh'].sum()
+        total_taz_hh_from_maz = taz_updated['hh_from_maz'].sum()
+        
+        logger.info("\n--- VALIDATION SUMMARY ---")
+        logger.info(f"Original MAZ households: {total_maz_hh:,.0f}")
+        logger.info(f"TAZ households from MAZ: {total_taz_hh_from_maz:,.0f}")
+        logger.info(f"Difference: {abs(total_maz_hh - total_taz_hh_from_maz):,.0f}")
+        
+        if abs(total_maz_hh - total_taz_hh_from_maz) > 100:
+            logger.warning("Large difference between MAZ and TAZ household totals - check crosswalk")
+        else:
+            logger.info("MAZ to TAZ household aggregation validated successfully")
+        
+        logger.info("=" * 60)
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error summarizing MAZ households by TAZ: {e}")
+        logger.error(f"Error traceback: {traceback.format_exc()}")
+        return False
+
+
 # To Do: Generalize using the configuration, we shouldn't be specifically mentioning 2020, and 2023 datasets
 def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
     """Create county summary file showing county-specific scaling factors and results.
@@ -1715,6 +1825,10 @@ def main():
             logger.info("Validating TAZ household control consistency")
             taz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
             validate_taz_household_consistency(taz_marginals_file, logger)
+            
+            # Add MAZ household summary by TAZ for comparison
+            logger.info("Adding MAZ household summary to TAZ marginals")
+            summarize_maz_households_by_taz(logger)
         
         # After writing MAZ controls, apply county-level scaling to households
         if control_geo == 'MAZ' and county_targets:

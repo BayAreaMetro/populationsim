@@ -9,7 +9,7 @@ This directory contains PopulationSim data prepared for Tableau analysis with st
 - `puma_boundaries_tableau.shp` - PUMA (Public Use Microdata Area) boundaries
 
 ### Control Data  
-- `taz_marginals_tableau.csv` - Population control totals by TAZ
+- `taz_marginals_tableau.csv` - Population control totals by TAZ with 2015-2023 comparison
 - `maz_marginals_tableau.csv` - Population control totals by MAZ (Micro Analysis Zone)
 
 ### Geographic Relationships
@@ -48,6 +48,33 @@ All files use consistent field naming and data types for seamless joins:
 - All geographic ID fields are validated and cleaned
 - Numeric control data is properly typed (integers for counts, floats for rates)
 - Missing values are preserved for transparency
+
+## 2015-2023 Comparison Features
+
+The TAZ marginals file includes comprehensive comparison between 2015 and 2023 control data:
+
+### Column Structure
+- **2023 data**: Current year control totals (19 columns)
+- **2015 data**: Historical baseline with "_2015" suffix (14 columns) 
+- **Difference columns**: Change from 2015 to 2023 with "_2023-2015_diff" suffix (14 columns)
+
+### Key Comparisons Available
+- **Income Distribution**: Changes in household income brackets
+- **Age Demographics**: Population shifts across age groups
+- **Household Composition**: Changes in household size and worker patterns
+- **Children Presence**: Households with/without children
+
+### Sample Regional Trends (2015→2023)
+- High-income households (>$100K): **+86.3%** (+641,851 households)
+- Low-income households (<$30K): **-34.4%** (-242,804 households) 
+- Senior population (65+): **+32.9%** (+310,250 persons)
+- Youth population (0-19): **-10.4%** (-197,804 persons)
+
+### Tableau Analysis Tips
+- Use difference columns to identify areas of significant change
+- Join with TAZ boundaries to map demographic shifts spatially
+- Filter by large positive/negative differences to find growth/decline hotspots
+- Create calculated fields for percentage changes: `[field_2023-2015_diff] / [field_2015]`
 - Coordinate reference system: [as original shapefiles]
 
 ## Usage Tips
@@ -57,5 +84,5 @@ All files use consistent field naming and data types for seamless joins:
 3. Filter data by COUNTY_NAME for sub-regional analysis
 4. Aggregate MAZ data to TAZ level using geo_crosswalk relationships
 
-Generated on: 2025-07-25 14:41:36
+Generated on: 2025-07-26 09:14:58
 PopulationSim Version: TM2
