@@ -208,55 +208,24 @@ def interpolate_est(control_df, geo, target_geo_year, source_geo_year):
     # Determine weight column
     weight_col = None
     # Map for each geo type to the correct weight column(s)
+    # Modified to always prefer household weights (wt_hh) for all geography levels
+    # Note: Block-level NHGIS crosswalks only have 'weight' column, so will fall back to that
     geo_weight_map = {
-        "block": ["weight"],
+        "block": ["wt_hh", "weight"],  # Will use "weight" since wt_hh not available in block crosswalks
         "block group": ["wt_hh", "wt_pop", "wt_hu", "wt_fam", "wt_adult", "wt_ownhu", "wt_renthu"],
         "tract": ["wt_hh", "wt_pop", "wt_hu", "wt_fam", "wt_adult", "wt_ownhu", "wt_renthu"],
         "county": ["wt_hh", "wt_pop", "wt_hu", "wt_fam", "wt_adult", "wt_ownhu", "wt_renthu"]
     }
-    # Try to pick the right weight column based on control name and available columns
+    # Simplified logic: always use the first available weight column (now wt_hh is first for all levels)
     data_col = [c for c in control_df.columns if c != 'index'][0]
     logger.info(f"Primary data column identified: {data_col}")
     
+    # Pick the first available weight column from the ordered list
     for candidate in geo_weight_map.get(geo_key, []):
         if candidate in cw.columns:
-            # Prefer hh for household, pop for population, hu for housing units, etc.
-            if 'hh' in data_col.lower() and 'hh' in candidate:
-                weight_col = candidate
-                logger.info(f"Selected weight column '{weight_col}' for household data")
-                break
-            elif 'pop' in data_col.lower() and 'pop' in candidate:
-                weight_col = candidate
-                logger.info(f"Selected weight column '{weight_col}' for population data")
-                break
-            elif 'hu' in data_col.lower() and 'hu' in candidate:
-                weight_col = candidate
-                logger.info(f"Selected weight column '{weight_col}' for housing unit data")
-                break
-            elif 'fam' in data_col.lower() and 'fam' in candidate:
-                weight_col = candidate
-                logger.info(f"Selected weight column '{weight_col}' for family data")
-                break
-            elif 'adult' in data_col.lower() and 'adult' in candidate:
-                weight_col = candidate
-                logger.info(f"Selected weight column '{weight_col}' for adult data")
-                break
-            elif 'ownhu' in data_col.lower() and 'ownhu' in candidate:
-                weight_col = candidate
-                logger.info(f"Selected weight column '{weight_col}' for owner housing data")
-                break
-            elif 'renthu' in data_col.lower() and 'renthu' in candidate:
-                weight_col = candidate
-                logger.info(f"Selected weight column '{weight_col}' for renter housing data")
-                break
-    
-    if not weight_col:
-        # fallback: pick the first available weight column
-        for candidate in geo_weight_map.get(geo_key, []):
-            if candidate in cw.columns:
-                weight_col = candidate
-                logger.info(f"Using fallback weight column: {weight_col}")
-                break
+            weight_col = candidate
+            logger.info(f"Selected weight column '{weight_col}' (prioritizing household weights)")
+            break
     
     if not weight_col:
         logger.error(f"No appropriate weight column found in crosswalk for {geo_key}")
