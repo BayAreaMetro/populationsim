@@ -11,7 +11,7 @@ seamless joins in Tableau:
 - Geographic crosswalk (zone relationships)
 
 All ID fields are standardized as integers with consistent naming conventions.
-Output files are saved with "_tableau" suffix for easy identification.
+Output files are saved with "_tableau" suffix in the output_2023/tableau/ directory.
 
 Usage:
     python prepare_tableau_data.py
@@ -42,7 +42,8 @@ class TableauDataPreparer:
             Directory for Tableau-ready outputs
         """
         self.data_dir = data_dir
-        self.output_dir = output_dir or f"{data_dir}_tableau"
+        # Default to tableau subdirectory within data_dir for consolidated structure
+        self.output_dir = output_dir or os.path.join(data_dir, "tableau")
         
         # Shapefile search paths
         self.shapefile_dirs = [

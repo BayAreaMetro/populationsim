@@ -360,13 +360,11 @@ def get_county_targets(cf, logger, use_offline_fallback=True):
     Returns a dictionary with county FIPS codes as keys and target DataFrames as values.
     """
     from tm2_control_utils import config
-    from tm2_control_utils.config import COUNTY_TARGETS_FILE, INPUT_DIR, INPUT_2023_CACHE_FOLDER, LOCAL_CACHE_FOLDER, ACS_EST_YEAR, CONTROLS
+    from tm2_control_utils.config import COUNTY_TARGETS_FILE, ACS_EST_YEAR, CONTROLS, PRIMARY_OUTPUT_DIR
     
-    # Check for county targets cache files
+    # Check for county targets cache file in primary output directory
     possible_cache_files = [
-        os.path.join(INPUT_2023_CACHE_FOLDER, COUNTY_TARGETS_FILE),
-        os.path.join(INPUT_DIR, COUNTY_TARGETS_FILE),
-        os.path.join(LOCAL_CACHE_FOLDER, COUNTY_TARGETS_FILE)
+        os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_TARGETS_FILE),  # Primary and only location
     ]
     
     county_targets_file = None
@@ -463,8 +461,9 @@ def get_county_targets(cf, logger, use_offline_fallback=True):
     # Save to cache file if we successfully calculated targets
     if county_targets:
         try:
-            os.makedirs(os.path.dirname(county_targets_file or possible_cache_files[1]), exist_ok=True)
-            cache_file = county_targets_file or possible_cache_files[1]
+            # Prioritize saving to output directory
+            cache_file = county_targets_file or possible_cache_files[0]  # Use output directory first
+            os.makedirs(os.path.dirname(cache_file), exist_ok=True)
             
             # Create cache data
             cache_data = []
@@ -1680,6 +1679,17 @@ def normalize_household_size_controls(control_table_df, control_name, temp_contr
 
 # ... existing code ...
 def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Generate baseyear controls for TM2 PopulationSim')
+    parser.add_argument('--output_dir', 
+                       help='Output directory for control files (default: output_2023)',
+                       default='output_2023')
+    args = parser.parse_args()
+    
+    # Override PRIMARY_OUTPUT_DIR from config with command line argument
+    global PRIMARY_OUTPUT_DIR
+    PRIMARY_OUTPUT_DIR = args.output_dir
 
 
     

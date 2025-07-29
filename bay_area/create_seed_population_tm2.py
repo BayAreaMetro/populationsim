@@ -68,7 +68,7 @@ def create_seed_population():
         '11301'
     ]
     
-    print(f"🎯 Creating seed population for {len(BAY_AREA_PUMAS)} Bay Area PUMAs")
+    print(f"Creating seed population for {len(BAY_AREA_PUMAS)} Bay Area PUMAs")
     print("="*70)
     
     # Output directory
@@ -300,11 +300,33 @@ def create_seed_population():
             continue
     
     # Combine all years
-    print(f"\n🔄 Combining data from all years...")
+    print(f"\n>> Combining data from all years...")
     
     if all_households:
+        # Create unique household IDs by combining SERIALNO with year suffix
+        print(f"   Creating unique household IDs across years...")
+        for i, year_households in enumerate(all_households):
+            year = years[i]  # Get the corresponding year
+            # Create unique ID by combining original SERIALNO with year
+            year_households['unique_hh_id'] = year_households['SERIALNO'].astype(str) + '_' + year
+            print(f"   Year {year}: {len(year_households):,} households with unique IDs")
+        
         final_households = pd.concat(all_households, ignore_index=True)
-        print(f"   Total households: {len(final_households):,}")
+        print(f"   Total households after combining: {len(final_households):,}")
+        
+        # Verify uniqueness
+        duplicate_count = final_households['unique_hh_id'].duplicated().sum()
+        if duplicate_count > 0:
+            print(f"   WARNING: {duplicate_count:,} duplicate household IDs found - removing duplicates...")
+            final_households = final_households.drop_duplicates(subset=['unique_hh_id'], keep='first')
+            print(f"   After deduplication: {len(final_households):,} households")
+        else:
+            print(f"   SUCCESS: All household IDs are unique!")
+        
+        # Remove the original SERIALNO column since we now have unique_hh_id
+        if 'SERIALNO' in final_households.columns:
+            final_households = final_households.drop(columns=['SERIALNO'])
+            print(f"   Removed original SERIALNO column")
         
         # Process household income conversion from 2023$ to 2010$
         print(f"   🔄 Converting household income from 2023$ to 2010$ purchasing power...")
@@ -344,8 +366,21 @@ def create_seed_population():
         return None, None
     
     if all_persons:
+        # Create unique household IDs for persons to match households
+        print(f"   Creating matching unique household IDs for persons...")
+        for i, year_persons in enumerate(all_persons):
+            year = years[i]  # Get the corresponding year
+            # Create unique household ID by combining original SERIALNO with year (same as households)
+            year_persons['unique_hh_id'] = year_persons['SERIALNO'].astype(str) + '_' + year
+            print(f"   Year {year}: {len(year_persons):,} persons with unique household IDs")
+        
         final_persons = pd.concat(all_persons, ignore_index=True)
-        print(f"   Total persons: {len(final_persons):,}")
+        print(f"   Total persons after combining: {len(final_persons):,}")
+        
+        # Remove the original SERIALNO column since we now have unique_hh_id
+        if 'SERIALNO' in final_persons.columns:
+            final_persons = final_persons.drop(columns=['SERIALNO'])
+            print(f"   Removed original SERIALNO column from persons")
         
         # Save persons
         print(f"   Saving to: {p_output}")
