@@ -28,7 +28,7 @@ trace_geography:
 
 # Data Directory
 # ------------------------------------------------------------------
-data_dir: hh_gq\data
+data_dir: .
 
 
 # Input Data Tables

@@ -11,3 +11,6 @@ MainProcess,input_pre_processor,0.8,0.0
 MainProcess,setup_data_structures,0.8,0.0
 MainProcess,input_pre_processor,0.7,0.0
 MainProcess,setup_data_structures,0.7,0.0
+MainProcess,input_pre_processor,78.7,1.3
+MainProcess,input_pre_processor,154.2,2.6
+MainProcess,input_pre_processor,472.6,7.9

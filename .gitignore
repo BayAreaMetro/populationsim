@@ -6,6 +6,8 @@ example_mtc/
 .ipynb_checkpoints
 input_2023/
 local_data/
+output_2023/
+output_2023/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -70,3 +72,4 @@ docs/_build/
 # vagrant
 .vagrant
 docs/images/Thumbs.db
+.Rproj.user

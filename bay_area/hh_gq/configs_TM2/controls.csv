@@ -1,9 +1,9 @@
 target,geography,seed_table,importance,control_field,expression
 num_hh,MAZ,households,10000000,num_hh,(households.WGTP > 0) & (households.WGTP < np.inf)
-gq_pop,MAZ,persons,10000000,gq_pop,persons.gqtype>=1
-gq_military,MAZ,persons,1000000,gq_military,persons.gqtype==2
-gq_university,MAZ,persons,1000000,gq_university,persons.gqtype==1
-gq_other,MAZ,persons,1000000,gq_other,persons.gqtype==3
+gq_pop,MAZ,persons,10000000,gq_pop,persons.hhgqtype>=1
+gq_military,MAZ,persons,1000000,gq_military,persons.hhgqtype==2
+gq_university,MAZ,persons,1000000,gq_university,persons.hhgqtype==1
+gq_other,MAZ,persons,1000000,gq_other,persons.hhgqtype==3
 hh_size_1,TAZ,households,100000,hh_size_1,households.NP == 1
 hh_size_2,TAZ,households,100000,hh_size_2,households.NP == 2
 hh_size_3,TAZ,households,100000,hh_size_3,households.NP == 3
