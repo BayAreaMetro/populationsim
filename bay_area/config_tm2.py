@@ -15,7 +15,7 @@ class PopulationSimConfig:
         self.BASE_DIR = Path(base_dir) if base_dir else Path.cwd()
         
         # Environment setup
-        self.CONDA_PATH = Path("C:/Users/schildress/AppData/Local/anaconda3")
+        self.CONDA_PATH = Path("C:/Users/MTCPB/AppData/Local/anaconda3")
         self.POPSIM_ENV = "popsim"
         self.PYTHON_PATH = self.CONDA_PATH / "envs" / self.POPSIM_ENV / "python.exe"
         
@@ -106,12 +106,12 @@ class PopulationSimConfig:
         
         # Force flags (can be overridden)
         self.FORCE_FLAGS = {
-            'SEED': False,
-            'CONTROLS': False,
-            'HHGQ': False,
-            'POPULATIONSIM': False,
-            'POSTPROCESS': False,
-            'TABLEAU': False
+            'SEED': True,
+            'CONTROLS': True,
+            'HHGQ': True,
+            'POPULATIONSIM': True,
+            'POSTPROCESS': True,
+            'TABLEAU': True
         }
         
         # Test configuration

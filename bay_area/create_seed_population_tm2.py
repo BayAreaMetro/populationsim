@@ -87,7 +87,8 @@ def process_pums_for_populationsim(h_output, p_output):
         '07707': 5
     }
     
-    h_df['COUNTY'] = h_df['PUMA'].astype(str).str.zfill(5).map(county_map)
+    h_df['COUNTY'] = h_df['PUMA'].astype(str).str.zfill(5).map(county_map).fillna(1)  # Default to SF County if mapping fails
+    h_df['COUNTY'] = h_df['COUNTY'].astype(int)  # Ensure integer type
     
         # Create PopulationSim-compatible group quarters type
     # Based on TYPEHUGQ: 1=household, 2=institutional GQ, 3=noninstitutional GQ  
@@ -96,13 +97,20 @@ def process_pums_for_populationsim(h_output, p_output):
     h_df.loc[h_df['TYPEHUGQ'] == 2, 'hhgqtype'] = 2  # Institutional GQ -> 2
     h_df.loc[h_df['TYPEHUGQ'] == 3, 'hhgqtype'] = 2  # Noninstitutional GQ -> 2
     
+    # Handle NaN values in key household fields that PopulationSim uses
+    key_household_fields = ['WGTP', 'NP', 'HUPAC', 'TYPEHUGQ']
+    for field in key_household_fields:
+        if field in h_df.columns:
+            h_df[field] = h_df[field].fillna(0)
+    
     print(f"      Household processing completed - {len(h_df):,} records")
     
     # Process persons  
     print(f"   Processing person data...")
     
     # Add county mapping for persons
-    p_df['COUNTY'] = p_df['PUMA'].astype(str).str.zfill(5).map(county_map)
+    p_df['COUNTY'] = p_df['PUMA'].astype(str).str.zfill(5).map(county_map).fillna(1)  # Default to SF County if mapping fails
+    p_df['COUNTY'] = p_df['COUNTY'].astype(int)  # Ensure integer type
     
     # Create employment status (employed: 0=not employed, 1=employed)
     p_df['employed'] = 0
@@ -152,7 +160,20 @@ def process_pums_for_populationsim(h_output, p_output):
     hh_gq_lookup = h_df.set_index('unique_hh_id')['hhgqtype'].to_dict()
     p_df['hhgqtype'] = p_df['unique_hh_id'].map(hh_gq_lookup).fillna(1).astype(int)
     
+    # Handle NaN values in key person fields that PopulationSim uses
+    key_person_fields = ['AGEP', 'ESR', 'WGTP']
+    for field in key_person_fields:
+        if field in p_df.columns:
+            p_df[field] = p_df[field].fillna(0)
+    
     print(f"      Person processing completed - {len(p_df):,} records")
+    
+    # Create household workers count (hh_workers_from_esr) by aggregating employed persons
+    print(f"   Calculating household workers from employment status...")
+    workers_df = p_df[['unique_hh_id', 'employed']].groupby(['unique_hh_id']).sum().rename(columns={"employed": "hh_workers_from_esr"})
+    h_df = h_df.merge(workers_df, left_on='unique_hh_id', right_index=True, how='left')
+    h_df['hh_workers_from_esr'] = h_df['hh_workers_from_esr'].fillna(0).astype(np.uint8)
+    print(f"      Household workers calculation completed")
     
     return h_df, p_df
 
@@ -469,6 +490,14 @@ def create_seed_population():
             
             # Convert 2023$ to 2010$ using CPI deflation
             final_households['hh_income_2010'] = convert_2023_to_2010_dollars(final_households['hh_income_2023'])
+            
+            # Handle any NaN or infinite values before converting to int
+            final_households['hh_income_2010'] = final_households['hh_income_2010'].fillna(0)
+            final_households['hh_income_2023'] = final_households['hh_income_2023'].fillna(0)
+            
+            # Replace infinite values with 0
+            final_households['hh_income_2010'] = final_households['hh_income_2010'].replace([np.inf, -np.inf], 0)
+            final_households['hh_income_2023'] = final_households['hh_income_2023'].replace([np.inf, -np.inf], 0)
             
             # Round to nearest dollar for cleaner data
             final_households['hh_income_2010'] = final_households['hh_income_2010'].round().astype(int)
