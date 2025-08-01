@@ -1,0 +1,2244 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<!-- build 20251.25.0611.0337                               -->
+<workbook original-version='18.1' source-build='2025.1.3 (20251.25.0611.0337)' source-platform='win' version='18.1' xml:base='https://10ay.online.tableau.com' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <document-format-change-manifest>
+    <AnimationOnByDefault />
+    <MapboxVectorStylesAndLayers />
+    <MarkAnimation />
+    <ObjectModelEncapsulateLegacy />
+    <ObjectModelExtractV2 />
+    <ObjectModelTableType />
+    <SchemaViewerObjectModel />
+    <SheetIdentifierTracking />
+    <SpatialFileLayer />
+    <_.fcp.VConnDownstreamExtractsWithWarnings.true...VConnDownstreamExtractsWithWarnings />
+    <WindowsPersistSimpleIdentifiers />
+  </document-format-change-manifest>
+  <repository-location id='TM2_TAZ_PopSim_Controls_17534823388940' path='/t/metropolitantransportationcommission/workbooks' revision='1.0' site='metropolitantransportationcommission' />
+  <preferences>
+    <preference name='ui.encoding.shelf.height' value='24' />
+    <preference name='ui.shelf.height' value='26' />
+  </preferences>
+  <datasources>
+    <datasource hasconnection='false' inline='true' name='Parameters' version='18.1'>
+      <aliases enabled='yes' />
+      <column alias='Households from MAZ per Sq Mi' caption='Metric Selector' datatype='string' name='[Parameter 1]' param-domain-type='list' role='measure' type='nominal' value='&quot;hh_from_maz_density&quot;'>
+        <calculation class='tableau' formula='&quot;hh_from_maz_density&quot;' />
+        <aliases>
+          <alias key='&quot;hh_from_maz&quot;' value='Households from MAZ file' />
+          <alias key='&quot;hh_from_maz_density&quot;' value='Households from MAZ per Sq Mi' />
+          <alias key='&quot;hh_inc_100_plus&quot;' value='HH Income &gt; $100k (2023)' />
+          <alias key='&quot;hh_inc_100_plus_2015&quot;' value='HH Income &gt; $100k (2015)' />
+          <alias key='&quot;hh_inc_100_plus_2023-2015_diff&quot;' value='HH Income &gt; $100k (Change)' />
+          <alias key='&quot;hh_inc_100_plus_density&quot;' value='HH Income &gt; $100k per Sq Mi' />
+          <alias key='&quot;hh_inc_30&quot;' value='HH Income &lt; $30k (2023)' />
+          <alias key='&quot;hh_inc_30_2015&quot;' value='HH Income &lt; $30k (2015)' />
+          <alias key='&quot;hh_inc_30_2023-2015_diff&quot;' value='HH Income &lt; $30k (Change)' />
+          <alias key='&quot;hh_inc_30_60&quot;' value='HH Income $30–60k (2023)' />
+          <alias key='&quot;hh_inc_30_60_2015&quot;' value='HH Income $30–60k (2015)' />
+          <alias key='&quot;hh_inc_30_60_2023-2015_diff&quot;' value='HH Income $30–60k (Change)' />
+          <alias key='&quot;hh_inc_30_60_density&quot;' value='HH Income $30–60k per Sq Mi' />
+          <alias key='&quot;hh_inc_30_density&quot;' value='HH Income &lt; $30k per Sq Mi' />
+          <alias key='&quot;hh_inc_60_100&quot;' value='HH Income $60–100k (2023)' />
+          <alias key='&quot;hh_inc_60_100_2015&quot;' value='HH Income $60–100k (2015)' />
+          <alias key='&quot;hh_inc_60_100_2023-2015_diff&quot;' value='HH Income $60–100k (Change)' />
+          <alias key='&quot;hh_inc_60_100_density&quot;' value='HH Income $60–100k per Sq Mi' />
+          <alias key='&quot;hh_kids_no&quot;' value='Households without Kids (2023)' />
+          <alias key='&quot;hh_kids_no_2015&quot;' value='Households without Kids (2015)' />
+          <alias key='&quot;hh_kids_no_2023-2015_diff&quot;' value='Households without Kids (Change)' />
+          <alias key='&quot;hh_kids_no_density&quot;' value='Households without Kids per Sq Mi' />
+          <alias key='&quot;hh_kids_yes&quot;' value='Households with Kids (2023)' />
+          <alias key='&quot;hh_kids_yes_2015&quot;' value='Households with Kids (2015)' />
+          <alias key='&quot;hh_kids_yes_2023-2015_diff&quot;' value='Households with Kids (Change)' />
+          <alias key='&quot;hh_kids_yes_density&quot;' value='Households with Kids per Sq Mi' />
+          <alias key='&quot;hh_size_1&quot;' value='1-Person Households (2023)' />
+          <alias key='&quot;hh_size_1_density&quot;' value='1-Person Households per Sq Mi' />
+          <alias key='&quot;hh_size_2&quot;' value='2-Person Households (2023)' />
+          <alias key='&quot;hh_size_2_density&quot;' value='2-Person Households per Sq Mi' />
+          <alias key='&quot;hh_size_3&quot;' value='3-Person Households (2023)' />
+          <alias key='&quot;hh_size_3_density&quot;' value='3-Person Households per Sq Mi' />
+          <alias key='&quot;hh_size_4_plus&quot;' value='4+ Person Households (2023)' />
+          <alias key='&quot;hh_size_4_plus_density&quot;' value='4+ Person Households per Sq Mi' />
+          <alias key='&quot;hh_wrks_0&quot;' value='Households with 0 Workers (2023)' />
+          <alias key='&quot;hh_wrks_0_2015&quot;' value='Households with 0 Workers (2015)' />
+          <alias key='&quot;hh_wrks_0_2023-2015_diff&quot;' value='Households with 0 Workers (Change)' />
+          <alias key='&quot;hh_wrks_0_density&quot;' value='Households with 0 Workers per Sq Mi' />
+          <alias key='&quot;hh_wrks_1&quot;' value='Households with 1 Worker (2023)' />
+          <alias key='&quot;hh_wrks_1_2015&quot;' value='Households with 1 Worker (2015)' />
+          <alias key='&quot;hh_wrks_1_2023-2015_diff&quot;' value='Households with 1 Worker (Change)' />
+          <alias key='&quot;hh_wrks_1_density&quot;' value='Households with 1 Worker per Sq Mi' />
+          <alias key='&quot;hh_wrks_2&quot;' value='Households with 2 Workers (2023)' />
+          <alias key='&quot;hh_wrks_2_2015&quot;' value='Households with 2 Workers (2015)' />
+          <alias key='&quot;hh_wrks_2_2023-2015_diff&quot;' value='Households with 2 Workers (Change)' />
+          <alias key='&quot;hh_wrks_2_density&quot;' value='Households with 2 Workers per Sq Mi' />
+          <alias key='&quot;hh_wrks_3_plus&quot;' value='Households with 3+ Workers (2023)' />
+          <alias key='&quot;hh_wrks_3_plus_2015&quot;' value='Households with 3+ Workers (2015)' />
+          <alias key='&quot;hh_wrks_3_plus_2023-2015_diff&quot;' value='Households with 3+ Workers (Change)' />
+          <alias key='&quot;hh_wrks_3_plus_density&quot;' value='Households with 3+ Workers per Sq Mi' />
+          <alias key='&quot;pers_age_00_19&quot;' value='Persons Age 0–19 (2023)' />
+          <alias key='&quot;pers_age_00_19_2015&quot;' value='Persons Age 0–19 (2015)' />
+          <alias key='&quot;pers_age_00_19_2023-2015_diff&quot;' value='Persons Age 0–19 (Change)' />
+          <alias key='&quot;pers_age_00_19_density&quot;' value='Persons Age 0–19 per Sq Mi' />
+          <alias key='&quot;pers_age_20_34&quot;' value='Persons Age 20–34 (2023)' />
+          <alias key='&quot;pers_age_20_34_2015&quot;' value='Persons Age 20–34 (2015)' />
+          <alias key='&quot;pers_age_20_34_2023-2015_diff&quot;' value='Persons Age 20–34 (Change)' />
+          <alias key='&quot;pers_age_20_34_density&quot;' value='Persons Age 20–34 per Sq Mi' />
+          <alias key='&quot;pers_age_35_64&quot;' value='Persons Age 35–64 (2023)' />
+          <alias key='&quot;pers_age_35_64_2015&quot;' value='Persons Age 35–64 (2015)' />
+          <alias key='&quot;pers_age_35_64_2023-2015_diff&quot;' value='Persons Age 35–64 (Change)' />
+          <alias key='&quot;pers_age_35_64_density&quot;' value='Persons Age 35–64 per Sq Mi' />
+          <alias key='&quot;pers_age_65_plus&quot;' value='Persons Age 65+ (2023)' />
+          <alias key='&quot;pers_age_65_plus_2015&quot;' value='Persons Age 65+ (2015)' />
+          <alias key='&quot;pers_age_65_plus_2023-2015_diff&quot;' value='Persons Age 65+ (Change)' />
+          <alias key='&quot;pers_age_65_plus_density&quot;' value='Persons Age 65+ per Sq Mi' />
+        </aliases>
+        <members>
+          <member alias='HH Income &lt; $30k per Sq Mi' value='&quot;hh_inc_30_density&quot;' />
+          <member alias='HH Income $30–60k per Sq Mi' value='&quot;hh_inc_30_60_density&quot;' />
+          <member alias='HH Income $60–100k per Sq Mi' value='&quot;hh_inc_60_100_density&quot;' />
+          <member alias='HH Income &gt; $100k per Sq Mi' value='&quot;hh_inc_100_plus_density&quot;' />
+          <member alias='Households with 0 Workers per Sq Mi' value='&quot;hh_wrks_0_density&quot;' />
+          <member alias='Households with 1 Worker per Sq Mi' value='&quot;hh_wrks_1_density&quot;' />
+          <member alias='Households with 2 Workers per Sq Mi' value='&quot;hh_wrks_2_density&quot;' />
+          <member alias='Households with 3+ Workers per Sq Mi' value='&quot;hh_wrks_3_plus_density&quot;' />
+          <member alias='Persons Age 0–19 per Sq Mi' value='&quot;pers_age_00_19_density&quot;' />
+          <member alias='Persons Age 20–34 per Sq Mi' value='&quot;pers_age_20_34_density&quot;' />
+          <member alias='Persons Age 35–64 per Sq Mi' value='&quot;pers_age_35_64_density&quot;' />
+          <member alias='Persons Age 65+ per Sq Mi' value='&quot;pers_age_65_plus_density&quot;' />
+          <member alias='Households without Kids per Sq Mi' value='&quot;hh_kids_no_density&quot;' />
+          <member alias='Households with Kids per Sq Mi' value='&quot;hh_kids_yes_density&quot;' />
+          <member alias='1-Person Households per Sq Mi' value='&quot;hh_size_1_density&quot;' />
+          <member alias='2-Person Households per Sq Mi' value='&quot;hh_size_2_density&quot;' />
+          <member alias='3-Person Households per Sq Mi' value='&quot;hh_size_3_density&quot;' />
+          <member alias='4+ Person Households per Sq Mi' value='&quot;hh_size_4_plus_density&quot;' />
+          <member alias='Households from MAZ per Sq Mi' value='&quot;hh_from_maz_density&quot;' />
+          <member alias='HH Income &lt; $30k (2023)' value='&quot;hh_inc_30&quot;' />
+          <member alias='HH Income $30–60k (2023)' value='&quot;hh_inc_30_60&quot;' />
+          <member alias='HH Income $60–100k (2023)' value='&quot;hh_inc_60_100&quot;' />
+          <member alias='HH Income &gt; $100k (2023)' value='&quot;hh_inc_100_plus&quot;' />
+          <member alias='Households with 0 Workers (2023)' value='&quot;hh_wrks_0&quot;' />
+          <member alias='Households with 1 Worker (2023)' value='&quot;hh_wrks_1&quot;' />
+          <member alias='Households with 2 Workers (2023)' value='&quot;hh_wrks_2&quot;' />
+          <member alias='Households with 3+ Workers (2023)' value='&quot;hh_wrks_3_plus&quot;' />
+          <member alias='Persons Age 0–19 (2023)' value='&quot;pers_age_00_19&quot;' />
+          <member alias='Persons Age 20–34 (2023)' value='&quot;pers_age_20_34&quot;' />
+          <member alias='Persons Age 35–64 (2023)' value='&quot;pers_age_35_64&quot;' />
+          <member alias='Persons Age 65+ (2023)' value='&quot;pers_age_65_plus&quot;' />
+          <member alias='Households without Kids (2023)' value='&quot;hh_kids_no&quot;' />
+          <member alias='Households with Kids (2023)' value='&quot;hh_kids_yes&quot;' />
+          <member alias='1-Person Households (2023)' value='&quot;hh_size_1&quot;' />
+          <member alias='2-Person Households (2023)' value='&quot;hh_size_2&quot;' />
+          <member alias='3-Person Households (2023)' value='&quot;hh_size_3&quot;' />
+          <member alias='4+ Person Households (2023)' value='&quot;hh_size_4_plus&quot;' />
+          <member alias='Households from MAZ file' value='&quot;hh_from_maz&quot;' />
+          <member alias='HH Income &lt; $30k (2015)' value='&quot;hh_inc_30_2015&quot;' />
+          <member alias='HH Income $30–60k (2015)' value='&quot;hh_inc_30_60_2015&quot;' />
+          <member alias='HH Income $60–100k (2015)' value='&quot;hh_inc_60_100_2015&quot;' />
+          <member alias='HH Income &gt; $100k (2015)' value='&quot;hh_inc_100_plus_2015&quot;' />
+          <member alias='Households with 0 Workers (2015)' value='&quot;hh_wrks_0_2015&quot;' />
+          <member alias='Households with 1 Worker (2015)' value='&quot;hh_wrks_1_2015&quot;' />
+          <member alias='Households with 2 Workers (2015)' value='&quot;hh_wrks_2_2015&quot;' />
+          <member alias='Households with 3+ Workers (2015)' value='&quot;hh_wrks_3_plus_2015&quot;' />
+          <member alias='Persons Age 0–19 (2015)' value='&quot;pers_age_00_19_2015&quot;' />
+          <member alias='Persons Age 20–34 (2015)' value='&quot;pers_age_20_34_2015&quot;' />
+          <member alias='Persons Age 35–64 (2015)' value='&quot;pers_age_35_64_2015&quot;' />
+          <member alias='Persons Age 65+ (2015)' value='&quot;pers_age_65_plus_2015&quot;' />
+          <member alias='Households without Kids (2015)' value='&quot;hh_kids_no_2015&quot;' />
+          <member alias='Households with Kids (2015)' value='&quot;hh_kids_yes_2015&quot;' />
+          <member alias='HH Income &lt; $30k (Change)' value='&quot;hh_inc_30_2023-2015_diff&quot;' />
+          <member alias='HH Income $30–60k (Change)' value='&quot;hh_inc_30_60_2023-2015_diff&quot;' />
+          <member alias='HH Income $60–100k (Change)' value='&quot;hh_inc_60_100_2023-2015_diff&quot;' />
+          <member alias='HH Income &gt; $100k (Change)' value='&quot;hh_inc_100_plus_2023-2015_diff&quot;' />
+          <member alias='Households with 0 Workers (Change)' value='&quot;hh_wrks_0_2023-2015_diff&quot;' />
+          <member alias='Households with 1 Worker (Change)' value='&quot;hh_wrks_1_2023-2015_diff&quot;' />
+          <member alias='Households with 2 Workers (Change)' value='&quot;hh_wrks_2_2023-2015_diff&quot;' />
+          <member alias='Households with 3+ Workers (Change)' value='&quot;hh_wrks_3_plus_2023-2015_diff&quot;' />
+          <member alias='Persons Age 0–19 (Change)' value='&quot;pers_age_00_19_2023-2015_diff&quot;' />
+          <member alias='Persons Age 20–34 (Change)' value='&quot;pers_age_20_34_2023-2015_diff&quot;' />
+          <member alias='Persons Age 35–64 (Change)' value='&quot;pers_age_35_64_2023-2015_diff&quot;' />
+          <member alias='Persons Age 65+ (Change)' value='&quot;pers_age_65_plus_2023-2015_diff&quot;' />
+          <member alias='Households without Kids (Change)' value='&quot;hh_kids_no_2023-2015_diff&quot;' />
+          <member alias='Households with Kids (Change)' value='&quot;hh_kids_yes_2023-2015_diff&quot;' />
+        </members>
+      </column>
+      <style>
+        <style-rule element='mark'>
+          <encoding attr='color' field='[Parameter 1]' type='palette'>
+            <map to='#4e79a7'>
+              <bucket>&quot;hh_inc_30&quot;</bucket>
+            </map>
+            <map to='#f28e2b'>
+              <bucket>&quot;hh_inc_30_60&quot;</bucket>
+            </map>
+          </encoding>
+        </style-rule>
+      </style>
+    </datasource>
+    <datasource caption='taz_boundaries_tableau.shp+ (Multiple Connections)' inline='true' name='federated.0q2bmuk00a5nax10a3ivx1it6o6y' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='taz_boundaries_tableau' name='ogrdirect.0tkeh6v16rn09512k3blf1fz3yzs'>
+            <connection class='ogrdirect' directory='C:/GitHub/populationsim/bay_area/output_2023/tableau' filename='taz_boundaries_tableau.shp' password='' server='' tablename='' workgroup-auth-mode='as-is' />
+          </named-connection>
+          <named-connection caption='geo_crosswalk_tableau' name='textscan.04hrzht0itst2y15tjcno1r185c8'>
+            <connection class='textscan' directory='C:/GitHub/populationsim/bay_area/output_2023/tableau' filename='geo_crosswalk_tableau.csv' password='' server='' workgroup-auth-mode='as-is' />
+          </named-connection>
+          <named-connection caption='taz2_marginals' name='textscan.0w2f32y19k5gmy1h6i0m50k4ci0v'>
+            <connection class='textscan' directory='C:/GitHub/populationsim/bay_area/example_controls_2015' filename='taz2_marginals.csv' password='' server='' workgroup-auth-mode='as-is' />
+          </named-connection>
+          <named-connection caption='tazs_TM2_v2_2' name='ogrdirect.0cr1tm4090es67154cgq51uli3cg'>
+            <connection class='ogrdirect' directory='C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles' filename='tazs_TM2_v2_2.shp' password='' server='' tablename='' />
+          </named-connection>
+        </named-connections>
+        <relation type='collection'>
+          <relation connection='ogrdirect.0cr1tm4090es67154cgq51uli3cg' name='tazs_TM2_v2_2.shp' table='[tazs_TM2_v2_2.shp]' type='table'>
+            <columns>
+              <column datatype='integer' name='taz' ordinal='0' />
+              <column datatype='real' name='ALAND10' ordinal='1' />
+              <column datatype='real' name='AWATER10' ordinal='2' />
+              <column datatype='integer' name='blockcount' ordinal='3' />
+              <column datatype='integer' name='mazcount' ordinal='4' />
+              <column datatype='integer' name='partcount' ordinal='5' />
+              <column datatype='real' name='PERIM_GEO' ordinal='6' />
+              <column datatype='real' name='psq_overa' ordinal='7' />
+              <column datatype='real' name='acres' ordinal='8' />
+              <column datatype='spatial' name='Geometry' ordinal='9' />
+            </columns>
+          </relation>
+          <relation connection='ogrdirect.0tkeh6v16rn09512k3blf1fz3yzs' name='taz_boundaries_tableau.shp' table='[taz_boundaries_tableau.shp]' type='table'>
+            <columns>
+              <column datatype='integer' name='TAZ_ID' ordinal='0' />
+              <column datatype='real' name='TAZ_AREA_S' ordinal='1' />
+              <column datatype='spatial' name='Geometry' ordinal='2' />
+            </columns>
+          </relation>
+          <relation connection='textscan.04hrzht0itst2y15tjcno1r185c8' name='taz_marginals_tableau.csv' table='[taz_marginals_tableau#csv]' type='table'>
+            <columns character-set='UTF-8' header='yes' locale='en_US' separator=','>
+              <column datatype='real' name='TAZ' ordinal='0' />
+              <column datatype='integer' name='hh_inc_30' ordinal='1' />
+              <column datatype='integer' name='hh_inc_30_60' ordinal='2' />
+              <column datatype='integer' name='hh_inc_60_100' ordinal='3' />
+              <column datatype='integer' name='hh_inc_100_plus' ordinal='4' />
+              <column datatype='integer' name='hh_wrks_0' ordinal='5' />
+              <column datatype='integer' name='hh_wrks_1' ordinal='6' />
+              <column datatype='integer' name='hh_wrks_2' ordinal='7' />
+              <column datatype='integer' name='hh_wrks_3_plus' ordinal='8' />
+              <column datatype='integer' name='pers_age_00_19' ordinal='9' />
+              <column datatype='integer' name='pers_age_20_34' ordinal='10' />
+              <column datatype='integer' name='pers_age_35_64' ordinal='11' />
+              <column datatype='integer' name='pers_age_65_plus' ordinal='12' />
+              <column datatype='integer' name='hh_kids_no' ordinal='13' />
+              <column datatype='integer' name='hh_kids_yes' ordinal='14' />
+              <column datatype='integer' name='hh_size_1' ordinal='15' />
+              <column datatype='integer' name='hh_size_2' ordinal='16' />
+              <column datatype='integer' name='hh_size_3' ordinal='17' />
+              <column datatype='integer' name='hh_size_4_plus' ordinal='18' />
+              <column datatype='integer' name='hh_from_maz' ordinal='19' />
+              <column datatype='integer' name='TAZ_ID' ordinal='20' />
+              <column datatype='integer' name='hh_inc_100_plus_2015' ordinal='21' />
+              <column datatype='integer' name='hh_inc_30_2015' ordinal='22' />
+              <column datatype='integer' name='hh_inc_30_60_2015' ordinal='23' />
+              <column datatype='integer' name='hh_inc_60_100_2015' ordinal='24' />
+              <column datatype='integer' name='hh_kids_no_2015' ordinal='25' />
+              <column datatype='integer' name='hh_kids_yes_2015' ordinal='26' />
+              <column datatype='integer' name='hh_wrks_0_2015' ordinal='27' />
+              <column datatype='integer' name='hh_wrks_1_2015' ordinal='28' />
+              <column datatype='integer' name='hh_wrks_2_2015' ordinal='29' />
+              <column datatype='integer' name='hh_wrks_3_plus_2015' ordinal='30' />
+              <column datatype='integer' name='pers_age_00_19_2015' ordinal='31' />
+              <column datatype='integer' name='pers_age_20_34_2015' ordinal='32' />
+              <column datatype='integer' name='pers_age_35_64_2015' ordinal='33' />
+              <column datatype='integer' name='pers_age_65_plus_2015' ordinal='34' />
+              <column datatype='integer' name='hh_inc_100_plus_2023-2015_diff' ordinal='35' />
+              <column datatype='integer' name='hh_inc_30_2023-2015_diff' ordinal='36' />
+              <column datatype='integer' name='hh_inc_30_60_2023-2015_diff' ordinal='37' />
+              <column datatype='integer' name='hh_inc_60_100_2023-2015_diff' ordinal='38' />
+              <column datatype='integer' name='hh_kids_no_2023-2015_diff' ordinal='39' />
+              <column datatype='integer' name='hh_kids_yes_2023-2015_diff' ordinal='40' />
+              <column datatype='integer' name='hh_wrks_0_2023-2015_diff' ordinal='41' />
+              <column datatype='integer' name='hh_wrks_1_2023-2015_diff' ordinal='42' />
+              <column datatype='integer' name='hh_wrks_2_2023-2015_diff' ordinal='43' />
+              <column datatype='integer' name='hh_wrks_3_plus_2023-2015_diff' ordinal='44' />
+              <column datatype='integer' name='pers_age_00_19_2023-2015_diff' ordinal='45' />
+              <column datatype='integer' name='pers_age_20_34_2023-2015_diff' ordinal='46' />
+              <column datatype='integer' name='pers_age_35_64_2023-2015_diff' ordinal='47' />
+              <column datatype='integer' name='pers_age_65_plus_2023-2015_diff' ordinal='48' />
+            </columns>
+          </relation>
+        </relation>
+        <cols>
+          <map key='[ALAND10]' value='[tazs_TM2_v2_2.shp].[ALAND10]' />
+          <map key='[AWATER10]' value='[tazs_TM2_v2_2.shp].[AWATER10]' />
+          <map key='[Geometry (tazs_TM2_v2_2.shp)]' value='[tazs_TM2_v2_2.shp].[Geometry]' />
+          <map key='[Geometry]' value='[taz_boundaries_tableau.shp].[Geometry]' />
+          <map key='[PERIM_GEO]' value='[tazs_TM2_v2_2.shp].[PERIM_GEO]' />
+          <map key='[TAZ]' value='[taz_marginals_tableau.csv].[TAZ]' />
+          <map key='[TAZ_AREA_S]' value='[taz_boundaries_tableau.shp].[TAZ_AREA_S]' />
+          <map key='[TAZ_ID (taz_marginals_tableau.csv)]' value='[taz_marginals_tableau.csv].[TAZ_ID]' />
+          <map key='[TAZ_ID]' value='[taz_boundaries_tableau.shp].[TAZ_ID]' />
+          <map key='[acres]' value='[tazs_TM2_v2_2.shp].[acres]' />
+          <map key='[blockcount]' value='[tazs_TM2_v2_2.shp].[blockcount]' />
+          <map key='[hh_from_maz]' value='[taz_marginals_tableau.csv].[hh_from_maz]' />
+          <map key='[hh_inc_100_plus]' value='[taz_marginals_tableau.csv].[hh_inc_100_plus]' />
+          <map key='[hh_inc_100_plus_2015]' value='[taz_marginals_tableau.csv].[hh_inc_100_plus_2015]' />
+          <map key='[hh_inc_100_plus_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_inc_100_plus_2023-2015_diff]' />
+          <map key='[hh_inc_30]' value='[taz_marginals_tableau.csv].[hh_inc_30]' />
+          <map key='[hh_inc_30_2015]' value='[taz_marginals_tableau.csv].[hh_inc_30_2015]' />
+          <map key='[hh_inc_30_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_inc_30_2023-2015_diff]' />
+          <map key='[hh_inc_30_60]' value='[taz_marginals_tableau.csv].[hh_inc_30_60]' />
+          <map key='[hh_inc_30_60_2015]' value='[taz_marginals_tableau.csv].[hh_inc_30_60_2015]' />
+          <map key='[hh_inc_30_60_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_inc_30_60_2023-2015_diff]' />
+          <map key='[hh_inc_60_100]' value='[taz_marginals_tableau.csv].[hh_inc_60_100]' />
+          <map key='[hh_inc_60_100_2015]' value='[taz_marginals_tableau.csv].[hh_inc_60_100_2015]' />
+          <map key='[hh_inc_60_100_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_inc_60_100_2023-2015_diff]' />
+          <map key='[hh_kids_no]' value='[taz_marginals_tableau.csv].[hh_kids_no]' />
+          <map key='[hh_kids_no_2015]' value='[taz_marginals_tableau.csv].[hh_kids_no_2015]' />
+          <map key='[hh_kids_no_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_kids_no_2023-2015_diff]' />
+          <map key='[hh_kids_yes]' value='[taz_marginals_tableau.csv].[hh_kids_yes]' />
+          <map key='[hh_kids_yes_2015]' value='[taz_marginals_tableau.csv].[hh_kids_yes_2015]' />
+          <map key='[hh_kids_yes_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_kids_yes_2023-2015_diff]' />
+          <map key='[hh_size_1]' value='[taz_marginals_tableau.csv].[hh_size_1]' />
+          <map key='[hh_size_2]' value='[taz_marginals_tableau.csv].[hh_size_2]' />
+          <map key='[hh_size_3]' value='[taz_marginals_tableau.csv].[hh_size_3]' />
+          <map key='[hh_size_4_plus]' value='[taz_marginals_tableau.csv].[hh_size_4_plus]' />
+          <map key='[hh_wrks_0]' value='[taz_marginals_tableau.csv].[hh_wrks_0]' />
+          <map key='[hh_wrks_0_2015]' value='[taz_marginals_tableau.csv].[hh_wrks_0_2015]' />
+          <map key='[hh_wrks_0_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_wrks_0_2023-2015_diff]' />
+          <map key='[hh_wrks_1]' value='[taz_marginals_tableau.csv].[hh_wrks_1]' />
+          <map key='[hh_wrks_1_2015]' value='[taz_marginals_tableau.csv].[hh_wrks_1_2015]' />
+          <map key='[hh_wrks_1_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_wrks_1_2023-2015_diff]' />
+          <map key='[hh_wrks_2]' value='[taz_marginals_tableau.csv].[hh_wrks_2]' />
+          <map key='[hh_wrks_2_2015]' value='[taz_marginals_tableau.csv].[hh_wrks_2_2015]' />
+          <map key='[hh_wrks_2_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_wrks_2_2023-2015_diff]' />
+          <map key='[hh_wrks_3_plus]' value='[taz_marginals_tableau.csv].[hh_wrks_3_plus]' />
+          <map key='[hh_wrks_3_plus_2015]' value='[taz_marginals_tableau.csv].[hh_wrks_3_plus_2015]' />
+          <map key='[hh_wrks_3_plus_2023-2015_diff]' value='[taz_marginals_tableau.csv].[hh_wrks_3_plus_2023-2015_diff]' />
+          <map key='[mazcount]' value='[tazs_TM2_v2_2.shp].[mazcount]' />
+          <map key='[partcount]' value='[tazs_TM2_v2_2.shp].[partcount]' />
+          <map key='[pers_age_00_19]' value='[taz_marginals_tableau.csv].[pers_age_00_19]' />
+          <map key='[pers_age_00_19_2015]' value='[taz_marginals_tableau.csv].[pers_age_00_19_2015]' />
+          <map key='[pers_age_00_19_2023-2015_diff]' value='[taz_marginals_tableau.csv].[pers_age_00_19_2023-2015_diff]' />
+          <map key='[pers_age_20_34]' value='[taz_marginals_tableau.csv].[pers_age_20_34]' />
+          <map key='[pers_age_20_34_2015]' value='[taz_marginals_tableau.csv].[pers_age_20_34_2015]' />
+          <map key='[pers_age_20_34_2023-2015_diff]' value='[taz_marginals_tableau.csv].[pers_age_20_34_2023-2015_diff]' />
+          <map key='[pers_age_35_64]' value='[taz_marginals_tableau.csv].[pers_age_35_64]' />
+          <map key='[pers_age_35_64_2015]' value='[taz_marginals_tableau.csv].[pers_age_35_64_2015]' />
+          <map key='[pers_age_35_64_2023-2015_diff]' value='[taz_marginals_tableau.csv].[pers_age_35_64_2023-2015_diff]' />
+          <map key='[pers_age_65_plus]' value='[taz_marginals_tableau.csv].[pers_age_65_plus]' />
+          <map key='[pers_age_65_plus_2015]' value='[taz_marginals_tableau.csv].[pers_age_65_plus_2015]' />
+          <map key='[pers_age_65_plus_2023-2015_diff]' value='[taz_marginals_tableau.csv].[pers_age_65_plus_2023-2015_diff]' />
+          <map key='[psq_overa]' value='[tazs_TM2_v2_2.shp].[psq_overa]' />
+          <map key='[taz]' value='[tazs_TM2_v2_2.shp].[taz]' />
+        </cols>
+        <metadata-records>
+          <metadata-record class='capability'>
+            <remote-name />
+            <remote-type>0</remote-type>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias />
+            <aggregation>Count</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='character-set'>&quot;UTF-8&quot;</attribute>
+              <attribute datatype='string' name='collation'>&quot;en_US&quot;</attribute>
+              <attribute datatype='string' name='field-delimiter'>&quot;,&quot;</attribute>
+              <attribute datatype='string' name='header-row'>&quot;true&quot;</attribute>
+              <attribute datatype='string' name='locale'>&quot;en_US&quot;</attribute>
+              <attribute datatype='string' name='single-char'>&quot;&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>taz</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[taz]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>taz</remote-alias>
+            <ordinal>0</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>ALAND10</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[ALAND10]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>ALAND10</remote-alias>
+            <ordinal>1</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>AWATER10</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[AWATER10]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>AWATER10</remote-alias>
+            <ordinal>2</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>blockcount</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[blockcount]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>blockcount</remote-alias>
+            <ordinal>3</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>mazcount</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[mazcount]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>mazcount</remote-alias>
+            <ordinal>4</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>partcount</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[partcount]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>partcount</remote-alias>
+            <ordinal>5</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>PERIM_GEO</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[PERIM_GEO]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>PERIM_GEO</remote-alias>
+            <ordinal>6</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>psq_overa</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[psq_overa]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>psq_overa</remote-alias>
+            <ordinal>7</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>acres</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[acres]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>acres</remote-alias>
+            <ordinal>8</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Geometry</remote-name>
+            <remote-type>8</remote-type>
+            <local-name>[Geometry (tazs_TM2_v2_2.shp)]</local-name>
+            <parent-name>[tazs_TM2_v2_2.shp]</parent-name>
+            <remote-alias>Geometry</remote-alias>
+            <ordinal>9</ordinal>
+            <local-type>spatial</local-type>
+            <aggregation>Collect</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>TAZ_ID</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[TAZ_ID]</local-name>
+            <parent-name>[taz_boundaries_tableau.shp]</parent-name>
+            <remote-alias>TAZ_ID</remote-alias>
+            <ordinal>10</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>TAZ_AREA_S</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[TAZ_AREA_S]</local-name>
+            <parent-name>[taz_boundaries_tableau.shp]</parent-name>
+            <remote-alias>TAZ_AREA_S</remote-alias>
+            <ordinal>11</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Geometry</remote-name>
+            <remote-type>8</remote-type>
+            <local-name>[Geometry]</local-name>
+            <parent-name>[taz_boundaries_tableau.shp]</parent-name>
+            <remote-alias>Geometry</remote-alias>
+            <ordinal>12</ordinal>
+            <local-type>spatial</local-type>
+            <aggregation>Collect</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>TAZ</remote-name>
+            <remote-type>5</remote-type>
+            <local-name>[TAZ]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>TAZ</remote-alias>
+            <ordinal>13</ordinal>
+            <local-type>real</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_30</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_30]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_30</remote-alias>
+            <ordinal>14</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_30_60</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_30_60]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_30_60</remote-alias>
+            <ordinal>15</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_60_100</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_60_100]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_60_100</remote-alias>
+            <ordinal>16</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_100_plus</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_100_plus]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_100_plus</remote-alias>
+            <ordinal>17</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_0</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_0]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_0</remote-alias>
+            <ordinal>18</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_1</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_1]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_1</remote-alias>
+            <ordinal>19</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_2</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_2]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_2</remote-alias>
+            <ordinal>20</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_3_plus</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_3_plus]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_3_plus</remote-alias>
+            <ordinal>21</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_00_19</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_00_19]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_00_19</remote-alias>
+            <ordinal>22</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_20_34</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_20_34]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_20_34</remote-alias>
+            <ordinal>23</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_35_64</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_35_64]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_35_64</remote-alias>
+            <ordinal>24</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_65_plus</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_65_plus]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_65_plus</remote-alias>
+            <ordinal>25</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_kids_no</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_kids_no]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_kids_no</remote-alias>
+            <ordinal>26</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_kids_yes</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_kids_yes]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_kids_yes</remote-alias>
+            <ordinal>27</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_size_1</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_size_1]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_size_1</remote-alias>
+            <ordinal>28</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_size_2</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_size_2]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_size_2</remote-alias>
+            <ordinal>29</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_size_3</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_size_3]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_size_3</remote-alias>
+            <ordinal>30</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_size_4_plus</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_size_4_plus]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_size_4_plus</remote-alias>
+            <ordinal>31</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_from_maz</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_from_maz]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_from_maz</remote-alias>
+            <ordinal>32</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>TAZ_ID</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[TAZ_ID (taz_marginals_tableau.csv)]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>TAZ_ID</remote-alias>
+            <ordinal>33</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_100_plus_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_100_plus_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_100_plus_2015</remote-alias>
+            <ordinal>34</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_30_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_30_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_30_2015</remote-alias>
+            <ordinal>35</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_30_60_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_30_60_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_30_60_2015</remote-alias>
+            <ordinal>36</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_60_100_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_60_100_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_60_100_2015</remote-alias>
+            <ordinal>37</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_kids_no_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_kids_no_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_kids_no_2015</remote-alias>
+            <ordinal>38</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_kids_yes_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_kids_yes_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_kids_yes_2015</remote-alias>
+            <ordinal>39</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_0_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_0_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_0_2015</remote-alias>
+            <ordinal>40</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_1_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_1_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_1_2015</remote-alias>
+            <ordinal>41</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_2_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_2_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_2_2015</remote-alias>
+            <ordinal>42</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_3_plus_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_3_plus_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_3_plus_2015</remote-alias>
+            <ordinal>43</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_00_19_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_00_19_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_00_19_2015</remote-alias>
+            <ordinal>44</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_20_34_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_20_34_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_20_34_2015</remote-alias>
+            <ordinal>45</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_35_64_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_35_64_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_35_64_2015</remote-alias>
+            <ordinal>46</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_65_plus_2015</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_65_plus_2015]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_65_plus_2015</remote-alias>
+            <ordinal>47</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_100_plus_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_100_plus_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_100_plus_2023-2015_diff</remote-alias>
+            <ordinal>48</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_30_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_30_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_30_2023-2015_diff</remote-alias>
+            <ordinal>49</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_30_60_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_30_60_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_30_60_2023-2015_diff</remote-alias>
+            <ordinal>50</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_inc_60_100_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_inc_60_100_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_inc_60_100_2023-2015_diff</remote-alias>
+            <ordinal>51</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_kids_no_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_kids_no_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_kids_no_2023-2015_diff</remote-alias>
+            <ordinal>52</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_kids_yes_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_kids_yes_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_kids_yes_2023-2015_diff</remote-alias>
+            <ordinal>53</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_0_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_0_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_0_2023-2015_diff</remote-alias>
+            <ordinal>54</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_1_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_1_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_1_2023-2015_diff</remote-alias>
+            <ordinal>55</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_2_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_2_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_2_2023-2015_diff</remote-alias>
+            <ordinal>56</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>hh_wrks_3_plus_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[hh_wrks_3_plus_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>hh_wrks_3_plus_2023-2015_diff</remote-alias>
+            <ordinal>57</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_00_19_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_00_19_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_00_19_2023-2015_diff</remote-alias>
+            <ordinal>58</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_20_34_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_20_34_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_20_34_2023-2015_diff</remote-alias>
+            <ordinal>59</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_35_64_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_35_64_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_35_64_2023-2015_diff</remote-alias>
+            <ordinal>60</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>pers_age_65_plus_2023-2015_diff</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[pers_age_65_plus_2023-2015_diff]</local-name>
+            <parent-name>[taz_marginals_tableau.csv]</parent-name>
+            <remote-alias>pers_age_65_plus_2023-2015_diff</remote-alias>
+            <ordinal>61</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</object-id>
+          </metadata-record>
+        </metadata-records>
+      </connection>
+      <aliases enabled='yes' />
+      <column caption='Aland10' datatype='real' name='[ALAND10]' role='measure' type='quantitative' />
+      <column caption='Awater10' datatype='real' name='[AWATER10]' role='measure' type='quantitative' />
+      <column caption='Metric' datatype='real' name='[Calculation_1545297657845792769]' role='measure' type='quantitative'>
+        <calculation class='tableau' formula='CASE [Parameters].[Parameter 1]&#13;&#10;WHEN &quot;hh_inc_30&quot; THEN [hh_inc_30]&#13;&#10;WHEN &quot;hh_inc_30_60&quot; THEN [hh_inc_30_60]&#13;&#10;WHEN &quot;hh_inc_60_100&quot; THEN [hh_inc_60_100]&#13;&#10;WHEN &quot;hh_inc_100_plus&quot; THEN [hh_inc_100_plus]&#13;&#10;WHEN &quot;hh_wrks_0&quot; THEN [hh_wrks_0]&#13;&#10;WHEN &quot;hh_wrks_1&quot; THEN [hh_wrks_1]&#13;&#10;WHEN &quot;hh_wrks_2&quot; THEN [hh_wrks_2]&#13;&#10;WHEN &quot;hh_wrks_3_plus&quot; THEN [hh_wrks_3_plus]&#13;&#10;WHEN &quot;pers_age_00_19&quot; THEN [pers_age_00_19]&#13;&#10;WHEN &quot;pers_age_20_34&quot; THEN [pers_age_20_34]&#13;&#10;WHEN &quot;pers_age_35_64&quot; THEN [pers_age_35_64]&#13;&#10;WHEN &quot;pers_age_65_plus&quot; THEN [pers_age_65_plus]&#13;&#10;WHEN &quot;hh_kids_no&quot; THEN [hh_kids_no]&#13;&#10;WHEN &quot;hh_kids_yes&quot; THEN [hh_kids_yes]&#13;&#10;WHEN &quot;hh_size_1&quot; THEN [hh_size_1]&#13;&#10;WHEN &quot;hh_size_2&quot; THEN [hh_size_2]&#13;&#10;WHEN &quot;hh_size_3&quot; THEN [hh_size_3]&#13;&#10;WHEN &quot;hh_size_4_plus&quot; THEN [hh_size_4_plus]&#13;&#10;WHEN &quot;hh_from_maz&quot; THEN [hh_from_maz]&#13;&#10;&#13;&#10;WHEN &quot;hh_inc_100_plus_2015&quot; THEN [hh_inc_100_plus_2015]&#13;&#10;WHEN &quot;hh_inc_30_2015&quot; THEN [hh_inc_30_2015]&#13;&#10;WHEN &quot;hh_inc_30_60_2015&quot; THEN [hh_inc_30_60_2015]&#13;&#10;WHEN &quot;hh_inc_60_100_2015&quot; THEN [hh_inc_60_100_2015]&#13;&#10;WHEN &quot;hh_kids_no_2015&quot; THEN [hh_kids_no_2015]&#13;&#10;WHEN &quot;hh_kids_yes_2015&quot; THEN [hh_kids_yes_2015]&#13;&#10;WHEN &quot;hh_wrks_0_2015&quot; THEN [hh_wrks_0_2015]&#13;&#10;WHEN &quot;hh_wrks_1_2015&quot; THEN [hh_wrks_1_2015]&#13;&#10;WHEN &quot;hh_wrks_2_2015&quot; THEN [hh_wrks_2_2015]&#13;&#10;WHEN &quot;hh_wrks_3_plus_2015&quot; THEN [hh_wrks_3_plus_2015]&#13;&#10;WHEN &quot;pers_age_00_19_2015&quot; THEN [pers_age_00_19_2015]&#13;&#10;WHEN &quot;pers_age_20_34_2015&quot; THEN [pers_age_20_34_2015]&#13;&#10;WHEN &quot;pers_age_35_64_2015&quot; THEN [pers_age_35_64_2015]&#13;&#10;WHEN &quot;pers_age_65_plus_2015&quot; THEN [pers_age_65_plus_2015]&#13;&#10;&#13;&#10;WHEN &quot;hh_inc_100_plus_2023-2015_diff&quot; THEN [hh_inc_100_plus_2023-2015_diff]&#13;&#10;WHEN &quot;hh_inc_30_2023-2015_diff&quot; THEN [hh_inc_30_2023-2015_diff]&#13;&#10;WHEN &quot;hh_inc_30_60_2023-2015_diff&quot; THEN [hh_inc_30_60_2023-2015_diff]&#13;&#10;WHEN &quot;hh_inc_60_100_2023-2015_diff&quot; THEN [hh_inc_60_100_2023-2015_diff]&#13;&#10;WHEN &quot;hh_kids_no_2023-2015_diff&quot; THEN [hh_kids_no_2023-2015_diff]&#13;&#10;WHEN &quot;hh_kids_yes_2023-2015_diff&quot; THEN [hh_kids_yes_2023-2015_diff]&#13;&#10;WHEN &quot;hh_wrks_0_2023-2015_diff&quot; THEN [hh_wrks_0_2023-2015_diff]&#13;&#10;WHEN &quot;hh_wrks_1_2023-2015_diff&quot; THEN [hh_wrks_1_2023-2015_diff]&#13;&#10;WHEN &quot;hh_wrks_2_2023-2015_diff&quot; THEN [hh_wrks_2_2023-2015_diff]&#13;&#10;WHEN &quot;hh_wrks_3_plus_2023-2015_diff&quot; THEN [hh_wrks_3_plus_2023-2015_diff]&#13;&#10;WHEN &quot;pers_age_00_19_2023-2015_diff&quot; THEN [pers_age_00_19_2023-2015_diff]&#13;&#10;WHEN &quot;pers_age_20_34_2023-2015_diff&quot; THEN [pers_age_20_34_2023-2015_diff]&#13;&#10;WHEN &quot;pers_age_35_64_2023-2015_diff&quot; THEN [pers_age_35_64_2023-2015_diff]&#13;&#10;WHEN &quot;pers_age_65_plus_2023-2015_diff&quot; THEN [pers_age_65_plus_2023-2015_diff]&#13;&#10;WHEN &quot;hh_inc_30_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_inc_30] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_inc_30_60_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_inc_30_60] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_inc_60_100_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_inc_60_100] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_inc_100_plus_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_inc_100_plus] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_wrks_0_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_wrks_0] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_wrks_1_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_wrks_1] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_wrks_2_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_wrks_2] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_wrks_3_plus_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_wrks_3_plus] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;pers_age_00_19_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [pers_age_00_19] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;pers_age_20_34_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [pers_age_20_34] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;pers_age_35_64_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [pers_age_35_64] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;pers_age_65_plus_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [pers_age_65_plus] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_kids_no_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_kids_no] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_kids_yes_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_kids_yes] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_size_1_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_size_1] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_size_2_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_size_2] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_size_3_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_size_3] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_size_4_plus_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_size_4_plus] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_from_maz_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_from_maz] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;&#13;&#10;END' />
+      </column>
+      <column caption='TAZ Area (Sq Mi)' datatype='real' name='[Calculation_1739515392480608256]' role='measure' type='quantitative'>
+        <calculation class='tableau' formula='[ALAND10] / 2589988' />
+      </column>
+      <column caption='Geometry (tazs TM2 v2 2.shp)' datatype='spatial' name='[Geometry (tazs_TM2_v2_2.shp)]' role='measure' type='nominal' />
+      <column caption='Perim Geo' datatype='real' name='[PERIM_GEO]' role='measure' type='quantitative' />
+      <column caption='Taz Area S' datatype='real' name='[TAZ_AREA_S]' role='measure' type='quantitative' />
+      <column caption='TAZ ID (taz marginals tableau.csv)' datatype='integer' name='[TAZ_ID (taz_marginals_tableau.csv)]' role='dimension' type='ordinal' />
+      <column caption='Taz Id' datatype='integer' name='[TAZ_ID]' role='dimension' type='ordinal' />
+      <column caption='taz_boundaries_tableau.shp' datatype='table' name='[__tableau_internal_object_id__].[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]' role='measure' type='quantitative' />
+      <column caption='2023 Marginals' datatype='table' name='[__tableau_internal_object_id__].[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]' role='measure' type='quantitative' />
+      <column caption='tazs_TM2_v2_2.shp' datatype='table' name='[__tableau_internal_object_id__].[tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094]' role='measure' type='quantitative' />
+      <column caption='Acres' datatype='real' name='[acres]' role='measure' type='quantitative' />
+      <column caption='Blockcount' datatype='integer' name='[blockcount]' role='measure' type='quantitative' />
+      <column caption='Hh Inc 100 Plus' datatype='integer' name='[hh_inc_100_plus]' role='measure' type='quantitative' />
+      <column caption='Hh Inc 30' datatype='integer' name='[hh_inc_30]' role='measure' type='quantitative' />
+      <column caption='Hh Inc 30 60' datatype='integer' name='[hh_inc_30_60]' role='measure' type='quantitative' />
+      <column caption='Hh Inc 60 100' datatype='integer' name='[hh_inc_60_100]' role='measure' type='quantitative' />
+      <column caption='Hh Kids No' datatype='integer' name='[hh_kids_no]' role='measure' type='quantitative' />
+      <column caption='Hh Kids Yes' datatype='integer' name='[hh_kids_yes]' role='measure' type='quantitative' />
+      <column caption='Hh Size 1' datatype='integer' name='[hh_size_1]' role='measure' type='quantitative' />
+      <column caption='Hh Size 2' datatype='integer' name='[hh_size_2]' role='measure' type='quantitative' />
+      <column caption='Hh Size 3' datatype='integer' name='[hh_size_3]' role='measure' type='quantitative' />
+      <column caption='Hh Size 4 Plus' datatype='integer' name='[hh_size_4_plus]' role='measure' type='quantitative' />
+      <column caption='Hh Wrks 0' datatype='integer' name='[hh_wrks_0]' role='measure' type='quantitative' />
+      <column caption='Hh Wrks 1' datatype='integer' name='[hh_wrks_1]' role='measure' type='quantitative' />
+      <column caption='Hh Wrks 2' datatype='integer' name='[hh_wrks_2]' role='measure' type='quantitative' />
+      <column caption='Hh Wrks 3 Plus' datatype='integer' name='[hh_wrks_3_plus]' role='measure' type='quantitative' />
+      <column caption='Mazcount' datatype='integer' name='[mazcount]' role='measure' type='quantitative' />
+      <column caption='Partcount' datatype='integer' name='[partcount]' role='measure' type='quantitative' />
+      <column caption='Pers Age 00 19' datatype='integer' name='[pers_age_00_19]' role='measure' type='quantitative' />
+      <column caption='Pers Age 20 34' datatype='integer' name='[pers_age_20_34]' role='measure' type='quantitative' />
+      <column caption='Pers Age 35 64' datatype='integer' name='[pers_age_35_64]' role='measure' type='quantitative' />
+      <column caption='Pers Age 65 Plus' datatype='integer' name='[pers_age_65_plus]' role='measure' type='quantitative' />
+      <column caption='Psq Overa' datatype='real' name='[psq_overa]' role='measure' type='quantitative' />
+      <column caption='Taz' datatype='integer' name='[taz]' role='measure' type='quantitative' />
+      <extract _.fcp.VConnDownstreamExtractsWithWarnings.true...user-specific='false' count='-1' enabled='false' object-id='' units='records'>
+        <connection access_mode='readonly' authentication='auth-none' author-locale='en_US' class='hyper' dbname='C:/Users/schildress/OneDrive - Metropolitan Transportation Commission/Documents/My Tableau Repository/Datasources/taz_boundaries_tableau.shp+ (Multiple Connections).hyper' default-settings='yes' schema='Extract' sslmode='' tablename='Extract' update-time='07/25/2025 10:09:12 PM' username='tableau_internal_user'>
+          <relation type='collection'>
+            <relation name='taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624' table='[Extract].[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]' type='table' />
+            <relation name='taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD' table='[Extract].[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]' type='table' />
+          </relation>
+          <cols>
+            <map key='[Geometry]' value='[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624].[Geometry]' />
+            <map key='[TAZ]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[TAZ]' />
+            <map key='[TAZ_AREA_S]' value='[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624].[TAZ_AREA_S]' />
+            <map key='[TAZ_ID (taz_marginals_tableau.csv)]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[TAZ_ID]' />
+            <map key='[TAZ_ID]' value='[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624].[TAZ_ID]' />
+            <map key='[hh_inc_100_plus]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_inc_100_plus]' />
+            <map key='[hh_inc_30]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_inc_30]' />
+            <map key='[hh_inc_30_60]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_inc_30_60]' />
+            <map key='[hh_inc_60_100]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_inc_60_100]' />
+            <map key='[hh_kids_no]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_kids_no]' />
+            <map key='[hh_kids_yes]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_kids_yes]' />
+            <map key='[hh_size_1]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_size_1]' />
+            <map key='[hh_size_2]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_size_2]' />
+            <map key='[hh_size_3]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_size_3]' />
+            <map key='[hh_size_4_plus]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_size_4_plus]' />
+            <map key='[hh_wrks_0]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_wrks_0]' />
+            <map key='[hh_wrks_1]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_wrks_1]' />
+            <map key='[hh_wrks_2]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_wrks_2]' />
+            <map key='[hh_wrks_3_plus]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[hh_wrks_3_plus]' />
+            <map key='[pers_age_00_19]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[pers_age_00_19]' />
+            <map key='[pers_age_20_34]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[pers_age_20_34]' />
+            <map key='[pers_age_35_64]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[pers_age_35_64]' />
+            <map key='[pers_age_65_plus]' value='[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD].[pers_age_65_plus]' />
+          </cols>
+          <refresh>
+            <refresh-event add-from-file-path='taz_boundaries_tableau.shp+ (Multiple Connections)' increment-value='%null%' refresh-type='create' rows-inserted='9470' timestamp-start='2025-07-25 22:09:11.230' />
+          </refresh>
+          <metadata-records>
+            <metadata-record class='column'>
+              <remote-name>TAZ_ID</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[TAZ_ID]</local-name>
+              <parent-name>[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]</parent-name>
+              <remote-alias>TAZ_ID</remote-alias>
+              <ordinal>0</ordinal>
+              <family>taz_boundaries_tableau.shp</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>4735</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>TAZ_AREA_S</remote-name>
+              <remote-type>5</remote-type>
+              <local-name>[TAZ_AREA_S]</local-name>
+              <parent-name>[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]</parent-name>
+              <remote-alias>TAZ_AREA_S</remote-alias>
+              <ordinal>1</ordinal>
+              <family>taz_boundaries_tableau.shp</family>
+              <local-type>real</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>3118</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Geometry</remote-name>
+              <remote-type>128</remote-type>
+              <local-name>[Geometry]</local-name>
+              <parent-name>[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]</parent-name>
+              <remote-alias>Geometry</remote-alias>
+              <ordinal>2</ordinal>
+              <family>taz_boundaries_tableau.shp</family>
+              <local-type>spatial</local-type>
+              <aggregation>Collect</aggregation>
+              <approx-count>4735</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>TAZ</remote-name>
+              <remote-type>5</remote-type>
+              <local-name>[TAZ]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>TAZ</remote-alias>
+              <ordinal>3</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>real</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>4735</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_inc_30</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_inc_30]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_inc_30</remote-alias>
+              <ordinal>4</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>427</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_inc_30_60</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_inc_30_60]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_inc_30_60</remote-alias>
+              <ordinal>5</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>304</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_inc_60_100</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_inc_60_100]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_inc_60_100</remote-alias>
+              <ordinal>6</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>251</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_inc_100_plus</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_inc_100_plus]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_inc_100_plus</remote-alias>
+              <ordinal>7</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>814</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_wrks_0</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_wrks_0]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_wrks_0</remote-alias>
+              <ordinal>8</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>424</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_wrks_1</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_wrks_1]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_wrks_1</remote-alias>
+              <ordinal>9</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>628</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_wrks_2</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_wrks_2]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_wrks_2</remote-alias>
+              <ordinal>10</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>547</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_wrks_3_plus</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_wrks_3_plus]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_wrks_3_plus</remote-alias>
+              <ordinal>11</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>231</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>pers_age_00_19</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[pers_age_00_19]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>pers_age_00_19</remote-alias>
+              <ordinal>12</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>877</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>pers_age_20_34</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[pers_age_20_34]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>pers_age_20_34</remote-alias>
+              <ordinal>13</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>819</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>pers_age_35_64</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[pers_age_35_64]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>pers_age_35_64</remote-alias>
+              <ordinal>14</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>1204</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>pers_age_65_plus</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[pers_age_65_plus]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>pers_age_65_plus</remote-alias>
+              <ordinal>15</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>715</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_kids_no</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_kids_no]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_kids_no</remote-alias>
+              <ordinal>16</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>898</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_kids_yes</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_kids_yes]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_kids_yes</remote-alias>
+              <ordinal>17</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>552</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_size_1</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_size_1]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_size_1</remote-alias>
+              <ordinal>18</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>556</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_size_2</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_size_2]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_size_2</remote-alias>
+              <ordinal>19</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>588</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_size_3</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_size_3]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_size_3</remote-alias>
+              <ordinal>20</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>358</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>hh_size_4_plus</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[hh_size_4_plus]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>hh_size_4_plus</remote-alias>
+              <ordinal>21</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>492</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>TAZ_ID</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[TAZ_ID (taz_marginals_tableau.csv)]</local-name>
+              <parent-name>[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]</parent-name>
+              <remote-alias>TAZ_ID</remote-alias>
+              <ordinal>22</ordinal>
+              <family>taz_marginals_tableau.csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>4735</approx-count>
+              <contains-null>true</contains-null>
+            </metadata-record>
+          </metadata-records>
+        </connection>
+      </extract>
+      <layout dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+      <semantic-values>
+        <semantic-value key='[Country].[Name]' value='&quot;United States&quot;' />
+      </semantic-values>
+      <field-sort-info field-sort-order-type='custom-order'>
+        <field-sort-custom-order field='TAZ_ID' />
+        <field-sort-custom-order field='TAZ_AREA_S' />
+        <field-sort-custom-order field='Geometry' />
+      </field-sort-info>
+      <datasource-dependencies datasource='Parameters'>
+        <column alias='Households from MAZ per Sq Mi' caption='Metric Selector' datatype='string' name='[Parameter 1]' param-domain-type='list' role='measure' type='nominal' value='&quot;hh_from_maz_density&quot;'>
+          <calculation class='tableau' formula='&quot;hh_from_maz_density&quot;' />
+          <aliases>
+            <alias key='&quot;hh_from_maz&quot;' value='Households from MAZ file' />
+            <alias key='&quot;hh_from_maz_density&quot;' value='Households from MAZ per Sq Mi' />
+            <alias key='&quot;hh_inc_100_plus&quot;' value='HH Income &gt; $100k (2023)' />
+            <alias key='&quot;hh_inc_100_plus_2015&quot;' value='HH Income &gt; $100k (2015)' />
+            <alias key='&quot;hh_inc_100_plus_2023-2015_diff&quot;' value='HH Income &gt; $100k (Change)' />
+            <alias key='&quot;hh_inc_100_plus_density&quot;' value='HH Income &gt; $100k per Sq Mi' />
+            <alias key='&quot;hh_inc_30&quot;' value='HH Income &lt; $30k (2023)' />
+            <alias key='&quot;hh_inc_30_2015&quot;' value='HH Income &lt; $30k (2015)' />
+            <alias key='&quot;hh_inc_30_2023-2015_diff&quot;' value='HH Income &lt; $30k (Change)' />
+            <alias key='&quot;hh_inc_30_60&quot;' value='HH Income $30–60k (2023)' />
+            <alias key='&quot;hh_inc_30_60_2015&quot;' value='HH Income $30–60k (2015)' />
+            <alias key='&quot;hh_inc_30_60_2023-2015_diff&quot;' value='HH Income $30–60k (Change)' />
+            <alias key='&quot;hh_inc_30_60_density&quot;' value='HH Income $30–60k per Sq Mi' />
+            <alias key='&quot;hh_inc_30_density&quot;' value='HH Income &lt; $30k per Sq Mi' />
+            <alias key='&quot;hh_inc_60_100&quot;' value='HH Income $60–100k (2023)' />
+            <alias key='&quot;hh_inc_60_100_2015&quot;' value='HH Income $60–100k (2015)' />
+            <alias key='&quot;hh_inc_60_100_2023-2015_diff&quot;' value='HH Income $60–100k (Change)' />
+            <alias key='&quot;hh_inc_60_100_density&quot;' value='HH Income $60–100k per Sq Mi' />
+            <alias key='&quot;hh_kids_no&quot;' value='Households without Kids (2023)' />
+            <alias key='&quot;hh_kids_no_2015&quot;' value='Households without Kids (2015)' />
+            <alias key='&quot;hh_kids_no_2023-2015_diff&quot;' value='Households without Kids (Change)' />
+            <alias key='&quot;hh_kids_no_density&quot;' value='Households without Kids per Sq Mi' />
+            <alias key='&quot;hh_kids_yes&quot;' value='Households with Kids (2023)' />
+            <alias key='&quot;hh_kids_yes_2015&quot;' value='Households with Kids (2015)' />
+            <alias key='&quot;hh_kids_yes_2023-2015_diff&quot;' value='Households with Kids (Change)' />
+            <alias key='&quot;hh_kids_yes_density&quot;' value='Households with Kids per Sq Mi' />
+            <alias key='&quot;hh_size_1&quot;' value='1-Person Households (2023)' />
+            <alias key='&quot;hh_size_1_density&quot;' value='1-Person Households per Sq Mi' />
+            <alias key='&quot;hh_size_2&quot;' value='2-Person Households (2023)' />
+            <alias key='&quot;hh_size_2_density&quot;' value='2-Person Households per Sq Mi' />
+            <alias key='&quot;hh_size_3&quot;' value='3-Person Households (2023)' />
+            <alias key='&quot;hh_size_3_density&quot;' value='3-Person Households per Sq Mi' />
+            <alias key='&quot;hh_size_4_plus&quot;' value='4+ Person Households (2023)' />
+            <alias key='&quot;hh_size_4_plus_density&quot;' value='4+ Person Households per Sq Mi' />
+            <alias key='&quot;hh_wrks_0&quot;' value='Households with 0 Workers (2023)' />
+            <alias key='&quot;hh_wrks_0_2015&quot;' value='Households with 0 Workers (2015)' />
+            <alias key='&quot;hh_wrks_0_2023-2015_diff&quot;' value='Households with 0 Workers (Change)' />
+            <alias key='&quot;hh_wrks_0_density&quot;' value='Households with 0 Workers per Sq Mi' />
+            <alias key='&quot;hh_wrks_1&quot;' value='Households with 1 Worker (2023)' />
+            <alias key='&quot;hh_wrks_1_2015&quot;' value='Households with 1 Worker (2015)' />
+            <alias key='&quot;hh_wrks_1_2023-2015_diff&quot;' value='Households with 1 Worker (Change)' />
+            <alias key='&quot;hh_wrks_1_density&quot;' value='Households with 1 Worker per Sq Mi' />
+            <alias key='&quot;hh_wrks_2&quot;' value='Households with 2 Workers (2023)' />
+            <alias key='&quot;hh_wrks_2_2015&quot;' value='Households with 2 Workers (2015)' />
+            <alias key='&quot;hh_wrks_2_2023-2015_diff&quot;' value='Households with 2 Workers (Change)' />
+            <alias key='&quot;hh_wrks_2_density&quot;' value='Households with 2 Workers per Sq Mi' />
+            <alias key='&quot;hh_wrks_3_plus&quot;' value='Households with 3+ Workers (2023)' />
+            <alias key='&quot;hh_wrks_3_plus_2015&quot;' value='Households with 3+ Workers (2015)' />
+            <alias key='&quot;hh_wrks_3_plus_2023-2015_diff&quot;' value='Households with 3+ Workers (Change)' />
+            <alias key='&quot;hh_wrks_3_plus_density&quot;' value='Households with 3+ Workers per Sq Mi' />
+            <alias key='&quot;pers_age_00_19&quot;' value='Persons Age 0–19 (2023)' />
+            <alias key='&quot;pers_age_00_19_2015&quot;' value='Persons Age 0–19 (2015)' />
+            <alias key='&quot;pers_age_00_19_2023-2015_diff&quot;' value='Persons Age 0–19 (Change)' />
+            <alias key='&quot;pers_age_00_19_density&quot;' value='Persons Age 0–19 per Sq Mi' />
+            <alias key='&quot;pers_age_20_34&quot;' value='Persons Age 20–34 (2023)' />
+            <alias key='&quot;pers_age_20_34_2015&quot;' value='Persons Age 20–34 (2015)' />
+            <alias key='&quot;pers_age_20_34_2023-2015_diff&quot;' value='Persons Age 20–34 (Change)' />
+            <alias key='&quot;pers_age_20_34_density&quot;' value='Persons Age 20–34 per Sq Mi' />
+            <alias key='&quot;pers_age_35_64&quot;' value='Persons Age 35–64 (2023)' />
+            <alias key='&quot;pers_age_35_64_2015&quot;' value='Persons Age 35–64 (2015)' />
+            <alias key='&quot;pers_age_35_64_2023-2015_diff&quot;' value='Persons Age 35–64 (Change)' />
+            <alias key='&quot;pers_age_35_64_density&quot;' value='Persons Age 35–64 per Sq Mi' />
+            <alias key='&quot;pers_age_65_plus&quot;' value='Persons Age 65+ (2023)' />
+            <alias key='&quot;pers_age_65_plus_2015&quot;' value='Persons Age 65+ (2015)' />
+            <alias key='&quot;pers_age_65_plus_2023-2015_diff&quot;' value='Persons Age 65+ (Change)' />
+            <alias key='&quot;pers_age_65_plus_density&quot;' value='Persons Age 65+ per Sq Mi' />
+          </aliases>
+        </column>
+      </datasource-dependencies>
+      <object-graph>
+        <objects>
+          <object caption='taz_boundaries_tableau.shp' id='taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624'>
+            <properties context=''>
+              <relation connection='ogrdirect.0tkeh6v16rn09512k3blf1fz3yzs' name='taz_boundaries_tableau.shp' table='[taz_boundaries_tableau.shp]' type='table'>
+                <columns>
+                  <column datatype='integer' name='TAZ_ID' ordinal='0' />
+                  <column datatype='real' name='TAZ_AREA_S' ordinal='1' />
+                  <column datatype='spatial' name='Geometry' ordinal='2' />
+                </columns>
+              </relation>
+            </properties>
+            <properties context='extract'>
+              <relation name='taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624' table='[Extract].[taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624]' type='table' />
+            </properties>
+          </object>
+          <object caption='2023 Marginals' id='taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD'>
+            <properties context=''>
+              <relation connection='textscan.04hrzht0itst2y15tjcno1r185c8' name='taz_marginals_tableau.csv' table='[taz_marginals_tableau#csv]' type='table'>
+                <columns character-set='UTF-8' header='yes' locale='en_US' separator=','>
+                  <column datatype='real' name='TAZ' ordinal='0' />
+                  <column datatype='integer' name='hh_inc_30' ordinal='1' />
+                  <column datatype='integer' name='hh_inc_30_60' ordinal='2' />
+                  <column datatype='integer' name='hh_inc_60_100' ordinal='3' />
+                  <column datatype='integer' name='hh_inc_100_plus' ordinal='4' />
+                  <column datatype='integer' name='hh_wrks_0' ordinal='5' />
+                  <column datatype='integer' name='hh_wrks_1' ordinal='6' />
+                  <column datatype='integer' name='hh_wrks_2' ordinal='7' />
+                  <column datatype='integer' name='hh_wrks_3_plus' ordinal='8' />
+                  <column datatype='integer' name='pers_age_00_19' ordinal='9' />
+                  <column datatype='integer' name='pers_age_20_34' ordinal='10' />
+                  <column datatype='integer' name='pers_age_35_64' ordinal='11' />
+                  <column datatype='integer' name='pers_age_65_plus' ordinal='12' />
+                  <column datatype='integer' name='hh_kids_no' ordinal='13' />
+                  <column datatype='integer' name='hh_kids_yes' ordinal='14' />
+                  <column datatype='integer' name='hh_size_1' ordinal='15' />
+                  <column datatype='integer' name='hh_size_2' ordinal='16' />
+                  <column datatype='integer' name='hh_size_3' ordinal='17' />
+                  <column datatype='integer' name='hh_size_4_plus' ordinal='18' />
+                  <column datatype='integer' name='hh_from_maz' ordinal='19' />
+                  <column datatype='integer' name='TAZ_ID' ordinal='20' />
+                  <column datatype='integer' name='hh_inc_100_plus_2015' ordinal='21' />
+                  <column datatype='integer' name='hh_inc_30_2015' ordinal='22' />
+                  <column datatype='integer' name='hh_inc_30_60_2015' ordinal='23' />
+                  <column datatype='integer' name='hh_inc_60_100_2015' ordinal='24' />
+                  <column datatype='integer' name='hh_kids_no_2015' ordinal='25' />
+                  <column datatype='integer' name='hh_kids_yes_2015' ordinal='26' />
+                  <column datatype='integer' name='hh_wrks_0_2015' ordinal='27' />
+                  <column datatype='integer' name='hh_wrks_1_2015' ordinal='28' />
+                  <column datatype='integer' name='hh_wrks_2_2015' ordinal='29' />
+                  <column datatype='integer' name='hh_wrks_3_plus_2015' ordinal='30' />
+                  <column datatype='integer' name='pers_age_00_19_2015' ordinal='31' />
+                  <column datatype='integer' name='pers_age_20_34_2015' ordinal='32' />
+                  <column datatype='integer' name='pers_age_35_64_2015' ordinal='33' />
+                  <column datatype='integer' name='pers_age_65_plus_2015' ordinal='34' />
+                  <column datatype='integer' name='hh_inc_100_plus_2023-2015_diff' ordinal='35' />
+                  <column datatype='integer' name='hh_inc_30_2023-2015_diff' ordinal='36' />
+                  <column datatype='integer' name='hh_inc_30_60_2023-2015_diff' ordinal='37' />
+                  <column datatype='integer' name='hh_inc_60_100_2023-2015_diff' ordinal='38' />
+                  <column datatype='integer' name='hh_kids_no_2023-2015_diff' ordinal='39' />
+                  <column datatype='integer' name='hh_kids_yes_2023-2015_diff' ordinal='40' />
+                  <column datatype='integer' name='hh_wrks_0_2023-2015_diff' ordinal='41' />
+                  <column datatype='integer' name='hh_wrks_1_2023-2015_diff' ordinal='42' />
+                  <column datatype='integer' name='hh_wrks_2_2023-2015_diff' ordinal='43' />
+                  <column datatype='integer' name='hh_wrks_3_plus_2023-2015_diff' ordinal='44' />
+                  <column datatype='integer' name='pers_age_00_19_2023-2015_diff' ordinal='45' />
+                  <column datatype='integer' name='pers_age_20_34_2023-2015_diff' ordinal='46' />
+                  <column datatype='integer' name='pers_age_35_64_2023-2015_diff' ordinal='47' />
+                  <column datatype='integer' name='pers_age_65_plus_2023-2015_diff' ordinal='48' />
+                </columns>
+              </relation>
+            </properties>
+            <properties context='extract'>
+              <relation name='taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD' table='[Extract].[taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD]' type='table' />
+            </properties>
+          </object>
+          <object caption='tazs_TM2_v2_2.shp' id='tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094'>
+            <properties context=''>
+              <relation connection='ogrdirect.0cr1tm4090es67154cgq51uli3cg' name='tazs_TM2_v2_2.shp' table='[tazs_TM2_v2_2.shp]' type='table'>
+                <columns>
+                  <column datatype='integer' name='taz' ordinal='0' />
+                  <column datatype='real' name='ALAND10' ordinal='1' />
+                  <column datatype='real' name='AWATER10' ordinal='2' />
+                  <column datatype='integer' name='blockcount' ordinal='3' />
+                  <column datatype='integer' name='mazcount' ordinal='4' />
+                  <column datatype='integer' name='partcount' ordinal='5' />
+                  <column datatype='real' name='PERIM_GEO' ordinal='6' />
+                  <column datatype='real' name='psq_overa' ordinal='7' />
+                  <column datatype='real' name='acres' ordinal='8' />
+                  <column datatype='spatial' name='Geometry' ordinal='9' />
+                </columns>
+              </relation>
+            </properties>
+          </object>
+        </objects>
+        <relationships>
+          <relationship>
+            <expression op='='>
+              <expression op='[taz]' />
+              <expression op='[TAZ_ID]' />
+            </expression>
+            <first-end-point object-id='tazs_TM2_v2_2.shp_4ED3FDF938D742FCB80772091F8DD094' />
+            <second-end-point object-id='taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624' />
+          </relationship>
+          <relationship>
+            <expression op='='>
+              <expression op='[TAZ_ID]' />
+              <expression op='[TAZ_ID (taz_marginals_tableau.csv)]' />
+            </expression>
+            <first-end-point object-id='taz_boundaries_tableau.shp_19C62FD109E54C889FA1BF73DE161624' />
+            <second-end-point object-id='taz_marginals_tableau.csv_6DE36B6A088547C2AF8180D02C40BBFD' />
+          </relationship>
+        </relationships>
+      </object-graph>
+    </datasource>
+  </datasources>
+  <mapsources>
+    <mapsource name='Tableau' />
+  </mapsources>
+  <worksheets>
+    <worksheet name='TAZ map'>
+      <layout-options>
+        <title>
+          <formatted-text>
+            <run>2023 TM2 Population Synthesizer Controls
+</run>
+            <run fontsize='9'>Compared to 2015</run>
+            <run>Æ&#10;</run>
+            <run fontsize='9'>hh_from_maz is aggregated from 2020 Census block data</run>
+          </formatted-text>
+        </title>
+      </layout-options>
+      <table>
+        <view>
+          <datasources>
+            <datasource caption='taz_boundaries_tableau.shp+ (Multiple Connections)' name='federated.0q2bmuk00a5nax10a3ivx1it6o6y' />
+            <datasource name='Parameters' />
+          </datasources>
+          <mapsources>
+            <mapsource name='Tableau' />
+          </mapsources>
+          <datasource-dependencies datasource='Parameters'>
+            <column alias='Households from MAZ per Sq Mi' caption='Metric Selector' datatype='string' name='[Parameter 1]' param-domain-type='list' role='measure' type='nominal' value='&quot;hh_from_maz_density&quot;'>
+              <calculation class='tableau' formula='&quot;hh_from_maz_density&quot;' />
+              <aliases>
+                <alias key='&quot;hh_from_maz&quot;' value='Households from MAZ file' />
+                <alias key='&quot;hh_from_maz_density&quot;' value='Households from MAZ per Sq Mi' />
+                <alias key='&quot;hh_inc_100_plus&quot;' value='HH Income &gt; $100k (2023)' />
+                <alias key='&quot;hh_inc_100_plus_2015&quot;' value='HH Income &gt; $100k (2015)' />
+                <alias key='&quot;hh_inc_100_plus_2023-2015_diff&quot;' value='HH Income &gt; $100k (Change)' />
+                <alias key='&quot;hh_inc_100_plus_density&quot;' value='HH Income &gt; $100k per Sq Mi' />
+                <alias key='&quot;hh_inc_30&quot;' value='HH Income &lt; $30k (2023)' />
+                <alias key='&quot;hh_inc_30_2015&quot;' value='HH Income &lt; $30k (2015)' />
+                <alias key='&quot;hh_inc_30_2023-2015_diff&quot;' value='HH Income &lt; $30k (Change)' />
+                <alias key='&quot;hh_inc_30_60&quot;' value='HH Income $30–60k (2023)' />
+                <alias key='&quot;hh_inc_30_60_2015&quot;' value='HH Income $30–60k (2015)' />
+                <alias key='&quot;hh_inc_30_60_2023-2015_diff&quot;' value='HH Income $30–60k (Change)' />
+                <alias key='&quot;hh_inc_30_60_density&quot;' value='HH Income $30–60k per Sq Mi' />
+                <alias key='&quot;hh_inc_30_density&quot;' value='HH Income &lt; $30k per Sq Mi' />
+                <alias key='&quot;hh_inc_60_100&quot;' value='HH Income $60–100k (2023)' />
+                <alias key='&quot;hh_inc_60_100_2015&quot;' value='HH Income $60–100k (2015)' />
+                <alias key='&quot;hh_inc_60_100_2023-2015_diff&quot;' value='HH Income $60–100k (Change)' />
+                <alias key='&quot;hh_inc_60_100_density&quot;' value='HH Income $60–100k per Sq Mi' />
+                <alias key='&quot;hh_kids_no&quot;' value='Households without Kids (2023)' />
+                <alias key='&quot;hh_kids_no_2015&quot;' value='Households without Kids (2015)' />
+                <alias key='&quot;hh_kids_no_2023-2015_diff&quot;' value='Households without Kids (Change)' />
+                <alias key='&quot;hh_kids_no_density&quot;' value='Households without Kids per Sq Mi' />
+                <alias key='&quot;hh_kids_yes&quot;' value='Households with Kids (2023)' />
+                <alias key='&quot;hh_kids_yes_2015&quot;' value='Households with Kids (2015)' />
+                <alias key='&quot;hh_kids_yes_2023-2015_diff&quot;' value='Households with Kids (Change)' />
+                <alias key='&quot;hh_kids_yes_density&quot;' value='Households with Kids per Sq Mi' />
+                <alias key='&quot;hh_size_1&quot;' value='1-Person Households (2023)' />
+                <alias key='&quot;hh_size_1_density&quot;' value='1-Person Households per Sq Mi' />
+                <alias key='&quot;hh_size_2&quot;' value='2-Person Households (2023)' />
+                <alias key='&quot;hh_size_2_density&quot;' value='2-Person Households per Sq Mi' />
+                <alias key='&quot;hh_size_3&quot;' value='3-Person Households (2023)' />
+                <alias key='&quot;hh_size_3_density&quot;' value='3-Person Households per Sq Mi' />
+                <alias key='&quot;hh_size_4_plus&quot;' value='4+ Person Households (2023)' />
+                <alias key='&quot;hh_size_4_plus_density&quot;' value='4+ Person Households per Sq Mi' />
+                <alias key='&quot;hh_wrks_0&quot;' value='Households with 0 Workers (2023)' />
+                <alias key='&quot;hh_wrks_0_2015&quot;' value='Households with 0 Workers (2015)' />
+                <alias key='&quot;hh_wrks_0_2023-2015_diff&quot;' value='Households with 0 Workers (Change)' />
+                <alias key='&quot;hh_wrks_0_density&quot;' value='Households with 0 Workers per Sq Mi' />
+                <alias key='&quot;hh_wrks_1&quot;' value='Households with 1 Worker (2023)' />
+                <alias key='&quot;hh_wrks_1_2015&quot;' value='Households with 1 Worker (2015)' />
+                <alias key='&quot;hh_wrks_1_2023-2015_diff&quot;' value='Households with 1 Worker (Change)' />
+                <alias key='&quot;hh_wrks_1_density&quot;' value='Households with 1 Worker per Sq Mi' />
+                <alias key='&quot;hh_wrks_2&quot;' value='Households with 2 Workers (2023)' />
+                <alias key='&quot;hh_wrks_2_2015&quot;' value='Households with 2 Workers (2015)' />
+                <alias key='&quot;hh_wrks_2_2023-2015_diff&quot;' value='Households with 2 Workers (Change)' />
+                <alias key='&quot;hh_wrks_2_density&quot;' value='Households with 2 Workers per Sq Mi' />
+                <alias key='&quot;hh_wrks_3_plus&quot;' value='Households with 3+ Workers (2023)' />
+                <alias key='&quot;hh_wrks_3_plus_2015&quot;' value='Households with 3+ Workers (2015)' />
+                <alias key='&quot;hh_wrks_3_plus_2023-2015_diff&quot;' value='Households with 3+ Workers (Change)' />
+                <alias key='&quot;hh_wrks_3_plus_density&quot;' value='Households with 3+ Workers per Sq Mi' />
+                <alias key='&quot;pers_age_00_19&quot;' value='Persons Age 0–19 (2023)' />
+                <alias key='&quot;pers_age_00_19_2015&quot;' value='Persons Age 0–19 (2015)' />
+                <alias key='&quot;pers_age_00_19_2023-2015_diff&quot;' value='Persons Age 0–19 (Change)' />
+                <alias key='&quot;pers_age_00_19_density&quot;' value='Persons Age 0–19 per Sq Mi' />
+                <alias key='&quot;pers_age_20_34&quot;' value='Persons Age 20–34 (2023)' />
+                <alias key='&quot;pers_age_20_34_2015&quot;' value='Persons Age 20–34 (2015)' />
+                <alias key='&quot;pers_age_20_34_2023-2015_diff&quot;' value='Persons Age 20–34 (Change)' />
+                <alias key='&quot;pers_age_20_34_density&quot;' value='Persons Age 20–34 per Sq Mi' />
+                <alias key='&quot;pers_age_35_64&quot;' value='Persons Age 35–64 (2023)' />
+                <alias key='&quot;pers_age_35_64_2015&quot;' value='Persons Age 35–64 (2015)' />
+                <alias key='&quot;pers_age_35_64_2023-2015_diff&quot;' value='Persons Age 35–64 (Change)' />
+                <alias key='&quot;pers_age_35_64_density&quot;' value='Persons Age 35–64 per Sq Mi' />
+                <alias key='&quot;pers_age_65_plus&quot;' value='Persons Age 65+ (2023)' />
+                <alias key='&quot;pers_age_65_plus_2015&quot;' value='Persons Age 65+ (2015)' />
+                <alias key='&quot;pers_age_65_plus_2023-2015_diff&quot;' value='Persons Age 65+ (Change)' />
+                <alias key='&quot;pers_age_65_plus_density&quot;' value='Persons Age 65+ per Sq Mi' />
+              </aliases>
+            </column>
+          </datasource-dependencies>
+          <datasource-dependencies datasource='federated.0q2bmuk00a5nax10a3ivx1it6o6y'>
+            <column caption='Aland10' datatype='real' name='[ALAND10]' role='measure' type='quantitative' />
+            <column caption='Metric' datatype='real' name='[Calculation_1545297657845792769]' role='measure' type='quantitative'>
+              <calculation class='tableau' formula='CASE [Parameters].[Parameter 1]&#13;&#10;WHEN &quot;hh_inc_30&quot; THEN [hh_inc_30]&#13;&#10;WHEN &quot;hh_inc_30_60&quot; THEN [hh_inc_30_60]&#13;&#10;WHEN &quot;hh_inc_60_100&quot; THEN [hh_inc_60_100]&#13;&#10;WHEN &quot;hh_inc_100_plus&quot; THEN [hh_inc_100_plus]&#13;&#10;WHEN &quot;hh_wrks_0&quot; THEN [hh_wrks_0]&#13;&#10;WHEN &quot;hh_wrks_1&quot; THEN [hh_wrks_1]&#13;&#10;WHEN &quot;hh_wrks_2&quot; THEN [hh_wrks_2]&#13;&#10;WHEN &quot;hh_wrks_3_plus&quot; THEN [hh_wrks_3_plus]&#13;&#10;WHEN &quot;pers_age_00_19&quot; THEN [pers_age_00_19]&#13;&#10;WHEN &quot;pers_age_20_34&quot; THEN [pers_age_20_34]&#13;&#10;WHEN &quot;pers_age_35_64&quot; THEN [pers_age_35_64]&#13;&#10;WHEN &quot;pers_age_65_plus&quot; THEN [pers_age_65_plus]&#13;&#10;WHEN &quot;hh_kids_no&quot; THEN [hh_kids_no]&#13;&#10;WHEN &quot;hh_kids_yes&quot; THEN [hh_kids_yes]&#13;&#10;WHEN &quot;hh_size_1&quot; THEN [hh_size_1]&#13;&#10;WHEN &quot;hh_size_2&quot; THEN [hh_size_2]&#13;&#10;WHEN &quot;hh_size_3&quot; THEN [hh_size_3]&#13;&#10;WHEN &quot;hh_size_4_plus&quot; THEN [hh_size_4_plus]&#13;&#10;WHEN &quot;hh_from_maz&quot; THEN [hh_from_maz]&#13;&#10;&#13;&#10;WHEN &quot;hh_inc_100_plus_2015&quot; THEN [hh_inc_100_plus_2015]&#13;&#10;WHEN &quot;hh_inc_30_2015&quot; THEN [hh_inc_30_2015]&#13;&#10;WHEN &quot;hh_inc_30_60_2015&quot; THEN [hh_inc_30_60_2015]&#13;&#10;WHEN &quot;hh_inc_60_100_2015&quot; THEN [hh_inc_60_100_2015]&#13;&#10;WHEN &quot;hh_kids_no_2015&quot; THEN [hh_kids_no_2015]&#13;&#10;WHEN &quot;hh_kids_yes_2015&quot; THEN [hh_kids_yes_2015]&#13;&#10;WHEN &quot;hh_wrks_0_2015&quot; THEN [hh_wrks_0_2015]&#13;&#10;WHEN &quot;hh_wrks_1_2015&quot; THEN [hh_wrks_1_2015]&#13;&#10;WHEN &quot;hh_wrks_2_2015&quot; THEN [hh_wrks_2_2015]&#13;&#10;WHEN &quot;hh_wrks_3_plus_2015&quot; THEN [hh_wrks_3_plus_2015]&#13;&#10;WHEN &quot;pers_age_00_19_2015&quot; THEN [pers_age_00_19_2015]&#13;&#10;WHEN &quot;pers_age_20_34_2015&quot; THEN [pers_age_20_34_2015]&#13;&#10;WHEN &quot;pers_age_35_64_2015&quot; THEN [pers_age_35_64_2015]&#13;&#10;WHEN &quot;pers_age_65_plus_2015&quot; THEN [pers_age_65_plus_2015]&#13;&#10;&#13;&#10;WHEN &quot;hh_inc_100_plus_2023-2015_diff&quot; THEN [hh_inc_100_plus_2023-2015_diff]&#13;&#10;WHEN &quot;hh_inc_30_2023-2015_diff&quot; THEN [hh_inc_30_2023-2015_diff]&#13;&#10;WHEN &quot;hh_inc_30_60_2023-2015_diff&quot; THEN [hh_inc_30_60_2023-2015_diff]&#13;&#10;WHEN &quot;hh_inc_60_100_2023-2015_diff&quot; THEN [hh_inc_60_100_2023-2015_diff]&#13;&#10;WHEN &quot;hh_kids_no_2023-2015_diff&quot; THEN [hh_kids_no_2023-2015_diff]&#13;&#10;WHEN &quot;hh_kids_yes_2023-2015_diff&quot; THEN [hh_kids_yes_2023-2015_diff]&#13;&#10;WHEN &quot;hh_wrks_0_2023-2015_diff&quot; THEN [hh_wrks_0_2023-2015_diff]&#13;&#10;WHEN &quot;hh_wrks_1_2023-2015_diff&quot; THEN [hh_wrks_1_2023-2015_diff]&#13;&#10;WHEN &quot;hh_wrks_2_2023-2015_diff&quot; THEN [hh_wrks_2_2023-2015_diff]&#13;&#10;WHEN &quot;hh_wrks_3_plus_2023-2015_diff&quot; THEN [hh_wrks_3_plus_2023-2015_diff]&#13;&#10;WHEN &quot;pers_age_00_19_2023-2015_diff&quot; THEN [pers_age_00_19_2023-2015_diff]&#13;&#10;WHEN &quot;pers_age_20_34_2023-2015_diff&quot; THEN [pers_age_20_34_2023-2015_diff]&#13;&#10;WHEN &quot;pers_age_35_64_2023-2015_diff&quot; THEN [pers_age_35_64_2023-2015_diff]&#13;&#10;WHEN &quot;pers_age_65_plus_2023-2015_diff&quot; THEN [pers_age_65_plus_2023-2015_diff]&#13;&#10;WHEN &quot;hh_inc_30_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_inc_30] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_inc_30_60_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_inc_30_60] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_inc_60_100_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_inc_60_100] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_inc_100_plus_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_inc_100_plus] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_wrks_0_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_wrks_0] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_wrks_1_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_wrks_1] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_wrks_2_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_wrks_2] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_wrks_3_plus_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_wrks_3_plus] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;pers_age_00_19_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [pers_age_00_19] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;pers_age_20_34_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [pers_age_20_34] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;pers_age_35_64_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [pers_age_35_64] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;pers_age_65_plus_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [pers_age_65_plus] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_kids_no_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_kids_no] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_kids_yes_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_kids_yes] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_size_1_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_size_1] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_size_2_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_size_2] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_size_3_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_size_3] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_size_4_plus_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_size_4_plus] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;WHEN &quot;hh_from_maz_density&quot; THEN IF [Calculation_1739515392480608256] &gt; 0 THEN [hh_from_maz] / [Calculation_1739515392480608256] ELSE NULL END&#13;&#10;&#13;&#10;END' />
+            </column>
+            <column caption='TAZ Area (Sq Mi)' datatype='real' name='[Calculation_1739515392480608256]' role='measure' type='quantitative'>
+              <calculation class='tableau' formula='[ALAND10] / 2589988' />
+            </column>
+            <column datatype='spatial' name='[Geometry]' role='measure' type='nominal' />
+            <column-instance column='[Geometry]' derivation='Collect' name='[clct:Geometry:nk]' pivot='key' type='nominal' />
+            <column datatype='integer' name='[hh_from_maz]' role='measure' type='quantitative' />
+            <column caption='Hh Inc 100 Plus' datatype='integer' name='[hh_inc_100_plus]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_inc_100_plus_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_inc_100_plus_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Inc 30' datatype='integer' name='[hh_inc_30]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_inc_30_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_inc_30_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Inc 30 60' datatype='integer' name='[hh_inc_30_60]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_inc_30_60_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_inc_30_60_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Inc 60 100' datatype='integer' name='[hh_inc_60_100]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_inc_60_100_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_inc_60_100_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Kids No' datatype='integer' name='[hh_kids_no]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_kids_no_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_kids_no_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Kids Yes' datatype='integer' name='[hh_kids_yes]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_kids_yes_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_kids_yes_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Size 1' datatype='integer' name='[hh_size_1]' role='measure' type='quantitative' />
+            <column caption='Hh Size 2' datatype='integer' name='[hh_size_2]' role='measure' type='quantitative' />
+            <column caption='Hh Size 3' datatype='integer' name='[hh_size_3]' role='measure' type='quantitative' />
+            <column caption='Hh Size 4 Plus' datatype='integer' name='[hh_size_4_plus]' role='measure' type='quantitative' />
+            <column caption='Hh Wrks 0' datatype='integer' name='[hh_wrks_0]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_wrks_0_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_wrks_0_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Wrks 1' datatype='integer' name='[hh_wrks_1]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_wrks_1_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_wrks_1_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Wrks 2' datatype='integer' name='[hh_wrks_2]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_wrks_2_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_wrks_2_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Hh Wrks 3 Plus' datatype='integer' name='[hh_wrks_3_plus]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_wrks_3_plus_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[hh_wrks_3_plus_2023-2015_diff]' role='measure' type='quantitative' />
+            <column-instance column='[Calculation_1545297657845792769]' derivation='None' name='[none:Calculation_1545297657845792769:qk]' pivot='key' type='quantitative' />
+            <column caption='Pers Age 00 19' datatype='integer' name='[pers_age_00_19]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[pers_age_00_19_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[pers_age_00_19_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Pers Age 20 34' datatype='integer' name='[pers_age_20_34]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[pers_age_20_34_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[pers_age_20_34_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Pers Age 35 64' datatype='integer' name='[pers_age_35_64]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[pers_age_35_64_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[pers_age_35_64_2023-2015_diff]' role='measure' type='quantitative' />
+            <column caption='Pers Age 65 Plus' datatype='integer' name='[pers_age_65_plus]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[pers_age_65_plus_2015]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[pers_age_65_plus_2023-2015_diff]' role='measure' type='quantitative' />
+          </datasource-dependencies>
+          <aggregation value='true' />
+        </view>
+        <style>
+          <style-rule element='axis'>
+            <encoding attr='space' class='0' field='[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[Longitude (generated)]' field-type='quantitative' max='-13470929.142229915' min='-13781686.192095585' projection='EPSG:3857' range-type='fixed' scope='cols' type='space' />
+            <encoding attr='space' class='0' field='[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[Latitude (generated)]' field-type='quantitative' max='4638174.2526214113' min='4477532.9117018059' projection='EPSG:3857' range-type='fixed' scope='rows' type='space' />
+          </style-rule>
+          <style-rule element='mark'>
+            <encoding attr='color' field='[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[none:Calculation_1545297657845792769:qk]' max='2000' min='0' palette='tableau-map-temperatur' type='interpolated' />
+          </style-rule>
+          <style-rule element='map'>
+            <format attr='washout' value='0.0' />
+          </style-rule>
+        </style>
+        <panes>
+          <pane selection-relaxation-option='selection-relaxation-allow'>
+            <view>
+              <breakdown value='auto' />
+            </view>
+            <mark class='Automatic' />
+            <encodings>
+              <color column='[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[none:Calculation_1545297657845792769:qk]' />
+              <lod column='[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[clct:Geometry:nk]' />
+              <geometry column='[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[clct:Geometry:nk]' />
+            </encodings>
+          </pane>
+        </panes>
+        <rows>[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[Latitude (generated)]</rows>
+        <cols>[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[Longitude (generated)]</cols>
+      </table>
+      <simple-id uuid='{8E0B7D15-D2F0-4BA0-8A93-2B4C4CC6BEE7}' />
+    </worksheet>
+  </worksheets>
+  <windows source-height='30'>
+    <window class='worksheet' maximized='true' name='TAZ map'>
+      <cards>
+        <edge name='left'>
+          <strip size='100'>
+            <card type='pages' />
+            <card type='filters' />
+            <card type='marks' />
+          </strip>
+        </edge>
+        <edge name='top'>
+          <strip size='48'>
+            <card type='columns' />
+          </strip>
+          <strip size='48'>
+            <card type='rows' />
+          </strip>
+          <strip size='45'>
+            <card type='title' />
+          </strip>
+        </edge>
+        <edge name='right'>
+          <strip size='240'>
+            <card mode='compact' param='[Parameters].[Parameter 1]' type='parameter' />
+            <card pane-specification-id='0' param='[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[none:Calculation_1545297657845792769:qk]' type='color' />
+          </strip>
+        </edge>
+      </cards>
+      <viewpoint>
+        <highlight>
+          <color-one-way>
+            <field>[Parameters].[Parameter 1]</field>
+            <field>[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[clct:Geometry:nk]</field>
+            <field>[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[none:Calculation_1545297657845792769:qk]</field>
+            <field>[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[none:Calculation_1885882379394101249:qk]</field>
+            <field>[federated.0q2bmuk00a5nax10a3ivx1it6o6y].[none:hh_inc_30:qk]</field>
+          </color-one-way>
+        </highlight>
+        <default-map-tool-selection tool='1' />
+      </viewpoint>
+      <simple-id uuid='{B3DC9F4B-EFFD-4AF7-92DC-33347E2BEE7F}' />
+    </window>
+  </windows>
+  <thumbnails>
+    <thumbnail height='192' name='TAZ map' width='192'>
+      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
+    </thumbnail>
+  </thumbnails>
+</workbook>

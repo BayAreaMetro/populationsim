@@ -86,12 +86,35 @@ if __name__ == '__main__':
         print(maz_controls_df.head())
 
         # total households: combine actual tothh + gq_tot_pop
-        maz_controls_df["numhh_gq"] = maz_controls_df.num_hh + maz_controls_df.gq_num_hh
-        # GQ are 1-person households
-        maz_controls_df["hh_size_1_gq"] = maz_controls_df.hh_size_1 + maz_controls_df.gq_num_hh
+        maz_controls_df["numhh_gq"] = maz_controls_df.num_hh + maz_controls_df.gq_pop
+        
+        # Note: hh_size_1 is not in MAZ controls, it's in TAZ controls
+        # So we don't add hh_size_1_gq here - it will be handled at TAZ level
 
         # note that hh_wrks and hh_inc categories specify households.TYPE==1 so no need to modify those
 
         maz_controls_output = pathlib.Path("hh_gq/data/maz_marginals_hhgq.csv")
         maz_controls_df.to_csv(maz_controls_output, index=False)
         print("Wrote {}".format(maz_controls_output))
+
+        # Also process TAZ controls for household size adjustments
+        taz_controls_file = pathlib.Path("hh_gq/data/taz_marginals.csv")
+        taz_controls_df   = pandas.read_csv(taz_controls_file)
+        print("Read {} TAZ controls from {}".format(len(taz_controls_df), taz_controls_file))
+        
+        # Need to add GQ population to 1-person households at TAZ level
+        # Sum GQ population by TAZ from MAZ level
+        maz_gq_by_taz = maz_controls_df.groupby('TAZ')['gq_pop'].sum().reset_index() if 'TAZ' in maz_controls_df.columns else None
+        
+        if maz_gq_by_taz is not None:
+            taz_controls_df = taz_controls_df.merge(maz_gq_by_taz, on='TAZ', how='left')
+            taz_controls_df['gq_pop'] = taz_controls_df['gq_pop'].fillna(0)
+            taz_controls_df["hh_size_1_gq"] = taz_controls_df.hh_size_1 + taz_controls_df.gq_pop
+            taz_controls_df.drop('gq_pop', axis=1, inplace=True)
+        else:
+            # If no TAZ column in MAZ data, assume no GQ adjustment needed
+            taz_controls_df["hh_size_1_gq"] = taz_controls_df.hh_size_1
+
+        taz_controls_output = pathlib.Path("hh_gq/data/taz_marginals_hhgq.csv")
+        taz_controls_df.to_csv(taz_controls_output, index=False)
+        print("Wrote {}".format(taz_controls_output))
