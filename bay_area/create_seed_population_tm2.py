@@ -92,16 +92,101 @@ def process_pums_for_populationsim(h_output, p_output):
     
         # Create PopulationSim-compatible group quarters type
     # Based on TYPEHUGQ: 1=household, 2=institutional GQ, 3=noninstitutional GQ  
-    # PopulationSim expects this as 'hhgqtype': 1=household, 2=GQ
-    h_df['hhgqtype'] = 1  # Default to household
-    h_df.loc[h_df['TYPEHUGQ'] == 2, 'hhgqtype'] = 2  # Institutional GQ -> 2
-    h_df.loc[h_df['TYPEHUGQ'] == 3, 'hhgqtype'] = 2  # Noninstitutional GQ -> 2
+    # PopulationSim controls.csv expects: 0=household, 1=university GQ, 2=military GQ, 3=other GQ
+    h_df['hhgqtype'] = 0  # Default to household (TYPEHUGQ=1)
+    h_df.loc[h_df['TYPEHUGQ'] == 3, 'hhgqtype'] = 1  # Noninstitutional GQ (university) -> 1
+    
+    # Split institutional GQ (TYPEHUGQ=2) into military vs other
+    # Based on control targets: military=1,684, other=122,467 (ratio ~1:73 or ~1.4% military)
+    institutional_gq_mask = h_df['TYPEHUGQ'] == 2
+    institutional_gq_count = institutional_gq_mask.sum()
+    
+    if institutional_gq_count > 0:
+        # Calculate split ratio based on control targets
+        military_target = 1684  # From controls
+        other_target = 122467   # From controls 
+        military_ratio = military_target / (military_target + other_target)  # ~1.4%
+        
+        # Randomly assign institutional GQ to military vs other based on target ratio
+        np.random.seed(42)  # For reproducibility
+        institutional_indices = h_df[institutional_gq_mask].index
+        n_military = int(len(institutional_indices) * military_ratio)
+        military_indices = np.random.choice(institutional_indices, n_military, replace=False)
+        
+        # Assign hhgqtype
+        h_df.loc[institutional_gq_mask, 'hhgqtype'] = 3  # Default institutional GQ to "other"
+        h_df.loc[military_indices, 'hhgqtype'] = 2       # Small fraction to military
+        
+        print(f"   Split {institutional_gq_count:,} institutional GQ records:")
+        print(f"     Military (hhgqtype=2): {n_military:,} ({n_military/institutional_gq_count*100:.1f}%)")
+        print(f"     Other (hhgqtype=3): {institutional_gq_count-n_military:,} ({(institutional_gq_count-n_military)/institutional_gq_count*100:.1f}%)")
     
     # Handle NaN values in key household fields that PopulationSim uses
-    key_household_fields = ['WGTP', 'NP', 'HUPAC', 'TYPEHUGQ']
+    key_household_fields = ['WGTP', 'NP', 'TYPEHUGQ']
     for field in key_household_fields:
         if field in h_df.columns:
             h_df[field] = h_df[field].fillna(0)
+    
+    # Special handling for HUPAC (Household Under Poverty Level)
+    # HUPAC values: 1=below poverty, 2=at/above poverty, 3=not determined, 4=GQ not applicable
+    if 'HUPAC' in h_df.columns:
+        hupac_nan_count = h_df['HUPAC'].isna().sum()
+        if hupac_nan_count > 0:
+            print(f"      Fixing {hupac_nan_count} NaN values in HUPAC...")
+            # For group quarters (hhgqtype=1,2,3), set HUPAC=4 (not applicable)
+            gq_mask = (h_df['HUPAC'].isna()) & (h_df['hhgqtype'].isin([1, 2, 3]))
+            h_df.loc[gq_mask, 'HUPAC'] = 4
+            # For households (hhgqtype=0), set HUPAC=2 (assume at/above poverty as conservative default)
+            hh_mask = (h_df['HUPAC'].isna()) & (h_df['hhgqtype'] == 0)
+            h_df.loc[hh_mask, 'HUPAC'] = 2
+            # Fix any remaining NaN values
+            h_df['HUPAC'] = h_df['HUPAC'].fillna(2)
+    
+    # Handle NaN values in ALL numeric columns to prevent PopulationSim conversion errors
+    print(f"   Cleaning all numeric columns in household data...")
+    nan_summary = []
+    for col in h_df.columns:
+        if col == 'HUPAC':
+            continue  # Skip HUPAC - handled specifically above
+        if h_df[col].dtype in ['float64', 'float32', 'int64', 'int32']:
+            nan_count = h_df[col].isna().sum()
+            inf_count = np.isinf(h_df[col]).sum()
+            if nan_count > 0 or inf_count > 0:
+                nan_summary.append(f"{col}: {nan_count} NaN, {inf_count} inf")
+            h_df[col] = h_df[col].fillna(0)
+            h_df[col] = h_df[col].replace([np.inf, -np.inf], 0)
+    
+    if nan_summary:
+        print(f"      Cleaned household fields: {nan_summary}")
+    else:
+        print(f"      No NaN/inf values found in household numeric fields")
+    
+    # Convert critical PopulationSim fields to proper integer types to prevent IntCastingNaNError
+    print(f"   Converting critical fields to integer types for PopulationSim compatibility...")
+    integer_fields = ['HUPAC', 'NP', 'hhgqtype', 'hh_workers_from_esr', 'WGTP', 'TYPEHUGQ', 'PUMA', 'COUNTY']
+    for field in integer_fields:
+        if field in h_df.columns:
+            try:
+                # Ensure no NaN/inf values before conversion
+                h_df[field] = h_df[field].fillna(0)
+                h_df[field] = h_df[field].replace([np.inf, -np.inf], 0)
+                # Convert to integer
+                h_df[field] = h_df[field].astype(int)
+                print(f"      Converted {field} to int64")
+            except Exception as e:
+                print(f"      WARNING: Could not convert {field} to integer: {e}")
+    
+    # Also ensure income fields are integers
+    income_fields = ['hh_income_2010', 'hh_income_2023']
+    for field in income_fields:
+        if field in h_df.columns:
+            try:
+                h_df[field] = h_df[field].fillna(0)
+                h_df[field] = h_df[field].replace([np.inf, -np.inf], 0)
+                h_df[field] = h_df[field].round().astype(int)
+                print(f"      Converted {field} to int64")
+            except Exception as e:
+                print(f"      WARNING: Could not convert {field} to integer: {e}")
     
     print(f"      Household processing completed - {len(h_df):,} records")
     
@@ -165,6 +250,38 @@ def process_pums_for_populationsim(h_output, p_output):
     for field in key_person_fields:
         if field in p_df.columns:
             p_df[field] = p_df[field].fillna(0)
+    
+    # Handle NaN values in ALL numeric columns to prevent PopulationSim conversion errors
+    print(f"   Cleaning all numeric columns in person data...")
+    nan_summary = []
+    for col in p_df.columns:
+        if p_df[col].dtype in ['float64', 'float32', 'int64', 'int32']:
+            nan_count = p_df[col].isna().sum()
+            inf_count = np.isinf(p_df[col]).sum()
+            if nan_count > 0 or inf_count > 0:
+                nan_summary.append(f"{col}: {nan_count} NaN, {inf_count} inf")
+            p_df[col] = p_df[col].fillna(0)
+            p_df[col] = p_df[col].replace([np.inf, -np.inf], 0)
+    
+    if nan_summary:
+        print(f"      Cleaned person fields: {nan_summary}")
+    else:
+        print(f"      No NaN/inf values found in person numeric fields")
+    
+    # Convert critical PopulationSim person fields to proper integer types to prevent IntCastingNaNError
+    print(f"   Converting critical person fields to integer types for PopulationSim compatibility...")
+    person_integer_fields = ['AGEP', 'hhgqtype', 'employed', 'employ_status', 'student_status', 'person_type', 'occupation', 'ESR', 'PWGTP', 'PUMA', 'COUNTY']
+    for field in person_integer_fields:
+        if field in p_df.columns:
+            try:
+                # Ensure no NaN/inf values before conversion
+                p_df[field] = p_df[field].fillna(0)
+                p_df[field] = p_df[field].replace([np.inf, -np.inf], 0)
+                # Convert to integer
+                p_df[field] = p_df[field].astype(int)
+                print(f"      Converted {field} to int64")
+            except Exception as e:
+                print(f"      WARNING: Could not convert {field} to integer: {e}")
     
     print(f"      Person processing completed - {len(p_df):,} records")
     
@@ -589,10 +706,35 @@ if __name__ == "__main__":
         p_final = output_dir / "persons_2023_tm2.csv"
         
         print(f"\n>> Writing PopulationSim-compatible files...")
+        
+        # Final validation before writing
+        print(f"   FINAL DATA VALIDATION:")
+        print(f"   Household data:")
+        print(f"      Shape: {h_processed.shape}")
+        print(f"      Data types: {h_processed.dtypes.value_counts().to_dict()}")
+        h_nan_count = h_processed.isna().sum().sum()
+        h_inf_count = np.isinf(h_processed.select_dtypes(include=[np.number])).sum().sum()
+        print(f"      Total NaN values: {h_nan_count}")
+        print(f"      Total Inf values: {h_inf_count}")
+        if h_nan_count > 0:
+            nan_cols = [col for col in h_processed.columns if h_processed[col].isna().sum() > 0]
+            print(f"      Columns with NaN: {nan_cols[:5]}...")  # Show first 5
+        
         h_processed.to_csv(h_final, index=False)
         print(f"   Household file written: {h_final}")
         print(f"   Records: {len(h_processed):,}")
         print(f"   Columns: {list(h_processed.columns)}")
+        
+        print(f"   Person data:")
+        print(f"      Shape: {p_processed.shape}")
+        print(f"      Data types: {p_processed.dtypes.value_counts().to_dict()}")
+        p_nan_count = p_processed.isna().sum().sum()
+        p_inf_count = np.isinf(p_processed.select_dtypes(include=[np.number])).sum().sum()
+        print(f"      Total NaN values: {p_nan_count}")
+        print(f"      Total Inf values: {p_inf_count}")
+        if p_nan_count > 0:
+            nan_cols = [col for col in p_processed.columns if p_processed[col].isna().sum() > 0]
+            print(f"      Columns with NaN: {nan_cols[:5]}...")  # Show first 5
         
         p_processed.to_csv(p_final, index=False)
         print(f"   Person file written: {p_final}")

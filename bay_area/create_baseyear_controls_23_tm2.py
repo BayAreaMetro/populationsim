@@ -1049,140 +1049,291 @@ def validate_maz_controls(maz_marginals_file, county_targets, logger):
     return validation_passed
 
 
-def validate_taz_household_consistency(taz_marginals_file, logger):
+def harmonize_taz_household_controls(taz_marginals_file, logger, target_geography='TAZ', priority_order=None):
     """
-    Validate that TAZ household controls are consistent across categories.
+    Harmonize household controls to ensure consistent totals across categories.
+    Uses the highest priority available category as the "gold standard" and proportionally adjusts others.
     
-    For each TAZ, the sum of worker controls should equal the sum of income controls
+    Args:
+        taz_marginals_file: Path to marginals CSV file
+        logger: Logger instance for output
+        target_geography: Geography level to get control categories for (default: 'TAZ')
+        priority_order: List of category names in priority order (default: uses configuration-based priority)
+        
+    Returns:
+        bool: True if harmonization successful, False otherwise
+    """
+    if not os.path.exists(taz_marginals_file):
+        logger.error(f"Marginals file not found: {taz_marginals_file}")
+        return False
+        
+    try:
+        df = pd.read_csv(taz_marginals_file)
+        logger.info(f"Harmonizing {target_geography} controls for {len(df)} zones")
+        
+        # Get all household control categories from configuration
+        all_categories = get_control_categories_for_geography(target_geography)
+        
+        # Filter to only household-related categories (categories that should sum to the same total)
+        # Exclude 'household_counts' which contains base counts, not categorical breakdowns
+        household_categories = {name: controls for name, controls in all_categories.items() 
+                              if 'household' in name.lower() and 'count' not in name.lower()}
+        
+        if not household_categories:
+            logger.warning(f"No household control categories found for {target_geography}")
+            return True
+            
+        logger.info(f"Configuration-defined household control categories:")
+        for category_name, controls in household_categories.items():
+            logger.info(f"  {category_name}: {controls}")
+        
+        # Check which controls are available in the data
+        available_categories = {}
+        for category_name, controls in household_categories.items():
+            available_controls = [col for col in controls if col in df.columns]
+            if available_controls:
+                available_categories[category_name] = available_controls
+                logger.info(f"  Available {category_name}: {available_controls}")
+        
+        if not available_categories:
+            logger.warning("No household control categories available in data")
+            return True
+        
+        # Determine target category based on priority order or dynamically
+        if priority_order is None:
+            # Use all available categories in alphabetical order as default
+            # This ensures consistent behavior without hardcoded category names
+            priority_order = sorted(available_categories.keys())
+            
+        # Use the first available category in priority order as the target
+        target_category = None
+        target_controls = None
+        for category in priority_order:
+            if category in available_categories:
+                target_category = category
+                target_controls = available_categories[category]
+                break
+        
+        if target_category is None:
+            # Fall back to first available category
+            target_category = list(available_categories.keys())[0]
+            target_controls = available_categories[target_category]
+        
+        logger.info(f"Using {target_category} as target category with controls: {target_controls}")
+        
+        # Calculate target totals from the selected category
+        df['target_total'] = df[target_controls].sum(axis=1)
+        total_target = df['target_total'].sum()
+        logger.info(f"Target total households from {target_category}: {total_target:,.0f}")
+        
+        def harmonize_category(category_controls, category_name):
+            """Proportionally adjust controls to match target total"""
+            if not category_controls or category_name == target_category:
+                return 0
+                
+            current_total = df[category_controls].sum(axis=1)
+            target_total = df['target_total']
+            
+            # Only adjust where both current and target totals > 0 and differ by more than 1
+            adjust_mask = (current_total > 0) & (target_total > 0) & (abs(current_total - target_total) > 1)
+            
+            if adjust_mask.sum() > 0:
+                # Calculate scaling factors, avoiding division by zero
+                scaling_factor = target_total / current_total.replace(0, 1)  # Replace 0 with 1 to avoid division by zero
+                
+                # Apply scaling only to rows that need adjustment
+                for col in category_controls:
+                    df.loc[adjust_mask, col] = (df.loc[adjust_mask, col] * scaling_factor.loc[adjust_mask]).round().astype(int)
+                
+                logger.info(f"  Harmonized {category_name} controls for {adjust_mask.sum()} zones")
+                return adjust_mask.sum()
+            return 0
+        
+        # Harmonize all other categories to match the target category
+        total_adjusted = 0
+        adjustment_summary = {}
+        
+        for category_name, category_controls in available_categories.items():
+            if category_name != target_category:
+                adjusted_count = harmonize_category(category_controls, category_name)
+                adjustment_summary[category_name] = adjusted_count
+                total_adjusted += adjusted_count
+        
+        # Ensure all control columns are integers
+        all_control_cols = []
+        for controls in available_categories.values():
+            all_control_cols.extend(controls)
+        
+        for col in all_control_cols:
+            if col in df.columns:
+                df[col] = df[col].round().astype(int)
+        
+        # Drop temporary column
+        df = df.drop('target_total', axis=1)
+        
+        # Save harmonized file
+        df.to_csv(taz_marginals_file, index=False)
+        
+        # Log results
+        logger.info(f"SUCCESS: Harmonized {target_geography} household controls")
+        logger.info(f"  Target category: {target_category} (unchanged)")
+        for category_name, adjusted_count in adjustment_summary.items():
+            logger.info(f"  {category_name}: adjusted {adjusted_count} zones")
+        
+        if total_adjusted == 0:
+            logger.info("  No adjustments needed - all categories already consistent")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error harmonizing {target_geography} controls: {e}")
+        logger.error(f"Harmonization error traceback: {traceback.format_exc()}")
+        return False
+
+
+def validate_taz_household_consistency(marginals_file, logger, target_geography='TAZ', tolerance_pct=1.0):
+    """
+    Validate that household controls are consistent across categories for a given geography.
+    
+    For each zone, the sum of worker controls should equal the sum of income controls
     which should equal the sum of household size controls, since they all represent
     the same total number of households categorized differently.
     
     Args:
-        taz_marginals_file: Path to TAZ marginals CSV file
+        marginals_file: Path to marginals CSV file
         logger: Logger instance
+        target_geography: Geography level to validate ('TAZ', 'MAZ', etc.)
+        tolerance_pct: Tolerance percentage for differences (default 1.0%)
         
     Returns:
         bool: True if validation passes, False otherwise
     """
     logger.info("=" * 60)
-    logger.info("VALIDATING TAZ HOUSEHOLD CONTROL CONSISTENCY")
+    logger.info(f"VALIDATING {target_geography} HOUSEHOLD CONTROL CONSISTENCY")
     logger.info("=" * 60)
     
-    if not os.path.exists(taz_marginals_file):
-        logger.error(f"TAZ marginals file not found: {taz_marginals_file}")
+    if not os.path.exists(marginals_file):
+        logger.error(f"{target_geography} marginals file not found: {marginals_file}")
         return False
         
     try:
-        taz_df = pd.read_csv(taz_marginals_file)
-        logger.info(f"Loaded TAZ marginals file with {len(taz_df)} TAZ zones")
+        df = pd.read_csv(marginals_file)
+        logger.info(f"Loaded {target_geography} marginals file with {len(df)} {target_geography} zones")
         
-        # Define household control categories
-        worker_controls = ['hh_wrks_0', 'hh_wrks_1', 'hh_wrks_2', 'hh_wrks_3_plus']
-        income_controls = ['hh_inc_30', 'hh_inc_30_60', 'hh_inc_60_100', 'hh_inc_100_plus']  
-        size_controls = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus']
+        # Get household control categories from configuration dynamically
+        all_categories = get_control_categories_for_geography(target_geography)
         
-        # Check which controls are available
-        available_worker = [col for col in worker_controls if col in taz_df.columns]
-        available_income = [col for col in income_controls if col in taz_df.columns]
-        available_size = [col for col in size_controls if col in taz_df.columns]
+        # Filter to only household-related categories (categories that should sum to the same total)
+        # Exclude 'household_counts' which contains base counts, not categorical breakdowns
+        household_categories = {name: controls for name, controls in all_categories.items() 
+                              if 'household' in name.lower() and 'count' not in name.lower()}
         
-        logger.info(f"Available worker controls: {available_worker}")
-        logger.info(f"Available income controls: {available_income}")
-        logger.info(f"Available size controls: {available_size}")
+        # Extract available categories and their controls
+        available_categories = {}
+        for category_name, controls in household_categories.items():
+            available_controls = [col for col in controls if col in df.columns]
+            if available_controls:
+                available_categories[category_name] = available_controls
+        
+        logger.info(f"Available household control categories:")
+        for category_name, controls in available_categories.items():
+            logger.info(f"  {category_name}: {controls}")
+        
+        if len(available_categories) < 2:
+            logger.info("Less than 2 household categories available - validation not applicable")
+            return True
         
         validation_passed = True
-        tolerance = 0.01  # 1% tolerance for rounding differences
+        tolerance = tolerance_pct / 100.0  # Convert percentage to decimal
         
-        # Calculate totals for each category
-        if available_worker:
-            taz_df['worker_total'] = taz_df[available_worker].sum(axis=1)
-            worker_total = taz_df['worker_total'].sum()
-            logger.info(f"Total households by workers: {worker_total:,.0f}")
+        # Calculate totals for each available category
+        category_totals = {}
+        for category_name, controls in available_categories.items():
+            total_col_name = f"{category_name}_total"
+            df[total_col_name] = df[controls].sum(axis=1)
+            category_total = df[total_col_name].sum()
+            category_totals[category_name] = category_total
+            logger.info(f"Total households by {category_name}: {category_total:,.0f}")
         
-        if available_income:
-            taz_df['income_total'] = taz_df[available_income].sum(axis=1)
-            income_total = taz_df['income_total'].sum()
-            logger.info(f"Total households by income: {income_total:,.0f}")
-            
-        if available_size:
-            taz_df['size_total'] = taz_df[available_size].sum(axis=1)
-            size_total = taz_df['size_total'].sum()
-            logger.info(f"Total households by size: {size_total:,.0f}")
-        
-        # Compare totals between categories
+        # Compare totals between all pairs of categories
         logger.info("\nCOMPARING HOUSEHOLD TOTALS ACROSS CATEGORIES:")
         logger.info("-" * 50)
         
-        if available_worker and available_income:
-            diff = abs(worker_total - income_total)
-            pct_diff = (diff / worker_total) * 100 if worker_total > 0 else 0
-            status = "PASS" if pct_diff <= tolerance else "FAIL"
-            logger.info(f"Workers vs Income  | {worker_total:>10,.0f} vs {income_total:>10,.0f} | Diff: {diff:>8,.0f} | {pct_diff:>5.2f}% | {status}")
-            if pct_diff > tolerance:
-                validation_passed = False
-        
-        if available_worker and available_size:
-            diff = abs(worker_total - size_total)
-            pct_diff = (diff / worker_total) * 100 if worker_total > 0 else 0
-            status = "PASS" if pct_diff <= tolerance else "FAIL"
-            logger.info(f"Workers vs Size    | {worker_total:>10,.0f} vs {size_total:>10,.0f} | Diff: {diff:>8,.0f} | {pct_diff:>5.2f}% | {status}")
-            if pct_diff > tolerance:
-                validation_passed = False
+        category_names = list(available_categories.keys())
+        for i in range(len(category_names)):
+            for j in range(i + 1, len(category_names)):
+                cat1, cat2 = category_names[i], category_names[j]
+                total1, total2 = category_totals[cat1], category_totals[cat2]
                 
-        if available_income and available_size:
-            diff = abs(income_total - size_total)
-            pct_diff = (diff / income_total) * 100 if income_total > 0 else 0
-            status = "PASS" if pct_diff <= tolerance else "FAIL"
-            logger.info(f"Income vs Size     | {income_total:>10,.0f} vs {size_total:>10,.0f} | Diff: {diff:>8,.0f} | {pct_diff:>5.2f}% | {status}")
-            if pct_diff > tolerance:
-                validation_passed = False
+                diff = abs(total1 - total2)
+                pct_diff = (diff / total1) * 100 if total1 > 0 else 0
+                status = "PASS" if pct_diff <= tolerance_pct else "FAIL"
+                logger.info(f"{cat1:15} vs {cat2:15} | {total1:>10,.0f} vs {total2:>10,.0f} | Diff: {diff:>8,.0f} | {pct_diff:>5.2f}% | {status}")
+                if pct_diff > tolerance_pct:
+                    validation_passed = False
         
-        # Check for TAZs with significant inconsistencies
-        logger.info("\nCHECKING TAZ-LEVEL CONSISTENCY:")
+        # Check for zones with significant inconsistencies
+        logger.info(f"\nCHECKING {target_geography}-LEVEL CONSISTENCY:")
         logger.info("-" * 50)
         
-        inconsistent_tazs = []
-        max_taz_diff = 0
+        max_zone_diff = 0
         
-        if available_worker and available_income and available_size:
-            # Calculate differences at TAZ level
-            taz_df['worker_income_diff'] = abs(taz_df['worker_total'] - taz_df['income_total'])
-            taz_df['worker_size_diff'] = abs(taz_df['worker_total'] - taz_df['size_total'])
-            taz_df['income_size_diff'] = abs(taz_df['income_total'] - taz_df['size_total'])
+        # Get the geography column name (assumes it exists and matches target_geography)
+        geo_col = target_geography
+        
+        if len(available_categories) >= 2:
+            # Calculate differences between all pairs of categories at zone level
+            total_cols = [f"{cat}_total" for cat in available_categories.keys()]
             
-            # Find TAZs with any difference > 1% of their total households
-            taz_df['max_diff'] = taz_df[['worker_income_diff', 'worker_size_diff', 'income_size_diff']].max(axis=1)
-            taz_df['pct_diff'] = (taz_df['max_diff'] / taz_df['worker_total']) * 100
+            # Calculate pairwise differences for each zone
+            diff_cols = []
+            category_pairs = []
+            for i, cat1 in enumerate(available_categories.keys()):
+                for j, cat2 in enumerate(list(available_categories.keys())[i+1:], i+1):
+                    diff_col = f"{cat1}_{cat2}_diff"
+                    df[diff_col] = abs(df[f"{cat1}_total"] - df[f"{cat2}_total"])
+                    diff_cols.append(diff_col)
+                    category_pairs.append((cat1, cat2))
             
-            problematic_tazs = taz_df[taz_df['pct_diff'] > tolerance * 100]
-            
-            if len(problematic_tazs) > 0:
-                logger.warning(f"Found {len(problematic_tazs)} TAZs with inconsistent household totals (>{tolerance*100}% difference)")
+            if diff_cols:
+                # Find maximum difference across all category pairs for each zone
+                df['max_diff'] = df[diff_cols].max(axis=1)
                 
-                # Show worst 5 TAZs
-                worst_tazs = problematic_tazs.nlargest(5, 'pct_diff')
-                for _, row in worst_tazs.iterrows():
-                    logger.warning(f"  TAZ {row['TAZ']}: Workers={row['worker_total']:.0f}, Income={row['income_total']:.0f}, Size={row['size_total']:.0f} (max diff: {row['pct_diff']:.1f}%)")
+                # Calculate percentage difference relative to the first category total
+                first_total_col = total_cols[0]
+                df['pct_diff'] = (df['max_diff'] / df[first_total_col]) * 100
                 
-                max_taz_diff = problematic_tazs['pct_diff'].max()
-                if max_taz_diff > tolerance * 100:
-                    validation_passed = False
-            else:
-                logger.info("All TAZs have consistent household totals across categories")
+                problematic_zones = df[df['pct_diff'] > tolerance_pct]
+                
+                if len(problematic_zones) > 0:
+                    logger.warning(f"Found {len(problematic_zones)} {target_geography}s with inconsistent household totals (>{tolerance_pct}% difference)")
+                    
+                    # Show worst 5 zones
+                    worst_zones = problematic_zones.nlargest(5, 'pct_diff')
+                    for _, row in worst_zones.iterrows():
+                        # Show totals for each category
+                        totals_str = ", ".join([f"{cat}={row[f'{cat}_total']:.0f}" for cat in available_categories.keys()])
+                        logger.warning(f"  {target_geography} {row[geo_col]}: {totals_str} (max diff: {row['pct_diff']:.1f}%)")
+                    
+                    max_zone_diff = problematic_zones['pct_diff'].max()
+                    if max_zone_diff > tolerance_pct:
+                        validation_passed = False
+                else:
+                    logger.info(f"All {target_geography}s have consistent household totals across categories")
         
         # Summary
         logger.info("\n" + "=" * 60)
         if validation_passed:
-            logger.info("SUCCESS: TAZ household controls are consistent across categories")
+            logger.info(f"SUCCESS: {target_geography} household controls are consistent across categories")
         else:
-            logger.error("FAILED: TAZ household controls have significant inconsistencies")
-            logger.error(f"Maximum TAZ-level difference: {max_taz_diff:.2f}%")
+            logger.error(f"FAILED: {target_geography} household controls have significant inconsistencies")
+            logger.error(f"Maximum {target_geography}-level difference: {max_zone_diff:.2f}%")
         logger.info("=" * 60)
         
         return validation_passed
         
     except Exception as e:
-        logger.error(f"Error validating TAZ household consistency: {e}")
+        logger.error(f"Error validating {target_geography} household consistency: {e}")
         logger.error(f"Validation error traceback: {traceback.format_exc()}")
         return False
 
@@ -1412,6 +1563,155 @@ def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
     
     return summary_df
 
+def create_maz_data_files(logger):
+    """
+    Create maz_data.csv and maz_data_withDensity.csv files by combining:
+    a) Employment data from example_controls_2015/maz_data.csv (unchanged)
+    b) Updated HH and POP fields from output_2023/maz_marginals.csv
+    
+    Args:
+        logger: Logger instance for status messages
+    """
+    logger.info("Creating MAZ data files with updated HH/POP data")
+    
+    # Define file paths using config
+    example_maz_data_file = EXAMPLE_MAZ_DATA_FILE
+    example_maz_density_file = EXAMPLE_MAZ_DENSITY_FILE
+    maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
+    
+    # Output paths using config
+    output_maz_data_file = os.path.join(PRIMARY_OUTPUT_DIR, OUTPUT_MAZ_DATA_FILE)
+    output_maz_density_file = os.path.join(PRIMARY_OUTPUT_DIR, OUTPUT_MAZ_DENSITY_FILE)
+    
+    try:
+        # Read the example 2015 maz_data files (employment data to keep unchanged)
+        if not os.path.exists(example_maz_data_file):
+            logger.error(f"Missing example MAZ data file: {example_maz_data_file}")
+            return
+            
+        example_maz_data = pd.read_csv(example_maz_data_file)
+        logger.info(f"Read example MAZ data: {len(example_maz_data)} zones")
+        
+        if not os.path.exists(example_maz_density_file):
+            logger.error(f"Missing example MAZ density file: {example_maz_density_file}")
+            return
+            
+        example_maz_density = pd.read_csv(example_maz_density_file)
+        logger.info(f"Read example MAZ density data: {len(example_maz_density)} zones")
+        
+        # Read the updated 2023 marginals (HH and population data)
+        if not os.path.exists(maz_marginals_file):
+            logger.error(f"Missing updated MAZ marginals file: {maz_marginals_file}")
+            return
+            
+        maz_marginals_2023 = pd.read_csv(maz_marginals_file)
+        logger.info(f"Read 2023 MAZ marginals: {len(maz_marginals_2023)} zones")
+        
+        # Calculate total population from marginals (HH population + GQ population)
+        maz_marginals_2023['total_pop'] = maz_marginals_2023['num_hh'] * 2.5  # Rough estimate for HH population
+        maz_marginals_2023['total_pop'] += maz_marginals_2023['gq_pop']  # Add GQ population
+        
+        # For more accurate household population, we could use average HH size
+        # For now, using simple 2.5 person/HH estimate
+        
+        # Round to integers
+        maz_marginals_2023['num_hh'] = maz_marginals_2023['num_hh'].round().astype(int)
+        maz_marginals_2023['total_pop'] = maz_marginals_2023['total_pop'].round().astype(int)
+        
+        # Prepare the MAZ ID column for merging
+        # Convert MAZ column to integer to match the format in marginals
+        if 'MAZ_ORIGINAL' in example_maz_data.columns:
+            maz_id_col = 'MAZ_ORIGINAL'
+        elif 'MAZ' in example_maz_data.columns:
+            maz_id_col = 'MAZ'
+        else:
+            logger.error("Cannot find MAZ ID column in example data")
+            return
+            
+        # Merge the data - update HH and POP fields while keeping employment unchanged
+        logger.info("Merging employment data with updated HH/POP data")
+        
+        # For maz_data.csv
+        updated_maz_data = example_maz_data.copy()
+        
+        # Merge with marginals on MAZ ID
+        merged_data = updated_maz_data.merge(
+            maz_marginals_2023[['MAZ', 'num_hh', 'total_pop']],
+            left_on=maz_id_col,
+            right_on='MAZ',
+            how='left'
+        )
+        
+        # Update HH and POP columns
+        if 'HH' in merged_data.columns:
+            merged_data['HH'] = merged_data['num_hh'].fillna(merged_data['HH'])
+        
+        if 'POP' in merged_data.columns:
+            merged_data['POP'] = merged_data['total_pop'].fillna(merged_data['POP'])
+            
+        # Clean up merge columns
+        merged_data = merged_data.drop(columns=['MAZ', 'num_hh', 'total_pop'], errors='ignore')
+        
+        # Write updated maz_data.csv
+        merged_data.to_csv(output_maz_data_file, index=False)
+        logger.info(f"Created {output_maz_data_file}")
+        
+        # For maz_data_withDensity.csv - do the same process
+        updated_maz_density = example_maz_density.copy()
+        
+        # Determine MAZ ID column for density file
+        if 'MAZ_ORIGINAL' in example_maz_density.columns:
+            maz_id_col_density = 'MAZ_ORIGINAL'
+        elif 'MAZ' in example_maz_density.columns:
+            maz_id_col_density = 'MAZ'
+        else:
+            logger.error("Cannot find MAZ ID column in density data")
+            return
+            
+        # Merge with marginals on MAZ ID  
+        merged_density = updated_maz_density.merge(
+            maz_marginals_2023[['MAZ', 'num_hh', 'total_pop']],
+            left_on=maz_id_col_density,
+            right_on='MAZ',
+            how='left'
+        )
+        
+        # Update HH and POP columns
+        if 'HH' in merged_density.columns:
+            merged_density['HH'] = merged_density['num_hh'].fillna(merged_density['HH'])
+        
+        if 'POP' in merged_density.columns:
+            merged_density['POP'] = merged_density['total_pop'].fillna(merged_density['POP'])
+            
+        # Clean up merge columns
+        merged_density = merged_density.drop(columns=['MAZ', 'num_hh', 'total_pop'], errors='ignore')
+        
+        # Write updated maz_data_withDensity.csv
+        merged_density.to_csv(output_maz_density_file, index=False)
+        logger.info(f"Created {output_maz_density_file}")
+        
+        # Log summary statistics
+        logger.info("MAZ Data File Creation Summary:")
+        logger.info(f"  Total zones processed: {len(merged_data)}")
+        logger.info(f"  Total households: {merged_data['HH'].sum():,}")
+        logger.info(f"  Total population: {merged_data['POP'].sum():,}")
+        logger.info(f"  Average HH size: {merged_data['POP'].sum() / merged_data['HH'].sum():.2f}")
+        
+        # Validate that employment columns are unchanged
+        employment_cols = [col for col in example_maz_data.columns 
+                          if col.startswith(('ag', 'art_rec', 'constr', 'eat', 'ed_', 'fire', 'gov', 
+                                           'health', 'hotel', 'info', 'lease', 'logis', 'man_', 
+                                           'natres', 'prof', 'ret_', 'serv_', 'transp', 'util', 'emp_total'))]
+        
+        if employment_cols:
+            orig_emp_total = example_maz_data[employment_cols[0]].sum() if employment_cols else 0
+            new_emp_total = merged_data[employment_cols[0]].sum() if employment_cols else 0
+            logger.info(f"  Employment validation (sample): {orig_emp_total} -> {new_emp_total} (should be unchanged)")
+        
+    except Exception as e:
+        logger.error(f"Error creating MAZ data files: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
 def log_control_statistics(control_geo, out_df, logger):
     """Log detailed statistics for control columns including sums and distributions."""
     logger.info(f"=" * 80)
@@ -1571,6 +1871,19 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         logger.info(f"  Military: {military_gq:,.0f} ({military_gq/total_gq*100:.1f}%)")
         logger.info(f"  University: {university_gq:,.0f} ({university_gq/total_gq*100:.1f}%)")
         logger.info(f"  Other: {other_gq:,.0f} ({other_gq/total_gq*100:.1f}%)")
+        
+        # Validate and fix GQ component consistency
+        logger.info("Validating GQ component consistency...")
+        gq_total_check = out_df['gq_military'] + out_df['gq_university'] + out_df['gq_other']
+        gq_mismatch = abs(out_df['gq_pop'] - gq_total_check) > 0.1
+        
+        if gq_mismatch.sum() > 0:
+            logger.warning(f"Found {gq_mismatch.sum()} MAZs where GQ components don't sum to total - fixing...")
+            # Adjust gq_pop to match the sum of components
+            out_df.loc[gq_mismatch, 'gq_pop'] = gq_total_check.loc[gq_mismatch]
+            logger.info(f"Fixed GQ component consistency for {gq_mismatch.sum()} MAZs")
+        else:
+            logger.info("All MAZ GQ components are consistent with totals")
 
     logger.info(f"Processing {control_geo} controls with {len(out_df)} rows and {len(out_df.columns)} columns")
     logger.info(f"Control columns: {control_cols}")
@@ -1677,7 +1990,153 @@ def normalize_household_size_controls(control_table_df, control_name, temp_contr
     
     return normalized_df
 
-# ... existing code ...
+
+def create_hhgq_integrated_files(logger):
+    """
+    Create HHGQ-integrated control files that combine households and group quarters
+    as single-person households for PopulationSim processing.
+    
+    This integrates the functionality from add_hhgq_combined_controls.py directly
+    into the main pipeline.
+    """
+    logger.info("=" * 60)
+    logger.info("CREATING HHGQ-INTEGRATED CONTROL FILES")
+    logger.info("=" * 60)
+    
+    from tm2_control_utils.config import PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE, TAZ_MARGINALS_FILE, COUNTY_MARGINALS_FILE
+    import shutil
+    
+    try:
+        # Define input and output file paths
+        maz_input = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
+        taz_input = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
+        county_input = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_MARGINALS_FILE)
+        
+        # Output files will be in hh_gq/configs_TM2/ for PopulationSim
+        output_dir = os.path.join("hh_gq", "configs_TM2")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        maz_output = os.path.join(output_dir, "maz_marginals_hhgq.csv")
+        taz_output = os.path.join(output_dir, "taz_marginals_hhgq.csv") 
+        county_output = os.path.join(output_dir, "county_marginals.csv")
+        
+        # Process MAZ controls
+        if os.path.exists(maz_input):
+            logger.info(f"Processing MAZ controls: {maz_input}")
+            maz_df = pd.read_csv(maz_input)
+            logger.info(f"Read {len(maz_df)} MAZ controls")
+            
+            # Create numhh_gq = num_hh + gq_pop (treat group quarters as single-person households)
+            if 'num_hh' in maz_df.columns and 'gq_pop' in maz_df.columns:
+                maz_df["numhh_gq"] = maz_df.num_hh + maz_df.gq_pop
+                logger.info(f"Created numhh_gq column: num_hh ({maz_df.num_hh.sum():,.0f}) + gq_pop ({maz_df.gq_pop.sum():,.0f}) = {maz_df.numhh_gq.sum():,.0f}")
+            else:
+                logger.error(f"Missing required columns in MAZ data: num_hh={('num_hh' in maz_df.columns)}, gq_pop={('gq_pop' in maz_df.columns)}")
+                return False
+            
+            maz_df.to_csv(maz_output, index=False)
+            logger.info(f"Wrote MAZ HHGQ file: {maz_output}")
+        else:
+            logger.error(f"MAZ input file not found: {maz_input}")
+            return False
+            
+        # Process TAZ controls  
+        if os.path.exists(taz_input):
+            logger.info(f"Processing TAZ controls: {taz_input}")
+            taz_df = pd.read_csv(taz_input)
+            logger.info(f"Read {len(taz_df)} TAZ controls")
+            
+            # Need to adjust household size 1 category to include group quarters
+            # Get the single-person household control name from configuration
+            size_controls = get_controls_in_category('TAZ', 'household_size')
+            size_1_control = None
+            
+            # Find the single-person household control (usually ends with '_1' or contains 'size_1')
+            for control in size_controls:
+                if control.endswith('_1') or 'size_1' in control:
+                    size_1_control = control
+                    break
+            
+            if not size_1_control and size_controls:
+                # Fallback: use the first size control if we can't identify size_1 specifically
+                size_1_control = size_controls[0]
+                logger.warning(f"Could not identify single-person household control, using first size control: {size_1_control}")
+            
+            logger.info(f"Using size-1 household control: {size_1_control}")
+            
+            # Get GQ population by TAZ from MAZ data
+            if 'TAZ' in maz_df.columns:
+                maz_gq_by_taz = maz_df.groupby('TAZ')['gq_pop'].sum().reset_index()
+                logger.info(f"Aggregated GQ population from {len(maz_df)} MAZ to {len(maz_gq_by_taz)} TAZ")
+                
+                # Merge GQ data with TAZ controls
+                taz_df = taz_df.merge(maz_gq_by_taz, on='TAZ', how='left')
+                taz_df['gq_pop'] = taz_df['gq_pop'].fillna(0)
+                
+                # Create size_1_gq control = size_1 + gq_pop
+                if size_1_control and size_1_control in taz_df.columns:
+                    gq_control_name = f"{size_1_control}_gq"
+                    taz_df[gq_control_name] = taz_df[size_1_control] + taz_df.gq_pop
+                    logger.info(f"Created {gq_control_name} column: {size_1_control} ({taz_df[size_1_control].sum():,.0f}) + gq_pop ({taz_df.gq_pop.sum():,.0f}) = {taz_df[gq_control_name].sum():,.0f}")
+                    
+                    # Remove the temporary gq_pop column
+                    taz_df.drop('gq_pop', axis=1, inplace=True)
+                elif size_1_control:
+                    logger.warning(f"No {size_1_control} column found in TAZ data - creating {size_1_control}_gq = gq_pop")
+                    gq_control_name = f"{size_1_control}_gq"
+                    taz_df[gq_control_name] = taz_df.gq_pop
+                    taz_df.drop('gq_pop', axis=1, inplace=True)
+                else:
+                    logger.warning("No household size controls found in configuration - cannot create HHGQ integration")
+                    taz_df.drop('gq_pop', axis=1, inplace=True)
+            else:
+                logger.warning("No TAZ column in MAZ data - cannot aggregate GQ by TAZ")
+                # Assume no GQ adjustment needed
+                if size_1_control and size_1_control in taz_df.columns:
+                    gq_control_name = f"{size_1_control}_gq"
+                    taz_df[gq_control_name] = taz_df[size_1_control]
+                    logger.info(f"Created {gq_control_name} = {size_1_control} (no GQ adjustment)")
+                elif size_1_control:
+                    logger.warning(f"No {size_1_control} column found in TAZ data for HHGQ integration")
+                
+            taz_df.to_csv(taz_output, index=False)
+            logger.info(f"Wrote TAZ HHGQ file: {taz_output}")
+        else:
+            logger.error(f"TAZ input file not found: {taz_input}")
+            return False
+            
+        # Copy county controls file (no HHGQ integration needed at county level)
+        if os.path.exists(county_input):
+            shutil.copy2(county_input, county_output)
+            logger.info(f"Copied county controls: {county_input} → {county_output}")
+        else:
+            logger.warning(f"County input file not found: {county_input}")
+            
+        logger.info("SUCCESS: HHGQ-integrated control files created successfully")
+        logger.info(f"Files created in: {output_dir}")
+        logger.info(f"  - maz_marginals_hhgq.csv (with numhh_gq column)")
+        
+        # Dynamic message based on which size control was used
+        size_controls = get_controls_in_category('TAZ', 'household_size')
+        size_1_control = None
+        for control in size_controls:
+            if control.endswith('_1') or 'size_1' in control:
+                size_1_control = control
+                break
+        if size_1_control:
+            logger.info(f"  - taz_marginals_hhgq.csv (with {size_1_control}_gq column)")
+        else:
+            logger.info(f"  - taz_marginals_hhgq.csv (no household size integration)")
+        logger.info(f"  - county_marginals.csv (copied)")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error creating HHGQ-integrated files: {e}")
+        logger.error(f"HHGQ integration traceback: {traceback.format_exc()}")
+        return False
+
+
 def main():
     import argparse
     
@@ -1834,7 +2293,22 @@ def main():
         if control_geo == 'TAZ':
             logger.info("Validating TAZ household control consistency")
             taz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
-            validate_taz_household_consistency(taz_marginals_file, logger)
+            validation_passed = validate_taz_household_consistency(taz_marginals_file, logger)
+            
+            # If validation failed, attempt to harmonize controls
+            if not validation_passed:
+                logger.info("TAZ validation failed - attempting to harmonize household controls")
+                harmonization_success = harmonize_taz_household_controls(taz_marginals_file, logger)
+                
+                if harmonization_success:
+                    logger.info("Re-validating TAZ controls after harmonization")
+                    final_validation = validate_taz_household_consistency(taz_marginals_file, logger)
+                    if final_validation:
+                        logger.info("SUCCESS: TAZ controls are now consistent after harmonization")
+                    else:
+                        logger.warning("TAZ controls still have inconsistencies after harmonization")
+                else:
+                    logger.error("Failed to harmonize TAZ controls")
             
             # Add MAZ household summary by TAZ for comparison
             logger.info("Adding MAZ household summary to TAZ marginals")
@@ -1900,6 +2374,14 @@ def main():
     # Validate MAZ controls against county targets
     maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
     validate_maz_controls(maz_marginals_file, county_targets, logger)
+
+    # Create MAZ data files with updated household and population data
+    logger.info("Creating maz_data.csv and maz_data_withDensity.csv files")
+    create_maz_data_files(logger)
+
+    # INTEGRATE HHGQ FILES: Create HHGQ-integrated control files for PopulationSim
+    logger.info("Creating HHGQ-integrated control files for PopulationSim")
+    create_hhgq_integrated_files(logger)
 
 
 # This isn't working, needs more testing

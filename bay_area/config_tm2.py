@@ -17,7 +17,7 @@ class PopulationSimConfig:
         # Environment setup
         self.CONDA_PATH = Path("C:/Users/MTCPB/AppData/Local/anaconda3")
         self.POPSIM_ENV = "popsim"
-        self.PYTHON_PATH = self.CONDA_PATH / "envs" / self.POPSIM_ENV / "python.exe"
+        self.PYTHON_PATH = Path("C:/Users/MTCPB/AppData/Local/anaconda3/envs/popsim/python.exe")
         
         # Model configuration
         self.MODEL_TYPE = "TM2"
@@ -106,12 +106,12 @@ class PopulationSimConfig:
         
         # Force flags (can be overridden)
         self.FORCE_FLAGS = {
-            'SEED': True,
-            'CONTROLS': True,
-            'HHGQ': True,
+            'SEED': False,
+            'CONTROLS': False,
+            'HHGQ': False,
             'POPULATIONSIM': True,
-            'POSTPROCESS': True,
-            'TABLEAU': True
+            'POSTPROCESS': False,
+            'TABLEAU': False
         }
         
         # Test configuration

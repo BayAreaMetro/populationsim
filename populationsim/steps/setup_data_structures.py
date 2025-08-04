@@ -225,10 +225,60 @@ def build_grouped_incidence_table(incidence_table, control_spec, seed_geography)
 
     # add group_id of each hh to hh_incidence_table
     group_incidence_table['group_id'] = group_incidence_table.index
-    hh_incidence_table['group_id'] = hh_incidence_table[hh_groupby_cols].merge(
+    # DEBUG: Enhanced merge debugging for IntCastingNaNError
+    print("DEBUG: About to merge household incidence table with group incidence table")
+    print(f"DEBUG: hh_groupby_cols = {hh_groupby_cols}")
+    print(f"DEBUG: hh_incidence_table shape: {hh_incidence_table.shape}")
+    print(f"DEBUG: group_incidence_table shape: {group_incidence_table.shape}")
+    
+    # Check for NaN values in groupby columns before merge
+    for col in hh_groupby_cols:
+        hh_nan_count = hh_incidence_table[col].isna().sum()
+        group_nan_count = group_incidence_table[col].isna().sum()
+        print(f"DEBUG: {col} - hh NaN: {hh_nan_count}, group NaN: {group_nan_count}")
+        if hh_nan_count > 0:
+            print(f"DEBUG: Sample hh NaN rows for {col}:")
+            nan_sample = hh_incidence_table[hh_incidence_table[col].isna()].head(3)
+            for idx, row in nan_sample.iterrows():
+                print(f"  Row {idx}: {dict(row[hh_groupby_cols])}")
+    
+    # Perform the merge with debugging
+    merge_result = hh_incidence_table[hh_groupby_cols].merge(
         group_incidence_table[hh_groupby_cols + ['group_id']],
         on=hh_groupby_cols,
-        how='left').group_id.astype(int).values
+        how='left')
+    
+    print(f"DEBUG: Merge result shape: {merge_result.shape}")
+    group_id_nan_count = merge_result['group_id'].isna().sum()
+    print(f"DEBUG: group_id NaN count after merge: {group_id_nan_count}")
+    
+    if group_id_nan_count > 0:
+        print("DEBUG: Sample rows with NaN group_id after merge:")
+        nan_rows = merge_result[merge_result['group_id'].isna()].head(5)
+        for idx, row in nan_rows.iterrows():
+            print(f"  Row {idx}: {dict(row)}")
+        
+        print("DEBUG: Checking what combinations exist in group_incidence_table:")
+        group_combinations = group_incidence_table[hh_groupby_cols].drop_duplicates()
+        print(f"  Found {len(group_combinations)} unique combinations in group table")
+        
+        # Show some unmatched combinations
+        hh_combinations = hh_incidence_table[hh_groupby_cols].drop_duplicates()
+        unmatched = hh_combinations.merge(group_combinations, on=hh_groupby_cols, how='left', indicator=True)
+        unmatched_only = unmatched[unmatched['_merge'] == 'left_only']
+        print(f"  Found {len(unmatched_only)} unmatched combinations in household table")
+        if len(unmatched_only) > 0:
+            print("  Sample unmatched combinations:")
+            for idx, row in unmatched_only.head(5).iterrows():
+                print(f"    {dict(row[hh_groupby_cols])}")
+    
+    # Convert to int, but handle NaN values first
+    if group_id_nan_count > 0:
+        print("ERROR: Cannot convert group_id to int due to NaN values")
+        print("Attempting to fill NaN values with -1 as fallback")
+        merge_result['group_id'] = merge_result['group_id'].fillna(-1)
+    
+    hh_incidence_table['group_id'] = merge_result.group_id.astype(int).values
 
     # it doesn't really matter what the incidence_table index is until we create population
     # when we need to expand each group to constituent households

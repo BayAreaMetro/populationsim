@@ -54,6 +54,12 @@ set FORCE_POSTPROCESS=1   :: Force post-processing even if files exist
 
 Creates PUMS-based seed files for all 66 Bay Area PUMAs, providing the template households and persons that PopulationSim will replicate and modify to match control totals.
 
+**Key Data Type Handling:**
+- Converts critical PopulationSim fields to proper integer types (int64)
+- Ensures `HUPAC`, `NP`, `hhgqtype`, `hh_workers_from_esr` are integers
+- Prevents IntCastingNaNError during synthesis by eliminating float64 values
+- Maintains data integrity while ensuring PopulationSim compatibility
+
 ### 2. Control Generation (Simplified Workflow)
 
 **Script:** `create_baseyear_controls_23_tm2.py --output_dir hh_gq/data`
@@ -177,6 +183,36 @@ bay_area/
 - Review `populationsim.log` for convergence issues
 - Use `validation.twb` Tableau workbook for visualization
 
+## Troubleshooting Tools
+
+### Integrated Quality Assurance (2025)
+
+**Control File Validation and Repair**
+All control file quality assurance is now **automatically integrated** into the control generation pipeline:
+
+1. **TAZ Household Control Harmonization**
+   - **Location:** `create_baseyear_controls_23_tm2.py` 
+   - **Automatic:** Applied during TAZ control generation
+   - **Function:** Ensures consistent household totals across categories (size, income, workers, kids)
+   - **Method:** Uses income totals as baseline, proportionally scales other categories
+
+2. **MAZ Group Quarters Consistency**
+   - **Location:** `create_baseyear_controls_23_tm2.py`
+   - **Automatic:** Applied during MAZ control generation  
+   - **Function:** Ensures `gq_pop = gq_military + gq_university + gq_other`
+   - **Method:** Adjusts `gq_pop` to match component sum when inconsistent
+
+3. **Configuration Validation**
+   - **Location:** `settings.yaml` 
+   - **Fixed:** Now correctly points to `*_hhgq.csv` files and uses `numhh_gq` control
+   - **Result:** Zero households with non-zero GQ are handled properly
+
+### Legacy Analysis Tool
+
+**Script:** `check_zeros.py` (still available for analysis)
+**Purpose:** Analyze control files for mathematical inconsistencies 
+**Usage:** Diagnostic only - fixes are now automatic
+
 ## Troubleshooting
 
 ### Common Issues
@@ -197,10 +233,23 @@ bay_area/
    - Review control total reasonableness
    - Examine balancing algorithm logs
 
+5. **IntCastingNaNError During Synthesis**
+   - Indicates mathematical inconsistencies in control files
+   - Common causes: zero values causing division by zero
+   - Run `check_zeros.py` to identify problematic control totals
+   - Use `fix_control_zeros.py` to resolve mathematical inconsistencies
+
+6. **Data Type Issues in Seed Files**
+   - PopulationSim requires integer types for key demographic fields
+   - Ensure `HUPAC`, `NP`, `hhgqtype`, `hh_workers_from_esr` are int64
+   - Recent improvements include automatic type conversion in seed generation
+
 ### Error Locations
 - **Control Generation:** Check `create_baseyear_controls_2023.log`
 - **PopulationSim:** Check `output_2023/populationsim_run/populationsim.log`
 - **Post-processing:** Check console output during `postprocess_recode.py`
+- **Zero Value Analysis:** Run `check_zeros.py` to identify mathematical inconsistencies
+- **Control File Fixes:** Use `fix_control_zeros.py` to resolve zero value issues
 
 ## Performance
 
@@ -226,6 +275,25 @@ bay_area/
 ### Simplified Workflow (2025)
 - Controls generated directly in PopulationSim data directory
 - Eliminated confusing file copying between directories
+- Clearer separation of input generation vs. synthesis
+- Reduced opportunities for file handling errors
+
+### Mathematical Robustness (2025)
+- Enhanced control file validation and zero value detection
+- Automatic mathematical consistency checking (`check_zeros.py`)
+- Comprehensive control file repair utilities (`fix_control_zeros.py`)
+- Addresses IntCastingNaNError and division by zero issues in synthesis
+
+### Data Type Improvements (2025)
+- Automatic integer type conversion for PopulationSim compatibility
+- Enhanced seed file generation with proper data types for all demographic fields
+- Eliminates float64 casting errors during synthesis
+- Improved handling of PUMS data inconsistencies
+
+### Workflow Automation (2025)
+- Removed manual interaction prompts for unattended execution
+- Enhanced error handling and logging throughout workflow
+- Streamlined batch execution with intelligent continuation logic
 - Clearer separation of input generation vs. synthesis
 - Reduced opportunities for file handling errors
 

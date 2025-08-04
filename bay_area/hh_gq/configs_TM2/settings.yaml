@@ -25,6 +25,12 @@ trace_geography:
   TAZ: 56
   MAZ: 10001
 
+# Additional debugging options
+# ------------------------------------------------------------------
+# Enable detailed debugging output
+TRACE_ENABLED: True
+DEBUG_DATA_PROCESSING: True
+
 
 # Data Directory
 # ------------------------------------------------------------------
@@ -38,20 +44,31 @@ input_table_list:
   - tablename: households
     filename : seed_households.csv
     index_col: unique_hh_id
+    drop_columns:
+      - RT
+    dtype:
+      HUPAC: int
+      NP: int
+      hhgqtype: int
+      hh_workers_from_esr: int
+      PUMA: int
   - tablename: persons
     filename : seed_persons.csv
     # drop mixed type fields that appear to have been incorrectly generated
-    # drop_columns:
-    #  - indp02
+    drop_columns:
+      - RT
+      - NAICSP  
+      - SOCP
+      - soc
   - tablename: geo_cross_walk
     filename : geo_cross_walk_tm2.csv
     # created by create_baseyear_controls.py
   - tablename: MAZ_control_data
-    filename : maz_marginals.csv
-    # created by create_baseyear_controls_23_tm2.py
+    filename : maz_marginals_hhgq.csv
+    # created by create_baseyear_controls_23_tm2.py and processed by add_hhgq_combined_controls.py
   - tablename: TAZ_control_data
-    filename : taz_marginals.csv
-    # created by create_baseyear_controls_23_tm2.py
+    filename : taz_marginals_hhgq.csv
+    # created by create_baseyear_controls_23_tm2.py and processed by add_hhgq_combined_controls.py
   - tablename: COUNTY_control_data
     filename : county_marginals.csv
     # created by create_baseyear_controls_23_tm2.py
@@ -61,7 +78,7 @@ input_table_list:
 # ------------------------------------------------------------------
 household_weight_col: WGTP
 household_id_col: unique_hh_id
-total_hh_control: num_hh
+total_hh_control: numhh_gq
 
 
 # Control Specification File Name
@@ -99,7 +116,7 @@ output_tables:
 # ------------------------------------------------------------------
 household_weight_col: WGTP
 household_id_col: unique_hh_id
-total_hh_control: num_hh
+total_hh_control: numhh_gq
 
 
 # Control Specification File Name
@@ -152,9 +169,9 @@ output_synthetic_population:
       - TEN                     # Tenure
       - VEH                     # Vehicles available
       - hh_workers_from_esr     # count of employed persons in household
-      - hh_income_2021          # household income in 2010 dollars, based on HINCP and ADJINC
-      - gqtype                  # group quarters type: 0: household (not gq), 1 college, 2 militar, 3 other
-      - hh_income_2000          # household income in 2000 dollars for tm1
+      - hh_income_2023          # household income in 2023 dollars, based on HINCP and ADJINC
+      - hhgqtype                # group quarters type: 0: household (not gq), 1 college, 2 militar, 3 other
+      - hh_income_2010          # household income in 2010 dollars for tm1
 
   persons:
     filename: synthetic_persons.csv

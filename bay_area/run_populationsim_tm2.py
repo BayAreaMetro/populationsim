@@ -12,6 +12,7 @@ import sys
 import shutil
 import subprocess
 import argparse
+import traceback
 from pathlib import Path
 from datetime import datetime
 
@@ -39,7 +40,28 @@ class PopulationSimWorkflow:
     def log(self, message, level="INFO"):
         """Enhanced logging with timestamps"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] {level}: {message}")
+        log_message = f"[{timestamp}] {level}: {message}"
+        print(log_message)
+        
+        # Also write to error log file if it's an error or warning
+        if level in ["ERROR", "WARNING"]:
+            self._write_to_error_log(log_message)
+    
+    def _write_to_error_log(self, message):
+        """Write error messages to a dedicated error log file"""
+        try:
+            error_log_file = self.config.POPULATIONSIM_OUTPUT_DIR / "populationsim_errors.log"
+            error_log_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Remove emoji characters for Windows compatibility
+            import re
+            clean_message = re.sub(r'[^\x00-\x7F]+', '', message)
+            
+            with open(error_log_file, 'a', encoding='utf-8') as f:
+                f.write(clean_message + '\n')
+        except Exception:
+            # Don't let logging errors break the main process
+            pass
     
     def run_command(self, command, description="Running command"):
         """Run a subprocess command with error handling and real-time output"""
@@ -190,7 +212,6 @@ class PopulationSimWorkflow:
         print(f"Configuration: {self.config.MODEL_TYPE} model, Year {self.config.YEAR}")
         print(f"Output directory: {self.config.POPULATIONSIM_OUTPUT_DIR}")
         print()
-        input("Press Enter to continue or Ctrl+C to stop...")
         return step1_complete, step2_complete, step3_complete, step4_complete, step5_complete, step6_complete
     
     def step1_seed_population(self, force_run=False):
@@ -339,12 +360,578 @@ class PopulationSimWorkflow:
             if self.config.clean_pipeline_cache():
                 self.log("Cleaned PopulationSim pipeline cache")
             
+            # Clean data to prevent IntCastingNaNError
+            self.log("Cleaning data to prevent IntCastingNaNError...")
+            try:
+                self._clean_data_for_populationsim()
+            except Exception as e:
+                self.log(f"WARNING: Data cleaning failed: {e}", "WARNING")
+            
+            # Enhanced debugging for IntCastingNaNError
+            self.log("Running enhanced pre-synthesis data validation...")
+            try:
+                self._debug_populationsim_data()
+            except Exception as e:
+                self.log(f"WARNING: Data validation failed: {e}", "WARNING")
+            
             command = self.config.get_command_args('run_populationsim')
-            success = self.run_command(command, "PopulationSim synthesis")
+            
+            # Enhanced error handling for PopulationSim
+            success = self._run_populationsim_with_debug(command)
             return success
         else:
             self.log("PopulationSim output already exists - skipping synthesis")
             return True
+    
+    def _clean_data_for_populationsim(self):
+        """Clean seed data to prevent IntCastingNaNError"""
+        import pandas as pd
+        import numpy as np
+        
+        self.log("CLEANING DATA TO PREVENT IntCastingNaNError...")
+        
+        files_cleaned = []
+        
+        # Clean households file
+        hh_file = self.config.HH_GQ_DATA_DIR / "seed_households.csv"
+        if hh_file.exists():
+            try:
+                df_hh = pd.read_csv(hh_file)
+                original_shape = df_hh.shape
+                changes_made = False
+                
+                # Key integer columns that PopulationSim expects
+                integer_columns = ['PUMA', 'hhgqtype', 'NP', 'HUPAC', 'hh_workers_from_esr']
+                
+                for col in integer_columns:
+                    if col in df_hh.columns:
+                        # Count problematic values
+                        nan_count = df_hh[col].isna().sum()
+                        inf_count = np.isinf(df_hh[col]).sum() if df_hh[col].dtype in ['float64', 'float32'] else 0
+                        
+                        if nan_count > 0 or inf_count > 0:
+                            self.log(f"  Fixing {col}: {nan_count} NaN, {inf_count} infinite values")
+                            
+                            # Replace infinite values with NaN first
+                            if inf_count > 0:
+                                df_hh[col] = df_hh[col].replace([np.inf, -np.inf], np.nan)
+                            
+                            # Handle NaN values based on column type
+                            if col == 'PUMA':
+                                # Use mode (most common PUMA)
+                                mode_value = df_hh[col].mode()[0] if not df_hh[col].mode().empty else 1
+                                df_hh[col] = df_hh[col].fillna(mode_value)
+                            elif col == 'hhgqtype':
+                                # Default to household (0)
+                                df_hh[col] = df_hh[col].fillna(0)
+                            elif col in ['NP', 'hh_workers_from_esr']:
+                                # Use 0 for count variables
+                                df_hh[col] = df_hh[col].fillna(0)
+                            elif col == 'HUPAC':
+                                # Default to "No own children" (4)
+                                df_hh[col] = df_hh[col].fillna(4)
+                            
+                            # Ensure the column is integer type
+                            df_hh[col] = df_hh[col].astype(int)
+                            changes_made = True
+                
+                # Also check hh_income_2023 if it exists
+                if 'hh_income_2023' in df_hh.columns:
+                    nan_count = df_hh['hh_income_2023'].isna().sum()
+                    inf_count = np.isinf(df_hh['hh_income_2023']).sum() if df_hh['hh_income_2023'].dtype in ['float64', 'float32'] else 0
+                    
+                    if nan_count > 0 or inf_count > 0:
+                        self.log(f"  Fixing hh_income_2023: {nan_count} NaN, {inf_count} infinite values")
+                        
+                        # Replace infinite values with NaN
+                        if inf_count > 0:
+                            df_hh['hh_income_2023'] = df_hh['hh_income_2023'].replace([np.inf, -np.inf], np.nan)
+                        
+                        # Use median income for missing values
+                        median_income = df_hh['hh_income_2023'].median()
+                        df_hh['hh_income_2023'] = df_hh['hh_income_2023'].fillna(median_income)
+                        changes_made = True
+                
+                if changes_made:
+                    # Save the cleaned file
+                    df_hh.to_csv(hh_file, index=False)
+                    files_cleaned.append(f"households ({original_shape[0]} rows)")
+                    self.log(f"  Cleaned households file")
+                
+            except Exception as e:
+                self.log(f"  Error cleaning households file: {e}", "ERROR")
+        
+        # Clean persons file
+        p_file = self.config.HH_GQ_DATA_DIR / "seed_persons.csv"
+        if p_file.exists():
+            try:
+                df_p = pd.read_csv(p_file)
+                original_shape = df_p.shape
+                changes_made = False
+                
+                # Key integer columns that PopulationSim expects
+                integer_columns = ['PUMA', 'hhgqtype', 'AGEP', 'employed', 'occupation']
+                
+                for col in integer_columns:
+                    if col in df_p.columns:
+                        # Count problematic values
+                        nan_count = df_p[col].isna().sum()
+                        inf_count = np.isinf(df_p[col]).sum() if df_p[col].dtype in ['float64', 'float32'] else 0
+                        
+                        if nan_count > 0 or inf_count > 0:
+                            self.log(f"  Fixing {col}: {nan_count} NaN, {inf_count} infinite values")
+                            
+                            # Replace infinite values with NaN first
+                            if inf_count > 0:
+                                df_p[col] = df_p[col].replace([np.inf, -np.inf], np.nan)
+                            
+                            # Handle NaN values based on column type
+                            if col == 'PUMA':
+                                # Use mode (most common PUMA)
+                                mode_value = df_p[col].mode()[0] if not df_p[col].mode().empty else 1
+                                df_p[col] = df_p[col].fillna(mode_value)
+                            elif col == 'hhgqtype':
+                                # Default to household (0)
+                                df_p[col] = df_p[col].fillna(0)
+                            elif col == 'AGEP':
+                                # Use median age for missing ages
+                                median_age = df_p[col].median()
+                                df_p[col] = df_p[col].fillna(median_age)
+                            elif col == 'employed':
+                                # Default to not employed (0)
+                                df_p[col] = df_p[col].fillna(0)
+                            elif col == 'occupation':
+                                # Default to no occupation (0)
+                                df_p[col] = df_p[col].fillna(0)
+                            
+                            # Ensure the column is integer type
+                            df_p[col] = df_p[col].astype(int)
+                            changes_made = True
+                
+                if changes_made:
+                    # Save the cleaned file
+                    df_p.to_csv(p_file, index=False)
+                    files_cleaned.append(f"persons ({original_shape[0]} rows)")
+                    self.log(f"  Cleaned persons file")
+                
+            except Exception as e:
+                self.log(f"  Error cleaning persons file: {e}", "ERROR")
+        
+        if files_cleaned:
+            self.log(f"Data cleaning completed for: {', '.join(files_cleaned)}")
+        else:
+            self.log("No data cleaning needed - all files appear clean")
+        
+        return len(files_cleaned) > 0
+
+    def _debug_populationsim_data(self):
+        """Enhanced debugging for PopulationSim data issues"""
+        import pandas as pd
+        import numpy as np
+        
+        self.log("=== ENHANCED POPULATIONSIM DATA VALIDATION ===")
+        
+        # Check household data
+        hh_file = self.config.HH_GQ_DATA_DIR / "seed_households.csv"
+        if hh_file.exists():
+            df_hh = pd.read_csv(hh_file)
+            self.log(f"📊 Households: {df_hh.shape[0]} rows, {df_hh.shape[1]} columns")
+            
+            # Check for duplicate IDs
+            if 'SERIALNO' in df_hh.columns:
+                dup_count = df_hh['SERIALNO'].duplicated().sum()
+                if dup_count > 0:
+                    self.log(f"  🚨 WARNING: {dup_count} duplicate SERIALNO values!", "WARNING")
+            
+            # Check key columns used for grouping
+            key_cols = ['PUMA', 'hhgqtype', 'NP', 'HUPAC', 'hh_workers_from_esr']
+            problematic_cols = []
+            
+            for col in key_cols:
+                if col in df_hh.columns:
+                    dtype = df_hh[col].dtype
+                    nan_count = df_hh[col].isna().sum()
+                    inf_count = np.isinf(df_hh[col]).sum() if dtype in ['float64', 'float32'] else 0
+                    
+                    # Check for negative values in count columns
+                    neg_count = 0
+                    if col in ['NP', 'hh_workers_from_esr'] and dtype in ['int64', 'float64']:
+                        neg_count = (df_hh[col] < 0).sum()
+                    
+                    status = "✅ OK"
+                    if nan_count > 0 or inf_count > 0 or neg_count > 0:
+                        status = f"🚨 PROBLEM: {nan_count} NaN, {inf_count} inf, {neg_count} negative"
+                        problematic_cols.append(col)
+                    
+                    self.log(f"  {col}: {dtype} - {status}")
+                    
+                    # Show sample problematic values
+                    if nan_count > 0:
+                        sample_nan_idx = df_hh[df_hh[col].isna()].index[:3].tolist()
+                        self.log(f"    📍 NaN sample row indices: {sample_nan_idx}")
+                    
+                    if inf_count > 0 and dtype in ['float64', 'float32']:
+                        inf_mask = np.isinf(df_hh[col])
+                        sample_inf_idx = df_hh[inf_mask].index[:3].tolist()
+                        self.log(f"    📍 Infinite sample row indices: {sample_inf_idx}")
+                    
+                    # Show value distribution for categorical columns
+                    if col in ['hhgqtype', 'PUMA'] and not (nan_count > 0 or inf_count > 0):
+                        value_counts = df_hh[col].value_counts().head(5)
+                        self.log(f"    📈 Top values: {dict(value_counts)}")
+            
+            if problematic_cols:
+                self.log(f"  🚨 SUMMARY: Problematic household columns: {problematic_cols}", "ERROR")
+        else:
+            self.log("  📁 Household file not found!", "ERROR")
+        
+        # Check persons data
+        p_file = self.config.HH_GQ_DATA_DIR / "seed_persons.csv"
+        if p_file.exists():
+            df_p = pd.read_csv(p_file)
+            self.log(f"👥 Persons: {df_p.shape[0]} rows, {df_p.shape[1]} columns")
+            
+            # Check household linkage
+            if 'SERIALNO' in df_p.columns and hh_file.exists():
+                hh_serials = set(df_hh['SERIALNO']) if 'SERIALNO' in df_hh.columns else set()
+                p_serials = set(df_p['SERIALNO'])
+                unlinked_persons = len(p_serials - hh_serials)
+                if unlinked_persons > 0:
+                    self.log(f"  🚨 WARNING: {unlinked_persons} persons with no matching household!", "WARNING")
+            
+            # Check key person columns
+            key_p_cols = ['PUMA', 'hhgqtype', 'AGEP', 'employed', 'occupation']
+            problematic_p_cols = []
+            
+            for col in key_p_cols:
+                if col in df_p.columns:
+                    dtype = df_p[col].dtype
+                    nan_count = df_p[col].isna().sum()
+                    inf_count = np.isinf(df_p[col]).sum() if dtype in ['float64', 'float32'] else 0
+                    
+                    # Check for unrealistic age values
+                    age_issues = 0
+                    if col == 'AGEP' and dtype in ['int64', 'float64']:
+                        age_issues = ((df_p[col] < 0) | (df_p[col] > 120)).sum()
+                    
+                    status = "✅ OK"
+                    if nan_count > 0 or inf_count > 0 or age_issues > 0:
+                        status = f"🚨 PROBLEM: {nan_count} NaN, {inf_count} inf, {age_issues} unrealistic"
+                        problematic_p_cols.append(col)
+                    
+                    self.log(f"  {col}: {dtype} - {status}")
+                    
+                    # Show value distribution for key columns
+                    if col in ['hhgqtype', 'employed'] and not (nan_count > 0 or inf_count > 0):
+                        value_counts = df_p[col].value_counts().head(5)
+                        self.log(f"    📈 Top values: {dict(value_counts)}")
+            
+            if problematic_p_cols:
+                self.log(f"  🚨 SUMMARY: Problematic person columns: {problematic_p_cols}", "ERROR")
+        else:
+            self.log("  📁 Person file not found!", "ERROR")
+        
+        # Check control files
+        controls_file = self.config.HH_GQ_DATA_DIR / "controls.csv"
+        if controls_file.exists():
+            controls = pd.read_csv(controls_file)
+            self.log(f"🎯 Controls: {len(controls)} control specifications")
+            
+            # Check for zero or negative control totals
+            if 'total' in controls.columns:
+                zero_controls = (controls['total'] == 0).sum()
+                neg_controls = (controls['total'] < 0).sum()
+                if zero_controls > 0 or neg_controls > 0:
+                    self.log(f"  🚨 WARNING: {zero_controls} zero controls, {neg_controls} negative controls!", "WARNING")
+            
+            # Check for potential problematic control expressions
+            problematic_expressions = []
+            for _, row in controls.iterrows():
+                expr = str(row.get('expression', ''))
+                if 'hhgqtype' in expr and '==' in expr:
+                    self.log(f"  🎯 Control {row.get('target', 'unknown')}: {expr}")
+                
+                # Look for potential float comparison issues
+                if any(float_indicator in expr for float_indicator in ['.0', 'float', 'nan']):
+                    problematic_expressions.append(expr)
+            
+            if problematic_expressions:
+                self.log(f"  ⚠️  Potentially problematic expressions: {len(problematic_expressions)}", "WARNING")
+                for expr in problematic_expressions[:3]:  # Show first 3
+                    self.log(f"    📝 {expr}", "WARNING")
+        else:
+            self.log("  📁 Controls file not found!", "ERROR")
+        
+        # Check marginals files for data consistency
+        marginals_files = [
+            ('MAZ marginals', self.config.HH_GQ_DATA_DIR / "maz_marginals_hhgq.csv"),
+            ('TAZ marginals', self.config.HH_GQ_DATA_DIR / "taz_marginals_hhgq.csv"),
+            ('County marginals', self.config.HH_GQ_DATA_DIR / "county_marginals.csv")
+        ]
+        
+        for name, file_path in marginals_files:
+            if file_path.exists():
+                try:
+                    df_marg = pd.read_csv(file_path)
+                    
+                    # Check for NaN/inf in marginals
+                    numeric_cols = df_marg.select_dtypes(include=[np.number]).columns
+                    total_nan = df_marg[numeric_cols].isna().sum().sum()
+                    total_inf = np.isinf(df_marg[numeric_cols]).sum().sum()
+                    total_neg = (df_marg[numeric_cols] < 0).sum().sum()
+                    
+                    status = "✅ OK"
+                    if total_nan > 0 or total_inf > 0 or total_neg > 0:
+                        status = f"🚨 Issues: {total_nan} NaN, {total_inf} inf, {total_neg} negative values"
+                    
+                    self.log(f"  📈 {name}: {df_marg.shape[0]} rows - {status}")
+                    
+                except Exception as e:
+                    self.log(f"  📈 {name}: Error reading file - {e}", "ERROR")
+            else:
+                self.log(f"  📈 {name}: File not found", "WARNING")
+        
+        self.log("=== DATA VALIDATION COMPLETE ===")
+    
+    def _run_populationsim_with_debug(self, command):
+        """Run PopulationSim with enhanced error handling"""
+        self.log(f"Enhanced PopulationSim execution...")
+        self.log(f"Command: {' '.join(map(str, command))}")
+        print("-" * 60)
+        
+        try:
+            import pandas as pd
+            import numpy as np
+            
+            # Monkey patch pandas merge to add debugging
+            original_merge = pd.DataFrame.merge
+            merge_call_count = 0
+            
+            def debug_merge(self, *args, **kwargs):
+                nonlocal merge_call_count
+                merge_call_count += 1
+                
+                try:
+                    # Check for problematic data before merge
+                    if merge_call_count <= 5:  # Only log first few merges to avoid spam
+                        print(f"DEBUG MERGE #{merge_call_count}: DataFrame shape {self.shape}")
+                        
+                        # Check for NaN/inf in numeric columns
+                        numeric_cols = self.select_dtypes(include=[np.number]).columns
+                        for col in numeric_cols:
+                            if col in self.columns:
+                                nan_count = self[col].isna().sum()
+                                inf_count = np.isinf(self[col]).sum()
+                                if nan_count > 0 or inf_count > 0:
+                                    print(f"  WARNING: {col} has {nan_count} NaN, {inf_count} inf values")
+                    
+                    result = original_merge(self, *args, **kwargs)
+                    return result
+                    
+                except pd.errors.IntCastingNaNError as e:
+                    print(f"CAUGHT IntCastingNaNError in merge #{merge_call_count}!")
+                    print(f"  Error: {e}")
+                    print(f"  DataFrame dtypes: {dict(self.dtypes)}")
+                    
+                    # Show problematic columns
+                    for col in self.columns:
+                        if self[col].dtype in ['float64', 'float32']:
+                            nan_count = self[col].isna().sum()
+                            inf_count = np.isinf(self[col]).sum()
+                            if nan_count > 0 or inf_count > 0:
+                                print(f"  PROBLEM COLUMN {col}: {nan_count} NaN, {inf_count} inf")
+                                print(f"    Sample values: {self[col].dropna().head(5).tolist()}")
+                    
+                    raise
+            
+            # Apply the monkey patch
+            pd.DataFrame.merge = debug_merge
+            
+            try:
+                # Use Popen for real-time output streaming
+                process = subprocess.Popen(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,  # Combine stderr with stdout
+                    text=True,
+                    bufsize=1,  # Line buffered
+                    universal_newlines=True,
+                    cwd=Path.cwd()
+                )
+                
+                # Stream output in real-time
+                output_lines = []
+                while True:
+                    output = process.stdout.readline()
+                    if output == '' and process.poll() is not None:
+                        break
+                    if output:
+                        # Enhanced error pattern detection
+                        output_stripped = output.strip()
+                        
+                        # Critical data errors
+                        if "IntCastingNaNError" in output:
+                            print("🚨 DETECTED IntCastingNaNError in output!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "Cannot convert non-finite values" in output:
+                            print("🚨 DETECTED non-finite values error!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "ValueError" in output and ("NaN" in output or "inf" in output):
+                            print("🚨 DETECTED ValueError with NaN/inf values!")
+                            print(f"   Full error line: {output_stripped}")
+                        
+                        # DataFrame/data processing errors
+                        if "KeyError" in output:
+                            print("⚠️  DETECTED KeyError - possible missing column!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "TypeError" in output and "dtype" in output:
+                            print("⚠️  DETECTED TypeError with dtype - possible data type mismatch!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "IndexError" in output:
+                            print("⚠️  DETECTED IndexError - possible array/list bounds issue!")
+                            print(f"   Full error line: {output_stripped}")
+                        
+                        # Memory and performance issues
+                        if "MemoryError" in output:
+                            print("💾 DETECTED MemoryError - insufficient memory!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "PerformanceWarning" in output:
+                            print("🐌 DETECTED PerformanceWarning!")
+                            print(f"   Full warning line: {output_stripped}")
+                        
+                        # PopulationSim specific errors
+                        if "balancing failed" in output.lower():
+                            print("⚖️  DETECTED balancing failure!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "control totals" in output.lower() and ("missing" in output.lower() or "zero" in output.lower()):
+                            print("📊 DETECTED control totals issue!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "seed data" in output.lower() and "error" in output.lower():
+                            print("🌱 DETECTED seed data error!")
+                            print(f"   Full error line: {output_stripped}")
+                        
+                        # File I/O errors
+                        if "FileNotFoundError" in output:
+                            print("📁 DETECTED FileNotFoundError - missing required file!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "PermissionError" in output:
+                            print("🔒 DETECTED PermissionError - file access denied!")
+                            print(f"   Full error line: {output_stripped}")
+                        
+                        # Configuration errors
+                        if "settings" in output.lower() and "error" in output.lower():
+                            print("⚙️  DETECTED settings/configuration error!")
+                            print(f"   Full error line: {output_stripped}")
+                        
+                        # Convergence and iteration issues
+                        if "convergence" in output.lower() and ("failed" in output.lower() or "error" in output.lower()):
+                            print("🎯 DETECTED convergence failure!")
+                            print(f"   Full error line: {output_stripped}")
+                        if "maximum iterations" in output.lower():
+                            print("🔄 DETECTED maximum iterations reached!")
+                            print(f"   Full error line: {output_stripped}")
+                        
+                        # Log progress indicators
+                        if "Building" in output or "Processing" in output or "Running" in output:
+                            print(f"📈 PROGRESS: {output_stripped}")
+                        if "completed" in output.lower() and "step" in output.lower():
+                            print(f"✅ STEP COMPLETED: {output_stripped}")
+                        
+                        print(output_stripped)  # Print to terminal immediately
+                        output_lines.append(output_stripped)
+                
+                # Wait for process to complete
+                return_code = process.poll()
+                
+                if return_code == 0:
+                    print("-" * 60)
+                    self.log(f"SUCCESS: PopulationSim synthesis completed")
+                    return True
+                else:
+                    print("-" * 60)
+                    self.log(f"ERROR: PopulationSim synthesis failed with exit code {return_code}", "ERROR")
+                    
+                    # Enhanced error analysis
+                    error_lines = [line for line in output_lines if any(keyword in line.lower() for keyword in ['error', 'exception', 'failed', 'traceback'])]
+                    warning_lines = [line for line in output_lines if 'warning' in line.lower()]
+                    
+                    # Categorize errors for better debugging
+                    data_errors = [line for line in error_lines if any(keyword in line.lower() for keyword in ['nan', 'inf', 'dtype', 'casting', 'convert'])]
+                    file_errors = [line for line in error_lines if any(keyword in line.lower() for keyword in ['file', 'permission', 'not found', 'directory'])]
+                    memory_errors = [line for line in error_lines if any(keyword in line.lower() for keyword in ['memory', 'allocation', 'overflow'])]
+                    config_errors = [line for line in error_lines if any(keyword in line.lower() for keyword in ['config', 'setting', 'parameter'])]
+                    convergence_errors = [line for line in error_lines if any(keyword in line.lower() for keyword in ['convergence', 'iteration', 'balancing'])]
+                    
+                    if data_errors:
+                        self.log("🔍 DATA-RELATED ERRORS DETECTED:", "ERROR")
+                        for line in data_errors[-5:]:  # Last 5 data-related errors
+                            self.log(f"  📊 {line}", "ERROR")
+                    
+                    if file_errors:
+                        self.log("🔍 FILE-RELATED ERRORS DETECTED:", "ERROR")
+                        for line in file_errors[-3:]:  # Last 3 file-related errors
+                            self.log(f"  📁 {line}", "ERROR")
+                    
+                    if memory_errors:
+                        self.log("🔍 MEMORY-RELATED ERRORS DETECTED:", "ERROR")
+                        for line in memory_errors[-3:]:  # Last 3 memory-related errors
+                            self.log(f"  💾 {line}", "ERROR")
+                    
+                    if config_errors:
+                        self.log("🔍 CONFIGURATION-RELATED ERRORS DETECTED:", "ERROR")
+                        for line in config_errors[-3:]:  # Last 3 config-related errors
+                            self.log(f"  ⚙️  {line}", "ERROR")
+                    
+                    if convergence_errors:
+                        self.log("🔍 CONVERGENCE-RELATED ERRORS DETECTED:", "ERROR")
+                        for line in convergence_errors[-3:]:  # Last 3 convergence-related errors
+                            self.log(f"  🎯 {line}", "ERROR")
+                    
+                    if warning_lines:
+                        self.log("⚠️  WARNINGS DETECTED (may indicate root cause):", "WARNING")
+                        for line in warning_lines[-5:]:  # Last 5 warnings
+                            self.log(f"  ⚠️  {line}", "WARNING")
+                    
+                    # General error summary
+                    if error_lines:
+                        self.log("📋 GENERAL ERROR SUMMARY:", "ERROR")
+                        for line in error_lines[-10:]:  # Last 10 error-related lines
+                            self.log(f"  {line}", "ERROR")
+                    
+                    # Suggest debugging steps
+                    self.log("🛠️  DEBUGGING SUGGESTIONS:", "INFO")
+                    if data_errors:
+                        self.log("  • Check seed data for NaN/infinite values using enhanced_debug_populationsim.py", "INFO")
+                        self.log("  • Verify control file totals are not zero or negative", "INFO")
+                        self.log("  • Run check_nan_values.py to identify problematic data", "INFO")
+                    if file_errors:
+                        self.log("  • Verify all required input files exist in hh_gq/data/ directory", "INFO")
+                        self.log("  • Check file permissions and disk space", "INFO")
+                    if memory_errors:
+                        self.log("  • Consider reducing PUMA scope with --test-puma option", "INFO")
+                        self.log("  • Close other memory-intensive applications", "INFO")
+                    if convergence_errors:
+                        self.log("  • Check control totals for unrealistic values", "INFO")
+                        self.log("  • Review PopulationSim settings for iteration limits", "INFO")
+                    
+                    return False
+            
+            finally:
+                # Restore original merge function
+                pd.DataFrame.merge = original_merge
+                
+        except Exception as e:
+            print("-" * 60)
+            self.log(f"ERROR: PopulationSim synthesis failed with exception: {e}", "ERROR")
+            
+            # Print detailed traceback for debugging
+            import traceback
+            self.log("Full traceback:", "ERROR")
+            for line in traceback.format_exc().split('\n'):
+                if line.strip():
+                    self.log(f"  {line}", "ERROR")
+            
+            return False
     
     def step5_post_processing(self):
         """Step 5: Post-processing and validation"""

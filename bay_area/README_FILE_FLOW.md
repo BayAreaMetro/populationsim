@@ -41,14 +41,18 @@ bay_area/
 │   │   ├── county_marginals.csv        # COPY from output_2023/
 │   │   ├── geo_cross_walk_tm2.csv      # COPY from output_2023/
 │   │   ├── maz_marginals_hhgq.csv      # Group quarters integrated version
-│   │   └── taz_marginals_hhgq.csv      # Group quarters integrated version
+│   │   ├── taz_marginals_hhgq.csv      # Group quarters integrated version
+│   │   └── validation_*.csv             # Analysis outputs from troubleshooting tools (if needed)
 │   └── configs_TM2/                    # PopulationSim configuration
 │       ├── settings.yaml               # Main configuration file
 │       ├── controls.csv                # Control specifications
 │       └── logging.yaml                # Logging configuration
-└── tm2_control_utils/                  # Control generation utilities
-    ├── config.py                       # Control generation configuration
-    └── various utility scripts
+├── tm2_control_utils/                  # Control generation utilities
+│   ├── config.py                       # Control generation configuration
+│   └── various utility scripts
+├── check_zeros.py                      # Control file mathematical analysis tool (diagnostic only)
+├── fix_control_zeros.py                # Information script - fixes now integrated into pipeline
+└── run_populationsim_tm2.py            # Enhanced workflow orchestration (no manual prompts)
 ```
 
 ## Detailed File Flow by Step
@@ -78,6 +82,10 @@ output_2023/persons_2023_raw.csv        # Raw PUMS persons (1,998,300 records)
    - `occupation`: SOC occupation codes
    - `employed`: Employment status
    - `unique_hh_id`: Unique household identifier
+4. **Data Type Conversion (2025 Enhancement):**
+   - Converts `HUPAC`, `NP`, `hhgqtype`, `hh_workers_from_esr` to int64
+   - Prevents IntCastingNaNError during PopulationSim synthesis
+   - Ensures all demographic fields have proper integer types
 
 **Final Outputs:**
 ```
@@ -365,13 +373,22 @@ input_2023/census_cache/                     # Census cache (can be cleared)
 3. **Files in wrong directory** → Check hh_gq/data/ vs output_2023/
 4. **Stale pipeline cache** → Delete pipeline.h5 and restart
 5. **Permission errors** → Check file locks and VS Code handles
+6. **IntCastingNaNError during synthesis** → Check data types and mathematical consistency
+7. **Zero value division errors** → Run analysis and repair tools
 
 ### File Validation Commands:
 ```python
-# Check seed file columns
+# Check seed file columns and data types
 import pandas as pd
 df = pd.read_csv('hh_gq/data/seed_households.csv', nrows=5)
 print('hhgqtype' in df.columns)  # Should be True
+print(df['hhgqtype'].dtype)     # Should be int64
+
+# Check for proper integer types in critical fields
+critical_fields = ['HUPAC', 'NP', 'hhgqtype', 'hh_workers_from_esr']
+for field in critical_fields:
+    if field in df.columns:
+        print(f"{field}: {df[field].dtype}")  # Should be int64
 
 # Check file sizes
 import os
@@ -383,6 +400,73 @@ hh_df = pd.read_csv('hh_gq/data/seed_households.csv')
 p_df = pd.read_csv('hh_gq/data/seed_persons.csv')
 print(f"Households: {len(hh_df):,} records")
 print(f"Persons: {len(p_df):,} records")
+
+# Validate control file mathematical consistency
+import numpy as np
+maz_df = pd.read_csv('hh_gq/data/maz_marginals.csv')
+zero_hh = (maz_df['num_hh'] == 0).sum()
+print(f"MAZs with zero households: {zero_hh} ({zero_hh/len(maz_df)*100:.1f}%)")
+
+# Check for impossible constraints
+impossible = ((maz_df['num_hh'] == 0) & 
+              ((maz_df['gq_military'] > 0) | 
+               (maz_df['gq_university'] > 0) | 
+               (maz_df['gq_other'] > 0))).sum()
+print(f"MAZs with impossible GQ constraints: {impossible}")
+```
+
+### Automated Analysis Tools:
+```python
+# Run comprehensive control file analysis
+exec(open('check_zeros.py').read())
+
+# Apply mathematical consistency fixes (with caution)
+exec(open('fix_control_zeros.py').read())
 ```
 
 This documentation provides a complete map of all file movements, transformations, and dependencies in the PopulationSim TM2 workflow.
+
+## Analysis and Troubleshooting Scripts
+
+### Integrated Quality Assurance (2025)
+
+**Control File Validation and Fixes**
+All mathematical consistency validation and repair is now **automatically integrated** into the main control generation pipeline:
+
+**Location:** `create_baseyear_controls_23_tm2.py`
+**Applied During:** Control generation (Step 2)
+**Fixes Include:**
+1. **TAZ Household Control Harmonization** - Ensures consistent totals across household categories
+2. **MAZ Group Quarters Consistency** - Validates GQ component math
+3. **Data Type Validation** - Ensures integer types throughout
+4. **Zero Value Handling** - Prevents division by zero in synthesis
+
+### Legacy Analysis Tools
+
+**Script:** `check_zeros.py` (diagnostic only)
+**Purpose:** Mathematical consistency analysis of control files
+
+**Input Files:**
+```
+hh_gq/data/maz_marginals.csv
+hh_gq/data/taz_marginals.csv
+hh_gq/data/county_marginals.csv
+```
+
+**Analysis Output:**
+- Zero value counts by geography and control type
+- Mathematical inconsistency identification
+- Summary statistics on data quality issues
+
+**Usage Context:** Diagnostic analysis only - fixes are now applied automatically
+
+### Quality Assurance Workflow
+
+**Recommended sequence for synthesis issues:**
+
+1. **Normal Workflow** - Run `python run_populationsim_tm2.py` (fixes applied automatically)
+2. **If Issues Persist** - Check `populationsim.log` for specific error details
+3. **Data Validation** - Run `check_zeros.py` for diagnostic analysis
+4. **Force Regeneration** - Use force flags to regenerate specific workflow steps
+
+**The automatic integration eliminates most common synthesis failures while preserving data integrity.**

@@ -19,7 +19,22 @@ logging:
       handlers: [console, logfile]
       propagate: false
 
+    populationsim.steps:
+      level: DEBUG
+      handlers: [console, logfile]
+      propagate: false
+
+    populationsim.steps.setup_data_structures:
+      level: DEBUG
+      handlers: [console, logfile]
+      propagate: false
+
     activitysim:
+      level: DEBUG
+      handlers: [console, logfile]
+      propagate: false
+
+    pandas:
       level: DEBUG
       handlers: [console, logfile]
       propagate: false
@@ -43,7 +58,7 @@ logging:
       stream: ext://sys.stdout
       formatter: simpleFormatter
       #level: NOTSET
-      level: INFO
+      level: DEBUG
 
   formatters:
 

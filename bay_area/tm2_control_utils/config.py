@@ -48,6 +48,14 @@ GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2_updated.csv"  # Updated to include 
 COUNTY_TARGETS_FILE = "county_targets_acs2023.csv"
 COUNTY_SUMMARY_FILE = "county_summary_2020_2023.csv"
 
+# Example MAZ data file paths (for employment data templates)
+EXAMPLE_MAZ_DATA_FILE = "example_controls_2015/maz_data.csv"
+EXAMPLE_MAZ_DENSITY_FILE = "example_controls_2015/maz_data_withDensity.csv"
+
+# Output MAZ data file names (configurable)
+OUTPUT_MAZ_DATA_FILE = "maz_data.csv"
+OUTPUT_MAZ_DENSITY_FILE = "maz_data_withDensity.csv"
+
 # ----------------------------------------
 # Mapping configuration (optional)
 ENABLE_TAZ_MAPPING = True  # Set to False to disable map generation
