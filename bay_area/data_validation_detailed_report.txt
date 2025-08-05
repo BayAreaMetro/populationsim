@@ -1,0 +1,443 @@
+COMPREHENSIVE POPULATIONSIM DATA VALIDATION - DETAILED REPORT
+================================================================================
+Report saved to: C:\GitHub\populationsim\bay_area\data_validation_detailed_report.txt
+================================================================================
+Loading data files...
+\n================================================================================
+DETAILED ANALYSIS: SEED HOUSEHOLDS
+================================================================================
+Shape: 860,550 rows × 242 columns
+Memory usage: 1684.9 MB
+\nColumn Types:
+  RT: object
+  DIVISION: int64
+  PUMA: int64
+  REGION: int64
+  STATE: int64
+  ADJHSG: int64
+  ADJINC: int64
+  WGTP: int64
+  NP: int64
+  TYPEHUGQ: int64
+  ACCESSINET: float64
+  ACR: float64
+  AGS: float64
+  BATH: float64
+  BDSP: float64
+  BLD: float64
+  BROADBND: float64
+  COMPOTHX: float64
+  CONP: float64
+  DIALUP: float64
+  ELEFP: float64
+  ELEP: float64
+  FS: float64
+  FULFP: float64
+  FULP: float64
+  GASFP: float64
+  GASP: float64
+  HFL: float64
+  HISPEED: float64
+  HOTWAT: float64
+  INSP: float64
+  LAPTOP: float64
+  MHP: float64
+  MRGI: float64
+  MRGP: float64
+  MRGT: float64
+  MRGX: float64
+  OTHSVCEX: float64
+  REFR: float64
+  RMSP: float64
+  RNTM: float64
+  RNTP: float64
+  RWAT: float64
+  RWATPR: float64
+  SATELLITE: float64
+  SINK: float64
+  SMARTPHONE: float64
+  SMP: float64
+  STOV: float64
+  TABLET: float64
+  TEL: float64
+  TEN: float64
+  VACS: float64
+  VALP: float64
+  VEH: float64
+  WATFP: float64
+  WATP: float64
+  YRBLT: float64
+  CPLT: float64
+  FINCP: float64
+  FPARC: float64
+  GRNTP: float64
+  GRPIP: float64
+  HHL: float64
+  HHLANP: float64
+  HHLDRAGEP: float64
+  HHLDRHISP: float64
+  HHLDRRAC1P: float64
+  HHT: float64
+  HHT2: float64
+  HINCP: float64
+  HUGCL: float64
+  HUPAC: int64
+  HUPAOC: float64
+  HUPARC: float64
+  KIT: float64
+  LNGI: float64
+  MULTG: float64
+  MV: float64
+  NOC: float64
+  NPF: float64
+  NPP: float64
+  NR: float64
+  NRC: float64
+  OCPIP: float64
+  PARTNER: float64
+  PLM: float64
+  PLMPRP: float64
+  PSF: float64
+  R18: float64
+  R60: float64
+  R65: float64
+  RESMODE: float64
+  SMOCP: float64
+  SMX: float64
+  SRNT: float64
+  SVAL: float64
+  TAXAMT: float64
+  WIF: float64
+  WKEXREL: float64
+  WORKSTAT: float64
+  FACCESSP: float64
+  FACRP: float64
+  FAGSP: float64
+  FBATHP: float64
+  FBDSP: float64
+  FBLDP: float64
+  FBROADBNDP: float64
+  FCOMPOTHXP: float64
+  FCONP: float64
+  FDIALUPP: float64
+  FELEP: float64
+  FFINCP: float64
+  FFSP: int64
+  FFULP: float64
+  FGASP: float64
+  FGRNTP: float64
+  FHFLP: float64
+  FHINCP: float64
+  FHISPEEDP: float64
+  FHOTWATP: float64
+  FINSP: float64
+  FKITP: float64
+  FLAPTOPP: float64
+  FMHP: float64
+  FMRGIP: float64
+  FMRGP: float64
+  FMRGTP: float64
+  FMRGXP: float64
+  FMVP: float64
+  FOTHSVCEXP: float64
+  FPLMP: float64
+  FPLMPRP: float64
+  FREFRP: float64
+  FRMSP: float64
+  FRNTMP: float64
+  FRNTP: float64
+  FRWATP: float64
+  FRWATPRP: float64
+  FSATELLITEP: float64
+  FSINKP: float64
+  FSMARTPHONP: float64
+  FSMOCP: float64
+  FSMP: float64
+  FSMXHP: float64
+  FSMXSP: float64
+  FSTOVP: float64
+  FTABLETP: float64
+  FTAXP: float64
+  FTELP: float64
+  FTENP: float64
+  FVACSP: float64
+  FVALP: float64
+  FVEHP: float64
+  FWATP: float64
+  FYRBLTP: float64
+  WGTP1: int64
+  WGTP2: int64
+  WGTP3: int64
+  WGTP4: int64
+  WGTP5: int64
+  WGTP6: int64
+  WGTP7: int64
+  WGTP8: int64
+  WGTP9: int64
+  WGTP10: int64
+  WGTP11: int64
+  WGTP12: int64
+  WGTP13: int64
+  WGTP14: int64
+  WGTP15: int64
+  WGTP16: int64
+  WGTP17: int64
+  WGTP18: int64
+  WGTP19: int64
+  WGTP20: int64
+  WGTP21: int64
+  WGTP22: int64
+  WGTP23: int64
+  WGTP24: int64
+  WGTP25: int64
+  WGTP26: int64
+  WGTP27: int64
+  WGTP28: int64
+  WGTP29: int64
+  WGTP30: int64
+  WGTP31: int64
+  WGTP32: int64
+  WGTP33: int64
+  WGTP34: int64
+  WGTP35: int64
+  WGTP36: int64
+  WGTP37: int64
+  WGTP38: int64
+  WGTP39: int64
+  WGTP40: int64
+  WGTP41: int64
+  WGTP42: int64
+  WGTP43: int64
+  WGTP44: int64
+  WGTP45: int64
+  WGTP46: int64
+  WGTP47: int64
+  WGTP48: int64
+  WGTP49: int64
+  WGTP50: int64
+  WGTP51: int64
+  WGTP52: int64
+  WGTP53: int64
+  WGTP54: int64
+  WGTP55: int64
+  WGTP56: int64
+  WGTP57: int64
+  WGTP58: int64
+  WGTP59: int64
+  WGTP60: int64
+  WGTP61: int64
+  WGTP62: int64
+  WGTP63: int64
+  WGTP64: int64
+  WGTP65: int64
+  WGTP66: int64
+  WGTP67: int64
+  WGTP68: int64
+  WGTP69: int64
+  WGTP70: int64
+  WGTP71: int64
+  WGTP72: int64
+  WGTP73: int64
+  WGTP74: int64
+  WGTP75: int64
+  WGTP76: int64
+  WGTP77: int64
+  WGTP78: int64
+  WGTP79: int64
+  WGTP80: int64
+  unique_hh_id: object
+  hh_income_2023: int64
+  hh_income_2010: int64
+  COUNTY: int64
+  hhgqtype: int64
+  hh_workers_from_esr: int64
+\nMissing Values: None
+\nNUMERIC COLUMNS DETAILED ANALYSIS:
+\n  DIVISION:
+    Count: 860,550
+    Missing: 0
+    Mean: 9.000
+    Std: 0.000
+    Min: 9
+    Max: 9
+    Percentiles:
+       1%:      9.000
+       5%:      9.000
+      10%:      9.000
+      25%:      9.000
+      50%:      9.000
+      75%:      9.000
+      90%:      9.000
+      95%:      9.000
+      99%:      9.000
+    Unique values: 1
+    Value Distribution (all 1 values):
+               9:  860,550 (100.0%)
+\n  PUMA:
+    Count: 860,550
+    Missing: 0
+    Mean: 5638.988
+    Std: 3744.186
+    Min: 101
+    Max: 11301
+    Percentiles:
+       1%:    101.000
+       5%:    112.000
+      10%:    115.000
+      25%:   1309.000
+      50%:   7513.000
+      75%:   8516.000
+      90%:   9502.000
+      95%:   9704.000
+      99%:  11301.000
+    Unique values: 66
+    Distribution (histogram - 10 bins):
+      [   101.0,   1221.0):  178,145 ( 20.7%)
+      [  1221.0,   2341.0):  103,455 ( 12.0%)
+      [  2341.0,   3461.0):        0 (  0.0%)
+      [  3461.0,   4581.0):   29,355 (  3.4%)
+      [  4581.0,   5701.0):   34,595 (  4.0%)
+      [  5701.0,   6821.0):        0 (  0.0%)
+      [  6821.0,   7941.0):  110,660 ( 12.9%)
+      [  7941.0,   9061.0):  291,560 ( 33.9%)
+      [  9061.0,  10181.0):  101,420 ( 11.8%)
+      [ 10181.0,  11301.0):   11,360 (  1.3%)
+    Top 10 most frequent values:
+             101:   24,505 (  2.8%)
+             114:   19,035 (  2.2%)
+            5500:   19,025 (  2.2%)
+            1313:   18,065 (  2.1%)
+            4104:   17,940 (  2.1%)
+            9704:   17,650 (  2.1%)
+            8519:   17,540 (  2.0%)
+            9706:   17,225 (  2.0%)
+            8516:   16,570 (  1.9%)
+            7511:   16,460 (  1.9%)
+\n  REGION:
+    Count: 860,550
+    Missing: 0
+    Mean: 4.000
+    Std: 0.000
+    Min: 4
+    Max: 4
+    Percentiles:
+       1%:      4.000
+       5%:      4.000
+      10%:      4.000
+      25%:      4.000
+      50%:      4.000
+      75%:      4.000
+      90%:      4.000
+      95%:      4.000
+      99%:      4.000
+    Unique values: 1
+    Value Distribution (all 1 values):
+               4:  860,550 (100.0%)
+\n  STATE:
+    Count: 860,550
+    Missing: 0
+    Mean: 6.000
+    Std: 0.000
+    Min: 6
+    Max: 6
+    Percentiles:
+       1%:      6.000
+       5%:      6.000
+      10%:      6.000
+      25%:      6.000
+      50%:      6.000
+      75%:      6.000
+      90%:      6.000
+      95%:      6.000
+      99%:      6.000
+    Unique values: 1
+    Value Distribution (all 1 values):
+               6:  860,550 (100.0%)
+\n  ADJHSG:
+    Count: 860,550
+    Missing: 0
+    Mean: 1104191.714
+    Std: 76773.180
+    Min: 1000000
+    Max: 1195583
+    Percentiles:
+       1%: 1000000.000
+       5%: 1000000.000
+      10%: 1000000.000
+      25%: 1041251.000
+      50%: 1125501.000
+      75%: 1179884.000
+      90%: 1195583.000
+      95%: 1195583.000
+      99%: 1195583.000
+    Unique values: 5
+    Value Distribution (all 5 values):
+         1000000:  183,240 ( 21.3%)
+         1041251:  182,515 ( 21.2%)
+         1125501:  176,670 ( 20.5%)
+         1179884:  143,885 ( 16.7%)
+         1195583:  174,240 ( 20.2%)
+\n  ADJINC:
+    Count: 860,550
+    Missing: 0
+    Mean: 1128276.172
+    Std: 70450.967
+    Min: 1019518
+    Max: 1207712
+    Percentiles:
+       1%: 1019518.000
+       5%: 1019518.000
+      10%: 1019518.000
+      25%: 1085308.000
+      50%: 1159185.000
+      75%: 1187140.000
+      90%: 1207712.000
+      95%: 1207712.000
+      99%: 1207712.000
+    Unique values: 5
+    Value Distribution (all 5 values):
+         1019518:  183,240 ( 21.3%)
+         1085308:  182,515 ( 21.2%)
+         1159185:  176,670 ( 20.5%)
+         1187140:  143,885 ( 16.7%)
+         1207712:  174,240 ( 20.2%)
+\n  WGTP:
+    Count: 860,550
+    Missing: 0
+    Mean: 18.338
+    Std: 18.067
+    Min: 0
+    Max: 403
+    Percentiles:
+       1%:      0.000
+       5%:      0.000
+      10%:      0.000
+      25%:      9.000
+      50%:     13.000
+      75%:     22.000
+      90%:     38.000
+      95%:     52.000
+      99%:     87.000
+    Unique values: 254
+    Distribution (histogram - 10 bins):
+      [     0.0,     40.3):  786,295 ( 91.4%)
+      [    40.3,     80.6):   63,130 (  7.3%)
+      [    80.6,    120.9):    8,270 (  1.0%)
+      [   120.9,    161.2):    1,840 (  0.2%)
+      [   161.2,    201.5):      605 (  0.1%)
+      [   201.5,    241.8):      240 (  0.0%)
+      [   241.8,    282.1):      115 (  0.0%)
+      [   282.1,    322.4):       45 (  0.0%)
+      [   322.4,    362.7):        5 (  0.0%)
+      [   362.7,    403.0):        5 (  0.0%)
+    Top 10 most frequent values:
+               0:   88,520 ( 10.3%)
+              11:   58,180 (  6.8%)
+              12:   56,590 (  6.6%)
+              10:   48,540 (  5.6%)
+              13:   48,305 (  5.6%)
+              14:   37,590 (  4.4%)
+               9:   36,255 (  4.2%)
+              15:   31,655 (  3.7%)
+               8:   28,105 (  3.3%)
+              16:   27,090 (  3.1%)

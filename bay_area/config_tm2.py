@@ -221,15 +221,14 @@ class PopulationSimConfig:
                 shutil.copy2(src_path, dst_path)
                 files_copied.append(src_name)
                 
-                # For geo crosswalk, move instead of copy (remove duplicate)
-                if src_name == 'geo_cross_walk_tm2_updated.csv':
-                    src_path.unlink()  # Remove the source file after copying
-                    files_moved.append(src_name)
+                # NOTE: Keep geo crosswalk in output_2023 - control generation script needs it there
+                # We'll only clean up old duplicate versions, not the main updated file
         
-        # Also clean up any old geo crosswalk files in output_2023
+        # Clean up any old geo crosswalk files in output_2023 (but keep the updated one)
         old_geo_files = [
-            self.OUTPUT_DIR / "geo_cross_walk_tm2.csv",
-            self.OUTPUT_DIR / "geo_cross_walk.csv"
+            self.OUTPUT_DIR / "geo_cross_walk_tm2.csv",  # Old non-updated version
+            self.OUTPUT_DIR / "geo_cross_walk.csv"       # Very old version
+            # NOTE: We keep geo_cross_walk_tm2_updated.csv in output_2023 for control generation
         ]
         
         for old_file in old_geo_files:

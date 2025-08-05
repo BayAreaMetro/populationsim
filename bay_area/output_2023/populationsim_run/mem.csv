@@ -5,3 +5,15 @@ MainProcess,17744,96_063_488,96_063_488,70_766_592,pipeline.run_model input_pre_
 MainProcess,17744,6_640_701_440,6_640_701_440,6_631_882_752,pipeline.run_model input_pre_processor finished,0,2025/08/05 08:46:55.623615
 MainProcess,17744,6_708_563_968,6_708_563_968,6_699_900_928,pipeline.run after input_pre_processor,0,2025/08/05 08:48:14.094550
 MainProcess,17744,6_708_756_480,6_708_756_480,6_699_900_928,pipeline.run_model setup_data_structures start,0,2025/08/05 08:48:14.298906
+MainProcess,15856,95_703_040,95_703_040,70_688_768,pipeline.run before preload_injectables,0,2025/08/05 09:06:59.178352
+MainProcess,15856,95_993_856,95_993_856,70_713_344,pipeline.run after preload_injectables,0,2025/08/05 09:06:59.194676
+MainProcess,15856,96_034_816,96_034_816,70_737_920,pipeline.run_model input_pre_processor start,0,2025/08/05 09:06:59.210054
+MainProcess,15856,6_639_407_104,6_639_407_104,6_630_559_744,pipeline.run_model input_pre_processor finished,0,2025/08/05 09:08:12.216410
+MainProcess,15856,6_707_150_848,6_707_150_848,6_698_422_272,pipeline.run after input_pre_processor,0,2025/08/05 09:09:22.512119
+MainProcess,15856,6_707_277_824,6_707_277_824,6_698_422_272,pipeline.run_model setup_data_structures start,0,2025/08/05 09:09:22.744570
+MainProcess,10500,95_838_208,95_838_208,70_832_128,pipeline.run before preload_injectables,0,2025/08/05 12:27:15.943679
+MainProcess,10500,96_124_928,96_124_928,70_840_320,pipeline.run after preload_injectables,0,2025/08/05 12:27:15.957846
+MainProcess,10500,96_161_792,96_161_792,70_864_896,pipeline.run_model input_pre_processor start,0,2025/08/05 12:27:15.971754
+MainProcess,10500,6_244_769_792,6_244_769_792,6_235_922_432,pipeline.run_model input_pre_processor finished,0,2025/08/05 12:28:26.289709
+MainProcess,10500,6_308_126_720,6_308_126_720,6_299_271_168,pipeline.run after input_pre_processor,0,2025/08/05 12:29:38.205289
+MainProcess,10500,6_308_130_816,6_308_130_816,6_299_275_264,pipeline.run_model setup_data_structures start,0,2025/08/05 12:29:38.482624

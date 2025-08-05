@@ -474,10 +474,31 @@ class PopulationSimWorkflow:
                         df_hh['hh_income_2023'] = df_hh['hh_income_2023'].fillna(median_income)
                         changes_made = True
                 
+                # CRITICAL FIX: Filter out zero-weight households to prevent IntCastingNaNError
+                if 'WGTP' in df_hh.columns:
+                    zero_weight_count = (df_hh['WGTP'] == 0).sum()
+                    if zero_weight_count > 0:
+                        self.log(f"  FILTERING OUT {zero_weight_count:,} zero-weight households (WGTP=0)")
+                        df_hh = df_hh[df_hh['WGTP'] > 0]
+                        changes_made = True
+                        
+                        # Also filter out any infinite or NaN weights
+                        inf_weight_count = np.isinf(df_hh['WGTP']).sum()
+                        nan_weight_count = df_hh['WGTP'].isna().sum()
+                        
+                        if inf_weight_count > 0 or nan_weight_count > 0:
+                            self.log(f"  FILTERING OUT {inf_weight_count} infinite and {nan_weight_count} NaN weight households")
+                            df_hh = df_hh[np.isfinite(df_hh['WGTP']) & df_hh['WGTP'].notna()]
+                            changes_made = True
+                        
+                        self.log(f"  Households after weight filtering: {len(df_hh):,} (was {original_shape[0]:,})")
+                else:
+                    self.log("  WARNING: WGTP column not found in households file!", "WARNING")
+                
                 if changes_made:
                     # Save the cleaned file
                     df_hh.to_csv(hh_file, index=False)
-                    files_cleaned.append(f"households ({original_shape[0]} rows)")
+                    files_cleaned.append(f"households ({original_shape[0]} -> {len(df_hh)} rows)")
                     self.log(f"  Cleaned households file")
                 
             except Exception as e:
@@ -530,10 +551,32 @@ class PopulationSimWorkflow:
                             df_p[col] = df_p[col].astype(int)
                             changes_made = True
                 
+                # CRITICAL FIX: Filter persons to only include those from valid households
+                # This ensures consistency after filtering zero-weight households
+                hh_file = self.config.HH_GQ_DATA_DIR / "seed_households.csv"
+                if hh_file.exists() and 'unique_hh_id' in df_p.columns:
+                    try:
+                        # Read the cleaned households file to get valid household IDs
+                        df_hh_clean = pd.read_csv(hh_file)
+                        valid_hh_ids = set(df_hh_clean['unique_hh_id'])
+                        
+                        # Filter persons to only those in valid households
+                        original_person_count = len(df_p)
+                        df_p = df_p[df_p['unique_hh_id'].isin(valid_hh_ids)]
+                        filtered_person_count = len(df_p)
+                        
+                        if filtered_person_count < original_person_count:
+                            self.log(f"  FILTERED PERSONS: {original_person_count:,} -> {filtered_person_count:,} "
+                                   f"(removed {original_person_count - filtered_person_count:,} persons from invalid households)")
+                            changes_made = True
+                        
+                    except Exception as e:
+                        self.log(f"  Warning: Could not filter persons by valid households: {e}", "WARNING")
+                
                 if changes_made:
                     # Save the cleaned file
                     df_p.to_csv(p_file, index=False)
-                    files_cleaned.append(f"persons ({original_shape[0]} rows)")
+                    files_cleaned.append(f"persons ({original_shape[0]} -> {len(df_p)} rows)")
                     self.log(f"  Cleaned persons file")
                 
             except Exception as e:
