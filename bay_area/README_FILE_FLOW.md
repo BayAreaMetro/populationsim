@@ -10,463 +10,195 @@ Census API Data → Raw PUMS Files → Processed Seed Files → PopulationSim In
   Downloads     Processing Scripts    File Copying       PopulationSim Engine      Final Outputs
 ```
 
-## Directory Structure
+## Directory Structure (CLEANED UP AS OF 2025)
 
 ```
 bay_area/
-├── input_2023/                           # Census API cache and raw data
-│   ├── api/                             # Census API downloaded data
-│   ├── census_cache/                    # Cached Census API responses
-│   └── NewCachedTablesForPopulationSimControls/  # Pre-cached control data
-├── output_2023/                         # Intermediate processing outputs
-│   ├── households_2023_raw.csv         # Raw PUMS households (downloaded)
-│   ├── persons_2023_raw.csv            # Raw PUMS persons (downloaded)  
-│   ├── households_2023_tm2.csv         # Processed households (PopulationSim ready)
-│   ├── persons_2023_tm2.csv            # Processed persons (PopulationSim ready)
+├── output_2023/                         # Main data generation directory
 │   ├── maz_marginals.csv               # MAZ-level control totals
-│   ├── taz_marginals.csv               # TAZ-level control totals
+│   ├── taz_marginals.csv               # TAZ-level control totals  
 │   ├── county_marginals.csv            # County-level control totals
-│   ├── geo_cross_walk_tm2.csv          # Geography crosswalk
-│   └── populationsim_run/              # Final PopulationSim outputs
-│       ├── synthetic_households.csv    # Final synthetic households
-│       ├── synthetic_persons.csv       # Final synthetic persons
-│       ├── summary_melt.csv            # Summary for validation
-│       └── populationsim.log           # Detailed execution log
-├── hh_gq/                              # PopulationSim working directory
-│   ├── data/                           # PopulationSim input files (copied)
-│   │   ├── seed_households.csv         # COPY of households_2023_tm2.csv
-│   │   ├── seed_persons.csv            # COPY of persons_2023_tm2.csv
-│   │   ├── maz_marginals.csv           # COPY from output_2023/
-│   │   ├── taz_marginals.csv           # COPY from output_2023/
-│   │   ├── county_marginals.csv        # COPY from output_2023/
-│   │   ├── geo_cross_walk_tm2.csv      # COPY from output_2023/
-│   │   ├── maz_marginals_hhgq.csv      # Group quarters integrated version
-│   │   ├── taz_marginals_hhgq.csv      # Group quarters integrated version
-│   │   └── validation_*.csv             # Analysis outputs from troubleshooting tools (if needed)
+│   ├── geo_cross_walk_tm2_updated.csv  # Geography crosswalk (66 PUMAs)
+│   ├── maz_data.csv                    # MAZ employment/density data for TM2
+│   ├── maz_data_withDensity.csv        # Enhanced MAZ data with density metrics
+│   └── tableau/                        # Tableau-ready outputs
+│       ├── *.csv                       # Standardized CSV files
+│       └── README_Tableau_Data.md      # Usage instructions
+├── hh_gq/                              # PopulationSim execution directory
+│   ├── data/                           # PopulationSim input files
+│   │   ├── seed_households.csv         # PUMS household seed data
+│   │   ├── seed_persons.csv            # PUMS person seed data
+│   │   ├── maz_marginals_hhgq.csv      # MAZ controls (HH + GQ integrated)
+│   │   ├── taz_marginals_hhgq.csv      # TAZ controls (HH + GQ integrated)
+│   │   ├── county_marginals.csv        # County occupation controls
+│   │   ├── geo_cross_walk_tm2.csv      # Geography relationships
+│   │   ├── controls.csv                # PopulationSim control expressions
+│   │   └── maz_data_withDensity.csv    # MAZ employment data (for TM2)
 │   └── configs_TM2/                    # PopulationSim configuration
-│       ├── settings.yaml               # Main configuration file
-│       ├── controls.csv                # Control specifications
+│       ├── settings.yaml               # Main PopulationSim settings
 │       └── logging.yaml                # Logging configuration
 ├── tm2_control_utils/                  # Control generation utilities
-│   ├── config.py                       # Control generation configuration
-│   └── various utility scripts
-├── check_zeros.py                      # Control file mathematical analysis tool (diagnostic only)
-├── fix_control_zeros.py                # Information script - fixes now integrated into pipeline
-└── run_populationsim_tm2.py            # Enhanced workflow orchestration (no manual prompts)
+│   ├── config.py                       # Control generation configuration  
+│   └── other utility modules           # Supporting functions
+├── create_baseyear_controls_23_tm2.py  # Main control generation script
+├── add_hhgq_combined_controls.py       # Group quarters integration script
+└── run_populationsim_tm2.py            # Workflow orchestration script
 ```
 
-## Detailed File Flow by Step
+## Key PopulationSim Input Files (Exact Files Used)
 
-### Step 1: Seed Population Generation
+**Located in:** `c:\GitHub\populationsim\bay_area\hh_gq\data\`
 
-**Script:** `create_seed_population_tm2.py`
+### Core Required Files:
+1. **`seed_households.csv`** - PUMS household records (Bay Area only)
+2. **`seed_persons.csv`** - PUMS person records (Bay Area only)
+3. **`maz_marginals_hhgq.csv`** - MAZ control totals (households + group quarters)
+4. **`taz_marginals_hhgq.csv`** - TAZ control totals (households + group quarters)
+5. **`county_marginals.csv`** - County occupation controls
+6. **`geo_cross_walk_tm2.csv`** - MAZ↔TAZ↔COUNTY↔PUMA mapping
+7. **`controls.csv`** - PopulationSim control expressions
+8. **`maz_data_withDensity.csv`** - MAZ employment data (for TM2 compatibility)
 
-**Input Sources:**
-- Census API: ACS 2023 PUMS data for California (downloaded on demand)
-- Bay Area PUMAs: 66 specific PUMA codes hardcoded in script
+### Configuration Files:
+- **`configs_TM2/settings.yaml`** - Main PopulationSim configuration
+- **`configs_TM2/logging.yaml`** - Logging settings
 
-**Intermediate Files:**
+**Note:** The `data_dir: .` setting in `settings.yaml` means PopulationSim looks for input files in the `hh_gq/data/` directory (relative to the config file location).
+
+## Current File Workflow (2025)
+
+### Step 1: Control Generation
+**Script:** `python create_baseyear_controls_23_tm2.py`
+
+**Outputs to:** `output_2023/`
 ```
-output_2023/households_2023_raw.csv     # Raw PUMS households (860,550 records)
-output_2023/persons_2023_raw.csv        # Raw PUMS persons (1,998,300 records)
-```
-
-**Processing:**
-1. Downloads raw PUMS data from Census API if not cached
-2. Filters to Bay Area PUMAs only
-3. Adds required PopulationSim columns:
-   - `hhgqtype`: Group quarters type (1=household, 2=group quarters)
-   - `COUNTY`: County FIPS codes
-   - `hh_income_2023`: CPI-adjusted income to 2023 dollars
-   - `hh_income_2010`: Backwards-compatible income
-   - `occupation`: SOC occupation codes
-   - `employed`: Employment status
-   - `unique_hh_id`: Unique household identifier
-4. **Data Type Conversion (2025 Enhancement):**
-   - Converts `HUPAC`, `NP`, `hhgqtype`, `hh_workers_from_esr` to int64
-   - Prevents IntCastingNaNError during PopulationSim synthesis
-   - Ensures all demographic fields have proper integer types
-
-**Final Outputs:**
-```
-output_2023/households_2023_tm2.csv     # PopulationSim-ready households (860,550 records)
-output_2023/persons_2023_tm2.csv        # PopulationSim-ready persons (1,998,300 records)
+maz_marginals.csv                # MAZ control totals (39,726 zones)
+taz_marginals.csv                # TAZ control totals (4,735 zones) 
+county_marginals.csv             # County occupation controls (9 counties)
+geo_cross_walk_tm2_updated.csv   # Geography crosswalk (66 PUMAs)
+maz_data.csv                     # MAZ employment data
+maz_data_withDensity.csv         # Enhanced MAZ data with density
 ```
 
-**File Movement:**
+### Step 2: Group Quarters Integration
+**Script:** `python add_hhgq_combined_controls.py`
+
+**Processes:** Control files from `output_2023/`
+**Outputs to:** `hh_gq/data/`
 ```
-output_2023/households_2023_tm2.csv  →  hh_gq/data/seed_households.csv  (COPY)
-output_2023/persons_2023_tm2.csv     →  hh_gq/data/seed_persons.csv     (COPY)
-```
-
-### Step 2: Control Generation
-
-**Script:** `create_baseyear_controls_23_tm2.py --output_dir hh_gq/data`
-
-**Input Sources:**
-- Census API 2020 Decennial PL 94-171 (block-level household counts)
-- ACS 2023 5-year estimates (tract and block group demographics)
-- ACS 2023 1-year estimates (county-level scaling targets)
-- Local cache: `input_2023/NewCachedTablesForPopulationSimControls/`
-- Geography: TM2 MAZ/TAZ definitions
-
-**Processing Flow:**
-
-#### MAZ Level Controls:
-1. **Block-level data** (2020 Census) → household counts by block
-2. **Geography crosswalk** (2020→2010 Census boundaries) → MAZ assignment
-3. **County scaling** (ACS 2023 1-year) → scaled to current totals
-4. **Group quarters** (2020 Census) → GQ population by type
-
-**Output:**
-```
-hh_gq/data/maz_marginals.csv            # MAZ controls (14,000+ zones)
-Columns: MAZ, num_hh, gq_pop, gq_military, gq_university, gq_other
+maz_marginals_hhgq.csv           # MAZ controls with GQ integrated
+taz_marginals_hhgq.csv           # TAZ controls with GQ integrated
 ```
 
-#### TAZ Level Controls:
-1. **Tract/Block Group data** (ACS 2023 5-year) → demographic distributions
-2. **Income adjustment** → CPI inflation to 2023 dollars  
-3. **Geographic aggregation** → TAZ-level summaries
-4. **Household characteristics** → size, workers, children, age groups
+### Step 3: PopulationSim Synthesis
+**Script:** Run PopulationSim with TM2 configuration
 
-**Output:**
-```
-hh_gq/data/taz_marginals.csv            # TAZ controls (1,454 zones)
-Columns: TAZ, hh_size_1, hh_size_2, hh_size_3, hh_size_4_plus,
-         hh_inc_30, hh_inc_60, hh_inc_100, hh_inc_100_plus,
-         hh_workers_0, hh_workers_1, hh_workers_2, hh_workers_3_plus,
-         age_0_19, age_20_34, age_35_64, age_65_plus,
-         hh_with_children, hh_no_children
-```
+**Working Directory:** `c:\GitHub\populationsim\bay_area\hh_gq\`
+**Input Files:** All files in `data/` subdirectory
+**Configuration:** `configs_TM2/settings.yaml`
 
-#### County Level Controls:
-1. **ACS occupation data** → major occupation categories
-2. **County aggregation** → 9-county Bay Area totals
+**Current PopulationSim Input Files:**
+- `data/seed_households.csv` (PUMS households)
+- `data/seed_persons.csv` (PUMS persons)
+- `data/maz_marginals_hhgq.csv` (MAZ targets)
+- `data/taz_marginals_hhgq.csv` (TAZ targets)
+- `data/county_marginals.csv` (County targets)
+- `data/geo_cross_walk_tm2.csv` (Geography mapping)
+- `data/controls.csv` (Control expressions)
+- `data/maz_data_withDensity.csv` (Employment data)
+## File Path Clarification
 
-**Output:**
-```
-hh_gq/data/county_marginals.csv         # County controls (9 counties)
-Columns: COUNTY, mgmt, prof, services, retail, manual, military
-```
+**IMPORTANT:** PopulationSim configuration uses relative paths. The `data_dir: .` setting in `settings.yaml` means:
+- PopulationSim runs from: `c:\GitHub\populationsim\bay_area\hh_gq\`
+- Data files are in: `c:\GitHub\populationsim\bay_area\hh_gq\data\`
+- Config files are in: `c:\GitHub\populationsim\bay_area\hh_gq\configs_TM2\`
 
-#### Geography Crosswalk:
-1. **MAZ/TAZ definitions** → spatial relationships
-2. **Census geography** → block, block group, tract linkages
-3. **PUMA assignment** → 66 Bay Area PUMAs
-
-**Output:**
+**Full Paths for Key Files:**
 ```
-hh_gq/data/geo_cross_walk_tm2.csv       # Geography relationships
-Columns: MAZ, TAZ, COUNTY, PUMA, TRACT, BLKGRP, BLOCK
+c:\GitHub\populationsim\bay_area\hh_gq\data\seed_households.csv
+c:\GitHub\populationsim\bay_area\hh_gq\data\seed_persons.csv
+c:\GitHub\populationsim\bay_area\hh_gq\data\maz_marginals_hhgq.csv
+c:\GitHub\populationsim\bay_area\hh_gq\data\taz_marginals_hhgq.csv
+c:\GitHub\populationsim\bay_area\hh_gq\data\county_marginals.csv
+c:\GitHub\populationsim\bay_area\hh_gq\data\geo_cross_walk_tm2.csv
+c:\GitHub\populationsim\bay_area\hh_gq\data\controls.csv
+c:\GitHub\populationsim\bay_area\hh_gq\configs_TM2\settings.yaml
 ```
 
-**No File Movement:** Files are generated directly in `hh_gq/data/` directory
+## Legacy Files Cleanup (2025)
 
-### Step 3: Group Quarters Integration
+### Files Removed/Consolidated:
+- Old backup files (`*_backup.csv`, `*_original.csv`)
+- Duplicate crosswalk files (kept `geo_cross_walk_tm2.csv`)
+- Intermediate processing files (`*_preprocessed.csv`)
+- Legacy control files without `_hhgq` suffix
 
-**Script:** `add_hhgq_combined_controls.py --model_type TM2`
+### Files Requiring Both Versions:
+- `maz_data.csv` AND `maz_data_withDensity.csv` (different TM2 tools need different versions)
+- `maz_marginals.csv` (in output_2023) AND `maz_marginals_hhgq.csv` (in hh_gq/data)
 
-**Input Files:**
+## Troubleshooting the IntCastingNaNError
+
+**Common Issue:** PopulationSim fails during "setup data structures" step with:
 ```
-hh_gq/data/maz_marginals.csv            # Original MAZ controls
-hh_gq/data/taz_marginals.csv            # Original TAZ controls
-```
-
-**Processing:**
-- Treats group quarters residents as single-person households
-- Adds GQ population to household counts for PopulationSim balancing
-- Maintains separate GQ tracking for post-processing
-
-**Output Files:**
-```
-hh_gq/data/maz_marginals_hhgq.csv       # MAZ controls with GQ integration
-hh_gq/data/taz_marginals_hhgq.csv       # TAZ controls with GQ integration
+pandas.errors.IntCastingNaNError: Cannot convert non-finite values (NA or inf) to integer
 ```
 
-**Key Changes:**
-- `num_hh` → `num_hh + gq_pop` (total units to synthesize)
-- `hh_size_1` → `hh_size_1 + gq_pop` (GQ residents as 1-person HHs)
+**Root Cause:** Non-finite values in seed data or control files that cannot be converted to integers.
 
-### Step 4: PopulationSim Synthesis
+**Debugging Steps:**
+1. **Check Control Files:** Verify no NaN/infinite values in marginal files
+2. **Check Seed Data:** Verify PUMS data has proper integer types
+3. **Check Control Expressions:** Verify expressions in `controls.csv` don't create invalid results
+4. **Check GROUP_BY_INCIDENCE_SIGNATURE:** This setting can trigger the error with certain data
 
-**Script:** `run_populationsim.py --config hh_gq/configs_TM2 --output output_2023/populationsim_run --data hh_gq/data`
-
-**Configuration Files:**
-```
-hh_gq/configs_TM2/settings.yaml         # Main PopulationSim settings
-hh_gq/configs_TM2/controls.csv          # Control specifications
-hh_gq/configs_TM2/logging.yaml          # Logging configuration
-```
-
-**Input Files (from hh_gq/data/):**
-```
-seed_households.csv                      # Seed households (860,550 records)
-seed_persons.csv                         # Seed persons (1,998,300 records)  
-geo_cross_walk_tm2.csv                   # Geography relationships
-maz_marginals_hhgq.csv                   # MAZ-level targets
-taz_marginals_hhgq.csv                   # TAZ-level targets
-county_marginals.csv                     # County-level targets
+**Quick Fix for GROUP_BY_INCIDENCE_SIGNATURE Error:**
+```yaml
+# In settings.yaml, temporarily disable:
+GROUP_BY_INCIDENCE_SIGNATURE: False
 ```
 
-**Processing:**
-1. **Input validation** → Check all files and columns
-2. **Setup data structures** → Build control matrices
-3. **Initial balancing** → County level convergence
-4. **Iterative balancing** → TAZ and MAZ level convergence
-5. **Integerization** → Convert weights to whole households
-6. **Final synthesis** → Generate synthetic population
+## File Validation Commands
 
-**Intermediate Files (in pipeline cache):**
-```
-output_2023/populationsim_run/pipeline.h5    # Cached intermediate results
-```
-
-**Final Output Files:**
-```
-output_2023/populationsim_run/synthetic_households.csv    # Synthetic households
-output_2023/populationsim_run/synthetic_persons.csv       # Synthetic persons
-output_2023/populationsim_run/final_summary_TAZ.csv       # TAZ-level summary
-output_2023/populationsim_run/final_summary_MAZ.csv       # MAZ-level summary
-output_2023/populationsim_run/final_summary_COUNTY.csv    # County-level summary
-output_2023/populationsim_run/populationsim.log           # Detailed execution log
-```
-
-### Step 5: Post-Processing
-
-**Script:** `postprocess_recode.py --model_type TM2 --directory output_2023/populationsim_run --year 2023`
-
-**Input Files:**
-```
-output_2023/populationsim_run/synthetic_households.csv
-output_2023/populationsim_run/synthetic_persons.csv
-output_2023/populationsim_run/final_summary_*.csv
-```
-
-**Processing:**
-1. **Variable recoding** → Travel model compatibility
-2. **Validation checks** → Compare to control totals
-3. **Summary generation** → Create analysis files
-
-**Final Output Files:**
-```
-output_2023/populationsim_run/summary_melt.csv           # Long-format summary for Tableau
-output_2023/populationsim_run/validation.twb             # Tableau workbook (copied)
-```
-
-**Archived Input Files (copied for reference):**
-```
-output_2023/populationsim_run/maz_marginals.csv
-output_2023/populationsim_run/taz_marginals.csv
-output_2023/populationsim_run/county_marginals.csv
-output_2023/populationsim_run/geo_cross_walk_tm2.csv
-```
-
-### Step 6: Tableau Data Preparation
-
-**Script:** `prepare_tableau_data.py --output_dir output_2023/populationsim_run --year 2023`
-
-**Input Files:**
-```
-output_2023/populationsim_run/synthetic_households.csv
-output_2023/populationsim_run/synthetic_persons.csv
-output_2023/populationsim_run/summary_melt.csv
-output_2023/populationsim_run/maz_marginals.csv
-output_2023/populationsim_run/taz_marginals.csv
-output_2023/populationsim_run/county_marginals.csv
-output_2023/populationsim_run/geo_cross_walk_tm2.csv
-local_data/gis/                                     # TAZ and PUMA shapefiles
-```
-
-**Processing:**
-1. **Standardize join fields** → Create consistent TAZ_ID, MAZ_ID, PUMA_ID, COUNTY_ID columns
-2. **Prepare spatial data** → Process TAZ and PUMA boundary shapefiles for Tableau
-3. **Format marginal data** → Clean control totals for analysis
-4. **Create geographic crosswalk** → Tableau-ready geography relationships
-5. **Generate documentation** → README for Tableau usage
-
-**Final Output Files:**
-```
-output_2023/populationsim_run/tableau/taz_boundaries_tableau.shp     # TAZ boundaries with standardized fields
-output_2023/populationsim_run/tableau/puma_boundaries_tableau.shp    # PUMA boundaries with standardized fields
-output_2023/populationsim_run/tableau/taz_marginals_tableau.csv      # TAZ controls with standardized joins
-output_2023/populationsim_run/tableau/maz_marginals_tableau.csv      # MAZ controls with standardized joins
-output_2023/populationsim_run/tableau/geo_crosswalk_tableau.csv      # Geography relationships for Tableau
-output_2023/populationsim_run/tableau/README_TABLEAU.md              # Usage instructions for Tableau
-```
-
-## File Size and Performance Characteristics
-
-### Typical File Sizes:
-```
-households_2023_raw.csv          ~650 MB    (all PUMS columns)
-persons_2023_raw.csv            ~1.4 GB    (all PUMS columns)
-households_2023_tm2.csv         ~650 MB    (PopulationSim subset)
-persons_2023_tm2.csv            ~1.4 GB    (PopulationSim subset)
-seed_households.csv             ~650 MB    (copy of tm2 file)
-seed_persons.csv                ~1.4 GB    (copy of tm2 file)
-maz_marginals.csv               ~800 KB    (14,000 zones)
-taz_marginals.csv               ~350 KB    (1,454 zones)
-county_marginals.csv            ~500 bytes (9 counties)
-geo_cross_walk_tm2.csv          ~1.2 MB    (geography links)
-synthetic_households.csv        ~650 MB    (final households)
-synthetic_persons.csv           ~1.4 GB    (final persons)
-```
-
-### Processing Times:
-```
-Step 1 (Seed Generation):        10-15 minutes  (download + processing)
-Step 2 (Control Generation):     10-15 minutes  (Census API calls)
-Step 3 (HHGQ Integration):       1-2 minutes    (file processing)
-Step 4 (PopulationSim):          45-60 minutes  (synthesis algorithm)
-Step 5 (Post-processing):        5 minutes      (recoding + validation)
-Step 6 (Tableau Preparation):    2-3 minutes    (spatial data processing)
-```
-
-## Critical File Dependencies
-
-### PopulationSim Input Requirements:
-1. **settings.yaml** must reference correct filenames in `input_table_list`
-2. **Seed files** must have `hhgqtype` column (not `gqtype`)
-3. **Control files** must use `_hhgq` versions for synthesis
-4. **Geography crosswalk** must link all MAZ/TAZ to Census geography
-5. **All files** must be in `hh_gq/data/` directory when PopulationSim runs
-
-### Column Requirements:
-```
-Households: unique_hh_id, hhgqtype, COUNTY, hh_income_2023, NP, [PUMS columns]
-Persons: unique_hh_id, hhgqtype, COUNTY, AGEP, occupation, employed, [PUMS columns]
-Controls: Geography columns + demographic control totals
-Crosswalk: MAZ, TAZ, COUNTY, PUMA, TRACT, BLKGRP
-```
-
-## File Movement Summary
-
-### Copies Made During Workflow:
-```
-output_2023/households_2023_tm2.csv  →  hh_gq/data/seed_households.csv
-output_2023/persons_2023_tm2.csv     →  hh_gq/data/seed_persons.csv
-validation.twb                       →  output_2023/populationsim_run/validation.twb
-hh_gq/data/*.csv                     →  output_2023/populationsim_run/*.csv (archive)
-```
-
-### Files That Stay in Place:
-```
-input_2023/                          # Census cache (permanent)
-output_2023/households_2023_raw.csv  # Raw PUMS (intermediate)
-output_2023/persons_2023_raw.csv     # Raw PUMS (intermediate)
-hh_gq/configs_TM2/                   # Configuration (permanent)
-```
-
-### Temporary/Cache Files:
-```
-output_2023/populationsim_run/pipeline.h5    # Cleared between runs
-input_2023/api/                              # API cache (can be cleared)
-input_2023/census_cache/                     # Census cache (can be cleared)
-```
-
-## Troubleshooting File Issues
-
-### Common File Problems:
-1. **Missing hhgqtype column** → Regenerate seed files with updated script
-2. **Wrong filenames in settings.yaml** → Update input_table_list
-3. **Files in wrong directory** → Check hh_gq/data/ vs output_2023/
-4. **Stale pipeline cache** → Delete pipeline.h5 and restart
-5. **Permission errors** → Check file locks and VS Code handles
-6. **IntCastingNaNError during synthesis** → Check data types and mathematical consistency
-7. **Zero value division errors** → Run analysis and repair tools
-
-### File Validation Commands:
 ```python
-# Check seed file columns and data types
+# Check control files for data quality issues
 import pandas as pd
-df = pd.read_csv('hh_gq/data/seed_households.csv', nrows=5)
-print('hhgqtype' in df.columns)  # Should be True
-print(df['hhgqtype'].dtype)     # Should be int64
+import numpy as np
 
-# Check for proper integer types in critical fields
+# MAZ controls check
+maz_df = pd.read_csv('hh_gq/data/maz_marginals_hhgq.csv')
+print("MAZ NaN values:", maz_df.isnull().sum().sum())
+print("MAZ infinite values:", np.isinf(maz_df.select_dtypes(include=[np.number])).sum().sum())
+
+# TAZ controls check  
+taz_df = pd.read_csv('hh_gq/data/taz_marginals_hhgq.csv')
+print("TAZ NaN values:", taz_df.isnull().sum().sum())
+print("TAZ infinite values:", np.isinf(taz_df.select_dtypes(include=[np.number])).sum().sum())
+
+# Seed households check
+hh_df = pd.read_csv('hh_gq/data/seed_households.csv', nrows=1000)
 critical_fields = ['HUPAC', 'NP', 'hhgqtype', 'hh_workers_from_esr']
 for field in critical_fields:
-    if field in df.columns:
-        print(f"{field}: {df[field].dtype}")  # Should be int64
-
-# Check file sizes
-import os
-print(f"Households: {os.path.getsize('hh_gq/data/seed_households.csv')/1e6:.1f} MB")
-print(f"Persons: {os.path.getsize('hh_gq/data/seed_persons.csv')/1e6:.1f} MB")
-
-# Check record counts
-hh_df = pd.read_csv('hh_gq/data/seed_households.csv')
-p_df = pd.read_csv('hh_gq/data/seed_persons.csv')
-print(f"Households: {len(hh_df):,} records")
-print(f"Persons: {len(p_df):,} records")
-
-# Validate control file mathematical consistency
-import numpy as np
-maz_df = pd.read_csv('hh_gq/data/maz_marginals.csv')
-zero_hh = (maz_df['num_hh'] == 0).sum()
-print(f"MAZs with zero households: {zero_hh} ({zero_hh/len(maz_df)*100:.1f}%)")
-
-# Check for impossible constraints
-impossible = ((maz_df['num_hh'] == 0) & 
-              ((maz_df['gq_military'] > 0) | 
-               (maz_df['gq_university'] > 0) | 
-               (maz_df['gq_other'] > 0))).sum()
-print(f"MAZs with impossible GQ constraints: {impossible}")
+    if field in hh_df.columns:
+        print(f"{field}: dtype={hh_df[field].dtype}, NaN={hh_df[field].isnull().sum()}")
 ```
+## Current Status (2025)
 
-### Automated Analysis Tools:
-```python
-# Run comprehensive control file analysis
-exec(open('check_zeros.py').read())
+### Completed Improvements:
+- ✅ **Population Scaling Fixed:** TAZ population scaling from 7,765,399 to target 7,508,799
+- ✅ **Hierarchical Consistency Enforced:** TAZ categories sum exactly to MAZ totals  
+- ✅ **Control File Cleanup:** Consolidated to essential files only
+- ✅ **Tableau Data Preparation:** CSV-based approach to avoid shapefile compatibility issues
+- ✅ **66 PUMA Support:** Updated crosswalk includes all current Bay Area PUMAs
 
-# Apply mathematical consistency fixes (with caution)
-exec(open('fix_control_zeros.py').read())
-```
+### Known Issues:
+- ⚠️ **IntCastingNaNError:** PopulationSim fails during incidence processing with GROUP_BY_INCIDENCE_SIGNATURE=True
+- ⚠️ **File Organization:** Legacy backup files need cleanup in data directories
 
-This documentation provides a complete map of all file movements, transformations, and dependencies in the PopulationSim TM2 workflow.
+### Recommendations:
+1. **Regular Cleanup:** Remove `*_backup.csv` and `*_original.csv` files after validation
+2. **Consistent Paths:** Use absolute paths in configuration files where possible
+3. **Error Monitoring:** Check PopulationSim logs for data quality warnings
+4. **Testing:** Validate control mathematical consistency before synthesis
 
-## Analysis and Troubleshooting Scripts
-
-### Integrated Quality Assurance (2025)
-
-**Control File Validation and Fixes**
-All mathematical consistency validation and repair is now **automatically integrated** into the main control generation pipeline:
-
-**Location:** `create_baseyear_controls_23_tm2.py`
-**Applied During:** Control generation (Step 2)
-**Fixes Include:**
-1. **TAZ Household Control Harmonization** - Ensures consistent totals across household categories
-2. **MAZ Group Quarters Consistency** - Validates GQ component math
-3. **Data Type Validation** - Ensures integer types throughout
-4. **Zero Value Handling** - Prevents division by zero in synthesis
-
-### Legacy Analysis Tools
-
-**Script:** `check_zeros.py` (diagnostic only)
-**Purpose:** Mathematical consistency analysis of control files
-
-**Input Files:**
-```
-hh_gq/data/maz_marginals.csv
-hh_gq/data/taz_marginals.csv
-hh_gq/data/county_marginals.csv
-```
-
-**Analysis Output:**
-- Zero value counts by geography and control type
-- Mathematical inconsistency identification
-- Summary statistics on data quality issues
-
-**Usage Context:** Diagnostic analysis only - fixes are now applied automatically
-
-### Quality Assurance Workflow
-
-**Recommended sequence for synthesis issues:**
-
-1. **Normal Workflow** - Run `python run_populationsim_tm2.py` (fixes applied automatically)
-2. **If Issues Persist** - Check `populationsim.log` for specific error details
-3. **Data Validation** - Run `check_zeros.py` for diagnostic analysis
-4. **Force Regeneration** - Use force flags to regenerate specific workflow steps
-
-**The automatic integration eliminates most common synthesis failures while preserving data integrity.**
+This documentation reflects the cleaned-up file organization as of 2025.

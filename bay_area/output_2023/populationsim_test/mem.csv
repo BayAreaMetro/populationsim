@@ -1,4 +1,0 @@
-process,pid,rss,full_rss,uss,event,children,time
-MainProcess,26532,98_091_008,98_091_008,65_138_688,pipeline.run before preload_injectables,0,2025/07/29 12:21:46.044130
-MainProcess,26532,98_369_536,98_369_536,65_269_760,pipeline.run after preload_injectables,0,2025/07/29 12:21:46.062299
-MainProcess,26532,98_529_280,98_529_280,65_273_856,pipeline.run_model input_pre_processor start,0,2025/07/29 12:21:46.077593

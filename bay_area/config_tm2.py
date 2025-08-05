@@ -198,6 +198,47 @@ class PopulationSimConfig:
         if src_p.exists():
             shutil.copy2(src_p, dst_p)
     
+    def copy_control_files_to_popsim(self):
+        """Copy generated control files from output_2023 to hh_gq/data directory"""
+        import shutil
+        
+        # Map of source files in output_2023 to destination files in hh_gq/data
+        control_file_mappings = {
+            'maz_marginals.csv': self.CONTROL_FILES['maz_marginals'],
+            'taz_marginals.csv': self.CONTROL_FILES['taz_marginals'], 
+            'county_marginals.csv': self.CONTROL_FILES['county_marginals'],
+            'geo_cross_walk_tm2_updated.csv': self.CONTROL_FILES['geo_cross_walk'],
+            'maz_data.csv': self.HH_GQ_DATA_DIR / "maz_data.csv",
+            'maz_data_withDensity.csv': self.HH_GQ_DATA_DIR / "maz_data_withDensity.csv"
+        }
+        
+        files_copied = []
+        files_moved = []  # Track files that should be moved (not copied)
+        
+        for src_name, dst_path in control_file_mappings.items():
+            src_path = self.OUTPUT_DIR / src_name
+            if src_path.exists():
+                shutil.copy2(src_path, dst_path)
+                files_copied.append(src_name)
+                
+                # For geo crosswalk, move instead of copy (remove duplicate)
+                if src_name == 'geo_cross_walk_tm2_updated.csv':
+                    src_path.unlink()  # Remove the source file after copying
+                    files_moved.append(src_name)
+        
+        # Also clean up any old geo crosswalk files in output_2023
+        old_geo_files = [
+            self.OUTPUT_DIR / "geo_cross_walk_tm2.csv",
+            self.OUTPUT_DIR / "geo_cross_walk.csv"
+        ]
+        
+        for old_file in old_geo_files:
+            if old_file.exists():
+                old_file.unlink()
+                files_moved.append(old_file.name)
+        
+        return files_copied, files_moved
+
     def archive_input_files(self):
         """Copy input files to output directory for archival"""
         import shutil

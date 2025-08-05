@@ -92,10 +92,30 @@ class TableauDataPreparer:
             print(f"   ❌ TAZ shapefile not found")
             return None
             
-        # Load shapefile
-        taz_gdf = gpd.read_file(taz_shapefile)
-        print(f"   Loaded {len(taz_gdf):,} TAZ features")
-        print(f"   Original columns: {list(taz_gdf.columns)}")
+        # Load shapefile with compatibility handling
+        try:
+            taz_gdf = gpd.read_file(taz_shapefile)
+            print(f"   Loaded {len(taz_gdf):,} TAZ features")
+            print(f"   Original columns: {list(taz_gdf.columns)}")
+        except AttributeError as e:
+            if "fiona" in str(e) and "path" in str(e):
+                print(f"   ⚠️  Fiona compatibility issue detected. Trying alternative method...")
+                try:
+                    # Alternative method using direct file path
+                    import fiona
+                    with fiona.open(taz_shapefile) as src:
+                        taz_gdf = gpd.GeoDataFrame.from_features(src.values(), crs=src.crs)
+                    print(f"   ✅ Successfully loaded {len(taz_gdf):,} TAZ features using alternative method")
+                    print(f"   Original columns: {list(taz_gdf.columns)}")
+                except Exception as e2:
+                    print(f"   ❌ Failed to load TAZ shapefile: {e2}")
+                    return None
+            else:
+                print(f"   ❌ Failed to load TAZ shapefile: {e}")
+                return None
+        except Exception as e:
+            print(f"   ❌ Failed to load TAZ shapefile: {e}")
+            return None
         
         # Identify TAZ ID field
         taz_id_field = None
@@ -154,10 +174,30 @@ class TableauDataPreparer:
             print(f"   ❌ PUMA shapefile not found")
             return None
             
-        # Load shapefile
-        puma_gdf = gpd.read_file(puma_shapefile)
-        print(f"   Loaded {len(puma_gdf):,} PUMA features")
-        print(f"   Original columns: {list(puma_gdf.columns)}")
+        # Load shapefile with compatibility handling
+        try:
+            puma_gdf = gpd.read_file(puma_shapefile)
+            print(f"   Loaded {len(puma_gdf):,} PUMA features")
+            print(f"   Original columns: {list(puma_gdf.columns)}")
+        except AttributeError as e:
+            if "fiona" in str(e) and "path" in str(e):
+                print(f"   ⚠️  Fiona compatibility issue detected. Trying alternative method...")
+                try:
+                    # Alternative method using direct file path
+                    import fiona
+                    with fiona.open(puma_shapefile) as src:
+                        puma_gdf = gpd.GeoDataFrame.from_features(src.values(), crs=src.crs)
+                    print(f"   ✅ Successfully loaded {len(puma_gdf):,} PUMA features using alternative method")
+                    print(f"   Original columns: {list(puma_gdf.columns)}")
+                except Exception as e2:
+                    print(f"   ❌ Failed to load PUMA shapefile: {e2}")
+                    return None
+            else:
+                print(f"   ❌ Failed to load PUMA shapefile: {e}")
+                return None
+        except Exception as e:
+            print(f"   ❌ Failed to load PUMA shapefile: {e}")
+            return None
         
         # Filter for California if needed
         if 'STATEFP' in puma_gdf.columns:

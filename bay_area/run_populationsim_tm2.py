@@ -163,10 +163,11 @@ class PopulationSimWorkflow:
         print("Checking existing files to determine what steps need to run...")
         print()
         
-        # Step 1: Seed Population
-        step1_complete = self.config.SEED_FILES['households_processed'].exists()
+        # Step 1: Seed Population (check for PopulationSim-ready files)
+        step1_complete = (self.config.SEED_FILES['households_popsim'].exists() and 
+                         self.config.SEED_FILES['persons_popsim'].exists())
         status1 = "[COMPLETE]" if step1_complete else "[NEEDED]  "
-        print(f"{status1} Step 1: Seed Population - {'files exist' if step1_complete else 'files missing'}")
+        print(f"{status1} Step 1: Seed Population - {'PopulationSim files exist' if step1_complete else 'PopulationSim files missing'}")
         
         # Step 2: Control Generation
         step2_complete = all(f.exists() for f in [
@@ -220,13 +221,15 @@ class PopulationSimWorkflow:
         print("STEP 1: SEED POPULATION")
         print("=" * 50)
         
-        seed_exists = self.config.SEED_FILES['households_processed'].exists()
+        # Check for PopulationSim-ready seed files (not intermediate files)
+        seed_exists = (self.config.SEED_FILES['households_popsim'].exists() and 
+                      self.config.SEED_FILES['persons_popsim'].exists())
         
         if self.config.FORCE_FLAGS['SEED'] or force_run or not seed_exists:
             if self.config.FORCE_FLAGS['SEED']:
                 self.log("FORCE_SEED=True: Regenerating seed files...")
             else:
-                self.log("Seed files missing - creating seed population files...")
+                self.log("PopulationSim seed files missing - creating seed population files...")
             
             self.log("Starting seed generation (this typically takes 10-15 minutes)")
             self.log("The process will download PUMS data and create PopulationSim-compatible files...")
@@ -299,6 +302,25 @@ class PopulationSimWorkflow:
             success = self.run_command(command, "Control file generation")
             
             if not success:
+                return False
+            
+            # Copy the generated control files from output_2023 to hh_gq/data
+            self.log("Copying generated control files to PopulationSim data directory...")
+            try:
+                files_copied, files_moved = self.config.copy_control_files_to_popsim()
+                if files_copied:
+                    self.log(f"SUCCESS: Copied {len(files_copied)} control files to hh_gq/data/")
+                    for file_name in files_copied:
+                        if file_name in files_moved:
+                            self.log(f"  • {file_name} (moved - removed duplicate)")
+                        else:
+                            self.log(f"  • {file_name} (copied)")
+                if files_moved:
+                    self.log(f"Cleaned up {len(files_moved)} duplicate/old files from output_2023/")
+                if not files_copied:
+                    self.log("WARNING: No control files found to copy", "WARNING")
+            except Exception as e:
+                self.log(f"ERROR: Failed to copy control files: {e}", "ERROR")
                 return False
             
             # Rename files to PopulationSim expected names
