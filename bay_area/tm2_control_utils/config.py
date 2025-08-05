@@ -123,6 +123,9 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     # Number of households (PopulationSim: num_hh) - Start with 2020 Census H1_002N, apply county-level scaling factors
     ('num_hh',                ('pl',  CENSUS_EST_YEAR, 'H1_002N',      'block',
                                [], 'county_scale')),
+    # Total population from 2020 Census PL 94-171 - essential for hierarchical control consistency, scaled to 2023 ACS
+    ('total_pop',             ('pl',   CENSUS_EST_YEAR, 'P1_001N',      'block',
+                               [], 'county_scale')),
     # Group quarters from 2020 Census PL 94-171 - keep at 2020 levels (no detailed ACS1 targets available)
     ('gq_pop',                ('pl',   CENSUS_EST_YEAR, 'P5_001N',      'block',
                                [])),
@@ -319,6 +322,253 @@ CONTROLS[ACS_EST_YEAR]['COUNTY_TARGETS'] = collections.OrderedDict([
     # Using 2020 Census PL data for group quarters (no county-level scaling)
 ])
 
+
+# ----------------------------------------
+# HIERARCHICAL CONSISTENCY CONFIGURATION
+# Define which TAZ-level controls must sum to which MAZ-level totals
+# This ensures the control hierarchy is mathematically consistent
+# Format: 'maz_control_name': ['taz_control_1', 'taz_control_2', ...]
+HIERARCHICAL_CONSISTENCY = collections.OrderedDict([
+    # Household totals: TAZ household size categories must sum to MAZ household total
+    ('num_hh', [
+        'hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus'
+    ]),
+    
+    # Population totals: TAZ population categories must sum to MAZ population total
+    ('total_pop', [
+        'pers_age_00_19', 'pers_age_20_34', 'pers_age_35_64', 'pers_age_65_plus'
+    ])
+])
+
+# Additional consistency checks - Multiple TAZ breakdowns that all sum to the same MAZ total
+# Note: We can't use duplicate keys in OrderedDict, so we process these as alternative checks
+ALTERNATIVE_HIERARCHICAL_CONSISTENCY = collections.OrderedDict([
+    # Income consistency: TAZ income categories must sum to total households at MAZ
+    ('num_hh_income', [
+        'hh_inc_30', 'hh_inc_30_60', 'hh_inc_60_100', 'hh_inc_100_plus'
+    ]),
+    
+    # Worker consistency: TAZ worker categories must sum to total households at MAZ
+    ('num_hh_workers', [
+        'hh_wrks_0', 'hh_wrks_1', 'hh_wrks_2', 'hh_wrks_3_plus'
+    ]),
+    
+    # Children consistency: TAZ household children categories must sum to total households at MAZ
+    ('num_hh_children', [
+        'hh_kids_no', 'hh_kids_yes'
+    ])
+])
+
+# Additional consistency checks (same MAZ total but different TAZ breakdowns)
+# These will be checked separately since OrderedDict can't have duplicate keys
+ADDITIONAL_CONSISTENCY_CHECKS = collections.OrderedDict([
+    # Income consistency: TAZ income categories must sum to total households at MAZ
+    ('hh_income_categories', {
+        'maz_total': 'num_hh', 
+        'taz_categories': ['hh_inc_30', 'hh_inc_30_60', 'hh_inc_60_100', 'hh_inc_100_plus']
+    }),
+    
+    # Worker consistency: TAZ worker categories must sum to total households at MAZ
+    ('hh_worker_categories', {
+        'maz_total': 'num_hh',
+        'taz_categories': ['hh_wrks_0', 'hh_wrks_1', 'hh_wrks_2', 'hh_wrks_3_plus']
+    }),
+    
+    # Children consistency: TAZ household children categories must sum to total households at MAZ
+    ('hh_children_categories', {
+        'maz_total': 'num_hh',
+        'taz_categories': ['hh_kids_no', 'hh_kids_yes']
+    })
+])
+
+# Validation tolerance for hierarchical consistency checks
+HIERARCHICAL_TOLERANCE = 1.0  # Allow up to 1 unit difference due to rounding
+
+
+def enforce_hierarchical_consistency(maz_controls, taz_controls, crosswalk_df=None):
+    """
+    Enforce hierarchical consistency by adjusting TAZ categories to sum to MAZ totals.
+    
+    This function ensures that TAZ-level categories sum to equal the corresponding
+    MAZ-level totals within each TAZ. MAZ totals are considered authoritative (from Census
+    block data) and TAZ categories are proportionally adjusted to match.
+    
+    IMPORTANT: TAZ data has one record per TAZ, MAZ data has one record per MAZ.
+    Multiple MAZs can belong to the same TAZ.
+    
+    Parameters:
+    -----------
+    maz_controls : pandas.DataFrame
+        MAZ-level control data with columns like MAZ, numhh_gq, total_pop
+    taz_controls : pandas.DataFrame  
+        TAZ-level control data with columns like TAZ, hh_size_1, hh_size_2, etc.
+    crosswalk_df : pandas.DataFrame, optional
+        Crosswalk with MAZ-TAZ mapping if TAZ controls don't have MAZ column
+        
+    Returns:
+    --------
+    tuple : (maz_controls, updated_taz_controls) where MAZ controls are unchanged
+           and TAZ controls are proportionally adjusted
+    """
+    import pandas as pd
+    
+    print("=== ENFORCING HIERARCHICAL CONSISTENCY (CORRECTED) ===")
+    print("MAZ totals are authoritative and will NOT be changed.")
+    print("TAZ categories will be proportionally adjusted to sum to MAZ totals.")
+    
+    # MAZ controls stay exactly the same - they are authoritative
+    maz_updated = maz_controls.copy()
+    taz_updated = taz_controls.copy()
+    
+    if crosswalk_df is None:
+        print("ERROR: Crosswalk is required for hierarchical consistency")
+        return maz_updated, taz_updated
+    
+    # Calculate target totals for each TAZ by summing MAZs within each TAZ
+    print("Calculating target totals for each TAZ...")
+    
+    # Merge MAZ controls with crosswalk to get TAZ assignments
+    maz_with_taz = maz_controls.merge(crosswalk_df[['MAZ', 'TAZ']], on='MAZ', how='left')
+    
+    # Group by TAZ and sum MAZ totals
+    taz_targets = maz_with_taz.groupby('TAZ').agg({
+        'num_hh': 'sum',
+        'total_pop': 'sum'
+    }).reset_index()
+    
+    print(f"Calculated targets for {len(taz_targets)} TAZs")
+    
+    total_adjustments = 0
+    
+    # Process primary consistency rules
+    for maz_control, taz_control_list in HIERARCHICAL_CONSISTENCY.items():
+        
+        # Skip if MAZ control doesn't exist in the data
+        if maz_control not in taz_targets.columns:
+            print(f"Skipping {maz_control} - not found in target calculations")
+            continue
+            
+        # Check which TAZ controls exist
+        existing_taz_controls = [ctrl for ctrl in taz_control_list if ctrl in taz_updated.columns]
+        missing_taz_controls = [ctrl for ctrl in taz_control_list if ctrl not in taz_updated.columns]
+        
+        if missing_taz_controls:
+            print(f"Warning: Missing TAZ controls for {maz_control}: {missing_taz_controls}")
+        
+        if not existing_taz_controls:
+            print(f"Skipping {maz_control} - no corresponding TAZ controls found")
+            continue
+            
+        print(f"Adjusting TAZ {existing_taz_controls} to sum to MAZ {maz_control}")
+        
+        # Merge TAZ data with targets
+        taz_with_targets = taz_updated.merge(taz_targets[['TAZ', maz_control]], on='TAZ', how='left')
+        
+        # Calculate current sums for each TAZ
+        taz_with_targets['current_sum'] = taz_with_targets[existing_taz_controls].sum(axis=1)
+        
+        # Calculate scaling factors
+        taz_with_targets['scale_factor'] = 1.0  # Default no scaling
+        nonzero_mask = taz_with_targets['current_sum'] > 0
+        taz_with_targets.loc[nonzero_mask, 'scale_factor'] = (
+            taz_with_targets.loc[nonzero_mask, maz_control] / 
+            taz_with_targets.loc[nonzero_mask, 'current_sum']
+        )
+        
+        # Apply scaling to TAZ categories
+        adjustments_made = 0
+        for col in existing_taz_controls:
+            # Apply proportional scaling
+            taz_updated[col] *= taz_with_targets['scale_factor']
+        
+        # Handle special case: zero current sum but non-zero target
+        zero_current_nonzero_target = (taz_with_targets['current_sum'] == 0) & (taz_with_targets[maz_control] > 0)
+        if zero_current_nonzero_target.any():
+            for idx in taz_with_targets[zero_current_nonzero_target].index:
+                target_value = taz_with_targets.loc[idx, maz_control]
+                per_category = target_value / len(existing_taz_controls)
+                for col in existing_taz_controls:
+                    taz_updated.loc[idx, col] = per_category
+        
+        # Count adjustments
+        adjustment_mask = (
+            (abs(taz_with_targets['current_sum'] - taz_with_targets[maz_control]) > HIERARCHICAL_TOLERANCE) |
+            zero_current_nonzero_target
+        )
+        adjustments_made = adjustment_mask.sum()
+        
+        print(f"  Adjusted {adjustments_made} TAZs for {maz_control}")
+        total_adjustments += adjustments_made
+    
+    # Process alternative consistency rules (multiple TAZ breakdowns for same MAZ total)
+    print("\n--- Processing Alternative Consistency Rules ---")
+    for alt_control_name, taz_control_list in ALTERNATIVE_HIERARCHICAL_CONSISTENCY.items():
+        # These all map to 'num_hh' at MAZ level
+        maz_control = 'num_hh'
+        
+        # Check which TAZ controls exist
+        existing_taz_controls = [ctrl for ctrl in taz_control_list if ctrl in taz_updated.columns]
+        missing_taz_controls = [ctrl for ctrl in taz_control_list if ctrl not in taz_updated.columns]
+        
+        if missing_taz_controls:
+            print(f"Warning: Missing TAZ controls for {alt_control_name}: {missing_taz_controls}")
+        
+        if not existing_taz_controls:
+            print(f"Skipping {alt_control_name} - no corresponding TAZ controls found")
+            continue
+            
+        print(f"Adjusting TAZ {existing_taz_controls} to sum to MAZ {maz_control} ({alt_control_name})")
+        
+        # Merge TAZ data with targets (use num_hh targets)
+        taz_with_targets = taz_updated.merge(taz_targets[['TAZ', maz_control]], on='TAZ', how='left')
+        
+        # Calculate current sums for each TAZ
+        taz_with_targets['current_sum'] = taz_with_targets[existing_taz_controls].sum(axis=1)
+        
+        # Calculate scaling factors
+        taz_with_targets['scale_factor'] = 1.0  # Default no scaling
+        nonzero_mask = taz_with_targets['current_sum'] > 0
+        taz_with_targets.loc[nonzero_mask, 'scale_factor'] = (
+            taz_with_targets.loc[nonzero_mask, maz_control] / 
+            taz_with_targets.loc[nonzero_mask, 'current_sum']
+        )
+        
+        # Apply scaling to TAZ categories
+        for col in existing_taz_controls:
+            # Apply proportional scaling
+            taz_updated[col] *= taz_with_targets['scale_factor']
+        
+        # Handle special case: zero current sum but non-zero target
+        zero_current_nonzero_target = (taz_with_targets['current_sum'] == 0) & (taz_with_targets[maz_control] > 0)
+        if zero_current_nonzero_target.any():
+            for idx in taz_with_targets[zero_current_nonzero_target].index:
+                target_value = taz_with_targets.loc[idx, maz_control]
+                per_category = target_value / len(existing_taz_controls)
+                for col in existing_taz_controls:
+                    taz_updated.loc[idx, col] = per_category
+        
+        # Count adjustments
+        adjustment_mask = (
+            (abs(taz_with_targets['current_sum'] - taz_with_targets[maz_control]) > HIERARCHICAL_TOLERANCE) |
+            zero_current_nonzero_target
+        )
+        adjustments_made = adjustment_mask.sum()
+        
+        print(f"  Adjusted {adjustments_made} TAZs for {alt_control_name}")
+        total_adjustments += adjustments_made
+    
+    # Print summary
+    if total_adjustments > 0:
+        print(f"\nHierarchical Consistency Summary: {total_adjustments} total TAZ adjustments applied")
+        print("TAZ categories have been proportionally scaled to match MAZ totals.")
+    else:
+        print("No enforcement needed - all controls already consistent!")
+    
+    print("=== HIERARCHICAL CONSISTENCY ENFORCED (CORRECTED) ===")
+    print("MAZ totals remained unchanged (authoritative).")
+    print("TAZ categories were proportionally adjusted so each TAZ sums to its constituent MAZs.")
+    
+    return maz_updated, taz_updated
 
 
 BAY_AREA_COUNTY_FIPS  = collections.OrderedDict([

@@ -7,6 +7,9 @@
 # ------------------------------------------------------------------
 INTEGERIZE_WITH_BACKSTOPPED_CONTROLS: True
 SUB_BALANCE_WITH_FLOAT_SEED_WEIGHTS: False
+# GROUP_BY_INCIDENCE_SIGNATURE causes IntCastingNaNError - investigating root cause
+# PopulationSim should handle categorical mapping through control expressions dynamically
+# No preprocessing needed - expressions like "households.NP >= 4" should work on original data
 GROUP_BY_INCIDENCE_SIGNATURE: True
 USE_SIMUL_INTEGERIZER: True
 USE_CVXPY: False

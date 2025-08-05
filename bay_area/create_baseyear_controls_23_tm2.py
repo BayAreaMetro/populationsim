@@ -6,6 +6,12 @@ ACS 2023 data with simplified controls to reflect current Census data availabili
 
 """
 
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'tm2_control_utils'))
+
+from tm2_control_utils.config import *
+
 
 
 
@@ -306,17 +312,41 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     if control_df.index.name == 'MAZ':
         control_df = control_df.reset_index()
     
-    # Get county mapping from maz_taz_def_df
-    if 'GEOID_county' not in maz_taz_def_df.columns:
-        logger.error("maz_taz_def_df missing GEOID_county for county-level scaling")
+    # Get county mapping from the crosswalk file (same approach as the validation function)
+    from tm2_control_utils.config import PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE
+    import os
+    
+    geo_crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
+    if not os.path.exists(geo_crosswalk_file):
+        logger.error(f"Crosswalk file not found: {geo_crosswalk_file}")
+        return control_df
+        
+    try:
+        crosswalk_df = pd.read_csv(geo_crosswalk_file)
+        
+        # Use the fixed county mapping from crosswalk COUNTY numbers to FIPS codes
+        county_to_fips_mapping = {
+            1: '075',  # San Francisco
+            2: '081',  # San Mateo  
+            3: '085',  # Santa Clara
+            4: '001',  # Alameda
+            5: '013',  # Contra Costa
+            6: '095',  # Solano
+            7: '055',  # Napa
+            8: '097',  # Sonoma
+            9: '041'   # Marin
+        }
+        
+        # Create county mapping
+        county_fips_map = crosswalk_df[['MAZ', 'county_name', 'COUNTY']].drop_duplicates()
+        county_fips_map['county_fips'] = county_fips_map['COUNTY'].map(county_to_fips_mapping)
+        
+    except Exception as e:
+        logger.error(f"Error reading crosswalk file: {e}")
         return control_df
     
-    # Extract county FIPS (last 3 digits) from GEOID_county
-    county_map_df = maz_taz_def_df[['MAZ', 'GEOID_county']].drop_duplicates()
-    county_map_df['county_fips'] = county_map_df['GEOID_county'].str[-3:]
-    
     # Merge control data with county mapping
-    scaled_df = control_df.merge(county_map_df[['MAZ', 'county_fips']], on='MAZ', how='left')
+    scaled_df = control_df.merge(county_fips_map[['MAZ', 'county_fips']], on='MAZ', how='left')
     
     # Calculate current totals by county from 2020 Census data
     county_current_totals = scaled_df.groupby('county_fips')[control_name].sum()
@@ -559,7 +589,7 @@ def process_maz_scaled_control(control_name, control_def, cf, maz_taz_def_df, cr
 
 
 def process_control(
-    control_geo, control_name, control_def, cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs
+    control_geo, control_name, control_def, cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs, county_targets=None
 ):
     logger = logging.getLogger()
     logger.info(f"Creating control [{control_name}] for geography [{control_geo}]")
@@ -775,8 +805,26 @@ def process_control(
                 print(f"[DEBUG][MAIN] Result index name: {final_df.index.name}")
                 print(f"[DEBUG][MAIN] Result columns: {list(final_df.columns)}")
     
+    # Step 7.5: Apply county-level scaling for household and population controls
+    if control_name in ["num_hh", "tot_pop"] and county_targets:
+        # Get county targets for this specific control
+        if control_name == "num_hh":
+            control_county_targets = {k: v.get('num_hh_target_by_county') for k, v in county_targets.items() 
+                                    if v.get('num_hh_target_by_county')}
+        elif control_name == "total_pop":
+            control_county_targets = {k: v.get('tot_pop_target_by_county') for k, v in county_targets.items() 
+                                    if v.get('tot_pop_target_by_county')}
+        else:
+            control_county_targets = {}
+            
+        if control_county_targets:
+            logger.info(f"Applying county-level scaling to {control_name}")
+            final_df = apply_county_scaling(final_df, control_name, control_county_targets, maz_taz_def_df, logger)
+        else:
+            logger.warning(f"No county targets found for {control_name}, skipping county scaling")
+    
     # Step 8: Integerize if needed
-    if control_name in ["num_hh", "gq_pop", "tot_pop"]:
+    if control_name in ["num_hh", "gq_pop", "total_pop"]:
         final_df = integerize_control(final_df, crosswalk_df, control_name)
 
     # Step 9: Handle temp controls
@@ -914,9 +962,9 @@ def process_control(
 
 
 def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_file, geo_crosswalk_file, logger):
-    """Scale MAZ household counts to match 2023 county targets using county-specific scaling factors."""
+    """Scale MAZ household and population counts to match 2023 county targets using county-specific scaling factors."""
     logger.info("=" * 60)
-    logger.info("APPLYING COUNTY-LEVEL SCALING TO MAZ HOUSEHOLDS")
+    logger.info("APPLYING COUNTY-LEVEL SCALING TO MAZ HOUSEHOLDS AND POPULATION")
     logger.info("=" * 60)
     
     if not all(os.path.exists(f) for f in [maz_marginals_file, county_summary_file, geo_crosswalk_file]):
@@ -928,51 +976,121 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
         maz_df = pd.read_csv(maz_marginals_file)
         county_summary_df = pd.read_csv(county_summary_file)
         crosswalk_df = pd.read_csv(geo_crosswalk_file)
-        county_summary_df['county_name']= county_summary_df['County_Name']
+        
+        # Read 2023 ACS county targets for both households and population
+        county_targets_file = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_TARGETS_FILE)
+        if os.path.exists(county_targets_file):
+            county_targets_df = pd.read_csv(county_targets_file)
+        else:
+            logger.error(f"County targets file not found: {county_targets_file}")
+            return False
+        
+        county_summary_df['county_name'] = county_summary_df['County_Name']
         
         logger.info(f"Loaded MAZ marginals: {len(maz_df)} rows")
         logger.info(f"Loaded county summary: {len(county_summary_df)} counties")
         logger.info(f"Loaded crosswalk: {len(crosswalk_df)} MAZ zones")
+        logger.info(f"Loaded county targets: {len(county_targets_df)} targets")
 
-        
         # Merge MAZ data with county information
         maz_with_county = maz_df.merge(crosswalk_df[['MAZ', 'county_name']], on='MAZ', how='left')
-        maz_with_county = maz_with_county.merge(county_summary_df, on='county_name', how='left')
-
-
-        # Apply county scaling factors to num_hh
-        maz_with_county['scale_factor'] = maz_with_county['Scaling_Factor'].fillna(1.0)  # Default to 1.0 if no factor
-
-        # Check for missing scaling factors
-        missing_scale = maz_with_county['scale_factor'].isna().sum()
-        if missing_scale > 0:
-            logger.warning(f"Missing scaling factors for {missing_scale} MAZ zones")
-            maz_with_county['scale_factor'] = maz_with_county['scale_factor'].fillna(1.0)
         
-        # Calculate original total before scaling
+        # Get county FIPS from crosswalk for matching with targets
+        # Correct mapping from crosswalk COUNTY numbers to actual California FIPS codes
+        county_to_fips_mapping = {
+            1: '075',  # San Francisco
+            2: '081',  # San Mateo  
+            3: '085',  # Santa Clara
+            4: '001',  # Alameda
+            5: '013',  # Contra Costa
+            6: '095',  # Solano
+            7: '055',  # Napa
+            8: '097',  # Sonoma
+            9: '041'   # Marin
+        }
+        
+        county_fips_map = crosswalk_df[['county_name', 'COUNTY']].drop_duplicates()
+        county_fips_map['county_fips'] = county_fips_map['COUNTY'].map(county_to_fips_mapping)
+        maz_with_county = maz_with_county.merge(county_fips_map[['county_name', 'county_fips']], on='county_name', how='left')
+        
+        # Extract household and population targets by county
+        hh_targets = county_targets_df[county_targets_df['target_name'] == 'num_hh_target_by_county'].set_index('county_fips')['target_value']
+        pop_targets = county_targets_df[county_targets_df['target_name'] == 'tot_pop_target_by_county'].set_index('county_fips')['target_value']
+        
+        # Calculate current totals by county
+        county_current = maz_with_county.groupby('county_fips').agg({
+            'num_hh': 'sum',
+            'total_pop': 'sum'
+        }).reset_index()
+        
+        # Calculate scaling factors for each county
+        county_scale_factors = {}
+        for _, row in county_current.iterrows():
+            county_fips = row['county_fips']
+            current_hh = row['num_hh']
+            current_pop = row['total_pop']
+            
+            # Household scaling factor
+            if county_fips in hh_targets:
+                target_hh = hh_targets[county_fips]
+                hh_scale = target_hh / current_hh if current_hh > 0 else 1.0
+            else:
+                hh_scale = 1.0
+                logger.warning(f"No household target for county {county_fips}")
+            
+            # Population scaling factor
+            if county_fips in pop_targets:
+                target_pop = pop_targets[county_fips]
+                pop_scale = target_pop / current_pop if current_pop > 0 else 1.0
+            else:
+                pop_scale = 1.0
+                logger.warning(f"No population target for county {county_fips}")
+            
+            county_scale_factors[county_fips] = {
+                'hh_scale': hh_scale,
+                'pop_scale': pop_scale,
+                'target_hh': hh_targets.get(county_fips, current_hh),
+                'target_pop': pop_targets.get(county_fips, current_pop)
+            }
+            
+            logger.info(f"County {county_fips}: HH scale={hh_scale:.4f}, Pop scale={pop_scale:.4f}")
+
+        # Apply scaling factors to each MAZ
         original_hh_total = maz_with_county['num_hh'].sum()
+        original_pop_total = maz_with_county['total_pop'].sum()
         
-        # Apply scaling
-        maz_with_county['num_hh'] = (maz_with_county['num_hh'] * maz_with_county['scale_factor']).round().astype(int)
+        for county_fips, factors in county_scale_factors.items():
+            county_mask = maz_with_county['county_fips'] == county_fips
+            maz_with_county.loc[county_mask, 'num_hh'] = (
+                maz_with_county.loc[county_mask, 'num_hh'] * factors['hh_scale']
+            ).round().astype(int)
+            maz_with_county.loc[county_mask, 'total_pop'] = (
+                maz_with_county.loc[county_mask, 'total_pop'] * factors['pop_scale']
+            ).round().astype(int)
         
-        # Calculate new total after scaling
+        # Calculate new totals after scaling
         scaled_hh_total = maz_with_county['num_hh'].sum()
+        scaled_pop_total = maz_with_county['total_pop'].sum()
         
         logger.info(f"Household scaling results:")
         logger.info(f"  Original total: {original_hh_total:,.0f}")
         logger.info(f"  Scaled total: {scaled_hh_total:,.0f}")
         logger.info(f"  Change: {scaled_hh_total - original_hh_total:+,.0f} ({(scaled_hh_total/original_hh_total - 1)*100:+.2f}%)")
         
-        # Log scaling by county
-        county_results = maz_with_county.groupby('county_name').agg({
-            'num_hh': 'sum',
-            'scale_factor': 'first'
-        }).reset_index()
+        logger.info(f"Population scaling results:")
+        logger.info(f"  Original total: {original_pop_total:,.0f}")
+        logger.info(f"  Scaled total: {scaled_pop_total:,.0f}")
+        logger.info(f"  Change: {scaled_pop_total - original_pop_total:+,.0f} ({(scaled_pop_total/original_pop_total - 1)*100:+.2f}%)")
         
-   
+        # Log scaling by county
+        logger.info("County scaling summary:")
+        for county_fips, factors in county_scale_factors.items():
+            current_hh = county_current[county_current['county_fips'] == county_fips]['num_hh'].iloc[0]
+            current_pop = county_current[county_current['county_fips'] == county_fips]['total_pop'].iloc[0]
+            logger.info(f"  County {county_fips}: HH {current_hh:,.0f} -> {factors['target_hh']:,.0f}, Pop {current_pop:,.0f} -> {factors['target_pop']:,.0f}")
         
         # Write updated MAZ marginals file
-        output_columns = ['MAZ', 'num_hh', 'gq_pop', 'gq_military', 'gq_university', 'gq_other']
+        output_columns = ['MAZ', 'num_hh', 'total_pop', 'gq_pop', 'gq_military', 'gq_university', 'gq_other']
         maz_with_county[output_columns].to_csv(maz_marginals_file, index=False)
         
         logger.info(f"Updated MAZ marginals file: {maz_marginals_file}")
@@ -1016,10 +1134,28 @@ def validate_maz_controls(maz_marginals_file, county_targets, logger):
     logger.info("\nCOMPARING MAZ TOTALS vs COUNTY TARGET TOTALS:")
     logger.info("-" * 60)
     
-    # Sum up county targets to get regional totals
-    total_hh_target = sum(county_info.get('num_hh_target_by_county', 0) 
-                         for county_info in county_targets.values() 
-                         if isinstance(county_info, dict))
+    # Read county targets from CSV file to get the actual target totals
+    county_targets_file = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_TARGETS_FILE)
+    total_hh_target = 0
+    total_pop_target = 0
+    
+    if os.path.exists(county_targets_file):
+        try:
+            targets_df = pd.read_csv(county_targets_file)
+            hh_targets = targets_df[targets_df['target_name'] == 'num_hh_target_by_county']['target_value']
+            pop_targets = targets_df[targets_df['target_name'] == 'tot_pop_target_by_county']['target_value']
+            total_hh_target = hh_targets.sum()
+            total_pop_target = pop_targets.sum()
+            logger.info(f"County targets loaded: households={total_hh_target:,.0f}, population={total_pop_target:,.0f}")
+        except Exception as e:
+            logger.error(f"Error reading county targets file: {e}")
+            total_hh_target = 0
+    else:
+        logger.warning(f"County targets file not found: {county_targets_file}")
+        # Fall back to old method if CSV doesn't exist
+        total_hh_target = sum(county_info.get('num_hh_target_by_county', 0) 
+                             for county_info in county_targets.values() 
+                             if isinstance(county_info, dict))
     
     # Check household totals
     if 'num_hh' in maz_df.columns:
@@ -1031,6 +1167,18 @@ def validate_maz_controls(maz_marginals_file, county_targets, logger):
         logger.info(f"{'num_hh':15} | MAZ Total: {maz_total_hh:>10,.0f} | Target: {total_hh_target:>10,.0f} | Diff: {maz_total_hh - total_hh_target:>+10,.0f} | {pct_diff_hh:>6.2f}% | {status}")
         
         if pct_diff_hh > 1.0:
+            validation_passed = False
+    
+    # Check population totals
+    if 'total_pop' in maz_df.columns and total_pop_target > 0:
+        maz_total_pop = maz_df['total_pop'].sum()
+        diff_pop = abs(maz_total_pop - total_pop_target)
+        pct_diff_pop = (diff_pop / total_pop_target) * 100 if total_pop_target > 0 else 0
+        status_pop = "PASS" if pct_diff_pop <= 1.0 else "FAIL"
+        
+        logger.info(f"{'total_pop':15} | MAZ Total: {maz_total_pop:>10,.0f} | Target: {total_pop_target:>10,.0f} | Diff: {maz_total_pop - total_pop_target:>+10,.0f} | {pct_diff_pop:>6.2f}% | {status_pop}")
+        
+        if pct_diff_pop > 1.0:
             validation_passed = False
     
     # Check other controls if available
@@ -1607,12 +1755,38 @@ def create_maz_data_files(logger):
         maz_marginals_2023 = pd.read_csv(maz_marginals_file)
         logger.info(f"Read 2023 MAZ marginals: {len(maz_marginals_2023)} zones")
         
-        # Calculate total population from marginals (HH population + GQ population)
-        maz_marginals_2023['total_pop'] = maz_marginals_2023['num_hh'] * 2.5  # Rough estimate for HH population
-        maz_marginals_2023['total_pop'] += maz_marginals_2023['gq_pop']  # Add GQ population
-        
-        # For more accurate household population, we could use average HH size
-        # For now, using simple 2.5 person/HH estimate
+        # Get actual population data from the existing maz_data.csv instead of estimating
+        # This ensures we use real population totals for hierarchical control consistency
+        current_maz_data_file = os.path.join(PRIMARY_OUTPUT_DIR, OUTPUT_MAZ_DATA_FILE)
+        if os.path.exists(current_maz_data_file):
+            logger.info("Using existing maz_data.csv for population totals")
+            current_maz_data = pd.read_csv(current_maz_data_file)
+            
+            # Create mapping from MAZ to actual population
+            if 'MAZ_ORIGINAL' in current_maz_data.columns and 'POP' in current_maz_data.columns:
+                pop_mapping = current_maz_data.set_index('MAZ_ORIGINAL')['POP'].to_dict()
+                maz_marginals_2023['total_pop'] = maz_marginals_2023['MAZ'].map(pop_mapping)
+                
+                # Fill any missing values with the household-based estimate as fallback
+                missing_pop = maz_marginals_2023['total_pop'].isna()
+                if missing_pop.any():
+                    logger.warning(f"Using HH-based estimate for {missing_pop.sum()} MAZs with missing population")
+                    maz_marginals_2023.loc[missing_pop, 'total_pop'] = (
+                        maz_marginals_2023.loc[missing_pop, 'num_hh'] * 2.5 + 
+                        maz_marginals_2023.loc[missing_pop, 'gq_pop']
+                    )
+                    
+                logger.info("Using actual population totals from existing maz_data.csv")
+            else:
+                logger.warning("Cannot find POP column in existing maz_data.csv, using HH-based estimate")
+                # Calculate total population from marginals (HH population + GQ population) as fallback
+                maz_marginals_2023['total_pop'] = maz_marginals_2023['num_hh'] * 2.5  # Rough estimate for HH population
+                maz_marginals_2023['total_pop'] += maz_marginals_2023['gq_pop']  # Add GQ population
+        else:
+            logger.warning("No existing maz_data.csv found, using HH-based population estimate")
+            # Calculate total population from marginals (HH population + GQ population) as fallback
+            maz_marginals_2023['total_pop'] = maz_marginals_2023['num_hh'] * 2.5  # Rough estimate for HH population
+            maz_marginals_2023['total_pop'] += maz_marginals_2023['gq_pop']  # Add GQ population
         
         # Round to integers
         maz_marginals_2023['num_hh'] = maz_marginals_2023['num_hh'].round().astype(int)
@@ -2137,6 +2311,134 @@ def create_hhgq_integrated_files(logger):
         return False
 
 
+def enforce_hierarchical_consistency_in_controls(logger):
+    """
+    Enforce hierarchical consistency between MAZ and TAZ controls.
+    Ensures MAZ totals equal the sum of corresponding TAZ categories within each MAZ.
+    """
+    import pandas as pd
+    logger.info("Enforcing hierarchical consistency between MAZ and TAZ controls...")
+    
+    # Define file paths
+    maz_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
+    taz_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
+    
+    if not os.path.exists(maz_file):
+        logger.error(f"MAZ marginals file not found: {maz_file}")
+        return False
+        
+    if not os.path.exists(taz_file):
+        logger.error(f"TAZ marginals file not found: {taz_file}")
+        return False
+    
+    try:
+        # Load the control files
+        logger.info(f"Loading MAZ controls from: {maz_file}")
+        maz_controls = pd.read_csv(maz_file)
+        
+        logger.info(f"Loading TAZ controls from: {taz_file}")
+        taz_controls = pd.read_csv(taz_file)
+        
+        logger.info(f"MAZ controls shape: {maz_controls.shape}")
+        logger.info(f"TAZ controls shape: {taz_controls.shape}")
+        
+        # Check that we have the necessary columns
+        if 'MAZ' not in maz_controls.columns:
+            logger.error("MAZ column not found in MAZ controls")
+            return False
+            
+        if 'TAZ' not in taz_controls.columns or 'MAZ' not in taz_controls.columns:
+            logger.error("TAZ or MAZ column not found in TAZ controls")
+            return False
+        
+        # Load crosswalk for MAZ-TAZ mapping
+        crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
+        if not os.path.exists(crosswalk_file):
+            logger.error(f"Crosswalk file not found: {crosswalk_file}")
+            return False
+            
+        logger.info(f"Loading crosswalk from: {crosswalk_file}")
+        crosswalk_df = pd.read_csv(crosswalk_file)
+        
+        # Show the hierarchical consistency rules that will be applied
+        logger.info("Hierarchical consistency rules to be enforced:")
+        for maz_control, taz_control_list in HIERARCHICAL_CONSISTENCY.items():
+            logger.info(f"  {maz_control} (MAZ) = sum({taz_control_list}) (TAZ)")
+        
+        # Apply hierarchical consistency enforcement
+        logger.info("Applying hierarchical consistency enforcement...")
+        maz_updated, taz_updated = enforce_hierarchical_consistency(maz_controls, taz_controls, crosswalk_df)
+        
+        # Create backups of original files
+        maz_backup_file = maz_file.replace('.csv', '_backup_original.csv')
+        if not os.path.exists(maz_backup_file):
+            logger.info(f"Creating MAZ backup: {maz_backup_file}")
+            maz_controls.to_csv(maz_backup_file, index=False)
+            
+        taz_backup_file = taz_file.replace('.csv', '_backup_original.csv')
+        if not os.path.exists(taz_backup_file):
+            logger.info(f"Creating TAZ backup: {taz_backup_file}")
+            taz_controls.to_csv(taz_backup_file, index=False)
+        
+        # Write the updated controls
+        # MAZ controls should be unchanged (they're authoritative)
+        logger.info(f"Writing MAZ controls to: {maz_file}")
+        maz_updated.to_csv(maz_file, index=False)
+        
+        # TAZ controls have been proportionally adjusted
+        logger.info(f"Writing adjusted TAZ controls to: {taz_file}")
+        taz_updated.to_csv(taz_file, index=False)
+        
+        # Validate the results
+        logger.info("Validating hierarchical consistency enforcement results...")
+        
+        # Use the updated TAZ controls for validation
+        taz_by_maz = taz_updated.groupby('MAZ')
+        
+        validation_passed = True
+        for maz_control, taz_control_list in HIERARCHICAL_CONSISTENCY.items():
+            if maz_control not in maz_updated.columns:
+                continue
+                
+            existing_taz_controls = [ctrl for ctrl in taz_control_list if ctrl in taz_updated.columns]
+            if not existing_taz_controls:
+                continue
+                
+            # Calculate sums from adjusted TAZ controls
+            taz_sums = taz_by_maz[existing_taz_controls].sum().sum(axis=1)
+            
+            # Get MAZ totals (should be unchanged)
+            maz_totals = maz_updated.set_index('MAZ')[maz_control]
+            
+            # Check for consistency
+            inconsistent_count = 0
+            for maz_id in taz_sums.index:
+                if maz_id in maz_totals.index:
+                    taz_sum = taz_sums[maz_id]
+                    maz_total = maz_totals[maz_id]
+                    if abs(taz_sum - maz_total) > HIERARCHICAL_TOLERANCE:
+                        logger.warning(f"Inconsistency in MAZ {maz_id}, {maz_control}: TAZ sum {taz_sum}, MAZ total {maz_total}")
+                        validation_passed = False
+                        inconsistent_count += 1
+            
+            if inconsistent_count == 0:
+                logger.info(f"✓ {maz_control}: All MAZs consistent within tolerance")
+            else:
+                logger.warning(f"✗ {maz_control}: {inconsistent_count} MAZs still inconsistent")
+        
+        if validation_passed:
+            logger.info("✅ Hierarchical consistency enforcement completed successfully!")
+        else:
+            logger.warning("⚠️  Some inconsistencies remain after enforcement")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error during hierarchical consistency enforcement: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return False
+
+
 def main():
     import argparse
     
@@ -2242,7 +2544,7 @@ def main():
                 else:
                     process_control(
                         control_geo, control_name, control_def,
-                        cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs
+                        cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs, county_targets
                     )
                 logger.info(f">>> COMPLETED CONTROL: {control_geo}.{control_name}")
             except Exception as e:
@@ -2313,28 +2615,6 @@ def main():
             # Add MAZ household summary by TAZ for comparison
             logger.info("Adding MAZ household summary to TAZ marginals")
             summarize_maz_households_by_taz(logger)
-        
-        # After writing MAZ controls, apply county-level scaling to households
-        if control_geo == 'MAZ' and county_targets:
-            logger.info("Applying county-level scaling to MAZ households")
-            maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
-            county_summary_file = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_SUMMARY_FILE)
-            geo_crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
-            
-            # Apply county scaling to MAZ households
-            scaling_success = scale_maz_households_to_county_targets(
-                maz_marginals_file, county_summary_file, geo_crosswalk_file, logger
-            )
-            
-            if scaling_success:
-                logger.info("County scaling applied successfully - validating results")
-                validate_maz_controls(maz_marginals_file, county_targets, logger)
-            else:
-                logger.error("County scaling failed - skipping validation")
-        elif control_geo == 'MAZ':
-            logger.info("No county targets available - skipping county scaling")
-            maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
-            validate_maz_controls(maz_marginals_file, county_targets, logger)
     
     # Handle COUNTY separately since we have no data but need to create empty file for populationsim
     # TEMPORARILY COMMENTED OUT - focusing on MAZ controls only
@@ -2371,9 +2651,20 @@ def main():
     # (Called after control processing to reuse already-calculated totals)
     create_county_summary(county_targets, cf, logger, final_control_dfs)
 
+    # Note: County-level scaling is now applied during main control processing
+    # The scale_maz_households_to_county_targets validation step has been removed
+    # to avoid confusion from duplicate scaling attempts
+    
     # Validate MAZ controls against county targets
     maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
     validate_maz_controls(maz_marginals_file, county_targets, logger)
+
+    # ENFORCE HIERARCHICAL CONSISTENCY: Ensure TAZ categories sum to validated MAZ totals
+    logger.info("=" * 60)
+    logger.info("ENFORCING HIERARCHICAL CONSISTENCY AFTER MAZ VALIDATION")
+    logger.info("=" * 60)
+    
+    enforce_hierarchical_consistency_in_controls(logger)
 
     # Create MAZ data files with updated household and population data
     logger.info("Creating maz_data.csv and maz_data_withDensity.csv files")

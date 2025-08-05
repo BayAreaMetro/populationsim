@@ -360,6 +360,13 @@ class PopulationSimWorkflow:
             if self.config.clean_pipeline_cache():
                 self.log("Cleaned PopulationSim pipeline cache")
             
+            # CRITICAL FIX: Apply household preprocessing to match control categories
+            self.log("Applying household preprocessing to match control categories...")
+            try:
+                self._apply_household_preprocessing()
+            except Exception as e:
+                self.log(f"WARNING: Household preprocessing failed: {e}", "WARNING")
+            
             # Clean data to prevent IntCastingNaNError
             self.log("Cleaning data to prevent IntCastingNaNError...")
             try:
@@ -382,6 +389,304 @@ class PopulationSimWorkflow:
         else:
             self.log("PopulationSim output already exists - skipping synthesis")
             return True
+    
+    def _apply_household_preprocessing(self):
+        """Apply household preprocessing to match control categories"""
+        import pandas as pd
+        import numpy as np
+        
+        self.log("=== HOUSEHOLD PREPROCESSING FOR CONTROL AGGREGATION ===")
+        
+        # Read the households data from the correct location
+        households_file = self.config.HH_GQ_DATA_DIR / 'seed_households.csv'
+        if not households_file.exists():
+            self.log(f"WARNING: Households file not found: {households_file}")
+            return
+        
+        df_hh = pd.read_csv(households_file)
+        original_rows = len(df_hh)
+        self.log(f"Loaded {original_rows:,} households from {households_file.name}")
+        
+        # Read the controls to understand what aggregations are needed
+        controls_file = self.config.HH_GQ_DATA_DIR / 'controls.csv'
+        if not controls_file.exists():
+            self.log(f"WARNING: Controls file not found: {controls_file}")
+            return
+            
+        controls_df = pd.read_csv(controls_file)
+        self.log(f"Analyzing {len(controls_df)} controls for aggregation patterns")
+        
+        # Track transformations made
+        transformations = []
+        
+        # Analyze control expressions to identify aggregations needed
+        for _, control_row in controls_df.iterrows():
+            target = control_row['target']
+            expression = control_row['expression']
+            
+            # Look for household size aggregations: NP >= 4
+            if 'households.NP >= 4' in expression:
+                self.log(f"Found household size 4+ aggregation in control: {target}")
+                original_counts = df_hh['NP'].value_counts().sort_index()
+                large_hh_count = (df_hh['NP'] >= 4).sum()
+                self.log(f"  Original households with NP >= 4: {large_hh_count:,}")
+                
+                # Transform NP: change all values >= 4 to exactly 4
+                df_hh.loc[df_hh['NP'] >= 4, 'NP'] = 4
+                transformations.append("NP >= 4 → NP = 4")
+                
+                new_count_4 = (df_hh['NP'] == 4).sum()
+                self.log(f"  Aggregated households with NP = 4: {new_count_4:,}")
+                
+            # Look for worker aggregations: hh_workers_from_esr >= 3
+            elif 'households.hh_workers_from_esr >= 3' in expression:
+                self.log(f"Found worker 3+ aggregation in control: {target}")
+                original_counts = df_hh['hh_workers_from_esr'].value_counts().sort_index()
+                high_worker_count = (df_hh['hh_workers_from_esr'] >= 3).sum()
+                self.log(f"  Original households with workers >= 3: {high_worker_count:,}")
+                
+                # Transform workers: change all values >= 3 to exactly 3
+                df_hh.loc[df_hh['hh_workers_from_esr'] >= 3, 'hh_workers_from_esr'] = 3
+                transformations.append("hh_workers_from_esr >= 3 → hh_workers_from_esr = 3")
+                
+                new_count_3 = (df_hh['hh_workers_from_esr'] == 3).sum()
+                self.log(f"  Aggregated households with workers = 3: {new_count_3:,}")
+                
+            # Look for HUPAC aggregations: (households.HUPAC >= 1) & (households.HUPAC <= 3)
+            elif '(households.HUPAC >= 1) & (households.HUPAC <= 3)' in expression:
+                self.log(f"Found HUPAC with kids aggregation in control: {target}")
+                kids_count = ((df_hh['HUPAC'] >= 1) & (df_hh['HUPAC'] <= 3)).sum()
+                self.log(f"  Original households with kids (HUPAC 1-3): {kids_count:,}")
+                
+                # Transform HUPAC: change values 1,2,3 to a single category (1)
+                df_hh.loc[df_hh['HUPAC'].isin([1,2,3]), 'HUPAC'] = 1
+                transformations.append("HUPAC 1,2,3 → HUPAC = 1 (has kids)")
+                
+                new_kids_count = (df_hh['HUPAC'] == 1).sum()
+                self.log(f"  Aggregated households with HUPAC = 1: {new_kids_count:,}")
+        
+        self.log(f"Applied {len(transformations)} household aggregations:")
+        for transform in transformations:
+            self.log(f"  - {transform}")
+            
+        # Verify the aggregation reduced group combinations
+        grouping_cols = ['PUMA', 'hhgqtype', 'NP', 'HUPAC', 'hh_workers_from_esr']
+        if all(col in df_hh.columns for col in grouping_cols):
+            unique_combinations = len(df_hh.groupby(grouping_cols).size())
+            self.log(f"Unique household group combinations after aggregation: {unique_combinations:,}")
+            
+            # Show the new distribution
+            combo_counts = df_hh.groupby(grouping_cols).size().reset_index(name='count')
+            combo_counts = combo_counts.sort_values('count')
+            small_groups = (combo_counts['count'] <= 5).sum()
+            self.log(f"Groups with ≤5 households after aggregation: {small_groups:,} ({small_groups/len(combo_counts)*100:.1f}%)")
+        
+        # Save the preprocessed households file
+        if transformations:
+            preprocessed_file = households_file.parent / f"{households_file.stem}_preprocessed.csv"
+            df_hh.to_csv(preprocessed_file, index=False)
+            self.log(f"Saved preprocessed households to: {preprocessed_file.name}")
+            
+            # Update the settings to use the preprocessed file
+            # This is tricky because we need to modify the config that PopulationSim will read
+            # For now, we'll overwrite the original file (with backup)
+            backup_file = households_file.parent / f"{households_file.stem}_original_backup.csv"
+            if not backup_file.exists():
+                households_file.rename(backup_file)
+                self.log(f"Backed up original households to: {backup_file.name}")
+            
+            # Write the preprocessed data as the main file
+            df_hh.to_csv(households_file, index=False)
+            self.log(f"Replaced {households_file.name} with preprocessed data")
+        
+        self.log("=== HOUSEHOLD PREPROCESSING COMPLETE ===")
+    
+    def _analyze_grouped_incidence_table(self):
+        """Analyze the grouped incidence table that causes IntCastingNaNError"""
+        import pandas as pd
+        import numpy as np
+        
+        self.log("=== GROUPED INCIDENCE TABLE ANALYSIS ===")
+        
+        # Load the data files
+        households_file = self.config.HH_GQ_DATA_DIR / 'seed_households.csv'
+        controls_file = self.config.HH_GQ_DATA_DIR / 'controls.csv'
+        
+        if not households_file.exists():
+            self.log(f"WARNING: {households_file} not found!")
+            return
+        if not controls_file.exists():
+            self.log(f"WARNING: {controls_file} not found!")
+            return
+        
+        households = pd.read_csv(households_file)
+        controls = pd.read_csv(controls_file)
+        
+        self.log(f"Loaded {len(households):,} households for analysis")
+        
+        # Analyze the grouping columns used by PopulationSim
+        grouping_columns = ['PUMA', 'hhgqtype', 'NP', 'HUPAC', 'hh_workers_from_esr']
+        
+        self.log("Grouping column analysis:")
+        for col in grouping_columns:
+            if col in households.columns:
+                unique_vals = households[col].unique()
+                missing_count = households[col].isnull().sum()
+                self.log(f"  {col}: {len(unique_vals)} unique values, range {households[col].min()}-{households[col].max()}, {missing_count} missing")
+                if missing_count > 0:
+                    self.log(f"    WARNING: {col} has {missing_count} NaN values - this will cause IntCastingNaNError!")
+            else:
+                self.log(f"  {col}: MISSING from households data!")
+        
+        # Create the grouped incidence table (same logic as PopulationSim)
+        self.log("Building grouped incidence table...")
+        try:
+            grouped = households.groupby(grouping_columns, dropna=False)
+            group_sizes = grouped.size().reset_index(name='household_count')
+            
+            self.log(f"Total unique group combinations: {len(group_sizes):,}")
+            
+            # Analyze group size distribution
+            size_stats = group_sizes['household_count'].describe()
+            self.log(f"Group size statistics: min={size_stats['min']}, mean={size_stats['mean']:.1f}, max={size_stats['max']}")
+            
+            # Identify problematic groups
+            small_groups = group_sizes[group_sizes['household_count'] <= 5]
+            tiny_groups = group_sizes[group_sizes['household_count'] <= 1]
+            
+            self.log(f"Groups with ≤5 households: {len(small_groups):,} ({len(small_groups)/len(group_sizes)*100:.1f}%)")
+            self.log(f"Groups with ≤1 household: {len(tiny_groups):,} ({len(tiny_groups)/len(group_sizes)*100:.1f}%)")
+            
+            if len(small_groups) > len(group_sizes) * 0.3:  # >30% small groups
+                self.log(f"WARNING: {len(small_groups)/len(group_sizes)*100:.1f}% of groups have ≤5 households - high risk of IntCastingNaNError!")
+            
+            # Show some examples of the smallest groups
+            smallest = group_sizes.nsmallest(10, 'household_count')
+            self.log("Examples of smallest groups:")
+            for idx, row in smallest.iterrows():
+                group_desc = f"PUMA={row['PUMA']}, hhgqtype={row['hhgqtype']}, NP={row['NP']}, HUPAC={row['HUPAC']}, workers={row['hh_workers_from_esr']}"
+                self.log(f"  {group_desc} → {row['household_count']} households")
+            
+            # Analyze control aggregation patterns
+            self.log("Control aggregation analysis:")
+            aggregation_found = False
+            
+            for _, control in controls.iterrows():
+                expression = control['expression']
+                target = control['target']
+                
+                if 'households.NP >= 4' in expression:
+                    hh_4_plus = (households['NP'] >= 4).sum()
+                    np_large_values = households[households['NP'] >= 4]['NP'].value_counts().sort_index()
+                    self.log(f"  {target}: Controls use 'NP >= 4' but data has raw values: {dict(np_large_values)}")
+                    aggregation_found = True
+                
+                elif 'households.hh_workers_from_esr >= 3' in expression:
+                    workers_3_plus = (households['hh_workers_from_esr'] >= 3).sum()
+                    worker_large_values = households[households['hh_workers_from_esr'] >= 3]['hh_workers_from_esr'].value_counts().sort_index()
+                    self.log(f"  {target}: Controls use 'workers >= 3' but data has raw values: {dict(worker_large_values)}")
+                    aggregation_found = True
+                
+                elif '(households.HUPAC >= 1) & (households.HUPAC <= 3)' in expression:
+                    hupac_kids = households[households['HUPAC'].isin([1,2,3])]['HUPAC'].value_counts().sort_index()
+                    self.log(f"  {target}: Controls use 'HUPAC 1-3' but data has separate values: {dict(hupac_kids)}")
+                    aggregation_found = True
+            
+            if aggregation_found:
+                self.log("DIAGNOSIS: Control-grouping mismatch detected!")
+                self.log("  - Controls use aggregated expressions (NP >= 4, workers >= 3)")
+                self.log("  - Grouping uses raw values (NP=4,5,6,7,8+, workers=3,4,5,6+)")
+                self.log("  - This creates thousands of sparse groups causing IntCastingNaNError")
+                self.log("SOLUTION: Household preprocessing should aggregate data to match controls")
+            else:
+                self.log("No control aggregation patterns found")
+            
+            # Generate specific recommendations for low incidence grouping
+            self.log("\n=== LOW INCIDENCE GROUPING RECOMMENDATIONS ===")
+            
+            # Analyze which dimensions contribute most to sparse groups
+            dimension_analysis = {}
+            for col in grouping_columns:
+                if col in households.columns:
+                    unique_count = len(households[col].unique())
+                    dimension_analysis[col] = unique_count
+            
+            self.log("Dimension cardinality analysis:")
+            for col, count in sorted(dimension_analysis.items(), key=lambda x: x[1], reverse=True):
+                self.log(f"  {col}: {count} unique values")
+            
+            # Identify specific aggregation opportunities
+            recommendations = []
+            
+            # NP (household size) recommendations
+            np_values = sorted(households['NP'].unique())
+            large_np = [x for x in np_values if x >= 4]
+            if len(large_np) > 1:
+                np_counts = households['NP'].value_counts()
+                large_np_counts = {x: np_counts[x] for x in large_np}
+                recommendations.append(f"NP aggregation: Combine {large_np} → 4+ (saves {len(large_np)-1} categories)")
+                self.log(f"  NP large household counts: {large_np_counts}")
+            
+            # Worker recommendations
+            worker_values = sorted(households['hh_workers_from_esr'].unique())
+            high_workers = [x for x in worker_values if x >= 3]
+            if len(high_workers) > 1:
+                worker_counts = households['hh_workers_from_esr'].value_counts()
+                high_worker_counts = {x: worker_counts[x] for x in high_workers}
+                recommendations.append(f"Workers aggregation: Combine {high_workers} → 3+ (saves {len(high_workers)-1} categories)")
+                self.log(f"  High worker household counts: {high_worker_counts}")
+            
+            # HUPAC recommendations
+            hupac_values = sorted(households['HUPAC'].unique())
+            kids_hupac = [x for x in hupac_values if 1 <= x <= 3]
+            if len(kids_hupac) > 1:
+                hupac_counts = households['HUPAC'].value_counts()
+                kids_hupac_counts = {x: hupac_counts[x] for x in kids_hupac}
+                recommendations.append(f"HUPAC aggregation: Combine {kids_hupac} → 1 (has kids) (saves {len(kids_hupac)-1} categories)")
+                self.log(f"  Kids HUPAC household counts: {kids_hupac_counts}")
+            
+            # Calculate potential impact
+            if recommendations:
+                self.log("\nRECOMMENDATIONS FOR REDUCING SPARSE GROUPS:")
+                for i, rec in enumerate(recommendations, 1):
+                    self.log(f"  {i}. {rec}")
+                
+                # Estimate reduction potential
+                current_combinations = len(group_sizes)
+                estimated_reduction = 1.0
+                
+                if len(large_np) > 1:
+                    estimated_reduction *= (len(np_values) - len(large_np) + 1) / len(np_values)
+                if len(high_workers) > 1:
+                    estimated_reduction *= (len(worker_values) - len(high_workers) + 1) / len(worker_values)
+                if len(kids_hupac) > 1:
+                    estimated_reduction *= (len(hupac_values) - len(kids_hupac) + 1) / len(hupac_values)
+                
+                estimated_new_combinations = int(current_combinations * estimated_reduction)
+                reduction_percent = (1 - estimated_reduction) * 100
+                
+                self.log(f"\nESTIMATED IMPACT:")
+                self.log(f"  Current combinations: {current_combinations:,}")
+                self.log(f"  Estimated after aggregation: {estimated_new_combinations:,}")
+                self.log(f"  Reduction: {reduction_percent:.1f}%")
+                
+                # Check if this would solve the problem
+                if len(small_groups) > current_combinations * 0.2:  # >20% small groups is problematic
+                    estimated_small_after = int(len(small_groups) * estimated_reduction)
+                    self.log(f"  Small groups: {len(small_groups):,} → ~{estimated_small_after:,}")
+                    if estimated_small_after < current_combinations * 0.1:  # <10% would be acceptable
+                        self.log("  ✅ This aggregation should resolve the IntCastingNaNError!")
+                    else:
+                        self.log("  ⚠️  May need additional aggregation or disable grouping")
+            else:
+                self.log("No obvious aggregation opportunities found")
+                if len(small_groups) > len(group_sizes) * 0.3:
+                    self.log("RECOMMENDATION: Consider setting GROUP_BY_INCIDENCE_SIGNATURE: False")
+        
+        except Exception as e:
+            self.log(f"ERROR during grouped incidence analysis: {e}")
+        
+        self.log("=== GROUPED INCIDENCE ANALYSIS COMPLETE ===")
     
     def _clean_data_for_populationsim(self):
         """Clean seed data to prevent IntCastingNaNError"""
