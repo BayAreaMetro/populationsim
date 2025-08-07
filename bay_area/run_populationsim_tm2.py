@@ -475,7 +475,9 @@ class PopulationSimWorkflow:
                         changes_made = True
                 
                 # CRITICAL FIX: Filter out zero-weight households to prevent IntCastingNaNError
-                if 'WGTP' in df_hh.columns:
+                # TEMPORARILY DISABLED - GROUP_BY_INCIDENCE_SIGNATURE: False should prevent the error
+                # and we need to preserve zero-weight households for seed balancing
+                if False and 'WGTP' in df_hh.columns:
                     zero_weight_count = (df_hh['WGTP'] == 0).sum()
                     if zero_weight_count > 0:
                         self.log(f"  FILTERING OUT {zero_weight_count:,} zero-weight households (WGTP=0)")
