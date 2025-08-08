@@ -42,7 +42,8 @@ bay_area/
 │   └── other utility modules           # Supporting functions
 ├── create_baseyear_controls_23_tm2.py  # Main control generation script
 ├── add_hhgq_combined_controls.py       # Group quarters integration script
-└── run_populationsim_tm2.py            # Workflow orchestration script
+└── tm2_workflow_orchestrator.py          # 6-step workflow orchestration script
+└── run_populationsim_synthesis.py      # PopulationSim synthesis runner (Step 4)
 ```
 
 ## Key PopulationSim Input Files (Exact Files Used)

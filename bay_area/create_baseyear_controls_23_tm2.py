@@ -35,7 +35,7 @@ To force re-download: remove specific cache files.
 Converts 2020 Census estimates to 2010 Census geographies using areal interpolation crosswalks.
 Required because MAZ/TAZ system was built on 2010 Census geography boundaries.
 Uses proportional allocation based on area and demographic weights.
-Handles block→block, block group→block group, tract→tract interpolation.
+Handles block->block, block group->block group, tract->tract interpolation.
 3) CONTROL PROCESSING (Config-Driven):
 
 All controls (MAZ, TAZ, COUNTY) are dynamically specified in the configuration.
@@ -156,7 +156,7 @@ def copy_network_data_to_local():
         try:
             if os.path.exists(network_path):
                 shutil.copy2(network_path, local_path)
-                logger.info(f"Copied: {network_path} → {local_path}")
+                logger.info(f"Copied: {network_path} -> {local_path}")
                 copied_files.append(local_path)
             else:
                 logger.warning(f"Network file not found: {network_path}")
@@ -517,7 +517,7 @@ def get_county_targets(cf, logger, use_offline_fallback=True):
 """ This is for if we wanted to distribute block group controls from household size from the ACS down to a smaller scale. In prior Census
 implementations household size was available at block level. Because it is no longer available at block level, we just moved the control to block group level"""
 def process_block_distribution_control(control_name, control_def, cf, maz_taz_def_df, crosswalk_df, logger):
-    """Process household size controls using block group → block → MAZ distribution."""
+    """Process household size controls using block group -> block -> MAZ distribution."""
     logger.info(f"Processing block distribution control: {control_name} - PLACEHOLDER IMPLEMENTATION")
     
     # For now, use regular processing - we can implement the block distribution later
@@ -666,7 +666,7 @@ def process_control(
 
     # Step 3: Interpolate if needed
     if CENSUS_GEOG_YEAR != CENSUS_EST_YEAR:
-        logger.info(f"GEOGRAPHIC INTERPOLATION REQUIRED: {CENSUS_EST_YEAR} → {CENSUS_GEOG_YEAR}")
+        logger.info(f"GEOGRAPHIC INTERPOLATION REQUIRED: {CENSUS_EST_YEAR} -> {CENSUS_GEOG_YEAR}")
         logger.info(f"Source geography: {control_def[3]}")
         
         # CRITICAL DEBUGGING: Track geographic interpolation effects for worker controls
@@ -2296,7 +2296,7 @@ def create_hhgq_integrated_files(logger):
         # Copy county controls file (no HHGQ integration needed at county level)
         if os.path.exists(county_input):
             shutil.copy2(county_input, county_output)
-            logger.info(f"Copied county controls: {county_input} → {county_output}")
+            logger.info(f"Copied county controls: {county_input} -> {county_output}")
         else:
             logger.warning(f"County input file not found: {county_input}")
             

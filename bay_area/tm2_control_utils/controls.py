@@ -986,7 +986,7 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
             merged[control_name] = merged['temp_fraction'] * merged[scale_numerator]
             scaled_total = merged[control_name].sum()
             
-            logger.info(f"Geographic scaling applied: {orig_total:,.0f} → {scaled_total:,.0f}")
+            logger.info(f"Geographic scaling applied: {orig_total:,.0f} -> {scaled_total:,.0f}")
             merged = merged[[control_geoid_col, control_name]]
         else:
             merged = merged[[control_geoid_col, control_name]]
@@ -1060,7 +1060,7 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
         merged.fillna(0, inplace=True)
         
         scaled_total = merged[control_name].sum()
-        logger.info(f"Scaling complete: {orig_total:,.0f} → {scaled_total:,.0f} (factor: {scaled_total/orig_total:.6f})")
+        logger.info(f"Scaling complete: {orig_total:,.0f} -> {scaled_total:,.0f} (factor: {scaled_total/orig_total:.6f})")
         
         variable_total = variable_total * num_df[scale_numerator].sum() / denom_df[scale_denominator].sum()
         control_table_df = merged
@@ -1076,7 +1076,7 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
         merged[control_name] = merged[control_name] - merged[subtract_table]
         
         final_total = merged[control_name].sum()
-        logger.info(f"Subtraction complete: {orig_total:,.0f} → {final_total:,.0f} (difference: {final_total-orig_total:,.0f})")
+        logger.info(f"Subtraction complete: {orig_total:,.0f} -> {final_total:,.0f} (difference: {final_total-orig_total:,.0f})")
         
         variable_total = variable_total - sub_df[subtract_table].sum()
         control_table_df = merged
@@ -1096,7 +1096,7 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
         
         # Get unique mapping and ensure consistent data types
         geo_mapping_df = maz_taz_def_df[[synth_mapping_col, census_mapping_col]].drop_duplicates()
-        logger.info(f"Geographic mapping: {len(geo_mapping_df)} unique {census_geography}→{control_geography} relationships")
+        logger.info(f"Geographic mapping: {len(geo_mapping_df)} unique {census_geography}->{control_geography} relationships")
         
         # Convert both join keys to string to ensure compatibility
         control_table_df[census_geoid_col] = control_table_df[census_geoid_col].astype(str).str.strip()
@@ -1172,7 +1172,7 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
         logger.info(f"Total conservation: {post_agg_total/pre_agg_total:.6f}" if pre_agg_total > 0 else "Total conservation: N/A (zero input)")
         
         if abs(post_agg_total - pre_agg_total) > 0.01:
-            logger.warning(f"Total changed during aggregation: {pre_agg_total:,.0f} → {post_agg_total:,.0f}")
+            logger.warning(f"Total changed during aggregation: {pre_agg_total:,.0f} -> {post_agg_total:,.0f}")
 
     else:
         # For census geographies, group by the census GEOID
@@ -1226,7 +1226,7 @@ def match_control_to_geography(
 ):
     logger = logging.getLogger()
     logger.info(f"GEOGRAPHIC MATCHING START: {control_name}")
-    logger.info(f"Source: {census_geography} → Target: {control_geography}")
+    logger.info(f"Source: {census_geography} -> Target: {control_geography}")
     logger.info(f"Input: {len(control_table_df)} records")
     
     if scale_numerator or scale_denominator:

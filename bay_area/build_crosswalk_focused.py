@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Direct MAZ→PUMA geospatial crosswalk creation for PopulationSim TM2
+Direct MAZ→PUMA geospatial crosswalk crea    print("STEP 1: Loading MAZ shapefile with existing TAZ relationships")
+    print(f"   File: {maz_shapefile}")
+    print("   Direct approach: MAZ -> PUMA spatial mapping")n for PopulationSim TM2
 
 Creates geo_cross_walk_tm2_updated.csv using direct MAZ→PUMA spatial approach:
 1. Load MAZ shapefile with existing MAZ→TAZ relationships
@@ -68,12 +71,12 @@ PUMA_COUNTY_MAP = {
 
 def main():
     print("=" * 60)
-    print("DIRECT MAZ→PUMA GEOSPATIAL CROSSWALK CREATION")
+    print("DIRECT MAZ->PUMA GEOSPATIAL CROSSWALK CREATION")
     print("=" * 60)
     print("User specifications:")
-    print("- Direct MAZ→PUMA spatial mapping (TAZs don't nest in PUMAs)")
+    print("- Direct MAZ->PUMA spatial mapping (TAZs don't nest in PUMAs)")
     print("- Use MAZ shapefile with existing TAZ relationships")
-    print("- Spatial join MAZ centroids → PUMA20 boundaries")
+    print("- Spatial join MAZ centroids -> PUMA20 boundaries")
     print("- No fallback methods")
     print()
     

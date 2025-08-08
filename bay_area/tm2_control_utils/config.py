@@ -139,7 +139,7 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
 # ----------------------------------------
 # TAZ controls for ACS estimate year - PopulationSim expects: workers, age, children, income
 CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
-    # ACS5 household income distribution at block‐group - DIRECT AGGREGATION (no scaling needed)
+    # ACS5 household income distribution at block-group - DIRECT AGGREGATION (no scaling needed)
     # Income breakpoints adjusted to 2023 dollars representing 2010 purchasing power
     # Methodology: Applied ~38% inflation based on CPI-U 2010-2023 cumulative inflation
     # to convert 2010 income categories ($0-30K, $30-60K, $60-100K, $100K+) to 2023 equivalent purchasing power
@@ -183,12 +183,12 @@ CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
     ('pers_age_65_plus',      ('acs5', ACS_EST_YEAR,    'B01001',       'tract',
                                [collections.OrderedDict([('age_min',65),('age_max',AGE_MAX)])], 
                                'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
-    # ACS5 households with children at block‐group - DIRECT AGGREGATION (no scaling needed)
+    # ACS5 households with children at block-group - DIRECT AGGREGATION (no scaling needed)
     ('hh_kids_no',            ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
                                [collections.OrderedDict([('num_kids_min',0),('num_kids_max',0)])])),
     ('hh_kids_yes',           ('acs5', ACS_EST_YEAR,    'B11005',       'block group',
                                [collections.OrderedDict([('num_kids_min',1),('num_kids_max',NKID_MAX)])])),
-    # ACS5 household size distribution at block‐group - moved from MAZ to TAZ level
+    # ACS5 household size distribution at block-group - moved from MAZ to TAZ level
     ('hh_size_1',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',1)])])),
     ('hh_size_2',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',

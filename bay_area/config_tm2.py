@@ -15,9 +15,9 @@ class PopulationSimConfig:
         self.BASE_DIR = Path(base_dir) if base_dir else Path.cwd()
         
         # Environment setup
-        self.CONDA_PATH = Path("C:/Users/schildress/AppData/Local/anaconda3")
+        self.CONDA_PATH = Path("C:/Users/MTCPB/AppData/Local/anaconda3")
         self.POPSIM_ENV = "popsim"
-        self.PYTHON_PATH = Path("C:/Users/schildress/AppData/Local/anaconda3/python.exe")
+        self.PYTHON_PATH = Path("C:/Users/MTCPB/AppData/Local/anaconda3/envs/popsim/python.exe")
         
         # Model configuration
         self.MODEL_TYPE = "TM2"
@@ -71,7 +71,8 @@ class PopulationSimConfig:
         
         # Scripts and executables
         self.SCRIPTS = {
-            'create_seed_population': self.BASE_DIR / "create_seed_population_tm2.py",
+            'create_crosswalk': self.BASE_DIR / "build_crosswalk_focused_clean.py",
+            'create_seed_population': self.BASE_DIR / "create_seed_population_tm2_refactored.py",
             'create_controls': self.BASE_DIR / "create_baseyear_controls_23_tm2.py",
             'add_hhgq': self.BASE_DIR / "add_hhgq_combined_controls.py",
             'postprocess': self.BASE_DIR / "postprocess_recode.py"
@@ -91,6 +92,15 @@ class PopulationSimConfig:
             self.CONTROL_FILES['geo_cross_walk']
         ]
         
+        # Shape file paths for geospatial processing
+        self.SHAPEFILE_DIR = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles")
+        self.SHAPEFILES = {
+            'maz_shapefile': self.SHAPEFILE_DIR / "mazs_TM2_v2_2.shp",
+            'puma_shapefile': self.SHAPEFILE_DIR / "tl_2022_06_puma20.shp",
+            'taz_shapefile': self.SHAPEFILE_DIR / "tazs_TM2_v2_2.shp",
+            'county_shapefile': self.SHAPEFILE_DIR / "counties.shp"  # if needed
+        }
+        
         # Tableau data preparation
         self.TABLEAU_OUTPUT_DIR = self.POPULATIONSIM_OUTPUT_DIR / "tableau"
         self.TABLEAU_FILES = {
@@ -105,12 +115,13 @@ class PopulationSimConfig:
         
         # Force flags (can be overridden)
         self.FORCE_FLAGS = {
-            'SEED': False,          # Skip seed generation - use existing files
-            'CONTROLS': False,       # Force regenerate controls
+            'CROSSWALK': False,    # Don't force regenerate geographic crosswalk (we have it)
+            'SEED': False,          # Force regenerate seed files
+            'CONTROLS': False,      # Force regenerate controls
             'HHGQ': False,          # Force regenerate group quarters
             'POPULATIONSIM': True, # Force re-run PopulationSim synthesis
-            'POSTPROCESS': False,   # Force re-run post-processing
-            'TABLEAU': False        # Force regenerate Tableau files
+            'POSTPROCESS': True,   # Force re-run post-processing
+            'TABLEAU': False       # Force regenerate Tableau files
         }
         
         # Test configuration
@@ -119,6 +130,12 @@ class PopulationSimConfig:
     def get_command_args(self, command_type, **kwargs):
         """Get command arguments for different script types"""
         commands = {
+            'create_crosswalk': [
+                str(self.PYTHON_PATH), 
+                str(self.SCRIPTS['create_crosswalk']),
+                "--maz_shapefile", str(self.SHAPEFILES['maz_shapefile']),
+                "--puma_shapefile", str(self.SHAPEFILES['puma_shapefile'])
+            ],
             'seed_population': [str(self.PYTHON_PATH), str(self.SCRIPTS['create_seed_population'])],
             'create_controls': [
                 str(self.PYTHON_PATH), 
@@ -134,7 +151,9 @@ class PopulationSimConfig:
             ],
             'run_populationsim': [
                 str(self.PYTHON_PATH),
-                str(self.BASE_DIR / "run_populationsim_tm2.py")
+                str(self.BASE_DIR / "run_populationsim_synthesis.py"),
+                "--working_dir", str(self.HH_GQ_DATA_DIR.parent / "tm2_working_dir"),
+                "--output", str(self.POPULATIONSIM_OUTPUT_DIR)
             ],
             'postprocess': [
                 str(self.PYTHON_PATH),

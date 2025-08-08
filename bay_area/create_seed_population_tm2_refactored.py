@@ -45,34 +45,52 @@ class SeedPopulationConfig:
     
     def __post_init__(self):
         if self.bay_area_pumas is None:
-            # Updated to use 62 PUMAs from the spatial crosswalk analysis
-            # These are the actual PUMAs with MAZ coverage from direct spatial mapping
-            self.bay_area_pumas = [
-                # Alameda County (14 PUMAs)
-                '00101', '00111', '00112', '00113', '00114', '00115', '00116', '00117', 
-                '00118', '00119', '00120', '00121', '00122', '00123',
-                # Contra Costa County (9 PUMAs) 
-                '01301', '01305', '01308', '01309', '01310', '01311', '01312', '01313', '01314',
-                # Marin County (2 PUMAs)
-                '04103', '04104',
-                # Napa County (1 PUMA)
-                '05500',
-                # San Francisco County (8 PUMAs)
-                '07507', '07508', '07509', '07510', '07511', '07512', '07513', '07514',
-                # San Mateo County (6 PUMAs)
-                '08101', '08102', '08103', '08104', '08105', '08106',
-                # Santa Clara County (15 PUMAs)
-                '08505', '08506', '08507', '08508', '08510', '08511', '08512', '08515', 
-                '08516', '08517', '08518', '08519', '08520', '08521', '08522',
-                # Solano County (3 PUMAs)
-                '09501', '09502', '09503',
-                # Sonoma County (4 PUMAs)
-                '09702', '09704', '09705', '09706'
-                # Total: 14+9+2+1+8+6+15+3+4 = 62 PUMAs with actual MAZ coverage
-            ]
+            # Try to read PUMAs dynamically from the crosswalk file
+            try:
+                crosswalk_file = Path("hh_gq/data/geo_cross_walk_tm2.csv")
+                if crosswalk_file.exists():
+                    import pandas as pd
+                    crosswalk_df = pd.read_csv(crosswalk_file)
+                    # Get unique PUMAs from the crosswalk and format as 5-digit strings
+                    actual_pumas = sorted(crosswalk_df['PUMA'].astype(str).str.zfill(5).unique())
+                    self.bay_area_pumas = actual_pumas
+                    logger.info(f"Loaded {len(actual_pumas)} PUMAs from crosswalk file: {crosswalk_file}")
+                    logger.info(f"PUMA range: {actual_pumas[0]} to {actual_pumas[-1]}")
+                else:
+                    logger.warning(f"Crosswalk file not found: {crosswalk_file}, using hardcoded PUMA list")
+                    self._use_hardcoded_pumas()
+            except Exception as e:
+                logger.warning(f"Could not read crosswalk file: {e}, using hardcoded PUMA list")
+                self._use_hardcoded_pumas()
         
         self.output_dir = Path(self.output_dir)
         self.output_dir.mkdir(exist_ok=True)
+    
+    def _use_hardcoded_pumas(self):
+        """Fallback to hardcoded PUMA list (62 PUMAs with actual MAZ coverage)"""
+        self.bay_area_pumas = [
+            # Alameda County (14 PUMAs)
+            '00101', '00111', '00112', '00113', '00114', '00115', '00116', '00117', 
+            '00118', '00119', '00120', '00121', '00122', '00123',
+            # Contra Costa County (9 PUMAs) 
+            '01301', '01305', '01308', '01309', '01310', '01311', '01312', '01313', '01314',
+            # Marin County (2 PUMAs)
+            '04103', '04104',
+            # Napa County (1 PUMA)
+            '05500',
+            # San Francisco County (8 PUMAs)
+            '07507', '07508', '07509', '07510', '07511', '07512', '07513', '07514',
+            # San Mateo County (6 PUMAs)
+            '08101', '08102', '08103', '08104', '08105', '08106',
+            # Santa Clara County (15 PUMAs)
+            '08505', '08506', '08507', '08508', '08510', '08511', '08512', '08515', 
+            '08516', '08517', '08518', '08519', '08520', '08521', '08522',
+            # Solano County (3 PUMAs)
+            '09501', '09502', '09503',
+            # Sonoma County (4 PUMAs)
+            '09702', '09704', '09705', '09706'
+            # Total: 14+9+2+1+8+6+15+3+4 = 62 PUMAs with actual MAZ coverage
+        ]
 
 class PUMACountyMapper:
     """Handles PUMA to County mapping for Bay Area"""
