@@ -15,9 +15,9 @@ class PopulationSimConfig:
         self.BASE_DIR = Path(base_dir) if base_dir else Path.cwd()
         
         # Environment setup
-        self.CONDA_PATH = Path("C:/Users/MTCPB/AppData/Local/anaconda3")
+        self.CONDA_PATH = Path("C:/Users/schildress/AppData/Local/anaconda3")
         self.POPSIM_ENV = "popsim"
-        self.PYTHON_PATH = Path("C:/Users/MTCPB/AppData/Local/anaconda3/envs/popsim/python.exe")
+        self.PYTHON_PATH = Path("C:/Users/schildress/AppData/Local/anaconda3/python.exe")
         
         # Model configuration
         self.MODEL_TYPE = "TM2"
@@ -74,7 +74,6 @@ class PopulationSimConfig:
             'create_seed_population': self.BASE_DIR / "create_seed_population_tm2.py",
             'create_controls': self.BASE_DIR / "create_baseyear_controls_23_tm2.py",
             'add_hhgq': self.BASE_DIR / "add_hhgq_combined_controls.py",
-            'run_populationsim': self.BASE_DIR / "run_populationsim.py",
             'postprocess': self.BASE_DIR / "postprocess_recode.py"
         }
         
@@ -106,12 +105,12 @@ class PopulationSimConfig:
         
         # Force flags (can be overridden)
         self.FORCE_FLAGS = {
-            'SEED': False,
-            'CONTROLS': False,
-            'HHGQ': False,
-            'POPULATIONSIM': True,
-            'POSTPROCESS': False,
-            'TABLEAU': False
+            'SEED': False,          # Skip seed generation - use existing files
+            'CONTROLS': False,       # Force regenerate controls
+            'HHGQ': False,          # Force regenerate group quarters
+            'POPULATIONSIM': True, # Force re-run PopulationSim synthesis
+            'POSTPROCESS': False,   # Force re-run post-processing
+            'TABLEAU': False        # Force regenerate Tableau files
         }
         
         # Test configuration
@@ -135,10 +134,7 @@ class PopulationSimConfig:
             ],
             'run_populationsim': [
                 str(self.PYTHON_PATH),
-                str(self.SCRIPTS['run_populationsim']),
-                "--config", str(self.HH_GQ_CONFIGS_DIR),
-                "--output", str(self.POPULATIONSIM_OUTPUT_DIR),
-                "--data", str(self.HH_GQ_DATA_DIR)
+                str(self.BASE_DIR / "run_populationsim_tm2.py")
             ],
             'postprocess': [
                 str(self.PYTHON_PATH),

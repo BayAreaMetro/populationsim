@@ -1754,6 +1754,7 @@ def create_maz_data_files(logger):
             
         maz_marginals_2023 = pd.read_csv(maz_marginals_file)
         logger.info(f"Read 2023 MAZ marginals: {len(maz_marginals_2023)} zones")
+        logger.info(f"MAZ marginals columns: {list(maz_marginals_2023.columns)}")
         
         # Get actual population data from the existing maz_data.csv instead of estimating
         # This ensures we use real population totals for hierarchical control consistency
@@ -1771,10 +1772,14 @@ def create_maz_data_files(logger):
                 missing_pop = maz_marginals_2023['total_pop'].isna()
                 if missing_pop.any():
                     logger.warning(f"Using HH-based estimate for {missing_pop.sum()} MAZs with missing population")
-                    maz_marginals_2023.loc[missing_pop, 'total_pop'] = (
-                        maz_marginals_2023.loc[missing_pop, 'num_hh'] * 2.5 + 
-                        maz_marginals_2023.loc[missing_pop, 'gq_pop']
-                    )
+                    if 'num_hh' in maz_marginals_2023.columns:
+                        maz_marginals_2023.loc[missing_pop, 'total_pop'] = (
+                            maz_marginals_2023.loc[missing_pop, 'num_hh'] * 2.5 + 
+                            maz_marginals_2023.loc[missing_pop, 'gq_pop']
+                        )
+                    else:
+                        logger.error(f"Cannot estimate population - missing 'num_hh' column. Available: {list(maz_marginals_2023.columns)}")
+                        return
                     
                 logger.info("Using actual population totals from existing maz_data.csv")
             else:
@@ -1785,11 +1790,20 @@ def create_maz_data_files(logger):
         else:
             logger.warning("No existing maz_data.csv found, using HH-based population estimate")
             # Calculate total population from marginals (HH population + GQ population) as fallback
-            maz_marginals_2023['total_pop'] = maz_marginals_2023['num_hh'] * 2.5  # Rough estimate for HH population
-            maz_marginals_2023['total_pop'] += maz_marginals_2023['gq_pop']  # Add GQ population
+            if 'num_hh' in maz_marginals_2023.columns:
+                maz_marginals_2023['total_pop'] = maz_marginals_2023['num_hh'] * 2.5  # Rough estimate for HH population
+                maz_marginals_2023['total_pop'] += maz_marginals_2023['gq_pop']  # Add GQ population
+            else:
+                logger.error(f"Missing 'num_hh' column in MAZ marginals. Available columns: {list(maz_marginals_2023.columns)}")
+                return
         
         # Round to integers
-        maz_marginals_2023['num_hh'] = maz_marginals_2023['num_hh'].round().astype(int)
+        if 'num_hh' in maz_marginals_2023.columns:
+            maz_marginals_2023['num_hh'] = maz_marginals_2023['num_hh'].round().astype(int)
+        else:
+            logger.error(f"Missing 'num_hh' column in maz_marginals_2023. Available columns: {list(maz_marginals_2023.columns)}")
+            return
+        
         maz_marginals_2023['total_pop'] = maz_marginals_2023['total_pop'].round().astype(int)
         
         # Prepare the MAZ ID column for merging

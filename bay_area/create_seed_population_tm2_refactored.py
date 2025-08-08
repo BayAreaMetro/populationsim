@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SeedPopulationConfig:
     """Configuration for seed population creation"""
-    # Bay Area PUMAs - 2020 definitions (65 PUMAs across all 9 Bay Area counties)
+    # Bay Area PUMAs - 2020 definitions (62 PUMAs with actual MAZ coverage)
     bay_area_pumas: List[str] = None
     output_dir: Path = Path("output_2023")
     chunk_size: int = 50000
@@ -45,29 +45,30 @@ class SeedPopulationConfig:
     
     def __post_init__(self):
         if self.bay_area_pumas is None:
+            # Updated to use 62 PUMAs from the spatial crosswalk analysis
+            # These are the actual PUMAs with MAZ coverage from direct spatial mapping
             self.bay_area_pumas = [
-                # San Francisco County (14 PUMAs)
-                '00101', '00111', '00112', '00113', '00114', '00115', '00116', '00117', '00118', '00119',
-                '00120', '00121', '00122', '00123',
-                # Alameda County (9 PUMAs) 
+                # Alameda County (14 PUMAs)
+                '00101', '00111', '00112', '00113', '00114', '00115', '00116', '00117', 
+                '00118', '00119', '00120', '00121', '00122', '00123',
+                # Contra Costa County (9 PUMAs) 
                 '01301', '01305', '01308', '01309', '01310', '01311', '01312', '01313', '01314',
-                # Contra Costa County (2 PUMAs)
+                # Marin County (2 PUMAs)
                 '04103', '04104',
-                # San Mateo County (2 PUMAs)
-                '05303', '05500',
-                # Marin County (8 PUMAs)
+                # Napa County (1 PUMA)
+                '05500',
+                # San Francisco County (8 PUMAs)
                 '07507', '07508', '07509', '07510', '07511', '07512', '07513', '07514',
-                # Santa Clara County (22 PUMAs)
-                '08101', '08102', '08103', '08104', '08105', '08106', '08505', '08506', '08507', 
-                '08508', '08510', '08511', '08512', '08515', '08516', '08517', '08518', '08519', 
-                '08520', '08521', '08522', '08701',
-                # Sonoma County (3 PUMAs)
+                # San Mateo County (6 PUMAs)
+                '08101', '08102', '08103', '08104', '08105', '08106',
+                # Santa Clara County (15 PUMAs)
+                '08505', '08506', '08507', '08508', '08510', '08511', '08512', '08515', 
+                '08516', '08517', '08518', '08519', '08520', '08521', '08522',
+                # Solano County (3 PUMAs)
                 '09501', '09502', '09503',
-                # Napa County (4 PUMAs) - All Bay Area MPO Napa County PUMAs
-                '09702', '09704', '09705', '09706',
-                # Solano County (1 PUMA) - All Bay Area MPO Solano County PUMAs  
-                '11301'
-                # Total: 14+9+2+2+8+22+3+4+1 = 65 PUMAs (all 9 Bay Area counties)
+                # Sonoma County (4 PUMAs)
+                '09702', '09704', '09705', '09706'
+                # Total: 14+9+2+1+8+6+15+3+4 = 62 PUMAs with actual MAZ coverage
             ]
         
         self.output_dir = Path(self.output_dir)
@@ -78,33 +79,32 @@ class PUMACountyMapper:
     
     @staticmethod
     def get_county_mapping() -> Dict[str, int]:
-        """Returns PUMA to County mapping"""
+        """Returns PUMA to County mapping for the 62 PUMAs with MAZ coverage"""
         return {
-            # San Francisco County (COUNTY=1)
-            '00101': 1, '00111': 1, '00112': 1, '00113': 1, '00114': 1, '00115': 1, 
-            '00116': 1, '00117': 1, '00118': 1, '00119': 1, '00120': 1, '00121': 1, 
-            '00122': 1, '00123': 1,
-            # San Mateo County (COUNTY=2)  
-            '05303': 2, '05500': 2,
-            # Santa Clara County (COUNTY=3)
-            '08101': 3, '08102': 3, '08103': 3, '08104': 3, '08105': 3, '08106': 3,
+            # Alameda County (COUNTY=4) - 14 PUMAs
+            '00101': 4, '00111': 4, '00112': 4, '00113': 4, '00114': 4, '00115': 4, 
+            '00116': 4, '00117': 4, '00118': 4, '00119': 4, '00120': 4, '00121': 4, 
+            '00122': 4, '00123': 4,
+            # Contra Costa County (COUNTY=5) - 9 PUMAs
+            '01301': 5, '01305': 5, '01308': 5, '01309': 5, '01310': 5, '01311': 5,
+            '01312': 5, '01313': 5, '01314': 5,
+            # Marin County (COUNTY=9) - 2 PUMAs
+            '04103': 9, '04104': 9,
+            # Napa County (COUNTY=7) - 1 PUMA
+            '05500': 7,
+            # San Francisco County (COUNTY=1) - 8 PUMAs
+            '07507': 1, '07508': 1, '07509': 1, '07510': 1, '07511': 1, '07512': 1,
+            '07513': 1, '07514': 1,
+            # San Mateo County (COUNTY=2) - 6 PUMAs  
+            '08101': 2, '08102': 2, '08103': 2, '08104': 2, '08105': 2, '08106': 2,
+            # Santa Clara County (COUNTY=3) - 15 PUMAs
             '08505': 3, '08506': 3, '08507': 3, '08508': 3, '08510': 3, '08511': 3,
             '08512': 3, '08515': 3, '08516': 3, '08517': 3, '08518': 3, '08519': 3,
-            '08520': 3, '08521': 3, '08522': 3, '08701': 3,
-            # Alameda County (COUNTY=4)
-            '01301': 4, '01305': 4, '01308': 4, '01309': 4, '01310': 4, '01311': 4,
-            '01312': 4, '01313': 4, '01314': 4,
-            # Contra Costa County (COUNTY=5)
-            '04103': 5, '04104': 5,
-            # Solano County (COUNTY=6)
-            '11301': 6,
-            # Napa County (COUNTY=7)
-            '09702': 7, '09704': 7, '09705': 7, '09706': 7,
-            # Sonoma County (COUNTY=8)
-            '09501': 8, '09502': 8, '09503': 8,
-            # Marin County (COUNTY=9)
-            '07507': 9, '07508': 9, '07509': 9, '07510': 9, '07511': 9, '07512': 9,
-            '07513': 9, '07514': 9
+            '08520': 3, '08521': 3, '08522': 3,
+            # Solano County (COUNTY=6) - 3 PUMAs
+            '09501': 6, '09502': 6, '09503': 6,
+            # Sonoma County (COUNTY=8) - 4 PUMAs
+            '09702': 8, '09704': 8, '09705': 8, '09706': 8
         }
     
     @classmethod
@@ -448,8 +448,12 @@ class SeedPopulationCreator:
         if 'SOCP' in df.columns:
             df['SOCP'] = df['SOCP'].fillna(0)
         
-        # Create SOC codes (convert to string, handle NaN)
-        df['soc'] = df['SOCP'].fillna(0).astype(int).astype(str)
+        # Create SOC codes (convert to string, handle NaN and 'X' characters)
+        df['soc'] = df['SOCP'].fillna('0')
+        # Remove 'X' characters that appear in some SOCP codes
+        df['soc'] = df['soc'].astype(str).str.replace('X', '', regex=False)
+        # Convert to int, then back to string for consistency
+        df['soc'] = pd.to_numeric(df['soc'], errors='coerce').fillna(0).astype(int).astype(str)
         df.loc[df['soc'] == '0', 'soc'] = ''
         
         return df

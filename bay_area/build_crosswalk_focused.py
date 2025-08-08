@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Focused geospatial crosswalk creation for PopulationSim TM2
+Direct MAZ→PUMA geospatial crosswalk creation for PopulationSim TM2
 
-Creates geo_cross_walk_tm2_updated.csv using pure geospatial approach:
-1. Load existing MAZ→TAZ relationship from CSV
-2. Create spatial join from TAZ centroids to PUMA20 boundaries 
-3. Regular join to create final MAZ→TAZ→PUMA20 crosswalk
+Creates geo_cross_walk_tm2_updated.csv using direct MAZ→PUMA spatial approach:
+1. Load MAZ shapefile with existing MAZ→TAZ relationships
+2. Create direct spatial join from MAZ centroids to PUMA20 boundaries 
+3. Output final MAZ→TAZ→PUMA20 crosswalk with direct spatial relationships
 
 User requirements:
+- Direct MAZ→PUMA spatial mapping (TAZs don't nest cleanly in PUMAs)
 - Pure geospatial approach only
 - No fallback methods
 - Use pyogrio backend for shapefile loading
@@ -19,114 +20,155 @@ import numpy as np
 from pathlib import Path
 import sys
 
+# PUMA to County mapping for Bay Area (2020 boundaries)
+# Based on exact PUMA IDs from spatial analysis (5-digit format with leading zeros)
+# All 9 Bay Area counties: Alameda, Contra Costa, Marin, Napa, San Francisco, San Mateo, Santa Clara, Solano, Sonoma
+PUMA_COUNTY_MAP = {
+    # San Francisco County (75) - PUMAs 00101-00123
+    '00101': ('75', 'San Francisco'), '00111': ('75', 'San Francisco'), '00112': ('75', 'San Francisco'),
+    '00113': ('75', 'San Francisco'), '00114': ('75', 'San Francisco'), '00115': ('75', 'San Francisco'),
+    '00116': ('75', 'San Francisco'), '00117': ('75', 'San Francisco'), '00118': ('75', 'San Francisco'),
+    '00119': ('75', 'San Francisco'), '00120': ('75', 'San Francisco'), '00121': ('75', 'San Francisco'),
+    '00122': ('75', 'San Francisco'), '00123': ('75', 'San Francisco'),
+    
+    # Alameda County (01) - PUMAs 01301-01314
+    '01301': ('01', 'Alameda'), '01305': ('01', 'Alameda'), '01308': ('01', 'Alameda'),
+    '01309': ('01', 'Alameda'), '01310': ('01', 'Alameda'), '01311': ('01', 'Alameda'),
+    '01312': ('01', 'Alameda'), '01313': ('01', 'Alameda'), '01314': ('01', 'Alameda'),
+    
+    # Santa Clara County (85) - PUMAs 07507-07514 (reassigned from Alameda)
+    '07507': ('85', 'Santa Clara'), '07508': ('85', 'Santa Clara'), '07509': ('85', 'Santa Clara'),
+    '07510': ('85', 'Santa Clara'), '07511': ('85', 'Santa Clara'), '07512': ('85', 'Santa Clara'),
+    '07513': ('85', 'Santa Clara'), '07514': ('85', 'Santa Clara'),
+    
+    # Contra Costa County (13) - PUMAs 04103-04104, 08101-08104
+    '04103': ('13', 'Contra Costa'), '04104': ('13', 'Contra Costa'),
+    '08101': ('13', 'Contra Costa'), '08102': ('13', 'Contra Costa'), 
+    '08103': ('13', 'Contra Costa'), '08104': ('13', 'Contra Costa'),
+    
+    # Napa County (55) - PUMAs 08105-08106 (reassigned from Contra Costa)
+    '08105': ('55', 'Napa'), '08106': ('55', 'Napa'),
+    
+    # San Mateo County (81) - PUMAs 08505-08522
+    '08505': ('81', 'San Mateo'), '08506': ('81', 'San Mateo'), '08507': ('81', 'San Mateo'),
+    '08508': ('81', 'San Mateo'), '08510': ('81', 'San Mateo'), '08511': ('81', 'San Mateo'),
+    '08512': ('81', 'San Mateo'), '08515': ('81', 'San Mateo'), '08516': ('81', 'San Mateo'),
+    '08517': ('81', 'San Mateo'), '08518': ('81', 'San Mateo'), '08519': ('81', 'San Mateo'),
+    '08520': ('81', 'San Mateo'), '08521': ('81', 'San Mateo'), '08522': ('81', 'San Mateo'),
+    
+    # Marin County (41)
+    '05500': ('41', 'Marin'),
+    
+    # Solano County (95) - PUMAs 09501-09503
+    '09501': ('95', 'Solano'), '09502': ('95', 'Solano'), '09503': ('95', 'Solano'),
+    
+    # Sonoma County (97) - PUMAs 09702-09706
+    '09702': ('97', 'Sonoma'), '09704': ('97', 'Sonoma'), '09705': ('97', 'Sonoma'), '09706': ('97', 'Sonoma'),
+}
+
 def main():
     print("=" * 60)
-    print("FOCUSED GEOSPATIAL CROSSWALK CREATION")
+    print("DIRECT MAZ→PUMA GEOSPATIAL CROSSWALK CREATION")
     print("=" * 60)
     print("User specifications:")
-    print("- Use existing MAZ→TAZ relationship from CSV")
-    print("- Spatial join TAZ centroids → PUMA20 boundaries")
-    print("- Regular join for final crosswalk")
+    print("- Direct MAZ→PUMA spatial mapping (TAZs don't nest in PUMAs)")
+    print("- Use MAZ shapefile with existing TAZ relationships")
+    print("- Spatial join MAZ centroids → PUMA20 boundaries")
     print("- No fallback methods")
     print()
     
     # Define paths - using full absolute paths
     base_dir = Path("c:/GitHub/populationsim/bay_area")
-    tm2py_dir = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz")
-    shapefiles_dir = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles")
     
-    # Input files - using the correct file that already has MAZ→TAZ→PUMA relationships
-    maz_taz_puma_csv = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/mazs_tazs_county_tract_PUMA.csv")
-    taz_shapefile = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tazs_TM2_v2_2.shp")
+    # Input files - using MAZ shapefile for direct spatial approach
+    maz_shapefile = Path("c:/GitHub/populationsim_update/bay_area/output_2023/tableau/mazs_TM2_v2_2.shp")
     puma_shapefile = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp")
     
-    # Output file
-    output_file = Path("c:/GitHub/populationsim/bay_area/output_2023/geo_cross_walk_tm2_updated.csv")
-    output_file.parent.mkdir(parents=True, exist_ok=True)
+    # Output file - save directly where PopulationSim expects it AND in output_2023 for reference
+    output_file_primary = Path("c:/GitHub/populationsim_update/bay_area/hh_gq/data/geo_cross_walk_tm2_updated.csv")
+    output_file_reference = Path("c:/GitHub/populationsim_update/bay_area/output_2023/geo_cross_walk_tm2_updated.csv")
     
-    print("🔍 STEP 1: Loading existing MAZ→TAZ→PUMA data (will use fresh 2020 PUMAs)")
-    print(f"   File: {maz_taz_puma_csv}")
+    # Ensure both output directories exist
+    output_file_primary.parent.mkdir(parents=True, exist_ok=True)
+    output_file_reference.parent.mkdir(parents=True, exist_ok=True)
     
-    if not maz_taz_puma_csv.exists():
-        print(f"❌ ERROR: MAZ-TAZ-PUMA CSV file not found: {maz_taz_puma_csv}")
+    print("�️  STEP 1: Loading MAZ shapefile with existing TAZ relationships")
+    print(f"   File: {maz_shapefile}")
+    print("   🎯 Direct approach: MAZ → PUMA spatial mapping")
+    
+    if not maz_shapefile.exists():
+        print(f"❌ ERROR: MAZ shapefile not found: {maz_shapefile}")
         return False
     
     try:
-        maz_taz_old_df = pd.read_csv(maz_taz_puma_csv)
-        print(f"   ✅ Loaded {len(maz_taz_old_df):,} existing MAZ→TAZ→PUMA relationships")
-        print(f"   📊 Columns: {list(maz_taz_old_df.columns)}")
-        
-        # Extract just MAZ→TAZ relationships (ignore old PUMA data)
-        if 'MAZ' in maz_taz_old_df.columns and 'TAZ' in maz_taz_old_df.columns:
-            maz_taz_df = maz_taz_old_df[['MAZ', 'TAZ']].copy()
-        else:
-            print(f"❌ ERROR: Expected MAZ and TAZ columns not found")
-            print(f"   Available columns: {list(maz_taz_old_df.columns)}")
-            return False
-        
-        # Show sample data
-        print("   📋 Sample MAZ→TAZ data (ignoring old PUMA data):")
-        print(maz_taz_df.head())
-        print(f"   🗂️  Will create fresh PUMA20 mappings for {maz_taz_df['TAZ'].nunique():,} TAZ zones")
-        
-    except Exception as e:
-        print(f"❌ ERROR: Failed to load existing MAZ-TAZ-PUMA CSV: {e}")
-        return False
-    
-    print()
-    print("🗺️  STEP 2: Loading TAZ shapefile for spatial join with fresh PUMA20 data")
-    print(f"   File: {taz_shapefile}")
-    
-    if not taz_shapefile.exists():
-        print(f"❌ ERROR: TAZ shapefile not found: {taz_shapefile}")
-        return False
-    
-    try:
-        # Load TAZ shapefile using pyogrio backend
+        # Load MAZ shapefile using pyogrio backend
         print("   🔧 Using pyogrio backend for shapefile loading...")
-        taz_gdf = gpd.read_file(taz_shapefile, engine='pyogrio')
-        print(f"   ✅ Loaded {len(taz_gdf):,} TAZ zones")
-        print(f"   📊 Columns: {list(taz_gdf.columns)}")
-        print(f"   🌍 CRS: {taz_gdf.crs}")
+        maz_gdf = gpd.read_file(maz_shapefile, engine='pyogrio')
+        print(f"   ✅ Loaded {len(maz_gdf):,} MAZ zones")
+        print(f"   📊 Columns: {list(maz_gdf.columns)}")
+        print(f"   🌍 CRS: {maz_gdf.crs}")
         
-        # Check for TAZ ID column
-        taz_id_cols = [col for col in taz_gdf.columns if 'TAZ' in col.upper() or 'ZONE' in col.upper()]
+        # Check for MAZ and TAZ ID columns
+        maz_id_cols = [col for col in maz_gdf.columns if 'MAZ' in col.upper() or 'ZONE' in col.upper()]
+        taz_id_cols = [col for col in maz_gdf.columns if 'TAZ' in col.upper()]
+        print(f"   🔍 Potential MAZ ID columns: {maz_id_cols}")
         print(f"   🔍 Potential TAZ ID columns: {taz_id_cols}")
         
-        # Determine the TAZ ID column
-        if 'TAZ1454' in taz_gdf.columns:
-            taz_id_col = 'TAZ1454'
-        elif 'TAZ_ID' in taz_gdf.columns:
-            taz_id_col = 'TAZ_ID'
-        elif 'TAZ' in taz_gdf.columns:
-            taz_id_col = 'TAZ'
-        elif 'taz' in taz_gdf.columns:  # lowercase version
-            taz_id_col = 'taz'
+        # Determine the MAZ ID column
+        if 'MAZ' in maz_gdf.columns:
+            maz_id_col = 'MAZ'
+        elif 'maz' in maz_gdf.columns:  # lowercase version
+            maz_id_col = 'maz'
+        elif 'MAZ_ID' in maz_gdf.columns:
+            maz_id_col = 'MAZ_ID'
+        elif 'MAZID' in maz_gdf.columns:
+            maz_id_col = 'MAZID'
         else:
-            print(f"❌ ERROR: Cannot identify TAZ ID column in shapefile")
-            print(f"   Available columns: {list(taz_gdf.columns)}")
+            print(f"❌ ERROR: Cannot identify MAZ ID column in shapefile")
+            print(f"   Available columns: {list(maz_gdf.columns)}")
             return False
         
+        # Determine the TAZ ID column
+        if 'TAZ' in maz_gdf.columns:
+            taz_id_col = 'TAZ'
+        elif 'taz' in maz_gdf.columns:  # lowercase version
+            taz_id_col = 'taz'
+        elif 'TAZ_ID' in maz_gdf.columns:
+            taz_id_col = 'TAZ_ID'
+        elif 'TAZ1454' in maz_gdf.columns:
+            taz_id_col = 'TAZ1454'
+        else:
+            print(f"❌ ERROR: Cannot identify TAZ ID column in shapefile")
+            print(f"   Available columns: {list(maz_gdf.columns)}")
+            return False
+        
+        print(f"   🎯 Using MAZ ID column: {maz_id_col}")
         print(f"   🎯 Using TAZ ID column: {taz_id_col}")
         
-        # Calculate TAZ centroids
-        print("   📍 Calculating TAZ centroids...")
-        taz_gdf['centroid'] = taz_gdf.geometry.centroid
+        # Calculate MAZ centroids for spatial join
+        print("   📍 Calculating MAZ centroids...")
+        maz_gdf['centroid'] = maz_gdf.geometry.centroid
         
-        # Create a new GeoDataFrame with centroids as geometry
-        taz_centroids = taz_gdf.copy()
-        taz_centroids['geometry'] = taz_centroids['centroid']
+        # Create a new GeoDataFrame with centroids as geometry for spatial join
+        maz_centroids = maz_gdf.copy()
+        maz_centroids['geometry'] = maz_centroids['centroid']
         
-        print(f"   ✅ Created centroids for {len(taz_centroids):,} TAZ zones")
+        print(f"   ✅ Created centroids for {len(maz_centroids):,} MAZ zones")
+        print(f"   📊 MAZ→TAZ relationships available: {maz_gdf[taz_id_col].nunique():,} unique TAZs")
+        
+        # Show sample data
+        print("   📋 Sample MAZ data:")
+        sample_cols = [maz_id_col, taz_id_col]
+        print(maz_gdf[sample_cols].head())
         
     except Exception as e:
-        print(f"❌ ERROR: Failed to load TAZ shapefile: {e}")
+        print(f"❌ ERROR: Failed to load MAZ shapefile: {e}")
         return False
     
     print()
-    print("🏛️  STEP 3: Loading PUMA20 shapefile (2020 boundaries)")
+    print("🏛️  STEP 2: Loading PUMA20 shapefile (2020 boundaries)")
     print(f"   File: {puma_shapefile}")
-    print("   🆕 Creating fresh PUMA20 mappings to replace old PUMA10 data")
+    print("   🆕 Creating direct MAZ→PUMA20 spatial mappings")
     
     if not puma_shapefile.exists():
         print(f"❌ ERROR: PUMA20 shapefile not found: {puma_shapefile}")
@@ -195,42 +237,42 @@ def main():
         return False
     
     print()
-    print("🔗 STEP 4: Creating fresh spatial join TAZ centroids → PUMA20 (2020 boundaries)")
-    print("   🆕 This will create updated PUMA mappings using 2020 boundaries")
+    print("🔗 STEP 3: Creating direct spatial join MAZ centroids → PUMA20 (2020 boundaries)")
+    print("   � Direct approach: MAZ centroids mapped to PUMA boundaries")
     
     try:
         # Ensure both datasets have the same CRS
-        if taz_centroids.crs != puma_gdf.crs:
-            print(f"   🔧 Reprojecting TAZ centroids from {taz_centroids.crs} to {puma_gdf.crs}")
-            taz_centroids = taz_centroids.to_crs(puma_gdf.crs)
+        if maz_centroids.crs != puma_gdf.crs:
+            print(f"   🔧 Reprojecting MAZ centroids from {maz_centroids.crs} to {puma_gdf.crs}")
+            maz_centroids = maz_centroids.to_crs(puma_gdf.crs)
         
         # Perform spatial join with enhanced matching
         print("   🔗 Executing spatial join (trying 'within' first, then 'intersects' for unmatched)...")
         
-        # First try: within predicate (centroids within PUMA boundaries)
-        taz_puma_join = gpd.sjoin(
-            taz_centroids[[taz_id_col, 'geometry']], 
+        # First try: within predicate (MAZ centroids within PUMA boundaries)
+        maz_puma_join = gpd.sjoin(
+            maz_centroids[[maz_id_col, taz_id_col, 'geometry']], 
             puma_gdf[[puma_id_col, 'geometry']], 
             how='left', 
             predicate='within'
         )
         
-        # Check for unmatched TAZs
-        unmatched_mask = taz_puma_join[puma_id_col].isna()
+        # Check for unmatched MAZs
+        unmatched_mask = maz_puma_join[puma_id_col].isna()
         unmatched_count = unmatched_mask.sum()
         
         if unmatched_count > 0:
-            print(f"   ⚠️  WARNING: {unmatched_count:,} TAZ centroids not within any PUMA")
-            print("   🔧 Trying 'intersects' predicate for unmatched TAZs...")
+            print(f"   ⚠️  WARNING: {unmatched_count:,} MAZ centroids not within any PUMA")
+            print("   🔧 Trying 'intersects' predicate for unmatched MAZs...")
             
-            # Get unmatched TAZ centroids
-            unmatched_tazs = taz_centroids[taz_centroids[taz_id_col].isin(
-                taz_puma_join[unmatched_mask][taz_id_col]
+            # Get unmatched MAZ centroids
+            unmatched_mazs = maz_centroids[maz_centroids[maz_id_col].isin(
+                maz_puma_join[unmatched_mask][maz_id_col]
             )]
             
-            # Try intersects for unmatched TAZs
+            # Try intersects for unmatched MAZs
             unmatched_join = gpd.sjoin(
-                unmatched_tazs[[taz_id_col, 'geometry']], 
+                unmatched_mazs[[maz_id_col, taz_id_col, 'geometry']], 
                 puma_gdf[[puma_id_col, 'geometry']], 
                 how='left', 
                 predicate='intersects'
@@ -243,130 +285,130 @@ def main():
                 
                 # Update the main join results
                 for _, row in intersects_matches.iterrows():
-                    mask = taz_puma_join[taz_id_col] == row[taz_id_col]
-                    taz_puma_join.loc[mask, puma_id_col] = row[puma_id_col]
+                    mask = maz_puma_join[maz_id_col] == row[maz_id_col]
+                    maz_puma_join.loc[mask, puma_id_col] = row[puma_id_col]
             
-            # Check for still unmatched TAZs
-            still_unmatched = taz_puma_join[taz_puma_join[puma_id_col].isna()]
+            # Check for still unmatched MAZs
+            still_unmatched = maz_puma_join[maz_puma_join[puma_id_col].isna()]
             if len(still_unmatched) > 0:
-                print(f"   ⚠️  {len(still_unmatched):,} TAZs still unmatched - using nearest neighbor...")
+                print(f"   ⚠️  {len(still_unmatched):,} MAZs still unmatched - using nearest neighbor...")
                 
                 # For remaining unmatched, find nearest PUMA
-                unmatched_remaining = taz_centroids[taz_centroids[taz_id_col].isin(
-                    still_unmatched[taz_id_col]
+                unmatched_remaining = maz_centroids[maz_centroids[maz_id_col].isin(
+                    still_unmatched[maz_id_col]
                 )]
                 
-                for _, unmatched_taz in unmatched_remaining.iterrows():
+                for _, unmatched_maz in unmatched_remaining.iterrows():
                     # Calculate distance to all PUMAs
-                    distances = puma_gdf.geometry.distance(unmatched_taz.geometry)
+                    distances = puma_gdf.geometry.distance(unmatched_maz.geometry)
                     nearest_idx = distances.idxmin()
                     nearest_puma = puma_gdf.loc[nearest_idx, puma_id_col]
                     
                     # Update the join
-                    mask = taz_puma_join[taz_id_col] == unmatched_taz[taz_id_col]
-                    taz_puma_join.loc[mask, puma_id_col] = nearest_puma
+                    mask = maz_puma_join[maz_id_col] == unmatched_maz[maz_id_col]
+                    maz_puma_join.loc[mask, puma_id_col] = nearest_puma
                 
-                print(f"   ✅ Assigned remaining TAZs to nearest PUMAs")
+                print(f"   ✅ Assigned remaining MAZs to nearest PUMAs")
         
-        print(f"   ✅ Spatial join completed: {len(taz_puma_join):,} TAZ→PUMA relationships")
+        print(f"   ✅ Spatial join completed: {len(maz_puma_join):,} MAZ→PUMA relationships")
         
-        # Final check for unmatched TAZs
-        final_unmatched = taz_puma_join[taz_puma_join[puma_id_col].isna()]
+        # Final check for unmatched MAZs
+        final_unmatched = maz_puma_join[maz_puma_join[puma_id_col].isna()]
         if len(final_unmatched) > 0:
-            print(f"   ❌ ERROR: {len(final_unmatched):,} TAZ zones still not matched to any PUMA")
-            print(f"   📋 Unmatched TAZ IDs: {final_unmatched[taz_id_col].head().tolist()}")
+            print(f"   ❌ ERROR: {len(final_unmatched):,} MAZ zones still not matched to any PUMA")
+            print(f"   📋 Unmatched MAZ IDs: {final_unmatched[maz_id_col].head().tolist()}")
         else:
-            print(f"   ✅ All TAZs successfully matched to PUMAs")
+            print(f"   ✅ All MAZs successfully matched to PUMAs")
         
-        # Create clean TAZ→PUMA mapping with 2020 boundaries
-        taz_puma_mapping = taz_puma_join[[taz_id_col, puma_id_col]].copy()
-        taz_puma_mapping = taz_puma_mapping.dropna()  # Remove unmatched TAZs
-        taz_puma_mapping.columns = ['TAZ', 'PUMA20']  # Use PUMA20 to be explicit about 2020 boundaries
+        # Create clean MAZ→TAZ→PUMA mapping with 2020 boundaries
+        final_mapping = maz_puma_join[[maz_id_col, taz_id_col, puma_id_col]].copy()
+        final_mapping = final_mapping.dropna()  # Remove unmatched MAZs
+        final_mapping.columns = ['MAZ', 'TAZ', 'PUMA']  # Standard column names
         
-        print(f"   📊 Clean TAZ→PUMA20 mapping: {len(taz_puma_mapping):,} relationships")
-        print(f"   🏛️  PUMA20 zones found: {taz_puma_mapping['PUMA20'].nunique():,}")
-        print("   📋 Sample TAZ→PUMA20 mappings:")
-        print(taz_puma_mapping.head())
+        print(f"   📊 Clean MAZ→TAZ→PUMA mapping: {len(final_mapping):,} relationships")
+        print(f"   🗺️  MAZ zones: {final_mapping['MAZ'].nunique():,}")
+        print(f"   🗂️  TAZ zones: {final_mapping['TAZ'].nunique():,}")
+        print(f"   🏛️  PUMA20 zones: {final_mapping['PUMA'].nunique():,}")
+        print("   📋 Sample MAZ→TAZ→PUMA mappings:")
+        print(final_mapping.head(10))
         
     except Exception as e:
         print(f"❌ ERROR: Spatial join failed: {e}")
         return False
     
     print()
-    print("🔗 STEP 5: Creating final MAZ→TAZ→PUMA20 crosswalk with fresh 2020 boundaries")
+    print("💾 STEP 4: Saving direct MAZ→TAZ→PUMA20 crosswalk files")
+    print(f"   Primary: {output_file_primary}")
+    print(f"   Reference: {output_file_reference}")
     
     try:
-        # Join MAZ→TAZ with fresh TAZ→PUMA20
-        print("   🔗 Joining MAZ→TAZ with fresh TAZ→PUMA20...")
+        # The final_mapping already contains the complete crosswalk
+        # Just need to ensure data types are correct
+        final_mapping['MAZ'] = final_mapping['MAZ'].astype(int)
+        final_mapping['TAZ'] = final_mapping['TAZ'].astype(int)
         
-        # Ensure consistent data types
-        maz_taz_df['TAZ'] = maz_taz_df['TAZ'].astype(int)
-        taz_puma_mapping['TAZ'] = taz_puma_mapping['TAZ'].astype(int)
+        # Add county information based on PUMA mapping (before formatting)
+        print("   🏛️  Adding county information...")
+        # Convert PUMA to string for mapping lookup (handles both int and str formats)
+        final_mapping['PUMA_str'] = final_mapping['PUMA'].astype(str)
+        final_mapping['COUNTY'] = final_mapping['PUMA_str'].map(lambda x: PUMA_COUNTY_MAP.get(x, ('99', 'Unknown'))[0])
+        final_mapping['county_name'] = final_mapping['PUMA_str'].map(lambda x: PUMA_COUNTY_MAP.get(x, ('99', 'Unknown'))[1])
+        final_mapping = final_mapping.drop('PUMA_str', axis=1)  # Remove temporary column
         
-        # Perform the join
-        crosswalk = maz_taz_df.merge(
-            taz_puma_mapping, 
-            on='TAZ', 
-            how='left'
-        )
+        # NOW format PUMA IDs with leading zeros (5 digits) for final output
+        final_mapping['PUMA'] = final_mapping['PUMA'].astype(str).str.zfill(5)
         
-        print(f"   ✅ Final crosswalk created: {len(crosswalk):,} MAZ records")
+        # Check for any unmapped PUMAs
+        unmapped_pumas = final_mapping[final_mapping['COUNTY'] == '99']['PUMA'].unique()
+        if len(unmapped_pumas) > 0:
+            print(f"   ⚠️  WARNING: {len(unmapped_pumas)} PUMAs not in county mapping: {unmapped_pumas}")
+        else:
+            print(f"   ✅ All PUMAs successfully mapped to counties")
         
-        # Check for MAZs without PUMA assignment
-        unmatched_mazs = crosswalk[crosswalk['PUMA20'].isna()]
-        if len(unmatched_mazs) > 0:
-            print(f"   ⚠️  WARNING: {len(unmatched_mazs):,} MAZ zones do not have PUMA20 assignment")
-            unmatched_tazs_list = unmatched_mazs['TAZ'].unique()
-            print(f"   📋 TAZs without PUMA20: {unmatched_tazs_list[:10]}")
-        
-        # Create final output format
-        final_crosswalk = crosswalk[['MAZ', 'TAZ', 'PUMA20']].copy()
-        final_crosswalk.columns = ['MAZ', 'TAZ', 'PUMA']  # PopulationSim expects 'PUMA' column name
-        
-        # Remove rows without PUMA assignment
-        final_crosswalk = final_crosswalk.dropna()
-        
-        print(f"   📊 Final output: {len(final_crosswalk):,} complete MAZ→TAZ→PUMA20 mappings")
+        print(f"   📊 Final crosswalk: {len(final_mapping):,} records")
         
         # Show summary statistics
         print("   📈 Summary statistics:")
-        print(f"     • Unique MAZs: {final_crosswalk['MAZ'].nunique():,}")
-        print(f"     • Unique TAZs: {final_crosswalk['TAZ'].nunique():,}")
-        print(f"     • Unique PUMA20s: {final_crosswalk['PUMA'].nunique():,}")
+        print(f"     • Unique MAZs: {final_mapping['MAZ'].nunique():,}")
+        print(f"     • Unique TAZs: {final_mapping['TAZ'].nunique():,}")
+        print(f"     • Unique PUMA20s: {final_mapping['PUMA'].nunique():,}")
+        print(f"     • Unique Counties: {final_mapping['COUNTY'].nunique():,}")
+        
+        # Reorder columns for expected format: MAZ, TAZ, PUMA, COUNTY, county_name
+        final_mapping = final_mapping[['MAZ', 'TAZ', 'PUMA', 'COUNTY', 'county_name']]
         
         # Show sample of final data
         print("   📋 Sample final crosswalk:")
-        print(final_crosswalk.head(10))
+        print(final_mapping.head(10))
         
-    except Exception as e:
-        print(f"❌ ERROR: Failed to create final crosswalk: {e}")
-        return False
-    
-    print()
-    print("💾 STEP 6: Saving crosswalk file")
-    print(f"   Output: {output_file}")
-    
-    try:
-        # Save the crosswalk
-        final_crosswalk.to_csv(output_file, index=False)
-        print(f"   ✅ Saved crosswalk: {len(final_crosswalk):,} records")
-        
-        # Verify the saved file
-        verify_df = pd.read_csv(output_file)
-        print(f"   ✅ Verification: {len(verify_df):,} records loaded from saved file")
+        # Save to both locations with proper data types
+        for output_file in [output_file_primary, output_file_reference]:
+            final_mapping.to_csv(output_file, index=False)
+            print(f"   ✅ Saved crosswalk: {output_file}")
+            
+            # Verify the saved file and fix PUMA format if needed
+            verify_df = pd.read_csv(output_file, dtype={'MAZ': int, 'TAZ': int, 'PUMA': str, 'COUNTY': str, 'county_name': str})
+            # Ensure PUMA has leading zeros
+            verify_df['PUMA'] = verify_df['PUMA'].str.zfill(5)
+            # Re-save with correct format
+            verify_df.to_csv(output_file, index=False)
+            print(f"   ✅ Verification: {len(verify_df):,} records with proper PUMA format")
         
         # Show final statistics
         print()
         print("=" * 60)
-        print("🎉 FRESH GEOSPATIAL CROSSWALK CREATION COMPLETE")
+        print("🎉 DIRECT MAZ→PUMA GEOSPATIAL CROSSWALK COMPLETE")
         print("=" * 60)
-        print(f"✅ Created: {output_file}")
-        print(f"📊 Records: {len(final_crosswalk):,}")
-        print(f"🌍 MAZs: {final_crosswalk['MAZ'].nunique():,}")
-        print(f"🗺️  TAZs: {final_crosswalk['TAZ'].nunique():,}")
-        print(f"🏛️  PUMA20s (2020 boundaries): {final_crosswalk['PUMA'].nunique():,}")
+        print(f"✅ Created primary: {output_file_primary}")
+        print(f"✅ Created reference: {output_file_reference}")
+        print(f"📊 Records: {len(final_mapping):,}")
+        print(f"🌍 MAZs: {final_mapping['MAZ'].nunique():,}")
+        print(f"🗺️  TAZs: {final_mapping['TAZ'].nunique():,}")
+        print(f"🏛️  PUMA20s (2020 boundaries): {final_mapping['PUMA'].nunique():,}")
         print()
-        print("🆕 This crosswalk uses fresh 2020 PUMA boundaries!")
+        print("🎯 Direct spatial approach: MAZ centroids → PUMA boundaries")
+        print("🆕 This crosswalk uses direct MAZ→PUMA spatial relationships!")
+        print("🔧 Pipeline ready: Files created in both expected locations")
         print("Ready for PopulationSim!")
         
         return True
