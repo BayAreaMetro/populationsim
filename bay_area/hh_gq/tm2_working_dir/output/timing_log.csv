@@ -1,0 +1,10 @@
+process_name,model_name,seconds,minutes
+MainProcess,input_pre_processor,145.5,2.4
+MainProcess,setup_data_structures,98.9,1.6
+MainProcess,initial_seed_balancing,423.4,7.1
+MainProcess,input_pre_processor,140.0,2.3
+MainProcess,setup_data_structures,99.8,1.7
+MainProcess,initial_seed_balancing,418.1,7.0
+MainProcess,input_pre_processor,146.2,2.4
+MainProcess,setup_data_structures,96.8,1.6
+MainProcess,initial_seed_balancing,416.4,6.9

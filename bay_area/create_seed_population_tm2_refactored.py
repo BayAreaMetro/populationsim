@@ -67,30 +67,11 @@ class SeedPopulationConfig:
         self.output_dir.mkdir(exist_ok=True)
     
     def _use_hardcoded_pumas(self):
-        """Fallback to hardcoded PUMA list (62 PUMAs with actual MAZ coverage)"""
-        self.bay_area_pumas = [
-            # Alameda County (14 PUMAs)
-            '00101', '00111', '00112', '00113', '00114', '00115', '00116', '00117', 
-            '00118', '00119', '00120', '00121', '00122', '00123',
-            # Contra Costa County (9 PUMAs) 
-            '01301', '01305', '01308', '01309', '01310', '01311', '01312', '01313', '01314',
-            # Marin County (2 PUMAs)
-            '04103', '04104',
-            # Napa County (1 PUMA)
-            '05500',
-            # San Francisco County (8 PUMAs)
-            '07507', '07508', '07509', '07510', '07511', '07512', '07513', '07514',
-            # San Mateo County (6 PUMAs)
-            '08101', '08102', '08103', '08104', '08105', '08106',
-            # Santa Clara County (15 PUMAs)
-            '08505', '08506', '08507', '08508', '08510', '08511', '08512', '08515', 
-            '08516', '08517', '08518', '08519', '08520', '08521', '08522',
-            # Solano County (3 PUMAs)
-            '09501', '09502', '09503',
-            # Sonoma County (4 PUMAs)
-            '09702', '09704', '09705', '09706'
-            # Total: 14+9+2+1+8+6+15+3+4 = 62 PUMAs with actual MAZ coverage
-        ]
+        """Get Bay Area PUMAs from unified configuration"""
+        from unified_tm2_config import config
+        puma_config = config.get_puma_configuration()
+        self.bay_area_pumas = puma_config['bay_area_pumas']
+        logger.info(f"Using {puma_config['total_pumas']} Bay Area PUMAs from unified configuration")
 
 class PUMACountyMapper:
     """Handles PUMA to County mapping for Bay Area"""
@@ -370,25 +351,48 @@ class SeedPopulationCreator:
             h_processed = self.config.output_dir / "households_2023_tm2.csv"
             p_processed = self.config.output_dir / "persons_2023_tm2.csv"
             
-            # Step 1: Download raw PUMS data (if needed)
-            if not (h_raw.exists() and p_raw.exists()):
-                logger.info("Downloading PUMS data...")
-                downloader = PUMSDownloader(year=2023, state="06")
-                household_data, person_data = downloader.download_pums_data(
-                    self.config.bay_area_pumas, 
-                    self.config.output_dir
-                )
-                # Save raw data
-                household_data.to_csv(h_raw, index=False)
-                person_data.to_csv(p_raw, index=False)
-                logger.info("PUMS data downloaded and saved")
+            # Step 1: Load data from M: drive or use existing processed files
+            if h_processed.exists() and p_processed.exists():
+                logger.info("Using existing processed TM2 files...")
+                household_df = pd.read_csv(h_processed)
+                person_df = pd.read_csv(p_processed)
+                logger.info(f"Loaded {len(household_df):,} households and {len(person_df):,} persons")
+                
+                # Step 4: Create PopulationSim-compatible copies
+                import shutil
+                seed_h = self.config.output_dir / "seed_households.csv"
+                seed_p = self.config.output_dir / "seed_persons.csv"
+                shutil.copy2(h_processed, seed_h)
+                shutil.copy2(p_processed, seed_p)
+                logger.info("Created PopulationSim-compatible seed file copies")
+                
+                # Step 5: Generate validation report
+                self._generate_validation_report(household_df, person_df)
+                
+                logger.info("SUCCESS: PopulationSim seed population created successfully!")
+                return True
+                
+            else:
+                # Load from M: drive PUMS files
+                logger.info("Loading PUMS data from M: drive...")
+                m_drive_pums_dir = Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23")
+                household_file = m_drive_pums_dir / "hbayarea1923.csv"
+                person_file = m_drive_pums_dir / "pbayarea1923.csv"
+                
+                if household_file.exists() and person_file.exists():
+                    household_data = pd.read_csv(household_file)
+                    person_data = pd.read_csv(person_file)
+                    logger.info(f"Loaded {len(household_data):,} households and {len(person_data):,} persons from M: drive")
+                else:
+                    logger.error(f"M: drive PUMS files not found: {household_file}, {person_file}")
+                    return False
             
-            # Step 2: Process raw data
+            # Step 2: Process raw data (only if we didn't use existing processed files)
             logger.info("Processing raw PUMS data for PopulationSim compatibility...")
             
-            # Load raw data
-            household_df = pd.read_csv(h_raw)
-            person_df = pd.read_csv(p_raw)
+            # Use the data we just downloaded (already in memory)
+            household_df = household_data
+            person_df = person_data
             logger.info(f"Loaded {len(household_df):,} households and {len(person_df):,} persons")
             
             # Process households
@@ -406,6 +410,14 @@ class SeedPopulationCreator:
             
             # Step 4: Save processed files
             self._save_processed_files(household_df, person_df, h_processed, p_processed)
+            
+            # Step 4b: Create PopulationSim-compatible copies (to save space, just copy instead of saving twice)
+            import shutil
+            seed_h = self.config.output_dir / "seed_households.csv"
+            seed_p = self.config.output_dir / "seed_persons.csv"
+            shutil.copy2(h_processed, seed_h)
+            shutil.copy2(p_processed, seed_p)
+            logger.info("Created PopulationSim-compatible seed file copies")
             
             # Step 5: Generate validation report
             self._generate_validation_report(household_df, person_df)

@@ -25,6 +25,12 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
+try:
+    from unified_tm2_config import UnifiedTM2Config
+except ImportError:
+    print("⚠️  Warning: unified_tm2_config not found, using fallback paths")
+    UnifiedTM2Config = None
+
 class TableauDataPreparer:
     """Class for preparing PopulationSim data for Tableau analysis."""
     
@@ -45,19 +51,24 @@ class TableauDataPreparer:
         # Default to tableau subdirectory within data_dir for consolidated structure
         self.output_dir = output_dir or os.path.join(data_dir, "tableau")
         
-        # Shapefile search paths
-        self.shapefile_dirs = [
-            shapefile_dir,
-            r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles",
-            "local_data/gis",
-            "input_2023/gis",
-            "../shapefiles"
-        ] if shapefile_dir else [
-            r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles",
-            "local_data/gis", 
-            "input_2023/gis",
-            "../shapefiles"
-        ]
+        # Use unified config if available
+        if UnifiedTM2Config and not shapefile_dir:
+            config = UnifiedTM2Config()
+            self.shapefile_dirs = [str(config.external_paths['tm2py_shapefiles'])]
+        else:
+            # Shapefile search paths with updated primary location
+            self.shapefile_dirs = [
+                shapefile_dir,
+                r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles",
+                "local_data/gis",
+                "input_2023/gis",
+                "../shapefiles"
+            ] if shapefile_dir else [
+                r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles",
+                "local_data/gis", 
+                "input_2023/gis",
+                "../shapefiles"
+            ]
         
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)

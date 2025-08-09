@@ -21,13 +21,26 @@ if __name__ == '__main__':
     pandas.options.display.max_rows = 1000
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=USAGE)
-    parser.add_argument("--model_type", choices=['TM1','TM2'],   help="Model type - one of TM1 or TM2")
+    parser.add_argument("--model_type", choices=['TM1','TM2'], required=True, help="Model type - one of TM1 or TM2")
+    parser.add_argument("--input_dir", type=str, help="Input directory containing control files (default: auto-detect)")
+    parser.add_argument("--output_dir", type=str, help="Output directory for HHGQ files (default: auto-detect)")
     args = parser.parse_args()
+
+    # Set up directories
+    if args.input_dir:
+        input_dir = pathlib.Path(args.input_dir)
+    else:
+        input_dir = pathlib.Path("output_2023")  # Default
+    
+    if args.output_dir:
+        output_dir = pathlib.Path(args.output_dir)
+    else:
+        output_dir = pathlib.Path("hh_gq/tm2_working_dir/data")  # Default
 
     if args.model_type == 'TM1':
         # control files are: 
         #  - [run_num]_taz_summaries_[year].csv
-        taz_controls_file = pathlib.Path("hh_gq/data/taz_summaries.csv")
+        taz_controls_file = input_dir / "taz_summaries.csv"
         taz_controls_df   = pandas.read_csv(taz_controls_file)
         print("Read {} controls from {}".format(len(taz_controls_df), taz_controls_file))
 
@@ -47,12 +60,12 @@ if __name__ == '__main__':
 
         # note that hh_wrks and hh_inc categories specify households.TYPE==1 so no need to modify those
 
-        taz_controls_output = pathlib.Path("hh_gq/data/taz_summaries_hhgq.csv")
+        taz_controls_output = output_dir / "taz_summaries_hhgq.csv"
         taz_controls_df.to_csv(taz_controls_output, index=False)
         print("Wrote {}".format(taz_controls_output))
 
         # small update to county controls file
-        county_controls_file = pathlib.Path("hh_gq/data/county_marginals.csv")
+        county_controls_file = input_dir / "county_marginals.csv"
         county_controls_df   = pandas.read_csv(county_controls_file, index_col=0)
         print(f"Read county controls from {county_controls_file}")
         # print(county_controls_df)
@@ -62,7 +75,7 @@ if __name__ == '__main__':
             county_col = 'COUNTY'
 
         # add COUNTY or county_name depending on which is mmissing
-        geo_crosswalk_file = pathlib.Path("hh_gq/data/geo_cross_walk_tm1.csv")
+        geo_crosswalk_file = input_dir / "geo_cross_walk_tm1.csv"
         geo_crosswalk_df   = pandas.read_csv(geo_crosswalk_file)
         geo_crosswalk_df = geo_crosswalk_df[['COUNTY','county_name']].drop_duplicates().reset_index(drop=True)
         # print(geo_crosswalk_df)
@@ -84,7 +97,7 @@ if __name__ == '__main__':
         print("PROCESSING TM2 MODEL")
         print("="*60)
         
-        maz_controls_file = pathlib.Path("hh_gq/data/maz_marginals.csv")
+        maz_controls_file = input_dir / "maz_marginals.csv"
         maz_controls_df   = pandas.read_csv(maz_controls_file)
         print("Read {} MAZ controls from {}".format(len(maz_controls_df), maz_controls_file))
         print("MAZ columns:", list(maz_controls_df.columns))
@@ -95,9 +108,39 @@ if __name__ == '__main__':
 
         # total households: combine actual tothh + gq_tot_pop
         print("\n--- PROCESSING MAZ CONTROLS ---")
-        print(f"MAZ num_hh stats: min={maz_controls_df.num_hh.min()}, max={maz_controls_df.num_hh.max()}, sum={maz_controls_df.num_hh.sum():,.0f}")
-        print(f"MAZ gq_pop stats: min={maz_controls_df.gq_pop.min()}, max={maz_controls_df.gq_pop.max()}, sum={maz_controls_df.gq_pop.sum():,.0f}")
-        maz_controls_df["numhh_gq"] = maz_controls_df.num_hh + maz_controls_df.gq_pop
+        
+        # Check for different possible household column names
+        household_cols = [col for col in maz_controls_df.columns if 'hh' in col.lower() or 'household' in col.lower()]
+        print(f"Available household-related columns: {household_cols}")
+        
+        # Try to find the correct household column
+        if 'num_hh' in maz_controls_df.columns:
+            hh_col = 'num_hh'
+        elif 'tothh' in maz_controls_df.columns:
+            hh_col = 'tothh'
+        elif len(household_cols) > 0:
+            hh_col = household_cols[0]
+            print(f"Using {hh_col} as household column")
+        else:
+            raise ValueError(f"No household column found in MAZ controls. Available columns: {list(maz_controls_df.columns)}")
+        
+        # Check for group quarters column
+        gq_cols = [col for col in maz_controls_df.columns if 'gq' in col.lower()]
+        print(f"Available group quarters columns: {gq_cols}")
+        
+        if 'gq_pop' in maz_controls_df.columns:
+            gq_col = 'gq_pop'
+        elif len(gq_cols) > 0:
+            gq_col = gq_cols[0]
+            print(f"Using {gq_col} as group quarters column")
+        else:
+            print("No group quarters column found, using 0")
+            maz_controls_df['gq_pop'] = 0
+            gq_col = 'gq_pop'
+        
+        print(f"MAZ {hh_col} stats: min={maz_controls_df[hh_col].min()}, max={maz_controls_df[hh_col].max()}, sum={maz_controls_df[hh_col].sum():,.0f}")
+        print(f"MAZ {gq_col} stats: min={maz_controls_df[gq_col].min()}, max={maz_controls_df[gq_col].max()}, sum={maz_controls_df[gq_col].sum():,.0f}")
+        maz_controls_df["numhh_gq"] = maz_controls_df[hh_col] + maz_controls_df[gq_col]
         print(f"MAZ numhh_gq stats: min={maz_controls_df.numhh_gq.min()}, max={maz_controls_df.numhh_gq.max()}, sum={maz_controls_df.numhh_gq.sum():,.0f}")
         
         # Note: hh_size_1 is not in MAZ controls, it's in TAZ controls
@@ -107,7 +150,7 @@ if __name__ == '__main__':
         # note that hh_wrks and hh_inc categories specify households.TYPE==1 so no need to modify those
         print("Note: hh_wrks and hh_inc categories already specify households.TYPE==1")
 
-        maz_controls_output = pathlib.Path("hh_gq/data/maz_marginals_hhgq.csv")
+        maz_controls_output = output_dir / "maz_marginals_hhgq.csv"
         maz_controls_df.to_csv(maz_controls_output, index=False)
         print("Wrote MAZ controls to {}".format(maz_controls_output))
 
@@ -115,7 +158,7 @@ if __name__ == '__main__':
         print("\n" + "-"*60)
         print("PROCESSING TAZ CONTROLS")
         print("-"*60)
-        taz_controls_file = pathlib.Path("hh_gq/data/taz_marginals.csv")
+        taz_controls_file = input_dir / "taz_marginals.csv"
         taz_controls_df   = pandas.read_csv(taz_controls_file)
         print("Read {} TAZ controls from {}".format(len(taz_controls_df), taz_controls_file))
         print("TAZ columns:", list(taz_controls_df.columns))
@@ -262,7 +305,7 @@ if __name__ == '__main__':
         if 'hh_size_1_gq' in taz_controls_df.columns:
             print(f"  hh_size_1_gq: min={taz_controls_df['hh_size_1_gq'].min()}, max={taz_controls_df['hh_size_1_gq'].max()}, sum={taz_controls_df['hh_size_1_gq'].sum():,.0f}")
         
-        taz_controls_output = pathlib.Path("hh_gq/data/taz_marginals_hhgq.csv")
+        taz_controls_output = output_dir / "taz_marginals_hhgq.csv"
         taz_controls_df.to_csv(taz_controls_output, index=False)
         print("Wrote TAZ controls to {}".format(taz_controls_output))
         print("=" * 60)

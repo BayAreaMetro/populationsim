@@ -59,8 +59,19 @@ OUTPUT_MAZ_DENSITY_FILE = "maz_data_withDensity.csv"
 # ----------------------------------------
 # Mapping configuration (optional)
 ENABLE_TAZ_MAPPING = True  # Set to False to disable map generation
-TAZ_SHAPEFILE_DIR = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles"
-TAZ_SHAPEFILE_NAME = "tazs_TM2_v2_2.shp"  # Actual TAZ shapefile name
+
+# Use unified config if available, otherwise fallback to hardcoded paths
+try:
+    import sys
+    sys.path.append('..')
+    from unified_tm2_config import UnifiedTM2Config
+    config = UnifiedTM2Config()
+    TAZ_SHAPEFILE_DIR = str(config.SHAPEFILES['taz_shapefile'].parent)
+    TAZ_SHAPEFILE_NAME = config.SHAPEFILES['taz_shapefile'].name
+except (ImportError, KeyError) as e:
+    TAZ_SHAPEFILE_DIR = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles"
+    TAZ_SHAPEFILE_NAME = "tazs_TM2_v2_2.shp"
+
 TAZ_JOIN_FIELD = "taz"  # Field name in shapefile (lowercase 'taz')
 MAP_OUTPUT_DIR = "output_2023"  # Directory for map outputs
 MAP_OUTPUT_FORMAT = "html"  # Output format: 'html', 'png', or 'both'

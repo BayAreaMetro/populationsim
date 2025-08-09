@@ -22,18 +22,31 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
+try:
+    from unified_tm2_config import UnifiedTM2Config
+except ImportError:
+    print("⚠️  Warning: unified_tm2_config not found, using fallback paths")
+    UnifiedTM2Config = None
+
 class TAZPUMAVisualizer:
     """Interactive visualization of TAZ and PUMA spatial relationships"""
     
     def __init__(self):
         self.base_dir = Path("c:/GitHub/populationsim/bay_area")
-        self.shapefiles_dir = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles")
+        
+        # Use unified config if available, otherwise fallback to hardcoded
+        if UnifiedTM2Config:
+            config = UnifiedTM2Config()
+            gis_files = config.get_gis_files_with_fallback()
+            self.taz_shapefile = gis_files['taz_shapefile']
+            self.puma_shapefile = gis_files['puma_shapefile']
+        else:
+            self.shapefiles_dir = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles")
+            self.taz_shapefile = self.shapefiles_dir / "tazs_TM2_v2_2.shp"
+            self.puma_shapefile = self.shapefiles_dir / "tl_2022_06_puma20.shp"
+        
         self.output_dir = self.base_dir / "output_2023" / "spatial_analysis"
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # File paths
-        self.taz_shapefile = self.shapefiles_dir / "tazs_TM2_v2_2.shp"
-        self.puma_shapefile = self.shapefiles_dir / "tl_2022_06_puma20.shp"
         
         # Bay Area counties for filtering PUMAs
         self.bay_area_counties = ['001', '013', '041', '055', '075', '081', '085', '095', '097']

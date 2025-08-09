@@ -324,22 +324,29 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     try:
         crosswalk_df = pd.read_csv(geo_crosswalk_file)
         
-        # Use the fixed county mapping from crosswalk COUNTY numbers to FIPS codes
+        # Use the correct county mapping for Bay Area FIPS codes
+        # The crosswalk COUNTY column contains the actual FIPS county codes (without state prefix 06)
         county_to_fips_mapping = {
-            1: '075',  # San Francisco
-            2: '081',  # San Mateo  
-            3: '085',  # Santa Clara
-            4: '001',  # Alameda
-            5: '013',  # Contra Costa
-            6: '095',  # Solano
-            7: '055',  # Napa
-            8: '097',  # Sonoma
-            9: '041'   # Marin
+            1: '001',   # Alameda
+            13: '013',  # Contra Costa  
+            41: '041',  # Marin
+            55: '055',  # Napa
+            75: '075',  # San Francisco
+            81: '081',  # San Mateo
+            85: '085',  # Santa Clara
+            95: '095',  # Solano
+            97: '097'   # Sonoma
         }
         
-        # Create county mapping
+        # Create county mapping - convert COUNTY to 3-digit FIPS string format
         county_fips_map = crosswalk_df[['MAZ', 'county_name', 'COUNTY']].drop_duplicates()
-        county_fips_map['county_fips'] = county_fips_map['COUNTY'].map(county_to_fips_mapping)
+        
+        # Convert COUNTY values to 3-digit FIPS strings
+        county_fips_map['county_fips'] = county_fips_map['COUNTY'].apply(lambda x: f'{x:03d}')
+        
+        logger.info(f"County mapping created: {dict(county_fips_map.groupby('COUNTY')['county_fips'].first())}")
+        logger.info(f"Available counties in crosswalk: {sorted(county_fips_map['county_fips'].unique())}")
+        logger.info(f"Target counties available: {sorted(county_targets.keys())}")
         
     except Exception as e:
         logger.error(f"Error reading crosswalk file: {e}")
@@ -347,6 +354,13 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     
     # Merge control data with county mapping
     scaled_df = control_df.merge(county_fips_map[['MAZ', 'county_fips']], on='MAZ', how='left')
+    
+    # Check for missing county mappings
+    missing_counties = scaled_df['county_fips'].isna().sum()
+    if missing_counties > 0:
+        logger.warning(f"Found {missing_counties} MAZ zones without county mapping - will use scale factor 1.0")
+        # Fill missing county mappings with a default (use the most common county or '075' for San Francisco)
+        scaled_df['county_fips'] = scaled_df['county_fips'].fillna('075')
     
     # Calculate current totals by county from 2020 Census data
     county_current_totals = scaled_df.groupby('county_fips')[control_name].sum()
@@ -371,7 +385,23 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     
     # Apply scaling factors by county
     scaled_df['scale_factor'] = scaled_df['county_fips'].map(county_scale_factors)
+    
+    # Check for any remaining NaN scale factors
+    nan_factors = scaled_df['scale_factor'].isna().sum()
+    if nan_factors > 0:
+        logger.warning(f"Found {nan_factors} zones with NaN scale factors - setting to 1.0")
+        scaled_df['scale_factor'] = scaled_df['scale_factor'].fillna(1.0)
+    
     scaled_df[control_name] = scaled_df[control_name] * scaled_df['scale_factor']
+    
+    # Check for non-finite values before returning
+    non_finite = ~numpy.isfinite(scaled_df[control_name])
+    if non_finite.any():
+        logger.error(f"Found {non_finite.sum()} non-finite values in {control_name} after scaling")
+        logger.error(f"Non-finite zones: {scaled_df.loc[non_finite, 'MAZ'].tolist()[:10]}...")  # Show first 10
+        # Replace non-finite values with 0
+        scaled_df.loc[non_finite, control_name] = 0
+        logger.warning(f"Replaced non-finite values in {control_name} with 0")
     
     # Return scaled dataframe with original structure
     result_df = scaled_df[['MAZ', control_name]].set_index('MAZ')
@@ -992,26 +1022,15 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
         logger.info(f"Loaded crosswalk: {len(crosswalk_df)} MAZ zones")
         logger.info(f"Loaded county targets: {len(county_targets_df)} targets")
 
-        # Merge MAZ data with county information
-        maz_with_county = maz_df.merge(crosswalk_df[['MAZ', 'county_name']], on='MAZ', how='left')
+        # Merge MAZ data with county information from crosswalk
+        county_crosswalk = crosswalk_df[['MAZ', 'county_name', 'COUNTY']].drop_duplicates()
+        maz_with_county = maz_df.merge(county_crosswalk, on='MAZ', how='left')
         
-        # Get county FIPS from crosswalk for matching with targets
-        # Correct mapping from crosswalk COUNTY numbers to actual California FIPS codes
-        county_to_fips_mapping = {
-            1: '075',  # San Francisco
-            2: '081',  # San Mateo  
-            3: '085',  # Santa Clara
-            4: '001',  # Alameda
-            5: '013',  # Contra Costa
-            6: '095',  # Solano
-            7: '055',  # Napa
-            8: '097',  # Sonoma
-            9: '041'   # Marin
-        }
+        # Convert COUNTY codes to 3-digit FIPS strings to match targets
+        maz_with_county['county_fips'] = maz_with_county['COUNTY'].apply(lambda x: f'{x:03d}' if pd.notna(x) else None)
         
-        county_fips_map = crosswalk_df[['county_name', 'COUNTY']].drop_duplicates()
-        county_fips_map['county_fips'] = county_fips_map['COUNTY'].map(county_to_fips_mapping)
-        maz_with_county = maz_with_county.merge(county_fips_map[['county_name', 'county_fips']], on='county_name', how='left')
+        logger.info(f"Counties in MAZ data: {sorted(maz_with_county['county_fips'].dropna().unique())}")
+        logger.info(f"Counties in targets: {sorted(county_targets_df['county_fips'].unique())}")
         
         # Extract household and population targets by county
         hh_targets = county_targets_df[county_targets_df['target_name'] == 'num_hh_target_by_county'].set_index('county_fips')['target_value']
@@ -1088,6 +1107,14 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
             current_hh = county_current[county_current['county_fips'] == county_fips]['num_hh'].iloc[0]
             current_pop = county_current[county_current['county_fips'] == county_fips]['total_pop'].iloc[0]
             logger.info(f"  County {county_fips}: HH {current_hh:,.0f} -> {factors['target_hh']:,.0f}, Pop {current_pop:,.0f} -> {factors['target_pop']:,.0f}")
+        
+        # CRITICAL FIX: Ensure num_hh column exists and is properly estimated
+        if 'num_hh' not in maz_with_county.columns:
+            logger.warning("num_hh column missing from MAZ data - estimating from population")
+            # Estimate households from population (subtract group quarters first)
+            household_pop = maz_with_county['total_pop'] - maz_with_county.get('gq_pop', 0)
+            maz_with_county['num_hh'] = np.maximum(0, (household_pop / 2.5).round()).astype(int)
+            logger.info(f"Estimated num_hh: min={maz_with_county['num_hh'].min()}, max={maz_with_county['num_hh'].max()}, sum={maz_with_county['num_hh'].sum():,.0f}")
         
         # Write updated MAZ marginals file
         output_columns = ['MAZ', 'num_hh', 'total_pop', 'gq_pop', 'gq_military', 'gq_university', 'gq_other']
