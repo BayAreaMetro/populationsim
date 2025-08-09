@@ -324,25 +324,15 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     try:
         crosswalk_df = pd.read_csv(geo_crosswalk_file)
         
-        # Use the correct county mapping for Bay Area FIPS codes
-        # The crosswalk COUNTY column contains the actual FIPS county codes (without state prefix 06)
-        county_to_fips_mapping = {
-            1: '001',   # Alameda
-            13: '013',  # Contra Costa  
-            41: '041',  # Marin
-            55: '055',  # Napa
-            75: '075',  # San Francisco
-            81: '081',  # San Mateo
-            85: '085',  # Santa Clara
-            95: '095',  # Solano
-            97: '097'   # Sonoma
-        }
+        # Import county mapping from config instead of hardcoding
+        from tm2_control_utils.config import get_crosswalk_to_fips_mapping
+        county_to_fips_mapping = get_crosswalk_to_fips_mapping()
         
         # Create county mapping - convert COUNTY to 3-digit FIPS string format
         county_fips_map = crosswalk_df[['MAZ', 'county_name', 'COUNTY']].drop_duplicates()
         
-        # Convert COUNTY values to 3-digit FIPS strings
-        county_fips_map['county_fips'] = county_fips_map['COUNTY'].apply(lambda x: f'{x:03d}')
+        # Convert COUNTY values to 3-digit FIPS strings using config mapping
+        county_fips_map['county_fips'] = county_fips_map['COUNTY'].map(county_to_fips_mapping)
         
         logger.info(f"County mapping created: {dict(county_fips_map.groupby('COUNTY')['county_fips'].first())}")
         logger.info(f"Available counties in crosswalk: {sorted(county_fips_map['county_fips'].unique())}")
@@ -359,8 +349,10 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     missing_counties = scaled_df['county_fips'].isna().sum()
     if missing_counties > 0:
         logger.warning(f"Found {missing_counties} MAZ zones without county mapping - will use scale factor 1.0")
-        # Fill missing county mappings with a default (use the most common county or '075' for San Francisco)
-        scaled_df['county_fips'] = scaled_df['county_fips'].fillna('075')
+        # Fill missing county mappings with default from config instead of hardcoding
+        from tm2_control_utils.config import get_default_county_fips
+        default_county = get_default_county_fips()
+        scaled_df['county_fips'] = scaled_df['county_fips'].fillna(default_county)
     
     # Calculate current totals by county from 2020 Census data
     county_current_totals = scaled_df.groupby('county_fips')[control_name].sum()
@@ -2057,7 +2049,25 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         out_df = out_df.loc[out_df[control_geo] > 0, :]
 
     if control_geo == "COUNTY":
-        out_df = pd.merge(left=COUNTY_RECODE[["COUNTY", "county_name"]], right=out_df, how="right")
+        # Fix county code format mismatch: Convert full FIPS codes to last 2 digits to match crosswalk
+        logger.info(f"Converting COUNTY codes from full FIPS to crosswalk format")
+        logger.info(f"Original COUNTY values: {sorted(out_df['COUNTY'].unique())}")
+        
+        # Convert full FIPS codes (like 6001) to last 2 digits (like 1) to match crosswalk
+        out_df['COUNTY'] = out_df['COUNTY'].apply(lambda x: int(x) % 100 if pd.notna(x) and x > 100 else x)
+        logger.info(f"Converted COUNTY values: {sorted(out_df['COUNTY'].unique())}")
+        
+        # Create county name mapping using crosswalk instead of COUNTY_RECODE
+        if 'crosswalk_df' in globals():
+            county_names = crosswalk_df[['COUNTY', 'county_name']].drop_duplicates()
+            out_df = pd.merge(left=county_names, right=out_df, on='COUNTY', how="right")
+            logger.info(f"Merged with county names from crosswalk")
+        else:
+            logger.warning("No crosswalk available for county names, using COUNTY_RECODE mapping")
+            # Fallback to original mapping but adjust codes
+            county_recode_adjusted = COUNTY_RECODE.copy()
+            county_recode_adjusted['COUNTY'] = county_recode_adjusted['GEOID_county'].apply(lambda x: int(x[-3:]) % 100)
+            out_df = pd.merge(left=county_recode_adjusted[["COUNTY", "county_name"]], right=out_df, on='COUNTY', how="right")
 
     # Round all control values to integers, handling NaN
     control_cols = [col for col in out_df.columns if col != control_geo and col != 'county_name']

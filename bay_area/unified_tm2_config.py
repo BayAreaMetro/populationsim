@@ -62,15 +62,15 @@ class UnifiedTM2Config:
         # Define ALL commands in one place (AFTER helper methods are available)
         self._setup_commands()
         
-        # Force flags for workflow control
+        # Force flags for workflow control - FORCE ALL STEPS TO TEST COUNTY CODE FIXES
         self.FORCE_FLAGS = {
-            'CROSSWALK': os.getenv('FORCE_CROSSWALK', 'False').lower() == 'true',
-            'SEED': os.getenv('FORCE_SEED', 'False').lower() == 'true',
-            'CONTROLS': os.getenv('FORCE_CONTROLS', 'False').lower() == 'true',
-            'HHGQ': os.getenv('FORCE_HHGQ', 'False').lower() == 'true',
+            'CROSSWALK': os.getenv('FORCE_CROSSWALK', 'True').lower() == 'true',
+            'SEED': os.getenv('FORCE_SEED', 'True').lower() == 'true',
+            'CONTROLS': os.getenv('FORCE_CONTROLS', 'True').lower() == 'true',
+            'HHGQ': os.getenv('FORCE_HHGQ', 'True').lower() == 'true',
             'POPSIM': os.getenv('FORCE_POPSIM', 'True').lower() == 'true',  # Default to True
             'POSTPROCESS': os.getenv('FORCE_POSTPROCESS', 'True').lower() == 'true',
-            'TABLEAU': os.getenv('FORCE_TABLEAU', 'False').lower() == 'true'
+            'TABLEAU': os.getenv('FORCE_TABLEAU', 'True').lower() == 'true'
         }
         
         # ============================================================

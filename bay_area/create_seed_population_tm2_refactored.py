@@ -78,39 +78,52 @@ class PUMACountyMapper:
     
     @staticmethod
     def get_county_mapping() -> Dict[str, int]:
-        """Returns PUMA to County mapping for the 62 PUMAs with MAZ coverage"""
+        """Returns PUMA to County mapping for the 62 PUMAs with MAZ coverage
+        
+        County codes match crosswalk format (last 2 digits of FIPS codes):
+        - Alameda: 1 (from 6001)
+        - Contra Costa: 13 (from 6013) 
+        - Marin: 41 (from 6041)
+        - Napa: 55 (from 6055)
+        - San Francisco: 75 (from 6075)
+        - San Mateo: 81 (from 6081)
+        - Santa Clara: 85 (from 6085)
+        - Solano: 95 (from 6095)
+        - Sonoma: 97 (from 6097)
+        """
         return {
-            # Alameda County (COUNTY=4) - 14 PUMAs
-            '00101': 4, '00111': 4, '00112': 4, '00113': 4, '00114': 4, '00115': 4, 
-            '00116': 4, '00117': 4, '00118': 4, '00119': 4, '00120': 4, '00121': 4, 
-            '00122': 4, '00123': 4,
-            # Contra Costa County (COUNTY=5) - 9 PUMAs
-            '01301': 5, '01305': 5, '01308': 5, '01309': 5, '01310': 5, '01311': 5,
-            '01312': 5, '01313': 5, '01314': 5,
-            # Marin County (COUNTY=9) - 2 PUMAs
-            '04103': 9, '04104': 9,
-            # Napa County (COUNTY=7) - 1 PUMA
-            '05500': 7,
-            # San Francisco County (COUNTY=1) - 8 PUMAs
-            '07507': 1, '07508': 1, '07509': 1, '07510': 1, '07511': 1, '07512': 1,
-            '07513': 1, '07514': 1,
-            # San Mateo County (COUNTY=2) - 6 PUMAs  
-            '08101': 2, '08102': 2, '08103': 2, '08104': 2, '08105': 2, '08106': 2,
-            # Santa Clara County (COUNTY=3) - 15 PUMAs
-            '08505': 3, '08506': 3, '08507': 3, '08508': 3, '08510': 3, '08511': 3,
-            '08512': 3, '08515': 3, '08516': 3, '08517': 3, '08518': 3, '08519': 3,
-            '08520': 3, '08521': 3, '08522': 3,
-            # Solano County (COUNTY=6) - 3 PUMAs
-            '09501': 6, '09502': 6, '09503': 6,
-            # Sonoma County (COUNTY=8) - 4 PUMAs
-            '09702': 8, '09704': 8, '09705': 8, '09706': 8
+            # Alameda County (COUNTY=1) - 14 PUMAs
+            '00101': 1, '00111': 1, '00112': 1, '00113': 1, '00114': 1, '00115': 1, 
+            '00116': 1, '00117': 1, '00118': 1, '00119': 1, '00120': 1, '00121': 1, 
+            '00122': 1, '00123': 1,
+            # Contra Costa County (COUNTY=13) - 9 PUMAs
+            '01301': 13, '01305': 13, '01308': 13, '01309': 13, '01310': 13, '01311': 13,
+            '01312': 13, '01313': 13, '01314': 13,
+            # Marin County (COUNTY=41) - 2 PUMAs
+            '04103': 41, '04104': 41,
+            # Napa County (COUNTY=55) - 1 PUMA
+            '05500': 55,
+            # San Francisco County (COUNTY=75) - 8 PUMAs
+            '07507': 75, '07508': 75, '07509': 75, '07510': 75, '07511': 75, '07512': 75,
+            '07513': 75, '07514': 75,
+            # San Mateo County (COUNTY=81) - 6 PUMAs  
+            '08101': 81, '08102': 81, '08103': 81, '08104': 81, '08105': 81, '08106': 81,
+            # Santa Clara County (COUNTY=85) - 15 PUMAs
+            '08505': 85, '08506': 85, '08507': 85, '08508': 85, '08510': 85, '08511': 85,
+            '08512': 85, '08515': 85, '08516': 85, '08517': 85, '08518': 85, '08519': 85,
+            '08520': 85, '08521': 85, '08522': 85,
+            # Solano County (COUNTY=95) - 3 PUMAs
+            '09501': 95, '09502': 95, '09503': 95,
+            # Sonoma County (COUNTY=97) - 4 PUMAs
+            '09702': 97, '09704': 97, '09705': 97, '09706': 97
         }
     
     @classmethod
     def add_county_mapping(cls, df: pd.DataFrame) -> pd.DataFrame:
         """Add county mapping to dataframe based on PUMA"""
         county_map = cls.get_county_mapping()
-        df['COUNTY'] = df['PUMA'].astype(str).str.zfill(5).map(county_map).fillna(1)
+        # Use San Francisco (75) as default fallback to match config
+        df['COUNTY'] = df['PUMA'].astype(str).str.zfill(5).map(county_map).fillna(75)
         df['COUNTY'] = df['COUNTY'].astype(int)
         return df
 
@@ -322,7 +335,7 @@ class PersonProcessor:
         df.loc[(df['OCCP'] >= 3601) & (df['OCCP'] <= 4650), 'occupation'] = 3  # Services
         df.loc[(df['OCCP'] >= 4700) & (df['OCCP'] <= 5940), 'occupation'] = 4  # Sales/Office
         df.loc[(df['OCCP'] >= 6005) & (df['OCCP'] <= 9750), 'occupation'] = 5  # Manual
-        df.loc[(df['OCCP'] >= 9800) & (df['OCCP'] <= 9830), 'occupation'] = 6  # Military
+        df.loc[(df['OCCP'] >= 9800) & (df['OCCP'] <= 9830), 'occupation'] = 5  # Military -> Manual
         return df
     
     def _map_group_quarters_type(self, df: pd.DataFrame, household_df: pd.DataFrame) -> pd.DataFrame:

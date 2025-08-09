@@ -97,15 +97,15 @@ HINC_MAX = 2000000
 
 # County recode DataFrame
 COUNTY_RECODE = pd.DataFrame([
-    {"GEOID_county":"06001", "COUNTY":4, "county_name":"Alameda"      , "REGION":1},
-    {"GEOID_county":"06013", "COUNTY":5, "county_name":"Contra Costa" , "REGION":1},
-    {"GEOID_county":"06041", "COUNTY":9, "county_name":"Marin"        , "REGION":1},
-    {"GEOID_county":"06055", "COUNTY":7, "county_name":"Napa"         , "REGION":1},
-    {"GEOID_county":"06075", "COUNTY":1, "county_name":"San Francisco", "REGION":1},
-    {"GEOID_county":"06081", "COUNTY":2, "county_name":"San Mateo"    , "REGION":1},
-    {"GEOID_county":"06085", "COUNTY":3, "county_name":"Santa Clara"  , "REGION":1},
-    {"GEOID_county":"06095", "COUNTY":6, "county_name":"Solano"       , "REGION":1},
-    {"GEOID_county":"06097", "COUNTY":8, "county_name":"Sonoma"       , "REGION":1}
+    {"GEOID_county":"06001", "COUNTY":1, "county_name":"Alameda"      , "REGION":1},
+    {"GEOID_county":"06013", "COUNTY":13, "county_name":"Contra Costa" , "REGION":1},
+    {"GEOID_county":"06041", "COUNTY":41, "county_name":"Marin"        , "REGION":1},
+    {"GEOID_county":"06055", "COUNTY":55, "county_name":"Napa"         , "REGION":1},
+    {"GEOID_county":"06075", "COUNTY":75, "county_name":"San Francisco", "REGION":1},
+    {"GEOID_county":"06081", "COUNTY":81, "county_name":"San Mateo"    , "REGION":1},
+    {"GEOID_county":"06085", "COUNTY":85, "county_name":"Santa Clara"  , "REGION":1},
+    {"GEOID_county":"06095", "COUNTY":95, "county_name":"Solano"       , "REGION":1},
+    {"GEOID_county":"06097", "COUNTY":97, "county_name":"Sonoma"       , "REGION":1}
 ])
 
 # Years
@@ -619,6 +619,28 @@ def get_county_info():
 def get_county_name_mapping():
     """Return mapping of county FIPS codes to county names."""
     return dict(zip(BAY_AREA_COUNTY_FIPS.values(), BAY_AREA_COUNTY_FIPS.keys()))
+
+def get_crosswalk_to_fips_mapping():
+    """Return mapping from crosswalk county codes to 3-digit FIPS codes.
+    
+    The crosswalk uses last 2 digits of FIPS codes (1, 13, 41, etc.)
+    This maps them to full 3-digit FIPS format (001, 013, 041, etc.)
+    """
+    return {
+        1: '001',   # Alameda
+        13: '013',  # Contra Costa  
+        41: '041',  # Marin
+        55: '055',  # Napa
+        75: '075',  # San Francisco
+        81: '081',  # San Mateo
+        85: '085',  # Santa Clara
+        95: '095',  # Solano
+        97: '097'   # Sonoma
+    }
+
+def get_default_county_fips():
+    """Return default county FIPS code for missing mappings (San Francisco)."""
+    return '075'
 
 CENSUS_DEFINITIONS = {
     # 2020 PL 94-171 Redistricting Data (block-level)

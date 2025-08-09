@@ -8,3 +8,12 @@ MainProcess,initial_seed_balancing,418.1,7.0
 MainProcess,input_pre_processor,146.2,2.4
 MainProcess,setup_data_structures,96.8,1.6
 MainProcess,initial_seed_balancing,416.4,6.9
+MainProcess,input_pre_processor,147.2,2.5
+MainProcess,setup_data_structures,104.1,1.7
+MainProcess,initial_seed_balancing,430.1,7.2
+MainProcess,input_pre_processor,146.3,2.4
+MainProcess,setup_data_structures,101.2,1.7
+MainProcess,initial_seed_balancing,415.9,6.9
+MainProcess,input_pre_processor,145.8,2.4
+MainProcess,setup_data_structures,106.6,1.8
+MainProcess,initial_seed_balancing,418.0,7.0
