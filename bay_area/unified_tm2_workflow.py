@@ -79,6 +79,14 @@ class UnifiedWorkflow:
         
         return self.run_command(self.config.COMMANDS['seed'], "Seed Generation")
     
+    def step1_5_validation(self):
+        """Step 1.5: Validation check between seed and controls (OBSOLETE - moved to step 2.5)"""
+        print("=" * 60)
+        print("STEP 1.5: SEED & CONTROLS VALIDATION (OBSOLETE)")
+        print("=" * 60)
+        self.log("This step is obsolete - validation moved to after controls generation")
+        return True
+    
     def step2_controls(self):
         """Step 2: Generate control files"""
         print("=" * 60)
@@ -90,6 +98,21 @@ class UnifiedWorkflow:
             return True
         
         return self.run_command(self.config.COMMANDS['controls'], "Control Generation")
+    
+    def step2_5_validation_post_controls(self):
+        """Step 2.5: Post-controls validation check"""
+        print("=" * 60)
+        print("STEP 2.5: POST-CONTROLS VALIDATION")
+        print("=" * 60)
+        
+        # Run the validation script using unified config's Python executable
+        validation_command = [
+            str(self.config.PYTHON_EXE),
+            str(self.config.BASE_DIR / "check_controls_2_seed.py")
+        ]
+        
+        self.log("Running final validation to ensure seed and controls are fully compatible...")
+        return self.run_command(validation_command, "Final Seed & Controls Validation")
     
     def step3_hhgq(self):
         """Step 3: Group quarters integration"""
@@ -157,11 +180,20 @@ class UnifiedWorkflow:
         status, steps_needed = self.config.get_workflow_status()
         
         print("===== WORKFLOW STATUS =====")
-        step_names = ['Crosswalk', 'Seed', 'Controls', 'HHGQ', 'PopulationSim', 'Post-process', 'Tableau']
+        step_names = ['Crosswalk', 'Seed', 'Seed-Validation', 'Controls', 'Controls-Validation', 'HHGQ', 'PopulationSim', 'Post-process', 'Tableau']
+        base_status = ['crosswalk', 'seed', 'controls', 'hhgq', 'popsim', 'postprocess', 'tableau']
         
-        for i, (step_key, step_name) in enumerate(zip(status.keys(), step_names)):
-            status_icon = "✅ COMPLETE" if status[step_key] else "❌ NEEDED"
-            print(f"Step {i}: {step_name:<15} - {status_icon}")
+        step_counter = 0
+        for i, base_step in enumerate(base_status):
+            # Show base step
+            status_icon = "✅ COMPLETE" if status[base_step] else "❌ NEEDED"
+            print(f"Step {step_counter}: {step_names[step_counter]:<18} - {status_icon}")
+            step_counter += 1
+            
+            # Add validation steps after seed and controls
+            if base_step in ['seed', 'controls']:
+                print(f"Step {step_counter}: {step_names[step_counter]:<18} - 🔍 VALIDATION")
+                step_counter += 1
         
         print()
         print(f"Force flags: {self.config.FORCE_FLAGS}")
@@ -182,8 +214,22 @@ class UnifiedWorkflow:
         
         steps_needed = self.print_status()
         
-        # Filter steps based on start_step
-        steps_needed = [s for s in steps_needed if s >= self.start_step]
+        # Create list of all steps to run based on what's needed and start_step
+        all_steps_to_run = []
+        
+        # Map original steps to new step numbers
+        step_mapping = {0: 0, 1: 1, 2: 3, 3: 5, 4: 6, 5: 7, 6: 8}  # original -> new step numbers
+        
+        for original_step in steps_needed:
+            new_step = step_mapping[original_step]
+            if new_step >= self.start_step:
+                all_steps_to_run.append(new_step)
+                
+                # Add validation steps only after controls (3) - need both seed AND controls for validation
+                if new_step == 3:  # After controls  
+                    all_steps_to_run.append(4)  # Post-controls validation
+        
+        steps_needed = sorted(set(all_steps_to_run))
         
         if not steps_needed:
             self.log(f"🎉 All steps from {self.start_step} onwards are complete! No work needed.")
@@ -194,8 +240,10 @@ class UnifiedWorkflow:
         # Define step functions
         step_functions = [
             self.step0_crosswalk,
-            self.step1_seed, 
+            self.step1_seed,
+            self.step1_5_validation,
             self.step2_controls,
+            self.step2_5_validation_post_controls,
             self.step3_hhgq,
             self.step4_populationsim,
             self.step5_postprocess,
@@ -215,8 +263,8 @@ class UnifiedWorkflow:
 def main():
     """Main entry point with command line argument support"""
     parser = argparse.ArgumentParser(description='Unified TM2 PopulationSim Workflow')
-    parser.add_argument('--start_step', type=int, default=0, choices=range(7),
-                        help='Step to start from (0=crosswalk, 1=seed, 2=controls, 3=hhgq, 4=popsim, 5=postprocess, 6=tableau)')
+    parser.add_argument('--start_step', type=int, default=0, choices=range(9),
+                        help='Step to start from (0=crosswalk, 1=seed, 2=validation, 3=controls, 4=validation, 5=hhgq, 6=popsim, 7=postprocess, 8=tableau)')
     parser.add_argument('--force_all_steps', action='store_true',
                         help='Force regeneration of all files')
     parser.add_argument('--force_remaining_steps', action='store_true',

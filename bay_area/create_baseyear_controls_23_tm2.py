@@ -1105,7 +1105,7 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
             logger.warning("num_hh column missing from MAZ data - estimating from population")
             # Estimate households from population (subtract group quarters first)
             household_pop = maz_with_county['total_pop'] - maz_with_county.get('gq_pop', 0)
-            maz_with_county['num_hh'] = np.maximum(0, (household_pop / 2.5).round()).astype(int)
+            maz_with_county['num_hh'] = numpy.maximum(0, (household_pop / 2.5).round()).astype(int)
             logger.info(f"Estimated num_hh: min={maz_with_county['num_hh'].min()}, max={maz_with_county['num_hh'].max()}, sum={maz_with_county['num_hh'].sum():,.0f}")
         
         # Write updated MAZ marginals file
@@ -2619,6 +2619,21 @@ def main():
 
         logger.info(f"Preparing final controls files for {control_geo}")
         out_df = final_control_dfs[control_geo].copy()
+        
+        # Special handling for COUNTY controls: Combine manual+military to match seed encoding
+        if control_geo == 'COUNTY' and 'pers_occ_manual' in out_df.columns and 'pers_occ_military' in out_df.columns:
+            logger.info(f"Combining manual+military occupation controls to match seed population encoding")
+            
+            # Create combined manual+military control
+            out_df['pers_occ_manual_military'] = out_df['pers_occ_manual'] + out_df['pers_occ_military']
+            
+            # Remove the separate manual and military controls since seed population combines them
+            logger.info(f"Removing separate manual ({out_df['pers_occ_manual'].sum():,.0f}) and military ({out_df['pers_occ_military'].sum():,.0f}) controls")
+            logger.info(f"Combined manual_military total: {out_df['pers_occ_manual_military'].sum():,.0f}")
+            
+            out_df = out_df.drop(['pers_occ_manual', 'pers_occ_military'], axis=1)
+            
+            logger.info(f"Updated COUNTY controls now have combined manual_military occupation category")
         
         # CRITICAL DEBUGGING: Check worker control totals right before writing to file
         if control_geo == 'TAZ':

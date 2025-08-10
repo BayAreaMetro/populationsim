@@ -963,7 +963,7 @@ CONTROL_CATEGORIES = {
     },
     'COUNTY': {
         'person_occupation': ['pers_occ_management', 'pers_occ_professional', 'pers_occ_services', 
-                             'pers_occ_retail', 'pers_occ_manual', 'pers_occ_military'],
+                             'pers_occ_retail', 'pers_occ_manual_military'],
     }
 }
 

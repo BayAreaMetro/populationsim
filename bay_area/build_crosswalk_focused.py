@@ -87,9 +87,8 @@ def main():
     
     # Import configuration to get shape file paths
     try:
-        from config_tm2 import PopulationSimConfig
-        config = PopulationSimConfig()
-        print("SUCCESS: Using configuration for shape file paths")
+        from unified_tm2_config import config
+        print("SUCCESS: Using unified configuration for shape file paths")
     except ImportError:
         print("WARNING: Could not import config, using fallback paths")
         config = None
@@ -105,10 +104,10 @@ def main():
     elif config:
         maz_shapefile = config.SHAPEFILES['maz_shapefile']
         puma_shapefile = config.SHAPEFILES['puma_shapefile']
-        print(f"INFO: Using configured shapefile directory: {config.SHAPEFILE_DIR}")
+        print(f"INFO: Using unified config shapefile paths")
     else:
-        # Fallback paths using tm2py-utils location
-        maz_shapefile = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_v2_2.shp")
+        # Fallback paths using tm2py-utils location with NEW filenames
+        maz_shapefile = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_4.shp")
         puma_shapefile = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp")
         print("INFO: Using fallback paths from tm2py-utils")
     
@@ -241,19 +240,13 @@ def main():
             puma_gdf = puma_gdf[puma_gdf[county_col].isin(bay_area_counties)]
             print(f"    Filtered to Bay Area using {county_col}: {len(puma_gdf):,} PUMA zones (was {original_count:,})")
         else:
-            print("     WARNING: No county column found, using spatial overlap filter")
+            print("     WARNING: No county column found, using spatial overlap to determine Bay Area PUMAs")
             print(f"    Available columns: {list(puma_gdf.columns)}")
-            print(f"     Filtering to 72 PUMAs that have TAZ overlaps in Bay Area")
+            print(f"     Will determine Bay Area PUMAs based on spatial overlap with MAZ/TAZ data")
             
-            # Get Bay Area PUMAs from unified configuration
-            from unified_tm2_config import config
-            puma_config = config.get_puma_configuration()
-            bay_area_pumas = puma_config['bay_area_pumas']
-            print(f"Using {puma_config['total_pumas']} Bay Area PUMAs from unified configuration")
-            
+            # Don't filter here - let the spatial join determine which PUMAs are valid
             original_count = len(puma_gdf)
-            puma_gdf = puma_gdf[puma_gdf[puma_id_col].isin(bay_area_pumas)]
-            print(f"    Filtered to Bay Area using spatial overlap: {len(puma_gdf):,} PUMA zones (was {original_count:,})")
+            print(f"    Using all {original_count:,} PUMAs for spatial analysis - will filter after spatial join")
         
         # Show sample PUMA IDs
         sample_pumas = sorted(puma_gdf[puma_id_col].unique())[:10]
@@ -376,14 +369,22 @@ def main():
         
         # Add county information based on PUMA mapping (before formatting)
         print("     Adding county information...")
-        # Convert PUMA to string for mapping lookup (handles both int and str formats)
-        final_mapping['PUMA_str'] = final_mapping['PUMA'].astype(str)
+        # Convert PUMA to zero-padded 5-digit string for mapping lookup (handles both int and str formats)
+        # Remove leading zeros first, then re-add them consistently
+        final_mapping['PUMA_str'] = final_mapping['PUMA'].astype(str).str.lstrip('0').str.zfill(5)
         final_mapping['COUNTY'] = final_mapping['PUMA_str'].map(lambda x: PUMA_COUNTY_MAP.get(x, ('99', 'Unknown'))[0])
         final_mapping['county_name'] = final_mapping['PUMA_str'].map(lambda x: PUMA_COUNTY_MAP.get(x, ('99', 'Unknown'))[1])
+        
+        # Debug: Show PUMA format conversion
+        sample_conversions = final_mapping[['PUMA', 'PUMA_str', 'COUNTY', 'county_name']].head()
+        print(f"     PUMA format conversions (sample):")
+        print(sample_conversions.to_string(index=False))
+        
         final_mapping = final_mapping.drop('PUMA_str', axis=1)  # Remove temporary column
         
-        # NOW format PUMA IDs with leading zeros (5 digits) for final output
-        final_mapping['PUMA'] = final_mapping['PUMA'].astype(str).str.zfill(5)
+        # NOW format PUMA IDs as integers for PopulationSim compatibility
+        # Convert from zero-padded strings to integers (removes leading zeros)
+        final_mapping['PUMA'] = final_mapping['PUMA'].astype(str).str.lstrip('0').astype(int)
         
         # Check for any unmapped PUMAs
         unmapped_pumas = final_mapping[final_mapping['COUNTY'] == '99']['PUMA'].unique()
@@ -413,13 +414,13 @@ def main():
             final_mapping.to_csv(output_file, index=False)
             print(f"    Saved crosswalk: {output_file}")
             
-            # Verify the saved file and fix PUMA format if needed
-            verify_df = pd.read_csv(output_file, dtype={'MAZ': int, 'TAZ': int, 'PUMA': str, 'COUNTY': str, 'county_name': str})
-            # Ensure PUMA has leading zeros
-            verify_df['PUMA'] = verify_df['PUMA'].str.zfill(5)
+            # Verify the saved file and ensure PUMA format is integer  
+            verify_df = pd.read_csv(output_file, dtype={'MAZ': int, 'TAZ': int, 'PUMA': int, 'COUNTY': str, 'county_name': str})
+            # Ensure PUMA is integer format for PopulationSim
+            verify_df['PUMA'] = verify_df['PUMA'].astype(int)
             # Re-save with correct format
             verify_df.to_csv(output_file, index=False)
-            print(f"    Verification: {len(verify_df):,} records with proper PUMA format")
+            print(f"    Verification: {len(verify_df):,} records with integer PUMA format")
         
         # Show final statistics
         print()

@@ -26,5 +26,4 @@ pers_occ_management,COUNTY,persons,10000,pers_occ_management,(persons.occupation
 pers_occ_professional,COUNTY,persons,10000,pers_occ_professional,(persons.occupation == 2) & (persons.employed == 1)
 pers_occ_services,COUNTY,persons,10000,pers_occ_services,(persons.occupation == 3) & (persons.employed == 1)
 pers_occ_retail,COUNTY,persons,10000,pers_occ_retail,(persons.occupation == 4) & (persons.employed == 1)
-pers_occ_manual,COUNTY,persons,10000,pers_occ_manual,(persons.occupation == 5) & (persons.employed == 1)
-pers_occ_military,COUNTY,persons,10000,pers_occ_military,(persons.occupation == 6) & (persons.employed == 1)
+pers_occ_manual_military,COUNTY,persons,10000,pers_occ_manual_military,(persons.occupation == 5) & (persons.employed == 1)

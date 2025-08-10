@@ -19,7 +19,18 @@ class UnifiedTM2Config:
         self.MODEL_TYPE = model_type
         
         # Python executable (full path to popsim environment)
-        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim\python.exe")
+        # Allow environment variable override, otherwise use current user
+        python_exe_env = os.getenv('POPSIM_PYTHON_EXE')
+        if python_exe_env:
+            self.PYTHON_EXE = Path(python_exe_env)
+        else:
+            # Auto-detect current user and use popsim environment (not popsim_py312)
+            current_user = os.getenv('USERNAME', 'schildress')
+            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim\python.exe")
+        
+        # Validate Python executable exists
+        if not self.PYTHON_EXE.exists():
+            raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         
         # Main directories - DEFINE THESE FIRST
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
@@ -37,16 +48,16 @@ class UnifiedTM2Config:
         
         # ============================================================
         # BAY AREA PUMA DEFINITIONS - SINGLE SOURCE OF TRUTH
-        # Bay Area PUMA codes (62 actual PUMAs from crosswalk - string format with leading zeros)
+        # Bay Area PUMA codes (62 actual PUMAs from crosswalk - integer format for PopulationSim)
         # Updated to match actual crosswalk PUMAs rather than theoretical full list
         self.BAY_AREA_PUMAS = [
-            '00101', '00111', '00112', '00113', '00114', '00115', '00116', '00117', '00118', '00119', 
-            '00120', '00121', '00122', '00123', '01301', '01305', '01308', '01309', '01310', '01311', 
-            '01312', '01313', '01314', '04103', '04104', '05500', '07507', '07508', '07509', '07510', 
-            '07511', '07512', '07513', '07514', '08101', '08102', '08103', '08104', '08105', '08106', 
-            '08505', '08506', '08507', '08508', '08510', '08511', '08512', '08515', '08516', '08517', 
-            '08518', '08519', '08520', '08521', '08522', '09501', '09502', '09503', '09702', '09704', 
-            '09705', '09706'
+            101, 111, 112, 113, 114, 115, 116, 117, 118, 119, 
+            120, 121, 122, 123, 1301, 1305, 1308, 1309, 1310, 1311, 
+            1312, 1313, 1314, 4103, 4104, 5500, 7507, 7508, 7509, 7510, 
+            7511, 7512, 7513, 7514, 8101, 8102, 8103, 8104, 8105, 8106, 
+            8505, 8506, 8507, 8508, 8510, 8511, 8512, 8515, 8516, 8517, 
+            8518, 8519, 8520, 8521, 8522, 9501, 9502, 9503, 9702, 9704, 
+            9705, 9706
         ]
         
         # Now define external paths and other configurations
@@ -131,8 +142,8 @@ class UnifiedTM2Config:
         # SHAPEFILE PATHS
         # ============================================================
         self.SHAPEFILES = {
-            'maz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "mazs_TM2_v2_2.shp",
-            'taz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tazs_TM2_v2_2.shp",
+            'maz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "mazs_TM2_2_4.shp",
+            'taz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tazs_TM2_2_4.shp",
             'puma_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tl_2022_06_puma20.shp"
         }
     
