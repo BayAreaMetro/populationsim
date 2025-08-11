@@ -313,10 +313,10 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
         control_df = control_df.reset_index()
     
     # Get county mapping from the crosswalk file (same approach as the validation function)
-    from tm2_control_utils.config_census import PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE
+    from tm2_control_utils.config_census import GEO_CROSSWALK_TM2_PATH
     import os
     
-    geo_crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
+    geo_crosswalk_file = GEO_CROSSWALK_TM2_PATH
     if not os.path.exists(geo_crosswalk_file):
         logger.error(f"Crosswalk file not found: {geo_crosswalk_file}")
         return control_df
@@ -1524,7 +1524,7 @@ def summarize_maz_households_by_taz(logger):
         # File paths
         maz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
         taz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
-        geo_crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
+        geo_crosswalk_file = GEO_CROSSWALK_TM2_PATH
         
         # Check if required files exist
         if not os.path.exists(maz_marginals_file):
@@ -1709,7 +1709,7 @@ def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
     summary_df = pd.DataFrame(summary_rows)
     
     # Write to output file
-    output_path = os.path.join(config.PRIMARY_OUTPUT_DIR, config.COUNTY_SUMMARY_FILE)
+    output_path = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_SUMMARY_FILE)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     summary_df.to_csv(output_path, index=False)
     logger.info(f"Wrote county summary file: {output_path}")
@@ -2233,13 +2233,16 @@ def create_hhgq_integrated_files(logger):
     import shutil
     
     try:
-        # Define input and output file paths
-        maz_input = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
-        taz_input = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
-        county_input = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_MARGINALS_FILE)
+        # Define input file paths - marginals are in main output directory
+        import unified_tm2_config
+        main_output_dir = str(unified_tm2_config.config.POPSIM_DATA_DIR)
         
-        # Output files will be in hh_gq/tm2_working_dir/data/ - single source of truth
-        output_dir = os.path.join("hh_gq", "tm2_working_dir", "data")
+        maz_input = os.path.join(main_output_dir, MAZ_MARGINALS_FILE)
+        taz_input = os.path.join(main_output_dir, TAZ_MARGINALS_FILE)
+        county_input = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_MARGINALS_FILE)  # This one is in PopSim data dir
+        
+        # Output files will be in PopulationSim data directory
+        output_dir = PRIMARY_OUTPUT_DIR
         os.makedirs(output_dir, exist_ok=True)
         
         maz_output = os.path.join(output_dir, "maz_marginals_hhgq.csv")
@@ -2404,7 +2407,7 @@ def enforce_hierarchical_consistency_in_controls(logger):
             return False
         
         # Load crosswalk for MAZ-TAZ mapping
-        crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
+        crosswalk_file = GEO_CROSSWALK_TM2_PATH
         if not os.path.exists(crosswalk_file):
             logger.error(f"Crosswalk file not found: {crosswalk_file}")
             return False
@@ -2495,14 +2498,11 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='Generate baseyear controls for TM2 PopulationSim')
-    parser.add_argument('--output_dir', 
-                       help='Output directory for control files (default: hh_gq/tm2_working_dir/data)',
-                       default='hh_gq/tm2_working_dir/data')
+    # Removed --output_dir argument - now using unified config
     args = parser.parse_args()
-    
-    # Override PRIMARY_OUTPUT_DIR from config with command line argument
-    global PRIMARY_OUTPUT_DIR
-    PRIMARY_OUTPUT_DIR = args.output_dir
+
+    # Use PRIMARY_OUTPUT_DIR from config (no command line override)
+    # PRIMARY_OUTPUT_DIR is set in tm2_control_utils.config_census from unified config
 
 
     
@@ -2700,7 +2700,7 @@ def main():
     #     write_outputs('COUNTY', county_df, crosswalk_df)
 
     # Write geographic crosswalk file in expected location
-    crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
+    crosswalk_file = GEO_CROSSWALK_TM2_PATH
     
     # Ensure we have the expected columns for populationsim
     expected_crosswalk_cols = ['MAZ', 'TAZ', 'COUNTY', 'county_name', 'COUNTYFP10', 'TRACTCE10', 'PUMA']

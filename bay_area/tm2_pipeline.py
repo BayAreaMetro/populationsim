@@ -18,6 +18,7 @@ class TM2Pipeline:
         self.config = UnifiedTM2Config()
         self.config.ensure_directories()
         self.verbose = verbose
+        self.offline_mode = offline_mode
         self.fast_mode = False
         self.timeout = 7200  # Default 2 hour timeout
         
@@ -105,6 +106,26 @@ class TM2Pipeline:
             self.log(f"Step {step_name} failed with code {returncode} after {duration:.1f}s", "ERROR")
             return False
     
+    def check_pums_files_exist(self):
+        """Check if PUMS files exist (check both current and cached locations)"""
+        # Check current location first
+        households_current = self.config.PUMS_FILES['households_current']
+        persons_current = self.config.PUMS_FILES['persons_current']
+        
+        if households_current.exists() and persons_current.exists():
+            self.log(f"Found PUMS files in current location: {households_current.parent}")
+            return True
+            
+        # Check cached location
+        households_cached = self.config.PUMS_FILES['households_cached']
+        persons_cached = self.config.PUMS_FILES['persons_cached']
+        
+        if households_cached.exists() and persons_cached.exists():
+            self.log(f"Found PUMS files in cached location: {households_cached.parent}")
+            return True
+            
+        return False
+
     def run_step(self, step_name, force=False):
         """Run a specific pipeline step"""
         
@@ -123,12 +144,28 @@ class TM2Pipeline:
             self.log(f"Unknown step: {step_name}", "ERROR")
             return False
         
+        # Special handling for PUMS download
+        if step_name == 'pums':
+            # Skip if files already exist and not forced
+            if not force and self.check_pums_files_exist():
+                self.log("Skipping PUMS download (files already exist, use --force to redownload)")
+                return True
+            # Skip if in offline mode
+            if self.offline_mode:
+                self.log("Skipping PUMS download (offline mode enabled)", "WARN")
+                if not self.check_pums_files_exist():
+                    self.log("ERROR: PUMS files not found and offline mode enabled", "ERROR")
+                    return False
+                return True
+            self.log("Downloading PUMS data...")
+        
         # Special handling for PopulationSim with log monitoring
-        if step_name == 'populationsim':
+        elif step_name == 'populationsim':
             # Fix crosswalk before running PopulationSim
             if not self.fix_crosswalk_multi_puma():
                 self.log("Failed to fix crosswalk - this may cause NaN control aggregation issues", "ERROR")
                 return False
+                
             return self.run_populationsim_with_monitoring(command)
         else:
             return self.run_command(command, step_name)
@@ -160,7 +197,7 @@ class TM2Pipeline:
             self.log(f"FIPS to sequential mapping: {fips_to_sequential}")
             
             # Load and update crosswalk
-            crosswalk_path = os.path.join(data_dir, "geo_cross_walk_tm2.csv")
+            crosswalk_path = os.path.join(data_dir, "geo_cross_walk_tm2_updated.csv")
             if not os.path.exists(crosswalk_path):
                 self.log(f"Crosswalk file not found: {crosswalk_path}", "ERROR")
                 return False
@@ -257,7 +294,7 @@ class TM2Pipeline:
         
         try:
             data_dir = self.config.DATA_DIR
-            crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2.csv")
+            crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2_updated.csv")
             
             if not os.path.exists(crosswalk_file):
                 self.log(f"Crosswalk file not found: {crosswalk_file}", "ERROR")
@@ -324,6 +361,66 @@ class TM2Pipeline:
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
+    def prepare_populationsim_data(self):
+        """Prepare PopulationSim data directory with proper file structure and symbolic links"""
+        import os
+        from pathlib import Path
+        
+        self.log("Preparing PopulationSim data directory...")
+        
+        try:
+            # Source directory (where our files are)
+            source_dir = Path(self.config.OUTPUT_DIR)
+            
+            # Target directory (where PopulationSim expects files)
+            target_dir = Path(self.config.POPSIM_DATA_DIR)
+            
+            # Files that PopulationSim needs
+            required_files = [
+                'seed_households.csv',
+                'seed_persons.csv', 
+                'geo_cross_walk_tm2_updated.csv',
+                'maz_marginals.csv',
+                'taz_marginals.csv',
+                'county_marginals.csv'
+            ]
+            
+            # Create symbolic links for each required file
+            for filename in required_files:
+                source_file = source_dir / filename
+                target_file = target_dir / filename
+                
+                # Handle special case for crosswalk filename
+                if filename == 'geo_cross_walk_tm2_updated.csv':
+                    target_file = target_dir / 'geo_cross_walk_tm2.csv'  # PopulationSim expects this name
+                
+                if not source_file.exists():
+                    self.log(f"ERROR: Required file not found: {source_file}", "ERROR")
+                    return False
+                
+                # Remove existing link/file if it exists
+                if target_file.exists() or target_file.is_symlink():
+                    target_file.unlink()
+                
+                # Create symbolic link (Windows)
+                try:
+                    target_file.symlink_to(source_file)
+                    self.log(f"✓ Linked: {filename}")
+                except OSError:
+                    # Fallback to copy if symlink fails
+                    import shutil
+                    shutil.copy2(source_file, target_file)
+                    self.log(f"✓ Copied: {filename} (symlink failed)")
+            
+            self.log("✓ PopulationSim data directory prepared successfully", "SUCCESS")
+            return True
+            
+        except Exception as e:
+            self.log(f"Error preparing PopulationSim data: {e}", "ERROR")
+            import traceback
+            self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
+            return False
+
     def run_populationsim_with_monitoring(self, command):
         """Run PopulationSim with enhanced progress monitoring"""
         import threading
@@ -427,7 +524,12 @@ class TM2Pipeline:
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
         
+        # Default to starting with crosswalk (skip PUMS download unless explicitly requested)
         steps = ['crosswalk', 'seed', 'controls', 'populationsim']
+        
+        # If start_step is explicitly 'pums', include it
+        if start_step == 'pums':
+            steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim']
         
         # Determine step range
         if start_step:
@@ -466,7 +568,7 @@ class TM2Pipeline:
         self.log("Pipeline Status Check")
         self.log("-" * 40)
         
-        steps = ['crosswalk', 'seed', 'controls', 'populationsim']
+        steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim']
         for step in steps:
             if self.check_step_completion(step):
                 self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
@@ -478,7 +580,7 @@ class TM2Pipeline:
         if step_name:
             steps = [step_name]
         else:
-            steps = ['crosswalk', 'seed', 'controls', 'populationsim']
+            steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim']
             
         for step in steps:
             step_files = self.config.get_step_files(step)
@@ -495,7 +597,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='status',
-                       choices=['status', 'crosswalk', 'seed', 'controls', 'populationsim', 'full', 'clean'],
+                       choices=['status', 'pums', 'crosswalk', 'seed', 'controls', 'populationsim', 'full', 'clean'],
                        help='Command to run')
     parser.add_argument('--force', action='store_true',
                        help='Force rerun even if outputs exist')

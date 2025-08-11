@@ -17,14 +17,19 @@ def prepare_geography_dfs():
     """
     logger = logging.getLogger(__name__)
     
-    # Check if the updated crosswalk file exists in the output directory
-    # Since GEO_CROSSWALK_TM2_FILE is just the filename, we need to construct the full path
-    output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output_2023')
-    updated_crosswalk_path = os.path.join(output_dir, GEO_CROSSWALK_TM2_FILE)
-    
-    if os.path.exists(updated_crosswalk_path):
-        logger.info(f"Using updated crosswalk file with 2020 PUMA definitions: {updated_crosswalk_path}")
-        crosswalk_df = pd.read_csv(updated_crosswalk_path)
+    # Use the single source of truth for crosswalk file location
+    if os.path.exists(GEO_CROSSWALK_TM2_PATH):
+        logger.info(f"Using updated crosswalk file with 2020 PUMA definitions: {GEO_CROSSWALK_TM2_PATH}")
+        crosswalk_df = pd.read_csv(GEO_CROSSWALK_TM2_PATH)
+        
+        # Add county_name to crosswalk by merging with COUNTY_RECODE if not already present
+        if 'county_name' not in crosswalk_df.columns:
+            crosswalk_df = pd.merge(
+                left=crosswalk_df,
+                right=COUNTY_RECODE[["COUNTY", "county_name"]],
+                on="COUNTY",
+                how="left"
+            )
         
         # Load MAZ/TAZ definitions
         if os.path.exists(MAZ_TAZ_ALL_GEOG_FILE):
@@ -68,11 +73,11 @@ def prepare_geography_dfs():
         
     else:
         # Updated crosswalk file is required for 2020 PUMA definitions
-        logger.error(f"Updated crosswalk file required but not found at {updated_crosswalk_path}")
+        logger.error(f"Updated crosswalk file required but not found at {GEO_CROSSWALK_TM2_PATH}")
         logger.error("The static PUMA file process has been deprecated to ensure 2020 PUMA definitions are used")
-        logger.error("Please ensure the updated crosswalk file is available in the output directory")
+        logger.error("Please ensure the updated crosswalk file is available in the specified location")
         raise FileNotFoundError(
-            f"Required updated crosswalk file not found: {updated_crosswalk_path}\n"
+            f"Required updated crosswalk file not found: {GEO_CROSSWALK_TM2_PATH}\n"
             "This file contains the 2020 PUMA definitions including PUMA 07707.\n"
             "The old static PUMA file process has been deprecated to avoid using outdated 2010 PUMA definitions."
         )

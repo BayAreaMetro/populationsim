@@ -270,18 +270,9 @@ def load_pumas_from_crosswalk(crosswalk_file: str) -> list:
         
     except Exception as e:
         logger.error(f"Error loading PUMAs from crosswalk {crosswalk_file}: {e}")
-        logger.info("Using fallback PUMA list")
-        
-        # Fallback to basic Bay Area PUMAs if crosswalk fails
-        return [
-            '00101', '00111', '00112', '00113', '00114', '00115', '00116', '00117', '00118', '00119',
-            '00120', '00121', '00122', '00123', '01301', '01305', '01308', '01309', '01310', '01311',
-            '01312', '01313', '01314', '04103', '04104', '05500', '07501', '07502', '07503', '07504',
-            '07505', '07506', '07507', '07508', '07509', '07510', '07511', '07512', '07513', '07514',
-            '08101', '08102', '08103', '08104', '08105', '08106', '08505', '08506', '08507', '08508',
-            '08509', '08510', '08511', '08512', '08513', '08514', '08515', '08516', '08517', '08518',
-            '08519', '08520', '08521', '08522', '09501', '09502', '09503', '09702', '09704', '09705', '09706'
-        ]
+        logger.error("CRITICAL: Cannot download PUMS data without crosswalk PUMA list")
+        logger.error("Please ensure crosswalk file exists and is valid before running PUMS download")
+        raise RuntimeError(f"Cannot load PUMAs from crosswalk: {e}")
 
 def main():
     """Main execution function using unified config"""

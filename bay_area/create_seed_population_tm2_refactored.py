@@ -8,6 +8,28 @@ Key improvements:
 - Better configuration management
 - Improved error handling and logging
 - More readable and maintainable code structure
+
+Key ID Columns:
+- SERIALNO: Original Census household serial number (preserved on both tables)
+- unique_hh_id: G                # Step 4: Create PopulationSim-compatible copies
+                logger.info("-" * 50)
+                logger.info("[SUMMARY] Creating PopulationSim-compatible seed file copies...")
+                import shutil
+                
+                # Use unified configuration for PopulationSim data directory
+                from unified_tm2_config import config as unified_config
+                
+                seed_h = unified_config.SEED_FILES['households_popsim']
+                seed_p = unified_config.SEED_FILES['persons_popsim']
+                
+                # Ensure directory exists
+                seed_h.parent.mkdir(parents=True, exist_ok=True)
+                
+                shutil.copy2(h_processed, seed_h)
+                shutil.copy2(p_processed, seed_p)
+                logger.info("[SUCCESS] PopulationSim-compatible seed files created")usehold identifier for PopulationSim
+  Format: YEAR_STATE_PUMA_SERIALNO (e.g., "2023_6_06001_0000001")
+  Used for household-person linkage in PopulationSim
 """
 
 import pandas as pd
@@ -41,7 +63,7 @@ class SeedPopulationConfig:
     """Configuration for seed population creation"""
     # Bay Area PUMAs - 2020 definitions (62 PUMAs with actual MAZ coverage)
     bay_area_pumas: List[int] = None
-    output_dir: Path = Path("hh_gq/tm2_working_dir/data")
+    output_dir: Path = Path("output_2023")
     chunk_size: int = 50000
     random_seed: int = 42
     
@@ -79,46 +101,69 @@ class PUMACountyMapper:
     """Handles PUMA to County mapping for Bay Area"""
     
     @staticmethod
-    def get_county_mapping() -> Dict[int, int]:
-        """Returns PUMA to County mapping for the 62 PUMAs with MAZ coverage
+    def get_county_mapping_from_crosswalk(crosswalk_file: str = None) -> Dict[int, int]:
+        """Returns PUMA to County mapping from the crosswalk file
         
-        County codes match crosswalk format (last 2 digits of FIPS codes):
-        - Alameda: 1 (from 6001)
-        - Contra Costa: 13 (from 6013) 
-        - Marin: 41 (from 6041)
-        - Napa: 55 (from 6055)
-        - San Francisco: 75 (from 6075)
-        - San Mateo: 81 (from 6081)
-        - Santa Clara: 85 (from 6085)
-        - Solano: 95 (from 6095)
-        - Sonoma: 97 (from 6097)
+        Args:
+            crosswalk_file: Path to crosswalk file. If None, uses default locations.
+            
+        Returns:
+            Dictionary mapping PUMA (int) to COUNTY (int)
         """
-        return {
-            # Alameda County (COUNTY=1) - 14 PUMAs
-            101: 1, 111: 1, 112: 1, 113: 1, 114: 1, 115: 1, 
-            116: 1, 117: 1, 118: 1, 119: 1, 120: 1, 121: 1, 
-            122: 1, 123: 1,
-            # Contra Costa County (COUNTY=13) - 9 PUMAs
-            1301: 13, 1305: 13, 1308: 13, 1309: 13, 1310: 13, 1311: 13,
-            1312: 13, 1313: 13, 1314: 13,
-            # Marin County (COUNTY=41) - 2 PUMAs
-            4103: 41, 4104: 41,
-            # Napa County (COUNTY=55) - 1 PUMA
-            5500: 55,
-            # San Francisco County (COUNTY=75) - 8 PUMAs
-            7507: 75, 7508: 75, 7509: 75, 7510: 75, 7511: 75, 7512: 75,
-            7513: 75, 7514: 75,
-            # San Mateo County (COUNTY=81) - 6 PUMAs  
-            8101: 81, 8102: 81, 8103: 81, 8104: 81, 8105: 81, 8106: 81,
-            # Santa Clara County (COUNTY=85) - 15 PUMAs
-            8505: 85, 8506: 85, 8507: 85, 8508: 85, 8510: 85, 8511: 85,
-            8512: 85, 8515: 85, 8516: 85, 8517: 85, 8518: 85, 8519: 85,
-            8520: 85, 8521: 85, 8522: 85,
-            # Solano County (COUNTY=95) - 3 PUMAs
-            9501: 95, 9502: 95, 9503: 95,
-            # Sonoma County (COUNTY=97) - 4 PUMAs
-            9702: 97, 9704: 97, 9705: 97, 9706: 97
-        }
+        import pandas as pd
+        from pathlib import Path
+        
+        # Try multiple crosswalk locations
+        if crosswalk_file:
+            crosswalk_paths = [Path(crosswalk_file)]
+        else:
+            crosswalk_paths = [
+                Path("C:/GitHub/populationsim/bay_area/output_2023/geo_cross_walk_tm2_updated.csv"),
+                Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv"),
+                Path("output_2023/geo_cross_walk_tm2_updated.csv"),
+                Path("geo_cross_walk_tm2_updated.csv")
+            ]
+        
+        for crosswalk_path in crosswalk_paths:
+            if crosswalk_path.exists():
+                try:
+                    crosswalk_df = pd.read_csv(crosswalk_path)
+                    
+                    # Ensure we have the required columns
+                    if 'PUMA' not in crosswalk_df.columns or 'COUNTY' not in crosswalk_df.columns:
+                        continue
+                    
+                    # Create PUMA to COUNTY mapping from crosswalk
+                    puma_county_df = crosswalk_df[['PUMA', 'COUNTY']].dropna().drop_duplicates()
+                    puma_to_county = dict(zip(puma_county_df['PUMA'], puma_county_df['COUNTY']))
+                    
+                    print(f"[SUCCESS] Loaded PUMA-to-county mapping from crosswalk: {crosswalk_path}")
+                    print(f"[INFO] Found {len(puma_to_county)} PUMA-to-county mappings")
+                    
+                    # Validate we have reasonable county codes (1-97 range for Bay Area)
+                    counties = set(puma_to_county.values())
+                    valid_counties = {c for c in counties if isinstance(c, (int, float)) and 1 <= c <= 97}
+                    if len(valid_counties) >= 7:  # Expect at least 7 Bay Area counties
+                        print(f"[INFO] Valid counties found: {sorted(valid_counties)}")
+                        return puma_to_county
+                    else:
+                        print(f"[WARNING] Invalid counties in crosswalk: {counties}")
+                        
+                except Exception as e:
+                    print(f"[ERROR] Could not read crosswalk {crosswalk_path}: {e}")
+                    continue
+        
+        # Fallback: if no crosswalk found, return empty dict and warn
+        print(f"[ERROR] No valid crosswalk file found. Tried:")
+        for path in crosswalk_paths:
+            print(f"  - {path}")
+        print(f"[ERROR] Cannot create PUMA-to-county mapping without crosswalk")
+        return {}
+    
+    @staticmethod  
+    def get_county_mapping() -> Dict[int, int]:
+        """Legacy method - redirects to crosswalk-based mapping"""
+        return PUMACountyMapper.get_county_mapping_from_crosswalk()
     
     @classmethod
     def add_county_mapping(cls, df: pd.DataFrame) -> pd.DataFrame:
@@ -207,16 +252,20 @@ class HouseholdProcessor:
         poverty_count = len(df[df.get('HUPAC', 0) == 1]) if 'HUPAC' in df.columns else 0
         logger.info(f"   Households in poverty: {poverty_count:,} ({poverty_count/len(df)*100:.1f}%)")
         
+        # Create income fields
+        logger.info("[INCOME] Step 4/6: Converting income to 2010 dollars...")
+        df = self._create_income_fields(df)
+        
         # Clean numeric data
-        logger.info("[CLEAN] Step 4/6: Cleaning numeric data...")
+        logger.info("[CLEAN] Step 5/6: Cleaning numeric data...")
         df = self.data_cleaner.clean_numeric_columns(df, "household")
         
         # Convert to integers
-        logger.info("[NUMBER] Step 5/6: Converting to integer types...")
+        logger.info("[NUMBER] Step 6/6: Converting to integer types...")
         integer_fields = ['HUPAC', 'NP', 'hhgqtype', 'WGTP', 'TYPEHUGQ', 'PUMA', 'COUNTY']
         df = self.data_cleaner.convert_to_integers(df, integer_fields, "household")
         
-        logger.info("[SUCCESS] Step 6/6: Household processing complete!")
+        logger.info("[SUCCESS] Step 7/7: Household processing complete!")
         logger.info(f"   Final columns: {len(df.columns)}")
         logger.info(f"   Final memory: {df.memory_usage(deep=True).sum() / 1024**2:.1f}MB")
         
@@ -276,6 +325,37 @@ class HouseholdProcessor:
             df.loc[hh_mask, 'HUPAC'] = 2
             # Fix any remaining NaN values
             df['HUPAC'] = df['HUPAC'].fillna(2)
+        
+        return df
+
+    def _create_income_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create income fields in both 2010 and 2023 dollars from HINCP"""
+        if 'HINCP' not in df.columns:
+            logger.warning("HINCP column not found - cannot create income fields")
+            return df
+        
+        # Import CPI conversion function
+        try:
+            from cpi_conversion import convert_2023_to_2010_dollars
+        except ImportError:
+            logger.error("Cannot import cpi_conversion module - income conversion failed")
+            return df
+        
+        # Keep original 2023 income
+        df['hh_income_2023'] = df['HINCP'].fillna(0)
+        
+        # Convert to 2010 dollars for PopulationSim controls compatibility
+        df['hh_income_2010'] = convert_2023_to_2010_dollars(df['HINCP'].fillna(0))
+        
+        # Log conversion summary
+        valid_income_count = (df['HINCP'] > 0).sum() if 'HINCP' in df.columns else 0
+        if valid_income_count > 0:
+            median_2023 = df[df['HINCP'] > 0]['hh_income_2023'].median()
+            median_2010 = df[df['HINCP'] > 0]['hh_income_2010'].median()
+            logger.info(f"   Created income fields for {valid_income_count:,} households")
+            logger.info(f"   Median income: ${median_2023:,.0f} (2023) → ${median_2010:,.0f} (2010)")
+        else:
+            logger.warning("   No valid income data found")
         
         return df
 
@@ -462,11 +542,20 @@ class SeedPopulationCreator:
                 logger.info("-" * 50)
                 logger.info("[SUMMARY] Creating PopulationSim-compatible seed file copies...")
                 import shutil
-                seed_h = self.config.output_dir / "seed_households.csv"
-                seed_p = self.config.output_dir / "seed_persons.csv"
+                
+                # Use unified configuration for PopulationSim data directory
+                from unified_tm2_config import config as unified_config
+                unified = unified_config
+                
+                seed_h = unified.SEED_FILES['households_popsim']
+                seed_p = unified.SEED_FILES['persons_popsim']
+                
+                # Ensure directory exists
+                seed_h.parent.mkdir(parents=True, exist_ok=True)
+                
                 shutil.copy2(h_processed, seed_h)
                 shutil.copy2(p_processed, seed_p)
-                logger.info("[SUCCESS] PopulationSim-compatible seed file copies created")
+                logger.info("[SUCCESS] PopulationSim-compatible seed files created")
                 
                 # Step 5: Generate validation report
                 logger.info("-" * 50)
@@ -620,68 +709,69 @@ class SeedPopulationCreator:
             logger.info("🔗 CREATING UNIQUE IDs")
             logger.info("-" * 50)
             
-            # Check if the M: drive files already have processed unique_hh_id
-            if 'unique_hh_id' in household_df.columns and 'SERIALNO' in person_df.columns:
-                logger.info("[SUCCESS] Found existing unique_hh_id in household file and SERIALNO in person file")
-                logger.info("🔗 These should be the same values for linking...")
-                
-                # Use existing unique_hh_id from household file, link via SERIALNO in person file
-                logger.info("   [PERSON] Creating household-person linkage...")
-                linking_start = datetime.now()
-                
-                # Map persons to household IDs using SERIALNO
-                person_df['unique_hh_id'] = person_df['SERIALNO']
-                
-                linking_time = datetime.now() - linking_start
-                logger.info(f"[SUCCESS] Linked persons to households using SERIALNO -> unique_hh_id mapping in {linking_time}")
-                
-            else:
-                # Debug: Check available columns to find the linking field
-                logger.info("[SEARCH] Checking available columns for linking...")
-                logger.info(f"   Household columns: {list(household_df.columns)[:10]}... (total: {len(household_df.columns)})")
-                logger.info(f"   Person columns: {list(person_df.columns)[:10]}... (total: {len(person_df.columns)})")
-                
-                # Find the correct linking field (could be SERIALNO, SERIALNUM, or similar)
-                possible_link_fields = ['SERIALNO', 'SERIALNUM', 'SERIAL', 'HH_ID', 'household_id', 'SAMPLE']
-                link_field = None
-                
-                for field in possible_link_fields:
-                    if field in household_df.columns and field in person_df.columns:
-                        link_field = field
-                        logger.info(f"[SUCCESS] Found linking field: {field}")
-                        break
-                
-                if link_field is None:
-                    logger.error("[ERROR] Could not find a common linking field between household and person files!")
-                    logger.error(f"   Household columns: {list(household_df.columns)}")
-                    logger.error(f"   Person columns: {list(person_df.columns)}")
-                    return False
-                
-                # Create unique household IDs
-                logger.info("[HOUSEHOLD] Creating unique household IDs...")
-                household_df['unique_hh_id'] = range(1, len(household_df) + 1)
-                
-                # Create household lookup for persons using the discovered linking field
-                logger.info(f"[PERSON] Creating household lookup using '{link_field}'...")
-                hh_lookup = household_df.set_index(link_field)['unique_hh_id'].to_dict()
-                
-                # Map persons to household IDs
-                logger.info("🔗 Linking persons to households...")
-                person_df['unique_hh_id'] = person_df[link_field].map(hh_lookup)
+            # Always create unique_hh_id from scratch to ensure consistency
+            # This creates a truly unique identifier across all years/PUMAs
+            logger.info("[HOUSEHOLD] Creating unique household IDs from YEAR + STATE + PUMA + SERIALNO...")
             
-            # Check for orphaned persons (shouldn't happen with proper filtering)
+            # Create unique_hh_id by combining YEAR, STATE, PUMA, and SERIALNO
+            # This ensures uniqueness across the entire 2019-2023 multi-year dataset
+            household_df['unique_hh_id'] = (
+                household_df['YEAR'].astype(str) + '_' +
+                household_df['STATE'].astype(str) + '_' +
+                household_df['PUMA'].astype(str).str.zfill(5) + '_' +
+                household_df['SERIALNO'].astype(str).str.zfill(7)
+            )
+            
+            logger.info(f"[SUCCESS] Created {len(household_df):,} unique household IDs")
+            logger.info(f"   Example unique_hh_id: {household_df['unique_hh_id'].iloc[0]}")
+            
+            # Create household lookup for persons using SERIALNO
+            logger.info("[PERSON] Creating household-person linkage using SERIALNO...")
+            linking_start = datetime.now()
+            
+            # Create lookup dictionary from household file SERIALNO to unique_hh_id
+            hh_lookup = household_df.set_index('SERIALNO')['unique_hh_id'].to_dict()
+            
+            # Map persons to household IDs using SERIALNO lookup
+            person_df['unique_hh_id'] = person_df['SERIALNO'].map(hh_lookup)
+            
+            linking_time = datetime.now() - linking_start
+            logger.info(f"[SUCCESS] Linked persons to households using SERIALNO -> unique_hh_id lookup in {linking_time}")
+            
+            # Check for orphaned persons (persons without matching households)
             orphaned_persons = person_df['unique_hh_id'].isna().sum()
             if orphaned_persons > 0:
-                logger.warning(f"[WARNING]  Found {orphaned_persons} persons without household links - removing them")
+                logger.warning(f"[WARNING] Found {orphaned_persons} persons without household links - removing them")
                 person_df = person_df[person_df['unique_hh_id'].notna()].copy()
             
-            logger.info(f"[SUCCESS] Linked {len(person_df):,} persons to {len(household_df):,} households")
+            logger.info(f"[SUCCESS] Final counts: {len(person_df):,} persons linked to {len(household_df):,} households")
             
+            # Verify the linking worked correctly
+            unique_hh_in_persons = person_df['unique_hh_id'].nunique()
+            unique_hh_in_households = household_df['unique_hh_id'].nunique()
+            
+            logger.info(f"[VALIDATION] Households with unique_hh_id: {unique_hh_in_households:,}")
+            logger.info(f"[VALIDATION] Unique households referenced by persons: {unique_hh_in_persons:,}")
+            
+            if unique_hh_in_persons == unique_hh_in_households:
+                logger.info("[SUCCESS] ✓ Perfect household-person linkage!")
+            else:
+                households_without_persons = unique_hh_in_households - unique_hh_in_persons
+                logger.warning(f"[WARNING] Linkage mismatch: {households_without_persons} households have no persons")
+                
+                # Filter out households without persons for PopulationSim compatibility
+                logger.info("[FILTER] Removing households without persons for PopulationSim compatibility...")
+                households_with_persons = person_df['unique_hh_id'].unique()
+                original_household_count = len(household_df)
+                household_df = household_df[household_df['unique_hh_id'].isin(households_with_persons)].copy()
+                removed_households = original_household_count - len(household_df)
+                
+                logger.info(f"[SUCCESS] Filtered households: {original_household_count:,} → {len(household_df):,} (removed {removed_households:,})")
+                logger.info("✓ All remaining households have corresponding persons")
+
             # Verify the linking worked
             unique_hh_in_persons = person_df['unique_hh_id'].nunique()
-            logger.info(f"[SEARCH] Verification: {unique_hh_in_persons} unique households referenced in person data")
-            
-            # Process households with chunked logging
+            logger.info(f"[SEARCH] Verification: {unique_hh_in_persons} unique households referenced in person data")            # Process households with chunked logging
             logger.info("-" * 50)
             logger.info("[HOUSEHOLD] PROCESSING HOUSEHOLDS")
             logger.info("-" * 50)
@@ -731,8 +821,15 @@ class SeedPopulationCreator:
             # Step 4b: Create PopulationSim-compatible copies
             logger.info("[SUMMARY] Creating PopulationSim-compatible seed file copies...")
             import shutil
-            seed_h = self.config.output_dir / "seed_households.csv"
-            seed_p = self.config.output_dir / "seed_persons.csv"
+            
+            # Use unified configuration for PopulationSim data directory
+            from unified_tm2_config import config as unified_config
+            
+            seed_h = unified_config.SEED_FILES['households_popsim']
+            seed_p = unified_config.SEED_FILES['persons_popsim']
+            
+            # Ensure directory exists
+            seed_h.parent.mkdir(parents=True, exist_ok=True)
             
             logger.info(f"   Copying: {h_processed} → {seed_h}")
             shutil.copy2(h_processed, seed_h)

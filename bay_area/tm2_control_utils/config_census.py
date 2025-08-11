@@ -46,6 +46,50 @@ CENSUS_EST_YEAR = 2020
 CENSUS_GEOG_YEAR = 2010
 ACS_EST_YEAR = 2023
 
+# Census API Configuration  
+CENSUS_API_KEY_FILE = r"M:\Data\Census\API\new_key\api-key.txt"
+LOCAL_CACHE_FOLDER = r"M:\Data\Census\NewCachedTablesForPopulationSimControls"
+
+# Geographic data files
+NETWORK_MAZ_TAZ_DEF_FILE = r"M:\Data\GIS layers\TM2_maz_taz_v2.2\blocks_mazs_tazs.csv"
+NETWORK_MAZ_TAZ_ALL_GEOG_FILE = r"M:\Data\GIS layers\TM2_maz_taz_v2.2\mazs_tazs_all_geog.csv"
+NETWORK_CENSUS_API_KEY_FILE = r"M:\Data\Census\API\new_key\api-key.txt"
+NETWORK_CACHE_FOLDER = r"M:\Data\Census\NewCachedTablesForPopulationSimControls"
+
+# Local data paths (for offline work)
+LOCAL_MAZ_TAZ_DEF_FILE = r"local_data\gis\blocks_mazs_tazs.csv"
+LOCAL_MAZ_TAZ_ALL_GEOG_FILE = r"local_data\gis\mazs_tazs_all_geog.csv"
+LOCAL_CENSUS_API_KEY_FILE = r"local_data\census\api-key.txt"
+
+# Alternative local cache folder (for manually copied cache files)
+INPUT_2023_CACHE_FOLDER = r"input\NewCachedTablesForPopulationSimControls"
+
+# Active file paths (defaults to network, configure_file_paths() will set these)
+MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE
+MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE
+
+# Output file names
+GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
+COUNTY_TARGETS_FILE = "county_targets_2023.csv"
+MAZ_MARGINALS_FILE = "maz_marginals.csv"
+TAZ_MARGINALS_FILE = "taz_marginals.csv"
+COUNTY_MARGINALS_FILE = "county_marginals.csv"
+COUNTY_SUMMARY_FILE = "county_summary_2020_2023.csv"
+OUTPUT_MAZ_DATA_FILE = "maz_data.csv"
+OUTPUT_MAZ_DENSITY_FILE = "maz_data_withDensity.csv"
+
+# Example/reference data files (contain employment/land use data to preserve)
+EXAMPLE_MAZ_DATA_FILE = "example_controls_2015/maz_data_2015.csv"
+EXAMPLE_MAZ_DENSITY_FILE = "example_controls_2015/maz_data_withDensity_2015.csv"
+
+# Default output directory (can be overridden in main script)
+# Use unified configuration for PopulationSim-compatible output directory
+from unified_tm2_config import config as unified_config
+PRIMARY_OUTPUT_DIR = str(unified_config.POPSIM_DATA_DIR)
+
+# Geographic crosswalk file location (single source of truth)
+GEO_CROSSWALK_TM2_PATH = r"C:\GitHub\populationsim\bay_area\output_2023\populationsim_working_dir\data\geo_cross_walk_tm2_updated.csv"
+
 
 
 CONTROLS = {

@@ -32,33 +32,30 @@ class UnifiedTM2Config:
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         
-        # Main directories - DEFINE THESE FIRST
+        # Main directories - POPULATIONSIM-COMPATIBLE STRUCTURE
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
-        self.HH_GQ_DIR = self.BASE_DIR / "hh_gq"
         self.SCRIPTS_DIR = self.BASE_DIR / "scripts"
         
-        # PopulationSim working directory (where PopulationSim actually runs)
-        self.POPSIM_WORKING_DIR = self.HH_GQ_DIR / "tm2_working_dir"
+        # PopulationSim working directory (this becomes our main output structure)
+        self.POPSIM_WORKING_DIR = self.OUTPUT_DIR / "populationsim_working_dir"
         self.POPSIM_DATA_DIR = self.POPSIM_WORKING_DIR / "data"
         self.POPSIM_CONFIG_DIR = self.POPSIM_WORKING_DIR / "configs"
         self.POPSIM_OUTPUT_DIR = self.POPSIM_WORKING_DIR / "output"
+        
+        # Legacy alias for pipeline compatibility - POINT TO POPSIM DATA DIR
+        self.DATA_DIR = self.POPSIM_DATA_DIR
+        
+        # Example/reference data directories (for template employment/land use data)
+        self.EXAMPLE_CONTROLS_DIR = self.BASE_DIR / "example_controls_2015"
         
         # Test PUMA setting (needed for command setup)
         self.TEST_PUMA = os.getenv('TEST_PUMA', None)
         
         # ============================================================
         # BAY AREA PUMA DEFINITIONS - SINGLE SOURCE OF TRUTH
-        # Bay Area PUMA codes (62 actual PUMAs from crosswalk - integer format for PopulationSim)
-        # Updated to match actual crosswalk PUMAs rather than theoretical full list
-        self.BAY_AREA_PUMAS = [
-            101, 111, 112, 113, 114, 115, 116, 117, 118, 119, 
-            120, 121, 122, 123, 1301, 1305, 1308, 1309, 1310, 1311, 
-            1312, 1313, 1314, 4103, 4104, 5500, 7507, 7508, 7509, 7510, 
-            7511, 7512, 7513, 7514, 8101, 8102, 8103, 8104, 8105, 8106, 
-            8505, 8506, 8507, 8508, 8510, 8511, 8512, 8515, 8516, 8517, 
-            8518, 8519, 8520, 8521, 8522, 9501, 9502, 9503, 9702, 9704, 
-            9705, 9706
-        ]
+        # Bay Area PUMA codes - dynamically loaded from crosswalk
+        # This ensures consistency across all pipeline components
+        self.BAY_AREA_PUMAS = self._load_pumas_from_crosswalk()
         
         # Now define external paths and other configurations
         self._setup_external_paths()
@@ -93,6 +90,35 @@ class UnifiedTM2Config:
             'census_api_timeout': 300,
             'max_retries': 3
         }
+    
+    def _load_pumas_from_crosswalk(self):
+        """Load Bay Area PUMAs from crosswalk file instead of hardcoding"""
+        try:
+            import pandas as pd
+            
+            # Try multiple potential crosswalk locations
+            crosswalk_paths = [
+                self.OUTPUT_DIR / "geo_cross_walk_tm2_updated.csv",
+                Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv"),
+                Path("geo_cross_walk_tm2_updated.csv")
+            ]
+            
+            for crosswalk_path in crosswalk_paths:
+                if crosswalk_path.exists():
+                    crosswalk_df = pd.read_csv(crosswalk_path)
+                    if 'PUMA' in crosswalk_df.columns:
+                        pumas = sorted(crosswalk_df['PUMA'].dropna().unique())
+                        print(f"[CONFIG] Loaded {len(pumas)} PUMAs from crosswalk: {crosswalk_path}")
+                        return pumas
+            
+            # If no crosswalk found, return empty list and warn
+            print(f"[CONFIG] WARNING: No crosswalk found, using empty PUMA list")
+            print(f"[CONFIG] Generate crosswalk first before running pipeline")
+            return []
+            
+        except Exception as e:
+            print(f"[CONFIG] ERROR loading PUMAs from crosswalk: {e}")
+            return []
     
     def _setup_external_paths(self):
         """Setup external system paths"""
@@ -173,6 +199,10 @@ class UnifiedTM2Config:
             'maz_data': "maz_data.csv",
             'maz_data_density': "maz_data_withDensity.csv",
             
+            # Example/reference files (contain employment/land use data to preserve)
+            'example_maz_data': "maz_data.csv",
+            'example_maz_density': "maz_data_withDensity.csv",
+            
             # Crosswalk files
             'geo_crosswalk_base': f"geo_cross_walk_{self.MODEL_TYPE.lower()}.csv",
             'geo_crosswalk_updated': f"geo_cross_walk_{self.MODEL_TYPE.lower()}_updated.csv",
@@ -218,28 +248,28 @@ class UnifiedTM2Config:
         # STEP 0: CROSSWALK FILES
         # ============================================================
         self.CROSSWALK_FILES = {
-            # Primary crosswalk (gets created and updated)
-            'main_crosswalk': self.OUTPUT_DIR / self.FILE_TEMPLATES['geo_crosswalk_updated'],
-            # PopulationSim needs its own copy
+            # Primary crosswalk (PopulationSim expects this in data directory)
+            'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_updated'],
+            # PopulationSim needs this specific filename
             'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
             # PUMA crosswalk (2020 PUMA boundaries only)
             'puma_crosswalk': self.EXTERNAL_PATHS['tm2py_utils'] / "inputs" / "maz_taz" / "puma_outputs" / "geo_cross_walk_tm2.csv",
         }
         
         # ============================================================
-        # STEP 1: SEED POPULATION FILES  
+        # STEP 1: SEED POPULATION FILES - PopulationSim expects these in data directory
         # ============================================================
         self.SEED_FILES = {
-            # Raw downloaded files
-            'households_raw': self.OUTPUT_DIR / self.FILE_TEMPLATES['households_raw'],
-            'persons_raw': self.OUTPUT_DIR / self.FILE_TEMPLATES['persons_raw'],
-            # Processed files 
-            'households_processed': self.OUTPUT_DIR / self.FILE_TEMPLATES['households_processed'],
-            'persons_processed': self.OUTPUT_DIR / self.FILE_TEMPLATES['persons_processed'],
-            # Final seed files (main versions)
-            'households_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['seed_households'], 
-            'persons_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['seed_persons'],
-            # PopulationSim copies
+            # Raw downloaded files (can be in data directory)
+            'households_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['households_raw'],
+            'persons_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['persons_raw'],
+            # Processed files (data directory)
+            'households_processed': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['households_processed'],
+            'persons_processed': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['persons_processed'],
+            # Final seed files (PopulationSim data directory)
+            'households_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_households'], 
+            'persons_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_persons'],
+            # PopulationSim copies (same location now)
             'households_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_households'],
             'persons_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_persons']
         }
@@ -248,7 +278,7 @@ class UnifiedTM2Config:
         # STEP 1B: PUMS DATA FILES (Raw Census downloads)
         # ============================================================
         self.PUMS_FILES = {
-            # Primary locations (current pipeline use)
+            # Primary locations (current pipeline use from M: drive)
             'households_current': self.EXTERNAL_PATHS['pums_current'] / self.FILE_TEMPLATES['pums_households'],
             'persons_current': self.EXTERNAL_PATHS['pums_current'] / self.FILE_TEMPLATES['pums_persons'],
             # Cached backup locations (for long-term storage)
@@ -257,17 +287,17 @@ class UnifiedTM2Config:
         }
         
         # ============================================================
-        # STEP 2: CONTROL FILES
+        # STEP 2: CONTROL FILES - PopulationSim expects these in data directory  
         # ============================================================
         self.CONTROL_FILES = {
-            # Generated control files (main versions in output_2023)
-            'maz_marginals_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_marginals'],
-            'taz_marginals_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['taz_marginals'], 
-            'county_marginals_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['county_marginals'],
-            'maz_data_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data'],
+            # Generated control files (PopulationSim data directory)
+            'maz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals'],
+            'taz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals'], 
+            'county_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['county_marginals'],
+            'maz_data_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data'],  # Keep convenience copies in main output
             'maz_data_density_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data_density'],
             
-            # PopulationSim copies (what PopulationSim actually reads)
+            # PopulationSim files (same location now)
             'maz_marginals_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals'],
             'taz_marginals_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals'],
             'county_marginals_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['county_marginals'],
@@ -322,13 +352,19 @@ class UnifiedTM2Config:
         """Define ALL commands in the system"""
         
         self.COMMANDS = {
-            # Step 0: Crosswalk creation
+            # Step 0: Crosswalk creation (MUST be first - seed generation needs it)
             'crosswalk': [
                 str(self.PYTHON_EXE),
-                str(self.BASE_DIR / "build_puma_crosswalk.py")
+                str(self.BASE_DIR / "create_tm2_crosswalk.py")
             ] + self.get_test_puma_args(),
             
-            # Step 1: Seed generation  
+            # Step 1: PUMS data download (depends on crosswalk for PUMA filtering)
+            'pums': [
+                str(self.PYTHON_EXE),
+                str(self.BASE_DIR / "download_2023_5year_pums.py")
+            ],
+            
+            # Step 2: Seed generation (depends on crosswalk and PUMS data)
             'seed': [
                 str(self.PYTHON_EXE),
                 str(self.BASE_DIR / "create_seed_population_tm2_refactored.py"),
@@ -336,14 +372,13 @@ class UnifiedTM2Config:
                 "--model_type", self.MODEL_TYPE
             ] + self.get_test_puma_args(),
             
-            # Step 2: Control generation
+            # Step 3: Control generation
             'controls': [
                 str(self.PYTHON_EXE),
-                str(self.BASE_DIR / "create_baseyear_controls_23_tm2.py"),
-                "--output_dir", str(self.OUTPUT_DIR)
+                str(self.BASE_DIR / "create_baseyear_controls_23_tm2.py")
             ] + self.get_test_puma_args(),
             
-            # Step 3: Group quarters integration
+            # Step 4: Group quarters integration
             'hhgq': [
                 str(self.PYTHON_EXE),
                 str(self.BASE_DIR / "add_hhgq_combined_controls.py"), 
@@ -352,7 +387,7 @@ class UnifiedTM2Config:
                 "--output_dir", str(self.POPSIM_DATA_DIR)
             ] + self.get_test_puma_args(),
             
-            # Step 4: PopulationSim synthesis
+            # Step 5: PopulationSim synthesis
             'populationsim': [
                 str(self.PYTHON_EXE),
                 str(self.BASE_DIR / "run_populationsim_synthesis.py"),
@@ -360,7 +395,7 @@ class UnifiedTM2Config:
                 "--output", str(self.POPSIM_OUTPUT_DIR)
             ] + self.get_test_puma_args(),
             
-            # Step 5: Post-processing
+            # Step 6: Post-processing
             'postprocess': [
                 str(self.PYTHON_EXE),
                 str(self.BASE_DIR / "postprocess_recode.py"),
@@ -369,7 +404,7 @@ class UnifiedTM2Config:
                 "--year", str(self.YEAR)
             ] + self.get_test_puma_args(),
             
-            # Step 6: Tableau preparation
+            # Step 7: Tableau preparation
             'tableau': [
                 str(self.PYTHON_EXE),
                 str(self.TABLEAU_FILES['script']),
@@ -661,7 +696,6 @@ class UnifiedTM2Config:
     def ensure_directories(self):
         """Create all necessary directories"""
         self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        self.HH_GQ_DIR.mkdir(parents=True, exist_ok=True)
         self.SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
         self.POPSIM_WORKING_DIR.mkdir(parents=True, exist_ok=True)
         self.POPSIM_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -676,6 +710,10 @@ class UnifiedTM2Config:
     def get_step_files(self, step_name):
         """Get the files that should exist after a step completes"""
         step_files = {
+            'pums': [
+                self.PUMS_FILES['households_current'], 
+                self.PUMS_FILES['persons_current']
+            ],
             'crosswalk': [self.CROSSWALK_FILES['main_crosswalk']],
             'seed': [self.SEED_FILES['households_main'], self.SEED_FILES['persons_main']],
             'controls': [
