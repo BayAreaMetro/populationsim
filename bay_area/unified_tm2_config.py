@@ -97,8 +97,9 @@ class UnifiedTM2Config:
     def _setup_external_paths(self):
         """Setup external system paths"""
         self.EXTERNAL_PATHS = {
-            # TM2PY utilities (for shapefiles)
+            # TM2PY utilities (for shapefiles and outputs)
             'tm2py_shapefiles': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles"),
+            'tm2py_utils': Path("C:/GitHub/tm2py-utils/tm2py_utils"),
             # Original populationsim_update path (used in some scripts)
             'populationsim_update': Path("c:/GitHub/populationsim_update/bay_area"),
             # Census data cache
@@ -107,6 +108,9 @@ class UnifiedTM2Config:
             'network_gis': Path("M:/Data/GIS layers/TM2_maz_taz_v2.2"),
             'network_census_cache': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls"),
             'network_census_api': Path("M:/Data/Census/API/new_key"),
+            # PUMS data locations (both current and cached)
+            'pums_current': Path("M:/Data/Census/PUMS_2023_5Year_Crosswalked"),
+            'pums_cached': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23"),
             # Local fallback paths
             'local_data': self.BASE_DIR / "local_data",
             'local_gis': self.BASE_DIR / "local_data" / "gis", 
@@ -157,6 +161,10 @@ class UnifiedTM2Config:
             'persons_processed': f"persons_{self.YEAR}_{self.MODEL_TYPE.lower()}.csv",
             'seed_households': "seed_households.csv",
             'seed_persons': "seed_persons.csv",
+            
+            # PUMS data files (downloaded from Census)
+            'pums_households': "bay_area_households_2019_2023_crosswalked.csv",
+            'pums_persons': "bay_area_persons_2019_2023_crosswalked.csv",
             
             # Control files
             'maz_marginals': "maz_marginals.csv",
@@ -213,7 +221,9 @@ class UnifiedTM2Config:
             # Primary crosswalk (gets created and updated)
             'main_crosswalk': self.OUTPUT_DIR / self.FILE_TEMPLATES['geo_crosswalk_updated'],
             # PopulationSim needs its own copy
-            'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base']
+            'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
+            # PUMA crosswalk (2020 PUMA boundaries only)
+            'puma_crosswalk': self.EXTERNAL_PATHS['tm2py_utils'] / "inputs" / "maz_taz" / "puma_outputs" / "geo_cross_walk_tm2.csv",
         }
         
         # ============================================================
@@ -232,6 +242,18 @@ class UnifiedTM2Config:
             # PopulationSim copies
             'households_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_households'],
             'persons_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_persons']
+        }
+        
+        # ============================================================
+        # STEP 1B: PUMS DATA FILES (Raw Census downloads)
+        # ============================================================
+        self.PUMS_FILES = {
+            # Primary locations (current pipeline use)
+            'households_current': self.EXTERNAL_PATHS['pums_current'] / self.FILE_TEMPLATES['pums_households'],
+            'persons_current': self.EXTERNAL_PATHS['pums_current'] / self.FILE_TEMPLATES['pums_persons'],
+            # Cached backup locations (for long-term storage)
+            'households_cached': self.EXTERNAL_PATHS['pums_cached'] / self.FILE_TEMPLATES['pums_households'],
+            'persons_cached': self.EXTERNAL_PATHS['pums_cached'] / self.FILE_TEMPLATES['pums_persons']
         }
         
         # ============================================================
@@ -303,7 +325,7 @@ class UnifiedTM2Config:
             # Step 0: Crosswalk creation
             'crosswalk': [
                 str(self.PYTHON_EXE),
-                str(self.BASE_DIR / "build_crosswalk_focused.py")
+                str(self.BASE_DIR / "build_puma_crosswalk.py")
             ] + self.get_test_puma_args(),
             
             # Step 1: Seed generation  
@@ -631,6 +653,42 @@ class UnifiedTM2Config:
             steps_needed.append(6)
         
         return status, steps_needed
+    
+    def get_command(self, step_name):
+        """Get command for a specific step"""
+        return self.COMMANDS.get(step_name, [])
+    
+    def ensure_directories(self):
+        """Create all necessary directories"""
+        self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        self.HH_GQ_DIR.mkdir(parents=True, exist_ok=True)
+        self.SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+        self.POPSIM_WORKING_DIR.mkdir(parents=True, exist_ok=True)
+        self.POPSIM_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        self.POPSIM_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        self.POPSIM_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # Create M: drive directories if they don't exist
+        for path_key in ['pums_current', 'pums_cached']:
+            path = self.EXTERNAL_PATHS[path_key]
+            path.mkdir(parents=True, exist_ok=True)
+    
+    def get_step_files(self, step_name):
+        """Get the files that should exist after a step completes"""
+        step_files = {
+            'crosswalk': [self.CROSSWALK_FILES['main_crosswalk']],
+            'seed': [self.SEED_FILES['households_main'], self.SEED_FILES['persons_main']],
+            'controls': [
+                self.CONTROL_FILES['maz_marginals_main'], 
+                self.CONTROL_FILES['taz_marginals_main'], 
+                self.CONTROL_FILES['county_marginals_main']
+            ],
+            'populationsim': [
+                self.POPSIM_OUTPUT_DIR / "synthetic_households.csv",
+                self.POPSIM_OUTPUT_DIR / "synthetic_persons.csv"
+            ]
+        }
+        return step_files.get(step_name, [])
 
 # Create global configuration instance
 config = UnifiedTM2Config()

@@ -3,7 +3,7 @@ import pandas as pd
 import collections
 import logging
 from tm2_control_utils.geog_utils import add_aggregate_geography_colums
-from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS, CENSUS_DEFINITIONS
+from tm2_control_utils.config_census import GEOGRAPHY_ID_COLUMNS, CENSUS_DEFINITIONS
 
 
 # Utility to get GEOID column for a geography
@@ -553,7 +553,7 @@ def ensure_geoid_column(df, geography):
     For temp controls already aggregated to MAZ level, skips GEOID construction.
     """
     import logging
-    from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS
+    from tm2_control_utils.config_census import GEOGRAPHY_ID_COLUMNS
     geo = geography.lower().replace('_', ' ')
     supported = ["block", "block group", "tract", "county"]
     colname = GEOGRAPHY_ID_COLUMNS.get(geo, {}).get('census', f'GEOID_{geo}')
@@ -848,7 +848,7 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
                 # This requires summing all household size categories (dynamically determined)
                 
                 # Get all household size controls from config
-                from tm2_control_utils.config import get_controls_in_category
+                from tm2_control_utils.config_census import get_controls_in_category
                 hh_size_controls = get_controls_in_category('TAZ', 'household_size')
                 available_hh_size_controls = [ctrl for ctrl in hh_size_controls if ctrl in temp_controls]
                 
@@ -1006,7 +1006,7 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
         return control_table_df
 
 def aggregate_to_control_geo(control_table_df, control_name, control_geography, census_geography, maz_taz_def_df, temp_controls, scale_numerator, scale_denominator, subtract_table, variable_total):
-    from tm2_control_utils.config import GEOGRAPHY_ID_COLUMNS
+    from tm2_control_utils.config_census import GEOGRAPHY_ID_COLUMNS
     import logging
     
     # Diagnostics

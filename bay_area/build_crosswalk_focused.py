@@ -22,6 +22,9 @@ from pathlib import Path
 import sys
 import argparse
 
+# Import unified configuration
+from simplified_tm2_config import config
+
 # PUMA to County mapping for Bay Area (2020 boundaries)
 # Based on exact PUMA IDs from spatial analysis (5-digit format with leading zeros)
 # All 9 Bay Area counties: Alameda, Contra Costa, Marin, Napa, San Francisco, San Mateo, Santa Clara, Solano, Sonoma
@@ -114,13 +117,17 @@ def main():
     print(f"   MAZ shapefile: {maz_shapefile}")
     print(f"   PUMA shapefile: {puma_shapefile}")
     
-    # Output file - save directly where PopulationSim expects it AND in output_2023 for reference
-    output_file_primary = base_dir / "hh_gq" / "data" / "geo_cross_walk_tm2_updated.csv"
-    output_file_reference = base_dir / "output_2023" / "geo_cross_walk_tm2_updated.csv"
+    # Output file - single location using simplified config
+    if config:
+        output_file = config.geo_crosswalk
+        print(f"INFO: Using config output path: {output_file}")
+    else:
+        # Fallback to working directory only (no more dual locations!)
+        output_file = base_dir / "hh_gq" / "tm2_working_dir" / "data" / "geo_cross_walk_tm2.csv"
+        print(f"INFO: Using fallback output path: {output_file}")
     
-    # Ensure both output directories exist
-    output_file_primary.parent.mkdir(parents=True, exist_ok=True)
-    output_file_reference.parent.mkdir(parents=True, exist_ok=True)
+    # Ensure output directory exists
+    output_file.parent.mkdir(parents=True, exist_ok=True)
     
     print("  STEP 1: Loading MAZ shapefile with existing TAZ relationships")
     print(f"   File: {maz_shapefile}")
@@ -357,9 +364,8 @@ def main():
         return False
     
     print()
-    print(" STEP 4: Saving direct MAZTAZPUMA20 crosswalk files")
-    print(f"   Primary: {output_file_primary}")
-    print(f"   Reference: {output_file_reference}")
+    print(" STEP 4: Saving direct MAZ→TAZ→PUMA20 crosswalk file")
+    print(f"   Output: {output_file}")
     
     try:
         # The final_mapping already contains the complete crosswalk
@@ -409,35 +415,32 @@ def main():
         print("    Sample final crosswalk:")
         print(final_mapping.head(10))
         
-        # Save to both locations with proper data types
-        for output_file in [output_file_primary, output_file_reference]:
-            final_mapping.to_csv(output_file, index=False)
-            print(f"    Saved crosswalk: {output_file}")
-            
-            # Verify the saved file and ensure PUMA format is integer  
-            verify_df = pd.read_csv(output_file, dtype={'MAZ': int, 'TAZ': int, 'PUMA': int, 'COUNTY': str, 'county_name': str})
-            # Ensure PUMA is integer format for PopulationSim
-            verify_df['PUMA'] = verify_df['PUMA'].astype(int)
-            # Re-save with correct format
-            verify_df.to_csv(output_file, index=False)
-            print(f"    Verification: {len(verify_df):,} records with integer PUMA format")
+        # Save to single location with proper data types
+        final_mapping.to_csv(output_file, index=False)
+        print(f"    Saved crosswalk: {output_file}")
+        
+        # Verify the saved file and ensure PUMA format is integer  
+        verify_df = pd.read_csv(output_file, dtype={'MAZ': int, 'TAZ': int, 'PUMA': int, 'COUNTY': str, 'county_name': str})
+        # Ensure PUMA is integer format for PopulationSim
+        verify_df['PUMA'] = verify_df['PUMA'].astype(int)
+        # Re-save with correct format
+        verify_df.to_csv(output_file, index=False)
+        print(f"    Verification: {len(verify_df):,} records with integer PUMA format")
         
         # Show final statistics
         print()
         print("=" * 60)
-        print(" DIRECT MAZPUMA GEOSPATIAL CROSSWALK COMPLETE")
+        print(" DIRECT MAZ→PUMA GEOSPATIAL CROSSWALK COMPLETE")
         print("=" * 60)
-        print(f" Created primary: {output_file_primary}")
-        print(f" Created reference: {output_file_reference}")
+        print(f" Created: {output_file}")
         print(f" Records: {len(final_mapping):,}")
         print(f" MAZs: {final_mapping['MAZ'].nunique():,}")
         print(f"  TAZs: {final_mapping['TAZ'].nunique():,}")
         print(f"  PUMA20s (2020 boundaries): {final_mapping['PUMA'].nunique():,}")
         print()
-        print(" Direct spatial approach: MAZ centroids  PUMA boundaries")
-        print(" This crosswalk uses direct MAZPUMA spatial relationships!")
-        print(" Pipeline ready: Files created in both expected locations")
-        print("Ready for PopulationSim!")
+        print(" Direct spatial approach: MAZ centroids → PUMA boundaries")
+        print(" Single source of truth: No duplicate files!")
+        print(" Ready for PopulationSim!")
         
         return True
         

@@ -16,6 +16,12 @@ USE_SIMUL_INTEGERIZER: True
 USE_CVXPY: False
 max_expansion_factor: 30
 
+# Tolerance Settings to handle floating-point precision
+# ------------------------------------------------------------------
+rel_tolerance: 0.005        # Slightly relaxed relative tolerance
+abs_tolerance: 5.0          # Slightly relaxed absolute tolerance
+integer_tolerance: 0.05     # Tolerance for integer checking
+
 
 # Geographic Settings
 # ------------------------------------------------------------------
@@ -66,7 +72,7 @@ input_table_list:
       - soc
   - tablename: geo_cross_walk
     filename : geo_cross_walk_tm2.csv
-    # created by create_baseyear_controls.py
+    # created by build_puma_crosswalk.py
   - tablename: MAZ_control_data
     filename : maz_marginals_hhgq.csv
     # created by create_baseyear_controls_23_tm2.py and processed by add_hhgq_combined_controls.py

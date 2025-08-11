@@ -4,7 +4,7 @@ import pandas as pd
 import requests
 import re
 from bs4 import BeautifulSoup
-from tm2_control_utils.config import *
+from tm2_control_utils.config_census import *
 
 
 def prepare_geography_dfs():

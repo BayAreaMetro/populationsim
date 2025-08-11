@@ -25,7 +25,7 @@ warnings.filterwarnings('ignore')
 try:
     from unified_tm2_config import UnifiedTM2Config
 except ImportError:
-    print("⚠️  Warning: unified_tm2_config not found, using fallback paths")
+    print("[WARNING]  Warning: unified_tm2_config not found, using fallback paths")
     UnifiedTM2Config = None
 
 class TAZPUMAVisualizer:
@@ -51,7 +51,7 @@ class TAZPUMAVisualizer:
         # Bay Area counties for filtering PUMAs
         self.bay_area_counties = ['001', '013', '041', '055', '075', '081', '085', '095', '097']
         
-        print("🗺️  TAZ-PUMA Spatial Visualization Tool")
+        print("[MAP]  TAZ-PUMA Spatial Visualization Tool")
         print("=" * 50)
     
     def load_spatial_data(self):
@@ -64,7 +64,7 @@ class TAZPUMAVisualizer:
             raise FileNotFoundError(f"TAZ shapefile not found: {self.taz_shapefile}")
         
         self.taz_gdf = gpd.read_file(self.taz_shapefile, engine='pyogrio')
-        print(f"   ✅ Loaded {len(self.taz_gdf):,} TAZ zones")
+        print(f"   [SUCCESS] Loaded {len(self.taz_gdf):,} TAZ zones")
         print(f"      Columns: {list(self.taz_gdf.columns)}")
         
         # Determine TAZ ID column
@@ -82,7 +82,7 @@ class TAZPUMAVisualizer:
             raise FileNotFoundError(f"PUMA shapefile not found: {self.puma_shapefile}")
         
         puma_gdf_full = gpd.read_file(self.puma_shapefile, engine='pyogrio')
-        print(f"   ✅ Loaded {len(puma_gdf_full):,} total PUMA zones")
+        print(f"   [SUCCESS] Loaded {len(puma_gdf_full):,} total PUMA zones")
         
         # Filter to Bay Area counties
         county_col = None
@@ -95,7 +95,7 @@ class TAZPUMAVisualizer:
             self.puma_gdf = puma_gdf_full[puma_gdf_full[county_col].isin(self.bay_area_counties)].copy()
             print(f"   🌉 Filtered to Bay Area: {len(self.puma_gdf):,} PUMA zones")
         else:
-            print("   ⚠️  No county column found, using all PUMAs")
+            print("   [WARNING]  No county column found, using all PUMAs")
             self.puma_gdf = puma_gdf_full.copy()
         
         # Determine PUMA ID column
@@ -109,14 +109,14 @@ class TAZPUMAVisualizer:
         
         # Ensure same CRS
         if self.taz_gdf.crs != self.puma_gdf.crs:
-            print(f"   🔧 Reprojecting TAZs from {self.taz_gdf.crs} to {self.puma_gdf.crs}")
+            print(f"   [CONFIG] Reprojecting TAZs from {self.taz_gdf.crs} to {self.puma_gdf.crs}")
             self.taz_gdf = self.taz_gdf.to_crs(self.puma_gdf.crs)
         
         print(f"   📍 Working CRS: {self.taz_gdf.crs}")
         
     def analyze_taz_puma_overlaps(self):
         """Analyze area overlaps between TAZs and PUMAs"""
-        print("\n🔍 Analyzing TAZ-PUMA spatial overlaps...")
+        print("\n[SEARCH] Analyzing TAZ-PUMA spatial overlaps...")
         
         # Perform spatial overlay to find intersections
         print("   Calculating intersections...")
@@ -127,10 +127,10 @@ class TAZPUMAVisualizer:
         )
         
         if len(overlays) == 0:
-            print("   ❌ No overlaps found! Check coordinate systems.")
+            print("   [ERROR] No overlaps found! Check coordinate systems.")
             return None
         
-        print(f"   ✅ Found {len(overlays):,} TAZ-PUMA intersection polygons")
+        print(f"   [SUCCESS] Found {len(overlays):,} TAZ-PUMA intersection polygons")
         
         # Calculate areas
         print("   Calculating areas...")
@@ -157,7 +157,7 @@ class TAZPUMAVisualizer:
             overlays.groupby(self.taz_id_col)['overlap_area'].idxmax()
         ].set_index(self.taz_id_col)[self.puma_id_col]
         
-        print(f"   📊 Summary created for {len(self.taz_puma_summary):,} TAZs")
+        print(f"   [STATS] Summary created for {len(self.taz_puma_summary):,} TAZs")
         
         # Show statistics
         print("\n📈 TAZ-PUMA Overlap Statistics:")
@@ -192,7 +192,7 @@ class TAZPUMAVisualizer:
     
     def create_interactive_map(self):
         """Create interactive Folium map with toggleable layers"""
-        print("\n🗺️  Creating interactive map...")
+        print("\n[MAP]  Creating interactive map...")
         
         # Calculate map center
         bounds = self.taz_gdf.total_bounds
@@ -498,14 +498,14 @@ class TAZPUMAVisualizer:
         print(f"   💾 Report saved: {report_file}")
         
         # Print key findings to console
-        print("\n🎯 KEY FINDINGS:")
+        print("\n[TARGET] KEY FINDINGS:")
         if hasattr(self, 'taz_puma_summary'):
             unique_pumas = set([p for pumas in self.taz_puma_summary[self.puma_id_col] for p in pumas])
             print(f"   • Found {len(unique_pumas)} PUMAs with TAZ overlaps")
             print(f"   • Expected {len(self.puma_gdf)} PUMAs in Bay Area")
             if len(unique_pumas) < len(self.puma_gdf):
                 missing = len(self.puma_gdf) - len(unique_pumas)
-                print(f"   ⚠️  {missing} PUMAs have no TAZ overlaps!")
+                print(f"   [WARNING]  {missing} PUMAs have no TAZ overlaps!")
         
     def run_analysis(self):
         """Run complete TAZ-PUMA analysis"""
@@ -517,14 +517,14 @@ class TAZPUMAVisualizer:
                 self.create_interactive_map()
                 self.generate_summary_report()
                 
-                print("\n✅ Analysis complete!")
-                print(f"📁 Results saved to: {self.output_dir}")
-                print(f"🗺️  Open the interactive map: {self.output_dir}/taz_puma_interactive_map.html")
+                print("\n[SUCCESS] Analysis complete!")
+                print(f"[DATA] Results saved to: {self.output_dir}")
+                print(f"[MAP]  Open the interactive map: {self.output_dir}/taz_puma_interactive_map.html")
             else:
-                print("\n❌ Analysis failed due to no spatial overlaps")
+                print("\n[ERROR] Analysis failed due to no spatial overlaps")
                 
         except Exception as e:
-            print(f"\n❌ Analysis failed: {e}")
+            print(f"\n[ERROR] Analysis failed: {e}")
             raise
 
 def main():

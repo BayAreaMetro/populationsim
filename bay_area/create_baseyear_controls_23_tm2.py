@@ -10,7 +10,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'tm2_control_utils'))
 
-from tm2_control_utils.config import *
+from tm2_control_utils.config_census import *
 
 
 
@@ -78,9 +78,9 @@ import numpy
 import pandas as pd
 import traceback
 
-from tm2_control_utils.config import *
+from tm2_control_utils.config_census import *
 from tm2_control_utils import config
-from tm2_control_utils.config import (get_bay_area_county_codes, get_county_name_mapping, 
+from tm2_control_utils.config_census import (get_bay_area_county_codes, get_county_name_mapping, 
                                     get_control_categories_for_geography, get_controls_in_category,
                                     get_all_expected_controls_for_geography, get_missing_controls_for_geography)
 from tm2_control_utils.census_fetcher import CensusFetcher
@@ -92,7 +92,7 @@ def verify_input_files():
     """Verify that all required input files are accessible."""
     logger = logging.getLogger()
     
-    from tm2_control_utils.config import MAZ_TAZ_DEF_FILE, MAZ_TAZ_ALL_GEOG_FILE, CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
+    from tm2_control_utils.config_census import MAZ_TAZ_DEF_FILE, MAZ_TAZ_ALL_GEOG_FILE, CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
     
     logger.info("Checking file accessibility")
     
@@ -313,7 +313,7 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
         control_df = control_df.reset_index()
     
     # Get county mapping from the crosswalk file (same approach as the validation function)
-    from tm2_control_utils.config import PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE
+    from tm2_control_utils.config_census import PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE
     import os
     
     geo_crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, GEO_CROSSWALK_TM2_FILE)
@@ -325,7 +325,7 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
         crosswalk_df = pd.read_csv(geo_crosswalk_file)
         
         # Import county mapping from config instead of hardcoding
-        from tm2_control_utils.config import get_crosswalk_to_fips_mapping
+        from tm2_control_utils.config_census import get_crosswalk_to_fips_mapping
         county_to_fips_mapping = get_crosswalk_to_fips_mapping()
         
         # Create county mapping - convert COUNTY to 3-digit FIPS string format
@@ -350,7 +350,7 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     if missing_counties > 0:
         logger.warning(f"Found {missing_counties} MAZ zones without county mapping - will use scale factor 1.0")
         # Fill missing county mappings with default from config instead of hardcoding
-        from tm2_control_utils.config import get_default_county_fips
+        from tm2_control_utils.config_census import get_default_county_fips
         default_county = get_default_county_fips()
         scaled_df['county_fips'] = scaled_df['county_fips'].fillna(default_county)
     
@@ -412,7 +412,7 @@ def get_county_targets(cf, logger, use_offline_fallback=True):
     Returns a dictionary with county FIPS codes as keys and target DataFrames as values.
     """
     from tm2_control_utils import config
-    from tm2_control_utils.config import COUNTY_TARGETS_FILE, ACS_EST_YEAR, CONTROLS, PRIMARY_OUTPUT_DIR
+    from tm2_control_utils.config_census import COUNTY_TARGETS_FILE, ACS_EST_YEAR, CONTROLS, PRIMARY_OUTPUT_DIR
     
     # Check for county targets cache file in primary output directory
     possible_cache_files = [
@@ -2069,11 +2069,12 @@ def write_outputs(control_geo, out_df, crosswalk_df):
             county_recode_adjusted['COUNTY'] = county_recode_adjusted['GEOID_county'].apply(lambda x: int(x[-3:]) % 100)
             out_df = pd.merge(left=county_recode_adjusted[["COUNTY", "county_name"]], right=out_df, on='COUNTY', how="right")
 
-    # Round all control values to integers, handling NaN
+    # Round all control values to integers, handling NaN and ensuring perfect integer totals
     control_cols = [col for col in out_df.columns if col != control_geo and col != 'county_name']
     for col in control_cols:
-        # Fill NaN with 0 before converting to int
-        out_df[col] = out_df[col].fillna(0).round().astype(int)
+        # Fill NaN with 0, round to ensure integer values, then convert to int
+        # This extra rounding step prevents floating-point precision issues in PopulationSim
+        out_df[col] = numpy.round(out_df[col].fillna(0)).astype(int)
 
     # Calculate gq_other for MAZ controls if we have the detailed group quarters controls
     if control_geo == 'MAZ' and all(col in out_df.columns for col in ['gq_pop', 'gq_military', 'gq_university']):
@@ -2228,7 +2229,7 @@ def create_hhgq_integrated_files(logger):
     logger.info("CREATING HHGQ-INTEGRATED CONTROL FILES")
     logger.info("=" * 60)
     
-    from tm2_control_utils.config import PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE, TAZ_MARGINALS_FILE, COUNTY_MARGINALS_FILE
+    from tm2_control_utils.config_census import PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE, TAZ_MARGINALS_FILE, COUNTY_MARGINALS_FILE
     import shutil
     
     try:
@@ -2237,8 +2238,8 @@ def create_hhgq_integrated_files(logger):
         taz_input = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
         county_input = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_MARGINALS_FILE)
         
-        # Output files will be in hh_gq/configs_TM2/ for PopulationSim
-        output_dir = os.path.join("hh_gq", "configs_TM2")
+        # Output files will be in hh_gq/tm2_working_dir/data/ - single source of truth
+        output_dir = os.path.join("hh_gq", "tm2_working_dir", "data")
         os.makedirs(output_dir, exist_ok=True)
         
         maz_output = os.path.join(output_dir, "maz_marginals_hhgq.csv")
@@ -2478,9 +2479,9 @@ def enforce_hierarchical_consistency_in_controls(logger):
                 logger.warning(f"✗ {maz_control}: {inconsistent_count} MAZs still inconsistent")
         
         if validation_passed:
-            logger.info("✅ Hierarchical consistency enforcement completed successfully!")
+            logger.info("[SUCCESS] Hierarchical consistency enforcement completed successfully!")
         else:
-            logger.warning("⚠️  Some inconsistencies remain after enforcement")
+            logger.warning("[WARNING]  Some inconsistencies remain after enforcement")
         
         return True
         
@@ -2495,8 +2496,8 @@ def main():
     
     parser = argparse.ArgumentParser(description='Generate baseyear controls for TM2 PopulationSim')
     parser.add_argument('--output_dir', 
-                       help='Output directory for control files (default: output_2023)',
-                       default='output_2023')
+                       help='Output directory for control files (default: hh_gq/tm2_working_dir/data)',
+                       default='hh_gq/tm2_working_dir/data')
     args = parser.parse_args()
     
     # Override PRIMARY_OUTPUT_DIR from config with command line argument

@@ -28,7 +28,7 @@ warnings.filterwarnings('ignore')
 try:
     from unified_tm2_config import UnifiedTM2Config
 except ImportError:
-    print("⚠️  Warning: unified_tm2_config not found, using fallback paths")
+    print("[WARNING]  Warning: unified_tm2_config not found, using fallback paths")
     UnifiedTM2Config = None
 
 class TableauDataPreparer:
@@ -93,14 +93,14 @@ class TableauDataPreparer:
         
     def prepare_taz_shapefile(self):
         """Prepare TAZ shapefile with standardized join fields."""
-        print(f"\n🗺️  Processing TAZ shapefile...")
+        print(f"\n[MAP]  Processing TAZ shapefile...")
         
         # Find TAZ shapefile
         taz_patterns = ['taz', 'traffic']
         taz_shapefile = self.find_shapefile(taz_patterns)
         
         if not taz_shapefile:
-            print(f"   ❌ TAZ shapefile not found")
+            print(f"   [ERROR] TAZ shapefile not found")
             return None
             
         # Load shapefile with compatibility handling
@@ -110,22 +110,22 @@ class TableauDataPreparer:
             print(f"   Original columns: {list(taz_gdf.columns)}")
         except AttributeError as e:
             if "fiona" in str(e) and "path" in str(e):
-                print(f"   ⚠️  Fiona compatibility issue detected. Trying alternative method...")
+                print(f"   [WARNING]  Fiona compatibility issue detected. Trying alternative method...")
                 try:
                     # Alternative method using direct file path
                     import fiona
                     with fiona.open(taz_shapefile) as src:
                         taz_gdf = gpd.GeoDataFrame.from_features(src.values(), crs=src.crs)
-                    print(f"   ✅ Successfully loaded {len(taz_gdf):,} TAZ features using alternative method")
+                    print(f"   [SUCCESS] Successfully loaded {len(taz_gdf):,} TAZ features using alternative method")
                     print(f"   Original columns: {list(taz_gdf.columns)}")
                 except Exception as e2:
-                    print(f"   ❌ Failed to load TAZ shapefile: {e2}")
+                    print(f"   [ERROR] Failed to load TAZ shapefile: {e2}")
                     return None
             else:
-                print(f"   ❌ Failed to load TAZ shapefile: {e}")
+                print(f"   [ERROR] Failed to load TAZ shapefile: {e}")
                 return None
         except Exception as e:
-            print(f"   ❌ Failed to load TAZ shapefile: {e}")
+            print(f"   [ERROR] Failed to load TAZ shapefile: {e}")
             return None
         
         # Identify TAZ ID field
@@ -141,7 +141,7 @@ class TableauDataPreparer:
             if taz_fields:
                 taz_id_field = taz_fields[0]
             else:
-                print(f"   ❌ No TAZ ID field found")
+                print(f"   [ERROR] No TAZ ID field found")
                 return None
                 
         print(f"   Using TAZ ID field: {taz_id_field}")
@@ -167,7 +167,7 @@ class TableauDataPreparer:
         output_path = os.path.join(self.output_dir, 'taz_boundaries_tableau.shp')
         taz_clean.to_file(output_path)
         
-        print(f"   ✅ TAZ shapefile saved: {output_path}")
+        print(f"   [SUCCESS] TAZ shapefile saved: {output_path}")
         print(f"   Final columns: {list(taz_clean.columns)}")
         print(f"   TAZ ID range: {taz_clean['TAZ_ID'].min()} - {taz_clean['TAZ_ID'].max()}")
         
@@ -175,14 +175,14 @@ class TableauDataPreparer:
         
     def prepare_puma_shapefile(self):
         """Prepare PUMA shapefile with standardized join fields."""
-        print(f"\n🗺️  Processing PUMA shapefile...")
+        print(f"\n[MAP]  Processing PUMA shapefile...")
         
         # Find PUMA shapefile
         puma_patterns = ['puma', 'puma20']
         puma_shapefile = self.find_shapefile(puma_patterns)
         
         if not puma_shapefile:
-            print(f"   ❌ PUMA shapefile not found")
+            print(f"   [ERROR] PUMA shapefile not found")
             return None
             
         # Load shapefile with compatibility handling
@@ -192,22 +192,22 @@ class TableauDataPreparer:
             print(f"   Original columns: {list(puma_gdf.columns)}")
         except AttributeError as e:
             if "fiona" in str(e) and "path" in str(e):
-                print(f"   ⚠️  Fiona compatibility issue detected. Trying alternative method...")
+                print(f"   [WARNING]  Fiona compatibility issue detected. Trying alternative method...")
                 try:
                     # Alternative method using direct file path
                     import fiona
                     with fiona.open(puma_shapefile) as src:
                         puma_gdf = gpd.GeoDataFrame.from_features(src.values(), crs=src.crs)
-                    print(f"   ✅ Successfully loaded {len(puma_gdf):,} PUMA features using alternative method")
+                    print(f"   [SUCCESS] Successfully loaded {len(puma_gdf):,} PUMA features using alternative method")
                     print(f"   Original columns: {list(puma_gdf.columns)}")
                 except Exception as e2:
-                    print(f"   ❌ Failed to load PUMA shapefile: {e2}")
+                    print(f"   [ERROR] Failed to load PUMA shapefile: {e2}")
                     return None
             else:
-                print(f"   ❌ Failed to load PUMA shapefile: {e}")
+                print(f"   [ERROR] Failed to load PUMA shapefile: {e}")
                 return None
         except Exception as e:
-            print(f"   ❌ Failed to load PUMA shapefile: {e}")
+            print(f"   [ERROR] Failed to load PUMA shapefile: {e}")
             return None
         
         # Filter for California if needed
@@ -226,7 +226,7 @@ class TableauDataPreparer:
                 break
                 
         if not puma_id_field:
-            print(f"   ❌ No PUMA ID field found")
+            print(f"   [ERROR] No PUMA ID field found")
             return None
             
         print(f"   Using PUMA ID field: {puma_id_field}")
@@ -255,7 +255,7 @@ class TableauDataPreparer:
         output_path = os.path.join(self.output_dir, 'puma_boundaries_tableau.shp')
         puma_clean.to_file(output_path)
         
-        print(f"   ✅ PUMA shapefile saved: {output_path}")
+        print(f"   [SUCCESS] PUMA shapefile saved: {output_path}")
         print(f"   Final columns: {list(puma_clean.columns)}")
         print(f"   PUMA ID range: {puma_clean['PUMA_ID'].min()} - {puma_clean['PUMA_ID'].max()}")
         
@@ -263,12 +263,12 @@ class TableauDataPreparer:
         
     def prepare_taz_marginals(self):
         """Prepare TAZ marginals with standardized join fields and 2015-2023 comparison."""
-        print(f"\n📊 Processing TAZ marginals...")
+        print(f"\n[STATS] Processing TAZ marginals...")
         
         # Load 2023 data
         taz_file_2023 = os.path.join(self.data_dir, 'taz_marginals.csv')
         if not os.path.exists(taz_file_2023):
-            print(f"   ❌ 2023 TAZ marginals not found: {taz_file_2023}")
+            print(f"   [ERROR] 2023 TAZ marginals not found: {taz_file_2023}")
             return None
             
         taz_2023 = pd.read_csv(taz_file_2023)
@@ -278,7 +278,7 @@ class TableauDataPreparer:
         if 'TAZ' in taz_2023.columns:
             taz_2023['TAZ_ID'] = taz_2023['TAZ'].astype(int)
         else:
-            print(f"   ❌ No TAZ field found in 2023 data")
+            print(f"   [ERROR] No TAZ field found in 2023 data")
             return None
         
         # Load 2015 data for comparison
@@ -292,10 +292,10 @@ class TableauDataPreparer:
             if 'TAZ' in taz_2015.columns:
                 taz_2015['TAZ_ID'] = taz_2015['TAZ'].astype(int)
             else:
-                print(f"   ❌ No TAZ field found in 2015 data")
+                print(f"   [ERROR] No TAZ field found in 2015 data")
                 taz_2015 = None
         else:
-            print(f"   ⚠️  2015 TAZ data not found: {taz_file_2015}")
+            print(f"   [WARNING]  2015 TAZ data not found: {taz_file_2015}")
             taz_2015 = None
         
         # Start with 2023 data
@@ -334,7 +334,7 @@ class TableauDataPreparer:
                     final_df[diff_col] = final_df[col_2023] - final_df[col_2015]
                     diff_cols_created += 1
             
-            print(f"   ✅ Created {diff_cols_created} difference columns")
+            print(f"   [SUCCESS] Created {diff_cols_created} difference columns")
             
             # Summary of changes
             if diff_cols_created > 0:
@@ -367,18 +367,18 @@ class TableauDataPreparer:
         output_path = os.path.join(self.output_dir, 'taz_marginals_tableau.csv')
         final_df.to_csv(output_path, index=False)
         
-        print(f"   ✅ TAZ marginals saved: {output_path}")
+        print(f"   [SUCCESS] TAZ marginals saved: {output_path}")
         print(f"   TAZ ID range: {final_df['TAZ_ID'].min()} - {final_df['TAZ_ID'].max()}")
         
         return output_path
         
     def prepare_maz_marginals(self):
         """Prepare MAZ marginals with standardized join fields."""
-        print(f"\n📊 Processing MAZ marginals...")
+        print(f"\n[STATS] Processing MAZ marginals...")
         
         maz_file = os.path.join(self.data_dir, 'maz_marginals.csv')
         if not os.path.exists(maz_file):
-            print(f"   ❌ MAZ marginals not found: {maz_file}")
+            print(f"   [ERROR] MAZ marginals not found: {maz_file}")
             return None
             
         # Load data
@@ -390,7 +390,7 @@ class TableauDataPreparer:
         if 'MAZ' in maz_df.columns:
             maz_df['MAZ_ID'] = maz_df['MAZ'].astype(int)
         else:
-            print(f"   ❌ No MAZ field found")
+            print(f"   [ERROR] No MAZ field found")
             return None
             
         # Ensure all numeric fields are proper types for Tableau
@@ -412,7 +412,7 @@ class TableauDataPreparer:
         output_path = os.path.join(self.output_dir, 'maz_marginals_tableau.csv')
         maz_df.to_csv(output_path, index=False)
         
-        print(f"   ✅ MAZ marginals saved: {output_path}")
+        print(f"   [SUCCESS] MAZ marginals saved: {output_path}")
         print(f"   MAZ ID range: {maz_df['MAZ_ID'].min()} - {maz_df['MAZ_ID'].max()}")
         
         return output_path
@@ -435,7 +435,7 @@ class TableauDataPreparer:
                 break
                 
         if not crosswalk_file:
-            print(f"   ❌ Geographic crosswalk not found")
+            print(f"   [ERROR] Geographic crosswalk not found")
             return None
             
         # Load data
@@ -485,7 +485,7 @@ class TableauDataPreparer:
         output_path = os.path.join(self.output_dir, 'geo_crosswalk_tableau.csv')
         geo_clean.to_csv(output_path, index=False)
         
-        print(f"   ✅ Geographic crosswalk saved: {output_path}")
+        print(f"   [SUCCESS] Geographic crosswalk saved: {output_path}")
         print(f"   Final columns: {list(geo_clean.columns)}")
         
         # Show unique counts for each geography
@@ -589,12 +589,12 @@ PopulationSim Version: TM2
         self.create_tableau_readme()
         
         # Summary
-        print(f"\n📋 TABLEAU DATA PREPARATION SUMMARY")
+        print(f"\n[SUMMARY] TABLEAU DATA PREPARATION SUMMARY")
         print("="*50)
         
         successful = 0
         for data_type, result in results.items():
-            status = "✅ SUCCESS" if result else "❌ FAILED"
+            status = "[SUCCESS] SUCCESS" if result else "[ERROR] FAILED"
             print(f"{data_type:20} {status}")
             if result:
                 successful += 1
@@ -603,7 +603,7 @@ PopulationSim Version: TM2
         print(f"Output directory: {self.output_dir}")
         
         if successful > 0:
-            print(f"\n🎉 Ready for Tableau! Check the README file for usage instructions.")
+            print(f"\n[COMPLETE] Ready for Tableau! Check the README file for usage instructions.")
         
         return results
 

@@ -70,7 +70,7 @@ def main():
             print("\\nDetailed validation complete!")
             
         except Exception as e:
-            print(f"\\n❌ Error during validation: {e}")
+            print(f"\\n[ERROR] Error during validation: {e}")
             import traceback
             traceback.print_exc()
         finally:
@@ -121,7 +121,7 @@ def analyze_numeric_column_detailed(series, col_name):
     print(f"    Missing: {series.isnull().sum():,}")
     
     if series.count() == 0:
-        print(f"    ⚠️  No non-null values")
+        print(f"    [WARNING]  No non-null values")
         return
     
     # Basic statistics
@@ -140,7 +140,7 @@ def analyze_numeric_column_detailed(series, col_name):
     # Check for infinite values
     inf_count = np.isinf(series).sum()
     if inf_count > 0:
-        print(f"    ⚠️  Infinite values: {inf_count:,}")
+        print(f"    [WARNING]  Infinite values: {inf_count:,}")
     
     # Value distribution
     unique_count = series.nunique()
@@ -179,18 +179,18 @@ def analyze_numeric_column_detailed(series, col_name):
         mean_val = series.mean()
         outliers = series[(series < mean_val - outlier_threshold) | (series > mean_val + outlier_threshold)]
         if len(outliers) > 0:
-            print(f"    ⚠️  Potential outliers (>3σ): {len(outliers):,} ({len(outliers)/series.count()*100:.1f}%)")
+            print(f"    [WARNING]  Potential outliers (>3σ): {len(outliers):,} ({len(outliers)/series.count()*100:.1f}%)")
             print(f"      Range: {outliers.min()} to {outliers.max()}")
     
     # Check for negative values (might be problematic for certain fields)
     if (series < 0).any():
         neg_count = (series < 0).sum()
-        print(f"    📊 Negative values: {neg_count:,}")
+        print(f"    [STATS] Negative values: {neg_count:,}")
     
     # Check for zero values
     zero_count = (series == 0).sum()
     if zero_count > 0:
-        print(f"    📊 Zero values: {zero_count:,} ({zero_count/len(series)*100:.1f}%)")
+        print(f"    [STATS] Zero values: {zero_count:,} ({zero_count/len(series)*100:.1f}%)")
 
 def analyze_categorical_column_detailed(series, col_name):
     """Detailed analysis of a categorical column"""
@@ -204,7 +204,7 @@ def analyze_categorical_column_detailed(series, col_name):
     print(f"    Missing values: {missing_count:,} ({missing_count/total_count*100:.1f}%)")
     
     if unique_count == 0:
-        print(f"    ⚠️  No non-null values")
+        print(f"    [WARNING]  No non-null values")
         return
     
     # Value distribution
@@ -235,7 +235,7 @@ def analyze_categorical_column_detailed(series, col_name):
         print(f"      Mean length: {str_lengths.mean():.1f}")
         
         if str_lengths.max() > 100:
-            print(f"      ⚠️  Very long strings detected")
+            print(f"      [WARNING]  Very long strings detected")
         
         # Check for numeric-like strings
         non_null_series = series.dropna()
@@ -243,7 +243,7 @@ def analyze_categorical_column_detailed(series, col_name):
             numeric_like = non_null_series.astype(str).str.match(r'^-?\\d+\\.?\\d*$').sum()
             if numeric_like > 0:
                 pct_numeric = numeric_like / len(non_null_series) * 100
-                print(f"      📊 Numeric-like strings: {numeric_like:,} ({pct_numeric:.1f}%)")
+                print(f"      [STATS] Numeric-like strings: {numeric_like:,} ({pct_numeric:.1f}%)")
 
 def analyze_geographic_consistency(households_df, persons_df, geo_crosswalk_df, maz_marginals_df, taz_marginals_df):
     """Analyze consistency of geographic IDs across datasets"""
@@ -286,7 +286,7 @@ def analyze_geographic_consistency(households_df, persons_df, geo_crosswalk_df, 
                     if dataset_name != other_name:
                         missing_in_other = vals - other_vals
                         if missing_in_other:
-                            print(f"    ⚠️  {len(missing_in_other):,} {geo_field}s in {dataset_name} but not in {other_name}")
+                            print(f"    [WARNING]  {len(missing_in_other):,} {geo_field}s in {dataset_name} but not in {other_name}")
 
 def analyze_control_seed_comparison(households_df, persons_df, maz_marginals_df, taz_marginals_df):
     """Compare control totals with seed population characteristics"""

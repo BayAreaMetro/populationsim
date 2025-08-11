@@ -41,7 +41,7 @@ class SeedPopulationConfig:
     """Configuration for seed population creation"""
     # Bay Area PUMAs - 2020 definitions (62 PUMAs with actual MAZ coverage)
     bay_area_pumas: List[int] = None
-    output_dir: Path = Path("output_2023")
+    output_dir: Path = Path("hh_gq/tm2_working_dir/data")
     chunk_size: int = 50000
     random_seed: int = 42
     
@@ -49,7 +49,7 @@ class SeedPopulationConfig:
         if self.bay_area_pumas is None:
             # Try to read PUMAs dynamically from the crosswalk file
             try:
-                crosswalk_file = Path("hh_gq/data/geo_cross_walk_tm2.csv")
+                crosswalk_file = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv")
                 if crosswalk_file.exists():
                     import pandas as pd
                     crosswalk_df = pd.read_csv(crosswalk_file)
@@ -182,41 +182,41 @@ class HouseholdProcessor:
     
     def process_households(self, df: pd.DataFrame) -> pd.DataFrame:
         """Process household data for PopulationSim"""
-        logger.info(f"🏠 Processing {len(df):,} households...")
+        logger.info(f"[HOUSEHOLD] Processing {len(df):,} households...")
         
         # Show initial data info
         logger.info(f"   Initial columns: {len(df.columns)}")
         logger.info(f"   Initial memory: {df.memory_usage(deep=True).sum() / 1024**2:.1f}MB")
         
         # Add county mapping
-        logger.info("🗺️  Step 1/6: Adding county mapping...")
+        logger.info("[MAP]  Step 1/6: Adding county mapping...")
         df = self.county_mapper.add_county_mapping(df)
         county_counts = df['COUNTY'].value_counts().sort_index()
         logger.info(f"   County distribution: {dict(county_counts)}")
         
         # Create group quarters type
-        logger.info("🏢 Step 2/6: Creating group quarters type...")
+        logger.info("[BUILDING] Step 2/6: Creating group quarters type...")
         initial_gq = len(df[df.get('TYPEHUGQ', 0) != 1]) if 'TYPEHUGQ' in df.columns else 0
         df = self._create_group_quarters_type(df)
         final_gq = len(df[df['hhgqtype'] != 1])
         logger.info(f"   Group quarters households: {initial_gq} → {final_gq}")
         
         # Handle HUPAC (Household Under Poverty Level)
-        logger.info("💰 Step 3/6: Processing poverty status...")
+        logger.info("[MONEY] Step 3/6: Processing poverty status...")
         df = self._handle_hupac(df)
         poverty_count = len(df[df.get('HUPAC', 0) == 1]) if 'HUPAC' in df.columns else 0
         logger.info(f"   Households in poverty: {poverty_count:,} ({poverty_count/len(df)*100:.1f}%)")
         
         # Clean numeric data
-        logger.info("🧹 Step 4/6: Cleaning numeric data...")
+        logger.info("[CLEAN] Step 4/6: Cleaning numeric data...")
         df = self.data_cleaner.clean_numeric_columns(df, "household")
         
         # Convert to integers
-        logger.info("🔢 Step 5/6: Converting to integer types...")
+        logger.info("[NUMBER] Step 5/6: Converting to integer types...")
         integer_fields = ['HUPAC', 'NP', 'hhgqtype', 'WGTP', 'TYPEHUGQ', 'PUMA', 'COUNTY']
         df = self.data_cleaner.convert_to_integers(df, integer_fields, "household")
         
-        logger.info("✅ Step 6/6: Household processing complete!")
+        logger.info("[SUCCESS] Step 6/6: Household processing complete!")
         logger.info(f"   Final columns: {len(df.columns)}")
         logger.info(f"   Final memory: {df.memory_usage(deep=True).sum() / 1024**2:.1f}MB")
         
@@ -289,30 +289,30 @@ class PersonProcessor:
     
     def process_persons(self, df: pd.DataFrame, household_df: pd.DataFrame) -> pd.DataFrame:
         """Process person data for PopulationSim"""
-        logger.info(f"👥 Processing {len(df):,} persons...")
+        logger.info(f"[PERSON] Processing {len(df):,} persons...")
         
         # Show initial data info
         logger.info(f"   Initial columns: {len(df.columns)}")
         logger.info(f"   Initial memory: {df.memory_usage(deep=True).sum() / 1024**2:.1f}MB")
         
         # Add county mapping
-        logger.info("🗺️  Step 1/8: Adding county mapping...")
+        logger.info("[MAP]  Step 1/8: Adding county mapping...")
         df = self.county_mapper.add_county_mapping(df)
         county_counts = df['COUNTY'].value_counts().sort_index()
         logger.info(f"   County distribution: {dict(county_counts)}")
         
         # Create employment categories
-        logger.info("💼 Step 2/8: Creating employment status...")
+        logger.info("[WORK] Step 2/8: Creating employment status...")
         df = self._create_employment_status(df)
         employed_count = len(df[df.get('employed', 0) == 1]) if 'employed' in df.columns else 0
         logger.info(f"   Employed persons: {employed_count:,} ({employed_count/len(df)*100:.1f}%)")
         
         # Create student status
-        logger.info("🎓 Step 3/8: Creating student status...")
+        logger.info("[STUDENT] Step 3/8: Creating student status...")
         df = self._create_student_status(df)
         
         # Create person type categories
-        logger.info("👤 Step 4/8: Creating person types by age...")
+        logger.info("[AGE] Step 4/8: Creating person types by age...")
         df = self._create_person_type(df)
         if 'person_type' in df.columns:
             person_type_counts = df['person_type'].value_counts().sort_index()
@@ -322,26 +322,26 @@ class PersonProcessor:
                 logger.info(f"     {type_name}: {count:,} ({count/len(df)*100:.1f}%)")
         
         # Create occupation categories  
-        logger.info("🔧 Step 5/8: Creating occupation categories...")
+        logger.info("[CONFIG] Step 5/8: Creating occupation categories...")
         df = self._create_occupation_categories(df)
         
         # Map group quarters type from household data
-        logger.info("🏢 Step 6/8: Mapping group quarters type...")
+        logger.info("[BUILDING] Step 6/8: Mapping group quarters type...")
         df = self._map_group_quarters_type(df, household_df)
         gq_counts = df['hhgqtype'].value_counts().sort_index()
         logger.info(f"   GQ type distribution: {dict(gq_counts)}")
         
         # Clean numeric data
-        logger.info("🧹 Step 7/8: Cleaning numeric data...")
+        logger.info("[CLEAN] Step 7/8: Cleaning numeric data...")
         df = self.data_cleaner.clean_numeric_columns(df, "person")
         
         # Convert to integers
-        logger.info("🔢 Step 8/8: Converting to integer types...")
+        logger.info("[NUMBER] Step 8/8: Converting to integer types...")
         integer_fields = ['employed', 'employ_status', 'student_status', 'person_type', 
                          'occupation', 'hhgqtype', 'PUMA', 'COUNTY', 'PWGTP']
         df = self.data_cleaner.convert_to_integers(df, integer_fields, "person")
         
-        logger.info("✅ Person processing complete!")
+        logger.info("[SUCCESS] Person processing complete!")
         logger.info(f"   Final columns: {len(df.columns)}")
         logger.info(f"   Final memory: {df.memory_usage(deep=True).sum() / 1024**2:.1f}MB")
         
@@ -426,12 +426,12 @@ class SeedPopulationCreator:
         """Main method to create seed population"""
         start_time = datetime.now()
         logger.info("=" * 80)
-        logger.info("🚀 STARTING SEED POPULATION CREATION")
+        logger.info("[START] STARTING SEED POPULATION CREATION")
         logger.info("=" * 80)
-        logger.info(f"🕐 Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[TIME] Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         
         try:
-            logger.info(f"📊 Configuration:")
+            logger.info(f"[STATS] Configuration:")
             logger.info(f"   Target PUMAs: {len(self.config.bay_area_pumas)} from crosswalk")
             logger.info(f"   Output directory: {self.config.output_dir}")
             logger.info(f"   Chunk size: {self.config.chunk_size:,}")
@@ -449,44 +449,44 @@ class SeedPopulationCreator:
             logger.info("=" * 70)
             
             if h_processed.exists() and p_processed.exists():
-                logger.info("✅ Found existing processed TM2 files - using them...")
+                logger.info("[SUCCESS] Found existing processed TM2 files - using them...")
                 
                 load_start = datetime.now()
                 logger.info("📖 Loading existing processed files...")
                 household_df = pd.read_csv(h_processed)
                 person_df = pd.read_csv(p_processed)
                 load_time = datetime.now() - load_start
-                logger.info(f"✅ Loaded {len(household_df):,} households and {len(person_df):,} persons in {load_time}")
+                logger.info(f"[SUCCESS] Loaded {len(household_df):,} households and {len(person_df):,} persons in {load_time}")
                 
                 # Step 4: Create PopulationSim-compatible copies
                 logger.info("-" * 50)
-                logger.info("📋 Creating PopulationSim-compatible seed file copies...")
+                logger.info("[SUMMARY] Creating PopulationSim-compatible seed file copies...")
                 import shutil
                 seed_h = self.config.output_dir / "seed_households.csv"
                 seed_p = self.config.output_dir / "seed_persons.csv"
                 shutil.copy2(h_processed, seed_h)
                 shutil.copy2(p_processed, seed_p)
-                logger.info("✅ PopulationSim-compatible seed file copies created")
+                logger.info("[SUCCESS] PopulationSim-compatible seed file copies created")
                 
                 # Step 5: Generate validation report
                 logger.info("-" * 50)
-                logger.info("🔍 VALIDATION REPORT")
+                logger.info("[SEARCH] VALIDATION REPORT")
                 logger.info("-" * 50)
                 self._generate_validation_report(household_df, person_df)
                 
                 total_time = datetime.now() - start_time
                 logger.info("=" * 80)
-                logger.info("🎉 SUCCESS: PopulationSim seed population created successfully!")
+                logger.info("[COMPLETE] SUCCESS: PopulationSim seed population created successfully!")
                 logger.info(f"⏱️  Total time: {total_time}")
                 logger.info("=" * 80)
                 return True
                 
             else:
-                # Load from M: drive PUMS files
-                logger.info("📁 Loading PUMS data from M: drive...")
-                m_drive_pums_dir = Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23")
-                household_file = m_drive_pums_dir / "hbayarea1923.csv"
-                person_file = m_drive_pums_dir / "pbayarea1923.csv"
+                # Load from M: drive PUMS files (2023 5-Year with complete 2019-2023 data)
+                logger.info("[DATA] Loading PUMS data from M: drive (2023 5-Year PUMS)...")
+                m_drive_pums_dir = Path("M:/Data/Census/PUMS_2023_5Year_Crosswalked")
+                household_file = m_drive_pums_dir / "bay_area_households_2019_2023_crosswalked.csv"
+                person_file = m_drive_pums_dir / "bay_area_persons_2019_2023_crosswalked.csv"
                 
                 if household_file.exists() and person_file.exists():
                     load_start = datetime.now()
@@ -496,7 +496,7 @@ class SeedPopulationCreator:
                     hh_load_start = datetime.now()
                     household_data = pd.read_csv(household_file)
                     hh_load_time = datetime.now() - hh_load_start
-                    logger.info(f"✅ Household file loaded: {len(household_data):,} records in {hh_load_time}")
+                    logger.info(f"[SUCCESS] Household file loaded: {len(household_data):,} records in {hh_load_time}")
                     
                     logger.info(f"📖 Loading: {person_file}")
                     logger.info("⏳ Person file is large (~2M records) - this may take 2-4 minutes...")
@@ -509,22 +509,22 @@ class SeedPopulationCreator:
                         # First, get the file size for progress estimation
                         import os
                         file_size_mb = os.path.getsize(person_file) / 1024**2
-                        logger.info(f"📊 Person file size: {file_size_mb:.1f}MB")
+                        logger.info(f"[STATS] Person file size: {file_size_mb:.1f}MB")
                         
                         # Load the file
                         person_data = pd.read_csv(person_file)
                         person_load_time = datetime.now() - person_load_start
-                        logger.info(f"✅ Person file loaded: {len(person_data):,} records in {person_load_time}")
+                        logger.info(f"[SUCCESS] Person file loaded: {len(person_data):,} records in {person_load_time}")
                         
                     except Exception as e:
-                        logger.error(f"❌ Failed to load person file: {e}")
+                        logger.error(f"[ERROR] Failed to load person file: {e}")
                         return False
                     
                     total_load_time = datetime.now() - load_start
-                    logger.info(f"✅ All data loaded in {total_load_time}")
+                    logger.info(f"[SUCCESS] All data loaded in {total_load_time}")
                     
                 else:
-                    logger.error(f"❌ M: drive PUMS files not found:")
+                    logger.error(f"[ERROR] M: drive PUMS files not found:")
                     logger.error(f"   {household_file}")
                     logger.error(f"   {person_file}")
                     return False
@@ -537,16 +537,16 @@ class SeedPopulationCreator:
             # Use the data we just downloaded (already in memory)
             household_df = household_data
             person_df = person_data
-            logger.info(f"✅ Loaded {len(household_df):,} households and {len(person_df):,} persons from M: drive")
+            logger.info(f"[SUCCESS] Loaded {len(household_df):,} households and {len(person_df):,} persons from M: drive")
             
             # Show data size info
             household_mb = household_df.memory_usage(deep=True).sum() / 1024**2
             person_mb = person_df.memory_usage(deep=True).sum() / 1024**2
-            logger.info(f"📊 Memory usage: Households {household_mb:.1f}MB, Persons {person_mb:.1f}MB")
+            logger.info(f"[STATS] Memory usage: Households {household_mb:.1f}MB, Persons {person_mb:.1f}MB")
             
             # CRITICAL: Filter to only include PUMAs from crosswalk
             logger.info("-" * 50)
-            logger.info("🔍 PUMA FILTERING (CRITICAL STEP)")
+            logger.info("[SEARCH] PUMA FILTERING (CRITICAL STEP)")
             logger.info("-" * 50)
             
             initial_hh_count = len(household_df)
@@ -554,7 +554,7 @@ class SeedPopulationCreator:
             
             # Show initial PUMA distribution
             initial_pumas = sorted(household_df['PUMA'].astype(str).str.lstrip('0').astype(int).unique())
-            logger.info(f"📋 Initial PUMAs in data: {len(initial_pumas)} total")
+            logger.info(f"[SUMMARY] Initial PUMAs in data: {len(initial_pumas)} total")
             logger.info(f"   Range: {initial_pumas[0]} to {initial_pumas[-1]}")
             logger.info(f"   First 10: {initial_pumas[:10]}")
             
@@ -564,12 +564,12 @@ class SeedPopulationCreator:
             household_df['PUMA'] = household_df['PUMA'].astype(str).str.lstrip('0').astype(int)
             logger.info("   Processing person PUMAs...")
             person_df['PUMA'] = person_df['PUMA'].astype(str).str.lstrip('0').astype(int)
-            logger.info("✅ PUMA format conversion complete")
+            logger.info("[SUCCESS] PUMA format conversion complete")
             
             # Show target PUMAs from crosswalk
             valid_pumas = set(self.config.bay_area_pumas)
             target_pumas = sorted(self.config.bay_area_pumas)
-            logger.info(f"🎯 Target PUMAs from crosswalk: {len(target_pumas)} total")
+            logger.info(f"[TARGET] Target PUMAs from crosswalk: {len(target_pumas)} total")
             logger.info(f"   Range: {target_pumas[0]} to {target_pumas[-1]}")
             logger.info(f"   First 10: {target_pumas[:10]}")
             
@@ -580,7 +580,7 @@ class SeedPopulationCreator:
             
             missing_from_data = valid_pumas - initial_puma_set
             if missing_from_data:
-                logger.warning(f"⚠️  Target PUMAs missing from data: {sorted(missing_from_data)}")
+                logger.warning(f"[WARNING]  Target PUMAs missing from data: {sorted(missing_from_data)}")
             
             extra_in_data = initial_puma_set - valid_pumas
             if extra_in_data:
@@ -591,28 +591,28 @@ class SeedPopulationCreator:
             logger.info("🔽 Filtering datasets to crosswalk PUMAs...")
             
             # Filter households first (smaller dataset)
-            logger.info("   🏠 Filtering households...")
+            logger.info("   [HOUSEHOLD] Filtering households...")
             filter_start = datetime.now()
             household_df = household_df[household_df['PUMA'].isin(valid_pumas)].copy()
             hh_filter_time = datetime.now() - filter_start
-            logger.info(f"   ✅ Household filtering complete in {hh_filter_time}")
+            logger.info(f"   [SUCCESS] Household filtering complete in {hh_filter_time}")
             
             # Filter persons (larger dataset - this is the slow step)
-            logger.info("   👥 Filtering persons...")
+            logger.info("   [PERSON] Filtering persons...")
             logger.info(f"   ⏳ Processing {len(person_df):,} person records - this may take 30-60 seconds...")
             person_filter_start = datetime.now()
             person_df = person_df[person_df['PUMA'].isin(valid_pumas)].copy()
             person_filter_time = datetime.now() - person_filter_start
-            logger.info(f"   ✅ Person filtering complete in {person_filter_time}")
+            logger.info(f"   [SUCCESS] Person filtering complete in {person_filter_time}")
             
-            logger.info("✅ PUMA FILTERING COMPLETE:")
+            logger.info("[SUCCESS] PUMA FILTERING COMPLETE:")
             logger.info(f"   Households: {initial_hh_count:,} → {len(household_df):,} (removed {initial_hh_count - len(household_df):,})")
             logger.info(f"   Persons: {initial_person_count:,} → {len(person_df):,} (removed {initial_person_count - len(person_df):,})")
             logger.info(f"   Retention rate: {len(household_df)/initial_hh_count*100:.1f}% households, {len(person_df)/initial_person_count*100:.1f}% persons")
             
             # Verify final PUMA list
             final_pumas = sorted(household_df['PUMA'].unique())
-            logger.info(f"✅ Final PUMAs in filtered data: {len(final_pumas)} total")
+            logger.info(f"[SUCCESS] Final PUMAs in filtered data: {len(final_pumas)} total")
             logger.info(f"   Final PUMAs: {final_pumas}")
             
             # CRITICAL: Create unique IDs for linking households and persons
@@ -622,22 +622,22 @@ class SeedPopulationCreator:
             
             # Check if the M: drive files already have processed unique_hh_id
             if 'unique_hh_id' in household_df.columns and 'SERIALNO' in person_df.columns:
-                logger.info("✅ Found existing unique_hh_id in household file and SERIALNO in person file")
+                logger.info("[SUCCESS] Found existing unique_hh_id in household file and SERIALNO in person file")
                 logger.info("🔗 These should be the same values for linking...")
                 
                 # Use existing unique_hh_id from household file, link via SERIALNO in person file
-                logger.info("   👥 Creating household-person linkage...")
+                logger.info("   [PERSON] Creating household-person linkage...")
                 linking_start = datetime.now()
                 
                 # Map persons to household IDs using SERIALNO
                 person_df['unique_hh_id'] = person_df['SERIALNO']
                 
                 linking_time = datetime.now() - linking_start
-                logger.info(f"✅ Linked persons to households using SERIALNO -> unique_hh_id mapping in {linking_time}")
+                logger.info(f"[SUCCESS] Linked persons to households using SERIALNO -> unique_hh_id mapping in {linking_time}")
                 
             else:
                 # Debug: Check available columns to find the linking field
-                logger.info("🔍 Checking available columns for linking...")
+                logger.info("[SEARCH] Checking available columns for linking...")
                 logger.info(f"   Household columns: {list(household_df.columns)[:10]}... (total: {len(household_df.columns)})")
                 logger.info(f"   Person columns: {list(person_df.columns)[:10]}... (total: {len(person_df.columns)})")
                 
@@ -648,21 +648,21 @@ class SeedPopulationCreator:
                 for field in possible_link_fields:
                     if field in household_df.columns and field in person_df.columns:
                         link_field = field
-                        logger.info(f"✅ Found linking field: {field}")
+                        logger.info(f"[SUCCESS] Found linking field: {field}")
                         break
                 
                 if link_field is None:
-                    logger.error("❌ Could not find a common linking field between household and person files!")
+                    logger.error("[ERROR] Could not find a common linking field between household and person files!")
                     logger.error(f"   Household columns: {list(household_df.columns)}")
                     logger.error(f"   Person columns: {list(person_df.columns)}")
                     return False
                 
                 # Create unique household IDs
-                logger.info("🏠 Creating unique household IDs...")
+                logger.info("[HOUSEHOLD] Creating unique household IDs...")
                 household_df['unique_hh_id'] = range(1, len(household_df) + 1)
                 
                 # Create household lookup for persons using the discovered linking field
-                logger.info(f"👥 Creating household lookup using '{link_field}'...")
+                logger.info(f"[PERSON] Creating household lookup using '{link_field}'...")
                 hh_lookup = household_df.set_index(link_field)['unique_hh_id'].to_dict()
                 
                 # Map persons to household IDs
@@ -672,24 +672,24 @@ class SeedPopulationCreator:
             # Check for orphaned persons (shouldn't happen with proper filtering)
             orphaned_persons = person_df['unique_hh_id'].isna().sum()
             if orphaned_persons > 0:
-                logger.warning(f"⚠️  Found {orphaned_persons} persons without household links - removing them")
+                logger.warning(f"[WARNING]  Found {orphaned_persons} persons without household links - removing them")
                 person_df = person_df[person_df['unique_hh_id'].notna()].copy()
             
-            logger.info(f"✅ Linked {len(person_df):,} persons to {len(household_df):,} households")
+            logger.info(f"[SUCCESS] Linked {len(person_df):,} persons to {len(household_df):,} households")
             
             # Verify the linking worked
             unique_hh_in_persons = person_df['unique_hh_id'].nunique()
-            logger.info(f"🔍 Verification: {unique_hh_in_persons} unique households referenced in person data")
+            logger.info(f"[SEARCH] Verification: {unique_hh_in_persons} unique households referenced in person data")
             
             # Process households with chunked logging
             logger.info("-" * 50)
-            logger.info("🏠 PROCESSING HOUSEHOLDS")
+            logger.info("[HOUSEHOLD] PROCESSING HOUSEHOLDS")
             logger.info("-" * 50)
             
             hh_process_start = datetime.now()
             household_df = self.household_processor.process_households(household_df)
             hh_process_time = datetime.now() - hh_process_start
-            logger.info(f"✅ Household processing completed in {hh_process_time}")
+            logger.info(f"[SUCCESS] Household processing completed in {hh_process_time}")
             
             # Calculate household workers before processing persons
             logger.info("-" * 50)
@@ -699,27 +699,27 @@ class SeedPopulationCreator:
             workers_start = datetime.now()
             household_df = self._calculate_household_workers(household_df, person_df)
             workers_time = datetime.now() - workers_start
-            logger.info(f"✅ Household workers calculation completed in {workers_time}")
+            logger.info(f"[SUCCESS] Household workers calculation completed in {workers_time}")
             
             # Process persons with chunked logging
             logger.info("-" * 50)
-            logger.info("👥 PROCESSING PERSONS")
+            logger.info("[PERSON] PROCESSING PERSONS")
             logger.info("-" * 50)
             
             person_process_start = datetime.now()
             person_df = self.person_processor.process_persons(person_df, household_df)
             person_process_time = datetime.now() - person_process_start
-            logger.info(f"✅ Person processing completed in {person_process_time}")
+            logger.info(f"[SUCCESS] Person processing completed in {person_process_time}")
             
             # Step 3: Final processing
             logger.info("-" * 50)
             logger.info("✨ FINAL DATA PROCESSING")
             logger.info("-" * 50)
             
-            logger.info("🏠 Finalizing household data...")
+            logger.info("[HOUSEHOLD] Finalizing household data...")
             household_df = self._finalize_household_data(household_df)
             
-            logger.info("👥 Finalizing person data...")
+            logger.info("[PERSON] Finalizing person data...")
             person_df = self._finalize_person_data(person_df)
             
             # Step 4: Save processed files
@@ -729,7 +729,7 @@ class SeedPopulationCreator:
             self._save_processed_files(household_df, person_df, h_processed, p_processed)
             
             # Step 4b: Create PopulationSim-compatible copies
-            logger.info("📋 Creating PopulationSim-compatible seed file copies...")
+            logger.info("[SUMMARY] Creating PopulationSim-compatible seed file copies...")
             import shutil
             seed_h = self.config.output_dir / "seed_households.csv"
             seed_p = self.config.output_dir / "seed_persons.csv"
@@ -738,26 +738,26 @@ class SeedPopulationCreator:
             shutil.copy2(h_processed, seed_h)
             logger.info(f"   Copying: {p_processed} → {seed_p}")
             shutil.copy2(p_processed, seed_p)
-            logger.info("✅ PopulationSim-compatible seed files created")
+            logger.info("[SUCCESS] PopulationSim-compatible seed files created")
             
             # Step 5: Generate validation report
             logger.info("-" * 50)
-            logger.info("🔍 VALIDATION REPORT")
+            logger.info("[SEARCH] VALIDATION REPORT")
             logger.info("-" * 50)
             self._generate_validation_report(household_df, person_df)
             
             total_time = datetime.now() - start_time
             logger.info("=" * 80)
-            logger.info("🎉 SUCCESS: PopulationSim seed population created successfully!")
+            logger.info("[COMPLETE] SUCCESS: PopulationSim seed population created successfully!")
             logger.info(f"⏱️  Total processing time: {total_time}")
-            logger.info(f"🕐 Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            logger.info(f"[TIME] Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             logger.info("=" * 80)
             return True
             
         except Exception as e:
             total_time = datetime.now() - start_time
             logger.error("=" * 80)
-            logger.error(f"❌ FAILED to create seed population after {total_time}")
+            logger.error(f"[ERROR] FAILED to create seed population after {total_time}")
             logger.error(f"💥 Error: {e}")
             logger.error("=" * 80)
             return False
@@ -806,7 +806,7 @@ class SeedPopulationCreator:
         
         # Verify merge
         merged_count = len(household_df[household_df['hh_workers_from_esr'].notna()])
-        logger.info(f"✅ Successfully merged workers for {merged_count:,} households")
+        logger.info(f"[SUCCESS] Successfully merged workers for {merged_count:,} households")
         
         return household_df
     
@@ -873,12 +873,12 @@ class SeedPopulationCreator:
         logger.info(f"   Step 3/4: Writing household file to {h_path}...")
         household_df.to_csv(h_path, index=False)
         file_size_mb = h_path.stat().st_size / 1024**2
-        logger.info(f"   ✅ Household file written: {len(household_df):,} records, {file_size_mb:.1f}MB")
+        logger.info(f"   [SUCCESS] Household file written: {len(household_df):,} records, {file_size_mb:.1f}MB")
         
         logger.info(f"   Step 4/4: Writing person file to {p_path}...")
         person_df.to_csv(p_path, index=False)
         file_size_mb = p_path.stat().st_size / 1024**2
-        logger.info(f"   ✅ Person file written: {len(person_df):,} records, {file_size_mb:.1f}MB")
+        logger.info(f"   [SUCCESS] Person file written: {len(person_df):,} records, {file_size_mb:.1f}MB")
         
         logger.info("💾 All files saved successfully!")
     

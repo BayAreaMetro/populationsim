@@ -78,13 +78,65 @@ def build_incidence_table(control_spec, households_df, persons_df, crosswalk_df)
 
         # aggregate person incidence counts to household
         if control_row.seed_table == 'persons':
+            logger.info(f"  Processing person-level control: {control_row.target}")
+            logger.info(f"    persons_df shape: {persons_df.shape}")
+            logger.info(f"    hh_col value: {hh_col}")
+            logger.info(f"    persons_df has {hh_col} column: {hh_col in persons_df.columns}")
+            
+            if hh_col in persons_df.columns:
+                logger.info(f"    {hh_col} column sample values: {persons_df[hh_col].head().tolist()}")
+                logger.info(f"    {hh_col} column unique count: {persons_df[hh_col].nunique()}")
+                logger.info(f"    {hh_col} column null count: {persons_df[hh_col].isna().sum()}")
+            else:
+                logger.error(f"    ERROR: {hh_col} column not found in persons_df!")
+                logger.error(f"    Available columns: {list(persons_df.columns)}")
+                
+            logger.info(f"    incidence shape before aggregation: {incidence.shape}")
+            logger.info(f"    incidence sample values: {incidence.head().tolist()}")
+            logger.info(f"    incidence non-zero count: {(incidence > 0).sum()}")
+            
             df = pd.DataFrame({
                 hh_col: persons_df[hh_col],
                 'incidence': incidence
             })
+            logger.info(f"    Aggregation dataframe shape: {df.shape}")
+            logger.info(f"    Aggregation dataframe null counts: {df.isna().sum().to_dict()}")
+            
             incidence = df.groupby([hh_col], as_index=True).sum()
+            logger.info(f"    incidence shape after aggregation: {incidence.shape}")
+            logger.info(f"    incidence sum after aggregation: {incidence['incidence'].sum()}")
+            logger.info(f"    incidence null count after aggregation: {incidence['incidence'].isna().sum()}")
+            
+            # Extract the series for assignment
+            incidence = incidence['incidence']
+            
+            logger.info(f"    Final incidence series shape: {incidence.shape}")
+            logger.info(f"    Final incidence index type: {type(incidence.index[0]) if len(incidence) > 0 else 'EMPTY'}")
+            logger.info(f"    Final incidence index sample: {incidence.index[:5].tolist()}")
+            logger.info(f"    Incidence table index type: {type(incidence_table.index[0]) if len(incidence_table) > 0 else 'EMPTY'}")
+            logger.info(f"    Incidence table index sample: {incidence_table.index[:5].tolist()}")
+            
+            # Check for index alignment issues
+            missing_from_incidence_table = set(incidence.index) - set(incidence_table.index)
+            missing_from_incidence = set(incidence_table.index) - set(incidence.index)
+            
+            if len(missing_from_incidence_table) > 0:
+                logger.warning(f"    WARNING: {len(missing_from_incidence_table)} household IDs in person aggregation not found in incidence table")
+                logger.warning(f"    Sample missing IDs: {list(missing_from_incidence_table)[:5]}")
+                
+            if len(missing_from_incidence) > 0:
+                logger.warning(f"    WARNING: {len(missing_from_incidence)} household IDs in incidence table not found in person aggregation")
+                logger.warning(f"    Sample missing IDs: {list(missing_from_incidence)[:5]}")
 
+        logger.info(f"    ASSIGNING to incidence_table[{control_row.target}]...")
         incidence_table[control_row.target] = incidence
+        
+        # Verify the assignment worked
+        assigned_nan_count = incidence_table[control_row.target].isna().sum()
+        logger.info(f"    POST-ASSIGNMENT: {control_row.target} has {assigned_nan_count} NaN values out of {len(incidence_table)}")
+        if assigned_nan_count > 0:
+            logger.error(f"    ERROR: Assignment created NaN values!")
+            logger.error(f"    First few NaN indices: {incidence_table[incidence_table[control_row.target].isna()].index[:5].tolist()}")
 
     return incidence_table
 
@@ -116,6 +168,23 @@ def add_geography_columns(incidence_table, households_df, crosswalk_df):
         tmp = crosswalk_df[list({seed_geography, meta_geography})]
         seed_to_meta = tmp.groupby(seed_geography, as_index=True).min()[meta_geography]
         incidence_table[meta_geography] = incidence_table[seed_geography].map(seed_to_meta)
+
+    # Final diagnostic
+    logger.info(f"COMPLETED build_incidence_table - final shape: {incidence_table.shape}")
+    
+    # Check for any NaN values in the final incidence table
+    nan_columns = []
+    for col in incidence_table.columns:
+        nan_count = incidence_table[col].isna().sum()
+        if nan_count > 0:
+            nan_columns.append(f"{col}: {nan_count}")
+    
+    if nan_columns:
+        logger.error(f"FINAL INCIDENCE TABLE HAS NaN VALUES:")
+        for nan_info in nan_columns:
+            logger.error(f"  {nan_info}")
+    else:
+        logger.info(f"FINAL INCIDENCE TABLE: No NaN values found")
 
     return incidence_table
 
@@ -156,10 +225,46 @@ def build_control_table(geo, control_spec, crosswalk_df):
 
             # add geo_col to control_data table
             if geo not in control_data_df.columns:
-                # create series mapping sub_geo id to geo id
-                sub_to_geog = crosswalk_df[[g, geo]].groupby(g, as_index=True).min()[geo]
-
-                control_data_df[geo] = control_data_df[g].map(sub_to_geog)
+                # FIXED: Proper handling of higher-level controls (e.g., COUNTY to PUMA)
+                # Instead of mapping to min() PUMA, distribute controls across all PUMAs in county
+                if g == 'COUNTY' and geo == 'PUMA':
+                    # Special handling for COUNTY controls distributed to PUMA level
+                    logger.info(f"Distributing {g} controls to {geo} level")
+                    
+                    # Get unique COUNTY->PUMA mappings from crosswalk
+                    county_puma_map = crosswalk_df[[g, geo]].drop_duplicates()
+                    
+                    # Count PUMAs per county for equal distribution
+                    pumas_per_county = county_puma_map.groupby(g)[geo].count()
+                    
+                    # Create expanded control data with one row per PUMA
+                    expanded_controls = []
+                    for county_id in control_data_df[g]:
+                        # Get all PUMAs for this county
+                        county_pumas = county_puma_map[county_puma_map[g] == county_id][geo].tolist()
+                        county_data = control_data_df[control_data_df[g] == county_id].iloc[0]
+                        
+                        # Distribute control values equally across all PUMAs in county
+                        num_pumas = len(county_pumas)
+                        for puma_id in county_pumas:
+                            puma_row = county_data.copy()
+                            puma_row[geo] = puma_id
+                            
+                            # Divide county control values by number of PUMAs (equal distribution)
+                            for col in control_data_columns:
+                                if col != geo and col != g:  # Don't modify geography columns
+                                    puma_row[col] = puma_row[col] / num_pumas
+                            
+                            expanded_controls.append(puma_row)
+                    
+                    # Create new dataframe with distributed controls
+                    control_data_df = pd.DataFrame(expanded_controls)
+                    logger.info(f"Distributed {g} controls: {len(expanded_controls)} PUMA records created")
+                    
+                else:
+                    # Standard mapping for other geography combinations (original logic)
+                    sub_to_geog = crosswalk_df[[g, geo]].groupby(g, as_index=True).min()[geo]
+                    control_data_df[geo] = control_data_df[g].map(sub_to_geog)
 
             # aggregate (sum) controls to geo level
             controls = control_data_df[control_data_columns].groupby(geo, as_index=True).sum()

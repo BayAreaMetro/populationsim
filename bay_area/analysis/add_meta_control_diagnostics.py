@@ -97,8 +97,8 @@ content = content.replace(old_conversion, new_conversion)
 with open(original_file, 'w') as f:
     f.write(content)
 
-print("✅ Added diagnostic code to meta_control_factoring.py")
-print("📦 Original backed up as meta_control_factoring.py.original")
+print("[SUCCESS] Added diagnostic code to meta_control_factoring.py")
+print("[PACKAGE] Original backed up as meta_control_factoring.py.original")
 print("\nDiagnostic features added:")
 print("1. Logs which control targets have zero seed weights")
 print("2. Shows specific zones causing division by zero")

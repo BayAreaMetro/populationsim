@@ -4,7 +4,7 @@ import logging
 import requests
 import time
 from census import Census
-from tm2_control_utils.config import (
+from tm2_control_utils.config_census import (
     CENSUS_API_KEY_FILE,
     LOCAL_CACHE_FOLDER,
     CA_STATE_FIPS,
