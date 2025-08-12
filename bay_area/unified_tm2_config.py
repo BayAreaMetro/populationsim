@@ -769,6 +769,10 @@ class UnifiedTM2Config:
     def get_county_fips_list(self):
         """Get list of FIPS codes as integers"""
         return [info['fips_int'] for info in self.BAY_AREA_COUNTIES.values()]
+    
+    def get_fips_to_sequential_mapping(self):
+        """Get FIPS code to sequential county ID mapping"""
+        return {info['fips_int']: county_id for county_id, info in self.BAY_AREA_COUNTIES.items()}
 
 # Create global configuration instance
 config = UnifiedTM2Config()

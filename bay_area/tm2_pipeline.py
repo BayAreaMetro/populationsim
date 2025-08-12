@@ -180,19 +180,8 @@ class TM2Pipeline:
         try:
             data_dir = self.config.DATA_DIR
             
-            # Create the FIPS-to-sequential mapping based on working 2015 version
-            # From working commit b730421: FIPS codes -> Sequential 1-9 
-            fips_to_sequential = {
-                1: 4,   # Alameda (06001 -> 1) -> 4  
-                13: 5,  # Contra Costa (06013 -> 13) -> 5
-                41: 9,  # Marin (06041 -> 41) -> 9
-                55: 7,  # Napa (06055 -> 55) -> 7  
-                75: 1,  # San Francisco (06075 -> 75) -> 1
-                81: 2,  # San Mateo (06081 -> 81) -> 2
-                85: 3,  # Santa Clara (06085 -> 85) -> 3
-                95: 6,  # Solano (06095 -> 95) -> 6
-                97: 8   # Sonoma (06097 -> 97) -> 8
-            }
+            # Get the FIPS-to-sequential mapping from config
+            fips_to_sequential = self.config.get_fips_to_sequential_mapping()
             
             self.log(f"FIPS to sequential mapping: {fips_to_sequential}")
             
