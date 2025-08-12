@@ -10,9 +10,7 @@ import sys
 import time
 import logging
 import threading
-import argparse
 from datetime import datetime
-from pathlib import Path
 
 from activitysim.core import config
 
@@ -27,28 +25,6 @@ from populationsim import steps
 from activitysim.core.config import setting
 from populationsim import lp
 from populationsim import multi_integerizer
-
-def parse_arguments():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description="Run PopulationSim synthesis")
-    parser.add_argument("--working_dir", type=str, required=True,
-                       help="Working directory for PopulationSim")
-    parser.add_argument("--output", type=str, required=True,
-                       help="Output directory for results")
-    parser.add_argument("--test_PUMA", type=str, default=None,
-                       help="Test with specific PUMA only")
-    return parser.parse_args()
-
-# Parse command line arguments
-args = parse_arguments()
-
-# Change to the working directory
-working_dir = Path(args.working_dir)
-if not working_dir.exists():
-    raise FileNotFoundError(f"Working directory does not exist: {working_dir}")
-
-print(f"Changing to working directory: {working_dir}")
-os.chdir(working_dir)
 
 # Enhanced logging setup
 def setup_enhanced_logging():
@@ -171,9 +147,6 @@ progress_logger = setup_enhanced_logging()
 progress_logger.info("=" * 80)
 progress_logger.info("STARTING POPULATIONSIM SYNTHESIS")
 progress_logger.info("=" * 80)
-progress_logger.info(f"Working directory: {working_dir}")
-progress_logger.info(f"Output directory: {args.output}")
-progress_logger.info(f"Current working directory: {os.getcwd()}")
 
 # Start heartbeat logging for long-running processes
 start_heartbeat_logging()
