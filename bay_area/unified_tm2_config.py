@@ -55,7 +55,8 @@ class UnifiedTM2Config:
         # BAY AREA PUMA DEFINITIONS - SINGLE SOURCE OF TRUTH
         # Bay Area PUMA codes - dynamically loaded from crosswalk
         # This ensures consistency across all pipeline components
-        self.BAY_AREA_PUMAS = self._load_pumas_from_crosswalk()
+        # NOTE: Will be loaded later after file paths are set up
+        self.BAY_AREA_PUMAS = []
         
         # ============================================================
         # BAY AREA COUNTY DEFINITIONS - SINGLE SOURCE OF TRUTH
@@ -82,6 +83,9 @@ class UnifiedTM2Config:
         
         # Define ALL file paths in one place
         self._setup_file_paths()
+        
+        # Now load PUMAs from crosswalk (after file paths are set up)
+        self.BAY_AREA_PUMAS = self._load_pumas_from_crosswalk()
         
         # Define ALL commands in one place (AFTER helper methods are available)
         self._setup_commands()

@@ -122,16 +122,15 @@ class PUMACountyMapper:
             try:
                 from unified_tm2_config import config as unified_config
                 crosswalk_paths = [
-                    unified_config.CROSSWALK_FILES['main_crosswalk'],
-                    unified_config.CROSSWALK_FILES['popsim_crosswalk']
+                    unified_config.CROSSWALK_FILES['popsim_crosswalk']  # Use the definitive crosswalk location
                 ]
             except:
                 # Fallback to hardcoded paths if config fails
                 crosswalk_paths = [
+                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv"),  # Correct filename first
                     Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_updated.csv"),
-                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv"),
-                    Path("output_2023/geo_cross_walk_tm2_updated.csv"),
-                    Path("geo_cross_walk_tm2_updated.csv")
+                    Path("output_2023/geo_cross_walk_tm2.csv"),
+                    Path("geo_cross_walk_tm2.csv")
                 ]
         
         for crosswalk_path in crosswalk_paths:
