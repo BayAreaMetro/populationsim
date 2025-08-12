@@ -2166,6 +2166,12 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         output_cols = [control_geo] + control_cols
         out_df[output_cols].to_csv(output_file, index=False)
     else:
+        # Ensure geographic ID columns are integers to match crosswalk format
+        if control_geo in out_df.columns:
+            out_df = out_df.copy()  # Avoid modifying original dataframe
+            out_df[control_geo] = out_df[control_geo].astype(int)
+            if control_geo == 'MAZ':
+                logger.info(f"Converted MAZ IDs to integers for compatibility with crosswalk format")
         out_df.to_csv(output_file, index=False)
     
     logger.info(f"Wrote {control_geo} marginals file: {output_file} with {len(control_cols)} controls")
