@@ -24,9 +24,9 @@ class UnifiedTM2Config:
         if python_exe_env:
             self.PYTHON_EXE = Path(python_exe_env)
         else:
-            # Auto-detect current user and use popsim_py312 environment
+            # Auto-detect current user and use working popsim environment
             current_user = os.getenv('USERNAME', 'schildress')
-            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim_py312\python.exe")
+            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim\python.exe")
         
         # Validate Python executable exists
         if not self.PYTHON_EXE.exists():
