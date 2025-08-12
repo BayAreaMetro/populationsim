@@ -7,6 +7,9 @@ numpy>=1.21.0
 pyarrow>=10.0.0
 tables>=3.7.0
 
+# Geospatial processing
+geopandas>=0.13.0
+
 # PopulationSim and ActivitySim
 activitysim>=1.2.0
 openmatrix>=0.3.0

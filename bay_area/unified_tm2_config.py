@@ -24,9 +24,9 @@ class UnifiedTM2Config:
         if python_exe_env:
             self.PYTHON_EXE = Path(python_exe_env)
         else:
-            # Auto-detect current user and use popsim environment (not popsim_py312)
+            # Auto-detect current user and use popsim_py312 environment
             current_user = os.getenv('USERNAME', 'schildress')
-            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim\python.exe")
+            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim_py312\python.exe")
         
         # Validate Python executable exists
         if not self.PYTHON_EXE.exists():
@@ -773,6 +773,41 @@ class UnifiedTM2Config:
     def get_fips_to_sequential_mapping(self):
         """Get FIPS code to sequential county ID mapping"""
         return {info['fips_int']: county_id for county_id, info in self.BAY_AREA_COUNTIES.items()}
+    
+    def get_puma_to_county_mapping(self):
+        """
+        Get PUMA to county (1-9) mapping for Bay Area
+        Based on geographic knowledge of which PUMAs are in which counties
+        """
+        puma_to_county = {
+            # San Francisco County (1) - PUMAs 7501-7511
+            7501: 1, 7502: 1, 7503: 1, 7504: 1, 7505: 1, 7506: 1, 7507: 1, 7508: 1, 7509: 1, 7510: 1, 7511: 1,
+            
+            # San Mateo County (2) - PUMAs 8101-8103 
+            8101: 2, 8102: 2, 8103: 2,
+            
+            # Santa Clara County (3) - PUMAs 8501-8509
+            8501: 3, 8502: 3, 8503: 3, 8504: 3, 8505: 3, 8506: 3, 8507: 3, 8508: 3, 8509: 3,
+            
+            # Alameda County (4) - PUMAs 0101-0108
+            101: 4, 102: 4, 103: 4, 104: 4, 105: 4, 106: 4, 107: 4, 108: 4,
+            
+            # Contra Costa County (5) - PUMAs 1301-1305
+            1301: 5, 1302: 5, 1303: 5, 1304: 5, 1305: 5,
+            
+            # Solano County (6) - PUMAs 9501-9502
+            9501: 6, 9502: 6,
+            
+            # Napa County (7) - PUMA 5501
+            5501: 7,
+            
+            # Sonoma County (8) - PUMAs 9701-9703
+            9701: 8, 9702: 8, 9703: 8,
+            
+            # Marin County (9) - PUMAs 4101-4102
+            4101: 9, 4102: 9
+        }
+        return puma_to_county
 
 # Create global configuration instance
 config = UnifiedTM2Config()

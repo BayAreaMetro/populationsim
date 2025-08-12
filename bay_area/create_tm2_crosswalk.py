@@ -273,8 +273,41 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
             crosswalk_df['COUNTY'] = None
     else:
         print(f"  WARNING: Reference crosswalk not found: {reference_crosswalk_file}")
-        print(f"  Setting all counties to None")
-        crosswalk_df['COUNTY'] = None
+        print(f"  Using PUMA-to-county mapping from unified config instead")
+        
+        # Use the PUMA-to-county mapping from unified config
+        puma_to_county_seq = config.get_puma_to_county_mapping()
+        
+        # Normalize our crosswalk PUMAs and map to 1-9 system
+        def normalize_puma(puma_val):
+            """Convert PUMA to integer for consistent comparison"""
+            try:
+                if pd.isna(puma_val):
+                    return None
+                puma_str = str(puma_val).strip()
+                # Remove leading zeros and convert to int
+                return int(puma_str.lstrip('0')) if puma_str.strip('0') else 0
+            except:
+                return None
+        
+        crosswalk_df['PUMA_norm'] = crosswalk_df['PUMA'].apply(normalize_puma)
+        crosswalk_df['COUNTY'] = crosswalk_df['PUMA_norm'].map(puma_to_county_seq)
+        
+        if verbose:
+            print(f"  Applied PUMA-to-county mapping from unified config:")
+            print(f"  Found {len(puma_to_county_seq)} PUMA-to-county mappings")
+            counties = sorted([c for c in set(puma_to_county_seq.values()) if pd.notna(c)])
+            print(f"  Counties (1-9 system): {counties}")
+            
+            # Show missing mappings
+            missing_counties = crosswalk_df['COUNTY'].isna().sum()
+            if missing_counties > 0:
+                print(f"  WARNING: {missing_counties:,} MAZ zones have no county assignment")
+                missing_pumas = crosswalk_df[crosswalk_df['COUNTY'].isna()]['PUMA'].unique()
+                print(f"  PUMAs without county mapping: {sorted(missing_pumas)}")
+        
+        # Clean up temporary column
+        crosswalk_df = crosswalk_df.drop('PUMA_norm', axis=1)
     
     # Add county names and FIPS codes using unified config
     if verbose:
