@@ -112,26 +112,22 @@ class UnifiedTM2Config:
         try:
             import pandas as pd
             
-            # Try multiple potential crosswalk locations
-            crosswalk_paths = [
-                self.POPSIM_DATA_DIR / "geo_cross_walk_tm2_updated.csv",
-                self.OUTPUT_DIR / "geo_cross_walk_tm2_updated.csv",
-                Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_updated.csv"),
-                Path("geo_cross_walk_tm2_updated.csv")
-            ]
+            # Use single, definitive crosswalk location
+            crosswalk_path = self.CROSSWALK_FILES['popsim_crosswalk']
             
-            for crosswalk_path in crosswalk_paths:
-                if crosswalk_path.exists():
-                    crosswalk_df = pd.read_csv(crosswalk_path)
-                    if 'PUMA' in crosswalk_df.columns:
-                        pumas = sorted(crosswalk_df['PUMA'].dropna().unique())
-                        print(f"[CONFIG] Loaded {len(pumas)} PUMAs from crosswalk: {crosswalk_path}")
-                        return pumas
-            
-            # If no crosswalk found, return empty list and warn
-            print(f"[CONFIG] WARNING: No crosswalk found, using empty PUMA list")
-            print(f"[CONFIG] Generate crosswalk first before running pipeline")
-            return []
+            if crosswalk_path.exists():
+                crosswalk_df = pd.read_csv(crosswalk_path)
+                if 'PUMA' in crosswalk_df.columns:
+                    pumas = sorted(crosswalk_df['PUMA'].dropna().unique())
+                    print(f"[CONFIG] Loaded {len(pumas)} PUMAs from crosswalk: {crosswalk_path}")
+                    return pumas
+                else:
+                    print(f"[CONFIG] WARNING: PUMA column not found in crosswalk: {crosswalk_path}")
+                    return []
+            else:
+                print(f"[CONFIG] WARNING: Crosswalk file not found: {crosswalk_path}")
+                print(f"[CONFIG] Generate crosswalk first before running pipeline")
+                return []
             
         except Exception as e:
             print(f"[CONFIG] ERROR loading PUMAs from crosswalk: {e}")
@@ -161,7 +157,8 @@ class UnifiedTM2Config:
             'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls",
             # Shapefiles for geographic processing
             'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_4.shp"),
-            'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp")
+            'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
+            'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp")
         }
         
         # ============================================================
@@ -273,9 +270,6 @@ class UnifiedTM2Config:
             'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_updated'],
             # PopulationSim needs this specific filename
             'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
-            # PUMA crosswalk (2020 PUMA boundaries only)
-            # Crosswalk files (updated to use our generated crosswalk)
-            'puma_crosswalk': self.POPSIM_DATA_DIR / "geo_cross_walk_tm2_updated.csv",
         }
         
         # ============================================================
@@ -501,7 +495,7 @@ class UnifiedTM2Config:
     def get_script_paths(self):
         """Get paths to all workflow scripts"""
         return {
-            'crosswalk': self.BASE_DIR / "build_crosswalk_focused.py",
+            'crosswalk': self.BASE_DIR / "create_tm2_crosswalk.py",
             'seed': self.BASE_DIR / "create_seed_population_tm2_refactored.py",
             'controls': self.BASE_DIR / "create_baseyear_controls_23_tm2.py",
             'hhgq': self.BASE_DIR / "add_hhgq_combined_controls.py",
