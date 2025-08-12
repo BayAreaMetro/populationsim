@@ -57,6 +57,22 @@ class UnifiedTM2Config:
         # This ensures consistency across all pipeline components
         self.BAY_AREA_PUMAS = self._load_pumas_from_crosswalk()
         
+        # ============================================================
+        # BAY AREA COUNTY DEFINITIONS - SINGLE SOURCE OF TRUTH
+        # County mapping between sequential IDs (1-9) and FIPS codes
+        # This ensures consistency across all pipeline components
+        self.BAY_AREA_COUNTIES = {
+            1: {'name': 'San Francisco', 'fips_int': 75, 'fips_str': '075'},
+            2: {'name': 'San Mateo', 'fips_int': 81, 'fips_str': '081'},
+            3: {'name': 'Santa Clara', 'fips_int': 85, 'fips_str': '085'},
+            4: {'name': 'Alameda', 'fips_int': 1, 'fips_str': '001'},
+            5: {'name': 'Contra Costa', 'fips_int': 13, 'fips_str': '013'},
+            6: {'name': 'Solano', 'fips_int': 95, 'fips_str': '095'},
+            7: {'name': 'Napa', 'fips_int': 55, 'fips_str': '055'},
+            8: {'name': 'Sonoma', 'fips_int': 97, 'fips_str': '097'},
+            9: {'name': 'Marin', 'fips_int': 41, 'fips_str': '041'}
+        }
+        
         # Now define external paths and other configurations
         self._setup_external_paths()
         self._setup_file_templates()
@@ -727,6 +743,32 @@ class UnifiedTM2Config:
             ]
         }
         return step_files.get(step_name, [])
+    
+    # ============================================================
+    # COUNTY LOOKUP HELPER METHODS
+    # ============================================================
+    def get_county_by_fips(self, fips_code):
+        """Get county info by FIPS code (int or str)"""
+        fips_int = int(str(fips_code).lstrip('0')) if fips_code else None
+        for county_id, info in self.BAY_AREA_COUNTIES.items():
+            if info['fips_int'] == fips_int:
+                return county_id, info
+        return None, None
+    
+    def get_county_by_name(self, name):
+        """Get county info by name"""
+        for county_id, info in self.BAY_AREA_COUNTIES.items():
+            if info['name'].lower() == name.lower():
+                return county_id, info
+        return None, None
+    
+    def get_county_sequential_ids(self):
+        """Get list of sequential county IDs (1-9)"""
+        return list(self.BAY_AREA_COUNTIES.keys())
+    
+    def get_county_fips_list(self):
+        """Get list of FIPS codes as integers"""
+        return [info['fips_int'] for info in self.BAY_AREA_COUNTIES.values()]
 
 # Create global configuration instance
 config = UnifiedTM2Config()

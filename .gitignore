@@ -7,7 +7,13 @@ example_mtc/
 input_2023/
 local_data/
 output_2023/
-output_2023/
+persons_2023_tm2.csv
+households_2023_tm2.csv
+seed_households.csv
+seed_persons.csv
+synthetic_households.csv
+synthetic_persons.csv
+pipeline.h5
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -30,7 +36,8 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-
+households.csv
+persons.csv
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

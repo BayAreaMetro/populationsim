@@ -7,6 +7,7 @@ Single script to create area-based MAZ-TAZ-PUMA crosswalk for PopulationSim TM2
 This is the ONE AND ONLY crosswalk script for the TM2 pipeline.
 - Uses area-based TAZ-PUMA assignment (most accurate)
 - Outputs directly to consolidated output_2023 directory
+- Uses 1-9 county system from unified config
 - No copying, no duplication, no confusion
 """
 
@@ -16,6 +17,9 @@ import numpy as np
 from pathlib import Path
 import sys
 import argparse
+
+# Import unified config for county mappings
+from unified_tm2_config import config
 
 def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=True):
     """
@@ -193,9 +197,9 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
     crosswalk_df = maz_gdf[[maz_col, taz_col, 'PUMA']].copy()
     crosswalk_df.columns = ['MAZ', 'TAZ', 'PUMA']
     
-    # Add county information from PUMA assignments using reference crosswalk
+    # Add county information using 1-9 system from unified config
     if verbose:
-        print(f"\nStep 4a: Adding county information from reference crosswalk...")
+        print(f"\nStep 4a: Adding county information using 1-9 system...")
     
     # Use existing tm2py-utils crosswalk as reference for PUMA-to-county mapping
     reference_crosswalk_file = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv")
@@ -204,11 +208,10 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
         try:
             ref_df = pd.read_csv(reference_crosswalk_file)
             if 'PUMA' in ref_df.columns and 'COUNTY' in ref_df.columns:
-                # Create PUMA-to-county mapping from reference
+                # Create PUMA-to-county mapping from reference (this uses old FIPS-based system)
                 puma_county_ref = ref_df[['PUMA', 'COUNTY']].drop_duplicates()
                 
                 # Convert both PUMA formats to integers for comparison
-                # Our crosswalk has 5-digit strings, reference may have different format
                 def normalize_puma(puma_val):
                     """Convert PUMA to integer for consistent comparison"""
                     try:
@@ -220,20 +223,36 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
                     except:
                         return None
                 
-                # Normalize reference PUMAs
+                # Normalize reference PUMAs - but map to FIPS first, then to 1-9 system
                 ref_df['PUMA_norm'] = ref_df['PUMA'].apply(normalize_puma)
                 puma_county_ref = ref_df[['PUMA_norm', 'COUNTY']].dropna().drop_duplicates()
-                puma_to_county = dict(zip(puma_county_ref['PUMA_norm'], puma_county_ref['COUNTY']))
                 
-                # Normalize our crosswalk PUMAs and map
+                # Convert FIPS-based counties to 1-9 system using unified config
+                puma_to_county_seq = {}
+                for _, row in puma_county_ref.iterrows():
+                    puma_id = row['PUMA_norm']
+                    fips_county = row['COUNTY']
+                    
+                    # Look up the sequential county ID (1-9) from FIPS code
+                    county_seq_id, county_info = config.get_county_by_fips(fips_county)
+                    if county_seq_id:
+                        puma_to_county_seq[puma_id] = county_seq_id
+                
+                # Normalize our crosswalk PUMAs and map to 1-9 system
                 crosswalk_df['PUMA_norm'] = crosswalk_df['PUMA'].apply(normalize_puma)
-                crosswalk_df['COUNTY'] = crosswalk_df['PUMA_norm'].map(puma_to_county)
+                crosswalk_df['COUNTY'] = crosswalk_df['PUMA_norm'].map(puma_to_county_seq)
                 
                 if verbose:
-                    print(f"  Loaded PUMA-to-county mapping from reference crosswalk:")
-                    print(f"  Found {len(puma_to_county)} PUMA-to-county mappings")
-                    counties = sorted([c for c in set(puma_to_county.values()) if pd.notna(c)])
-                    print(f"  Counties: {counties}")
+                    print(f"  Loaded PUMA-to-county mapping and converted to 1-9 system:")
+                    print(f"  Found {len(puma_to_county_seq)} PUMA-to-county mappings")
+                    counties = sorted([c for c in set(puma_to_county_seq.values()) if pd.notna(c)])
+                    print(f"  Counties (1-9 system): {counties}")
+                    
+                    # Show the mapping for clarity
+                    print(f"  County mapping used:")
+                    for seq_id in sorted(config.BAY_AREA_COUNTIES.keys()):
+                        county_info = config.BAY_AREA_COUNTIES[seq_id]
+                        print(f"    {seq_id}: {county_info['name']} (FIPS {county_info['fips_int']})")
                 
                 # Check for missing mappings
                 missing_counties = crosswalk_df['COUNTY'].isna().sum()
@@ -257,36 +276,31 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
         print(f"  Setting all counties to None")
         crosswalk_df['COUNTY'] = None
     
-    # Add county names using COUNTY_RECODE from config
+    # Add county names and FIPS codes using unified config
     if verbose:
-        print(f"\nStep 4b: Adding county names from config...")
+        print(f"\nStep 4b: Adding county names and FIPS codes from unified config...")
     
-    try:
-        from tm2_control_utils.config_census import COUNTY_RECODE
-        
-        # Create county mapping from COUNTY_RECODE
-        county_recode_df = COUNTY_RECODE.copy()
-        # Extract last 3 digits and convert to our format (e.g., 6001 -> 1)
-        county_recode_df['county_code'] = county_recode_df['GEOID_county'].astype(str).str[-3:].astype(int)
-        county_name_map = dict(zip(county_recode_df['county_code'], county_recode_df['county_name']))
-        
-        if verbose:
-            print(f"  County name mapping from config:")
-            for code, name in sorted(county_name_map.items()):
-                print(f"    County {code} -> {name}")
-        
-        # Apply county names
-        crosswalk_df['county_name'] = crosswalk_df['COUNTY'].map(county_name_map).fillna('Unknown')
-        
-    except ImportError:
-        print(f"WARNING: Could not import COUNTY_RECODE, using fallback names")
-        # Fallback mapping if config is not available
-        fallback_names = {
-            1: 'Alameda', 13: 'Contra Costa', 41: 'Marin', 55: 'Napa',
-            75: 'San Francisco', 81: 'San Mateo', 85: 'Santa Clara', 
-            95: 'Solano', 97: 'Sonoma'
-        }
-        crosswalk_df['county_name'] = crosswalk_df['COUNTY'].map(fallback_names).fillna('Unknown')
+    # Create county name mapping from unified config (1-9 system)
+    county_name_map = {}
+    countyfp10_map = {}
+    
+    for seq_id, county_info in config.BAY_AREA_COUNTIES.items():
+        county_name_map[seq_id] = county_info['name']
+        countyfp10_map[seq_id] = county_info['fips_int']
+    
+    if verbose:
+        print(f"  County mapping from unified config:")
+        for seq_id in sorted(config.BAY_AREA_COUNTIES.keys()):
+            county_info = config.BAY_AREA_COUNTIES[seq_id]
+            print(f"    {seq_id}: {county_info['name']} (FIPS {county_info['fips_int']})")
+    
+    # Apply county names and FIPS codes
+    crosswalk_df['county_name'] = crosswalk_df['COUNTY'].map(county_name_map).fillna('Unknown')
+    crosswalk_df['COUNTYFP10'] = crosswalk_df['COUNTY'].map(countyfp10_map)
+    
+    # Reorder columns to match expected format
+    final_columns = ['MAZ', 'TAZ', 'COUNTY', 'county_name', 'COUNTYFP10', 'PUMA']
+    crosswalk_df = crosswalk_df[final_columns]
     
     # Ensure integer types for IDs
     for col in ['MAZ', 'TAZ', 'COUNTY']:

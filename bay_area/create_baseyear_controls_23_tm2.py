@@ -324,17 +324,21 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     try:
         crosswalk_df = pd.read_csv(geo_crosswalk_file)
         
-        # Import county mapping from config instead of hardcoding
-        from tm2_control_utils.config_census import get_crosswalk_to_fips_mapping
-        county_to_fips_mapping = get_crosswalk_to_fips_mapping()
+        # Import county mapping from unified config (1-9 system to FIPS codes)
+        from unified_tm2_config import config
         
-        # Create county mapping - convert COUNTY to 3-digit FIPS string format
+        # Create county to FIPS mapping from unified config
+        county_to_fips_mapping = {}
+        for county_id, county_info in config.BAY_AREA_COUNTIES.items():
+            county_to_fips_mapping[county_id] = county_info['fips_str']  # 3-digit FIPS string
+        
+        # Create county mapping - COUNTY column should already be 1-9 system from crosswalk
         county_fips_map = crosswalk_df[['MAZ', 'county_name', 'COUNTY']].drop_duplicates()
         
-        # Convert COUNTY values to 3-digit FIPS strings using config mapping
+        # Convert COUNTY values (1-9) to 3-digit FIPS strings using unified config mapping
         county_fips_map['county_fips'] = county_fips_map['COUNTY'].map(county_to_fips_mapping)
         
-        logger.info(f"County mapping created: {dict(county_fips_map.groupby('COUNTY')['county_fips'].first())}")
+        logger.info(f"County mapping created (1-9 to FIPS): {dict(county_fips_map.groupby('COUNTY')['county_fips'].first())}")
         logger.info(f"Available counties in crosswalk: {sorted(county_fips_map['county_fips'].unique())}")
         logger.info(f"Target counties available: {sorted(county_targets.keys())}")
         
