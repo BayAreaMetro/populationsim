@@ -1,0 +1,43 @@
+# Minimal PopulationSim Environment - TESTED WORKING VERSION
+# Python 3.8 with essential packages only
+# 
+# This version works where environment_export.yml fails due to:
+# - Package version conflicts on current conda channels  
+# - Missing packages like tables 3.8.0 for Python 3.8
+# - Complex geospatial package dependency resolution issues
+#
+# Strategy: Install core packages via conda, let pip handle complex ones
+# Created: August 2025
+# Status: WORKING - Successfully creates environment and runs PopulationSim
+
+name: popsim_working
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.8
+  - pip
+  - setuptools
+  - wheel
+  
+  # Core scientific computing
+  - numpy
+  - pandas
+  
+  # Geospatial (essential only)
+  - geopandas
+  - fiona
+  - shapely
+  
+  # System utilities
+  - pyyaml
+  - requests
+  - click
+  
+  - pip:
+    # Let pip handle the complex dependencies
+    - populationsim
+    - activitysim>=1.0,<2.0
+    - pyogrio
+    - psutil

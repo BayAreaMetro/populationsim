@@ -1,43 +1,42 @@
-# PopulationSim TM2 EXACT WORKING REQUIREMENTS
-# DO NOT USE - Use environment_export.yml instead
-# This file is kept for reference only
+# PopulationSim TM2 WORKING REQUIREMENTS
+# Updated August 2025 - Tested and Working Setup
 
-# CRITICAL: Use Python 3.8.20, NOT 3.12
-# Create environment with: conda env create -f environment_export.yml
+# CRITICAL SETUP NOTES:
+# 1. Use Python 3.8.20 (NOT 3.12 - has compatibility issues)
+# 2. Create environment with: conda env create -f environment_minimal.yml
+# 3. DO NOT use this requirements.txt directly - it's for reference only
+# 4. The minimal environment installs PopulationSim automatically
 
-# Core data processing (EXACT versions from working environment)
-pandas==2.0.3
-numpy==1.21.0
-pyarrow==17.0.0
-tables==3.8.0
-numexpr==2.8.4
-numba==0.58.0
+# WORKING ENVIRONMENT PROCESS:
+# conda env create -f environment_minimal.yml
+# C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe --version
 
-# ActivitySim ecosystem
-activitysim==1.1.0
-OpenMatrix==0.3.5.0
-orca==1.8
+# Core packages (installed via environment_minimal.yml):
+pandas>=2.0.0
+numpy>=1.21.0
+geopandas>=0.13.0
+fiona>=1.8.0
+shapely>=2.0.0
 
-# Optimization
-ortools==9.12.4544
+# Complex packages (installed automatically via pip in environment):
+populationsim>=0.5.1
+activitysim>=1.0,<2.0
+pyogrio>=0.9.0
+psutil>=6.0.0
 
-# Geospatial
-geopandas==0.13.2
-fiona==1.8.22
-shapely==2.0.7
-pyproj==3.5.0
-
-# System utilities
-psutil==6.0.0
-PyYAML==6.0.2
-requests==2.32.3
-
-# Census API
-census==0.8.24
+# Additional packages (installed as dependencies):
+PyYAML>=6.0.0
+requests>=2.32.0
+tables>=3.8.0
+ortools>=9.0.0
+OpenMatrix>=0.3.0
 
 # Development (optional)
 jupyter>=1.0.0
 ipykernel>=6.0.0
 
-# NOTE: PopulationSim should be installed separately with:
-# pip install -e . (from the populationsim repository root)
+# INSTALLATION NOTES:
+# - environment_export.yml has version conflicts on current conda channels
+# - environment_minimal.yml uses compatible versions and works reliably
+# - PopulationSim installs in development mode automatically
+# - Use direct Python path instead of conda activate in PowerShell

@@ -4,26 +4,28 @@
 
 ### 1. Environment Setup
 ```bash
-# Activate conda environment
-conda activate popsim_py312
+# Use direct Python path (PowerShell conda activate issues)
+# Replace [USERNAME] with your actual username
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe --version
+# Should show: Python 3.8.20
 
 # Navigate to bay_area directory
 cd /path/to/populationsim/bay_area
 
 # Check environment setup
-python setup_environment.py
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe setup_environment.py
 ```
 
 ### 2. Run Full Pipeline
 ```bash
 # Run complete pipeline (recommended)
-python tm2_pipeline.py full --force
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe tm2_pipeline.py full --force
 
 # Or run individual steps
-python tm2_pipeline.py crosswalk --force
-python tm2_pipeline.py seed --force  
-python tm2_pipeline.py controls --force
-python tm2_pipeline.py populationsim --force
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe tm2_pipeline.py crosswalk --force
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe tm2_pipeline.py seed --force  
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe tm2_pipeline.py controls --force
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe tm2_pipeline.py populationsim --force
 ```
 
 ## File Paths You May Need to Change
