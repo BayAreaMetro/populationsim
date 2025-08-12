@@ -1,0 +1,73 @@
+# PopulationSim TM2 Working Environment Export
+# This is the exact environment that successfully runs the Bay Area PopulationSim pipeline
+# Generated from: C:\Users\schildress\AppData\Local\anaconda3\envs\popsim
+# Python version: 3.8.20
+
+name: popsim_working
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.8.20
+  - pip=24.2
+  - setuptools=75.1.0
+  - wheel=0.44.0
+  
+  # Core scientific computing
+  - numpy=1.21.0
+  - pandas=2.0.3
+  - pyarrow=17.0.0
+  - tables=3.8.0
+  - numexpr=2.8.4
+  - numba=0.58.0
+  - llvmlite=0.41.1
+  
+  # Geospatial
+  - geopandas=0.13.2
+  - fiona=1.8.22
+  - shapely=2.0.7
+  - pyproj=3.5.0
+  - pyogrio=0.9.0
+  
+  # System and utilities
+  - psutil=6.0.0
+  - pyyaml=6.0.2
+  - requests=2.32.3
+  - click=8.1.8
+  - colorama=0.4.6
+  
+  # Optional development tools
+  - jupyter=1.0.0
+  - ipykernel=6.29.5
+  - ipython=8.12.2
+  - matplotlib-inline=0.1.7
+  
+  # Windows specific
+  - pywin32=306
+  
+  - pip:
+    # ActivitySim ecosystem (exact versions from working environment)
+    - activitysim==1.1.0
+    - OpenMatrix==0.3.5.0
+    - orca==1.8
+    
+    # Optimization
+    - ortools==9.12.4544
+    
+    # Census API
+    - census==0.8.24
+    
+    # Additional utilities
+    - simwrapper==1.8.5
+    - msgpack==1.1.0
+    - munch==4.0.0
+    - cytoolz==1.0.1
+    - toolz==1.0.0
+    - immutabledict==4.2.1
+    
+    # Development tools
+    - cython==3.1.1
+    - py-cpuinfo==9.0.0
+    
+    # PopulationSim will be installed separately in development mode

@@ -1,27 +1,43 @@
-# PopulationSim TM2 Requirements
-# Core dependencies for Bay Area population synthesis
+# PopulationSim TM2 EXACT WORKING REQUIREMENTS
+# DO NOT USE - Use environment_export.yml instead
+# This file is kept for reference only
 
-# Data processing
-pandas>=1.5.0
-numpy>=1.21.0
-pyarrow>=10.0.0
-tables>=3.7.0
+# CRITICAL: Use Python 3.8.20, NOT 3.12
+# Create environment with: conda env create -f environment_export.yml
 
-# PopulationSim and ActivitySim
-activitysim>=1.2.0
-openmatrix>=0.3.0
+# Core data processing (EXACT versions from working environment)
+pandas==2.0.3
+numpy==1.21.0
+pyarrow==17.0.0
+tables==3.8.0
+numexpr==2.8.4
+numba==0.58.0
 
-# System and monitoring
-psutil>=5.8.0
+# ActivitySim ecosystem
+activitysim==1.1.0
+OpenMatrix==0.3.5.0
+orca==1.8
 
-# Optional but recommended
-matplotlib>=3.5.0
-seaborn>=0.11.0
+# Optimization
+ortools==9.12.4544
 
-# For jupyter notebooks (development)
+# Geospatial
+geopandas==0.13.2
+fiona==1.8.22
+shapely==2.0.7
+pyproj==3.5.0
+
+# System utilities
+psutil==6.0.0
+PyYAML==6.0.2
+requests==2.32.3
+
+# Census API
+census==0.8.24
+
+# Development (optional)
 jupyter>=1.0.0
 ipykernel>=6.0.0
 
-# Census API access
-requests>=2.28.0
-census>=0.8.19
+# NOTE: PopulationSim should be installed separately with:
+# pip install -e . (from the populationsim repository root)

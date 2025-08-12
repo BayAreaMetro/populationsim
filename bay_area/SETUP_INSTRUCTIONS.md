@@ -1,32 +1,53 @@
 # PopulationSim TM2 Setup Instructions
 
-## For New Machines
+## For New Machines - EXACT WORKING ENVIRONMENT
 
-### 1. Environment Setup
+### 1. Clone Repository
 ```bash
-# Create conda environment
-conda create -n popsim_py312 python=3.12
-conda activate popsim_py312
-
-# Install PopulationSim in development mode
-cd /path/to/populationsim
-pip install -e .
-
-# Install additional requirements
-cd bay_area
-pip install -r requirements.txt
+git clone https://github.com/BayAreaMetro/populationsim.git
+cd populationsim
+git checkout tm2
 ```
 
-### 2. Verify Installation
+### 2. Create Environment from Export
+```bash
+# Use the exact working environment
+conda env create -f bay_area/environment_export.yml
+conda activate popsim_working
+```
+
+### 3. Install PopulationSim in Development Mode
+```bash
+# Must be done AFTER conda environment creation
+# This installs the local modified version of PopulationSim
+pip install -e .
+```
+
+### 4. Verify Installation
 ```bash
 cd bay_area
 python setup_environment.py
+
+# Test PopulationSim import
+python -c "import populationsim; print('PopulationSim path:', populationsim.__file__)"
 ```
 
-### 3. Run Pipeline
+### 5. Run Pipeline
 ```bash
 python tm2_pipeline.py full --force
 ```
+
+## CRITICAL NOTES
+
+### Environment Details
+- **Python Version**: 3.8.20 (DO NOT use 3.12 - causes compatibility issues)
+- **PopulationSim**: Development version from this repository
+- **Key Dependencies**: activitysim==1.1.0, pandas==2.0.3, numpy==1.21.0
+
+### Installation Order
+1. Create conda environment first
+2. Install PopulationSim in development mode second
+3. Never install PopulationSim via pip/conda - always use `pip install -e .`
 
 ## Key Changes Made (For Reference)
 
@@ -38,7 +59,7 @@ python tm2_pipeline.py full --force
 ### GQ Controls Fixed
 - `gq_pop`: `hhgqtype>=2` (Group Quarters only)
 - `gq_university`: Age-based split of GQ institutional
-- `numhh_gq`: `unique_hh_id>0` (households in GQ)
+- `numhh_gq`: `hh_id>0` (households using integer IDs)
 
 ### Architecture Improvements
 - Single source of truth in `unified_tm2_config.py`

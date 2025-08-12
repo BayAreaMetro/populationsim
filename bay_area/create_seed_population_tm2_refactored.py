@@ -490,8 +490,8 @@ class PersonProcessor:
     
     def _map_group_quarters_type(self, df: pd.DataFrame, household_df: pd.DataFrame) -> pd.DataFrame:
         """Map group quarters type from household data"""
-        hh_gq_lookup = household_df.set_index('unique_hh_id')['hhgqtype'].to_dict()
-        df['hhgqtype'] = df['unique_hh_id'].map(hh_gq_lookup).fillna(1).astype(int)
+        hh_gq_lookup = household_df.set_index('hh_id')['hhgqtype'].to_dict()
+        df['hhgqtype'] = df['hh_id'].map(hh_gq_lookup).fillna(1).astype(int)
         return df
 
 class SeedPopulationCreator:
@@ -709,48 +709,51 @@ class SeedPopulationCreator:
             logger.info("🔗 CREATING UNIQUE IDs")
             logger.info("-" * 50)
             
-            # Always create unique_hh_id from scratch to ensure consistency
-            # This creates a truly unique identifier across all years/PUMAs
-            logger.info("[HOUSEHOLD] Creating unique household IDs from YEAR + STATE + PUMA + SERIALNO...")
+            # Create integer household IDs (PopulationSim requirement)
+            logger.info("[HOUSEHOLD] Creating integer household IDs for PopulationSim compatibility...")
             
-            # Create unique_hh_id by combining YEAR, STATE, PUMA, and SERIALNO
-            # This ensures uniqueness across the entire 2019-2023 multi-year dataset
-            household_df['unique_hh_id'] = (
+            # Method 1: Create sequential integer IDs starting from 1
+            # This ensures PopulationSim gets the integer IDs it expects
+            household_df['hh_id'] = range(1, len(household_df) + 1)
+            
+            # Keep the unique string ID for debugging/reference but don't use it as primary key
+            household_df['unique_hh_id_str'] = (
                 household_df['YEAR'].astype(str) + '_' +
                 household_df['STATE'].astype(str) + '_' +
                 household_df['PUMA'].astype(str).str.zfill(5) + '_' +
                 household_df['SERIALNO'].astype(str).str.zfill(7)
             )
             
-            logger.info(f"[SUCCESS] Created {len(household_df):,} unique household IDs")
-            logger.info(f"   Example unique_hh_id: {household_df['unique_hh_id'].iloc[0]}")
+            logger.info(f"[SUCCESS] Created {len(household_df):,} integer household IDs (1 to {len(household_df)})")
+            logger.info(f"   Example hh_id: {household_df['hh_id'].iloc[0]} (int)")
+            logger.info(f"   Example unique_hh_id_str: {household_df['unique_hh_id_str'].iloc[0]} (reference)")
             
-            # Create household lookup for persons using SERIALNO
-            logger.info("[PERSON] Creating household-person linkage using SERIALNO...")
+            # Create household lookup for persons using SERIALNO -> hh_id mapping
+            logger.info("[PERSON] Creating household-person linkage using SERIALNO -> hh_id lookup...")
             linking_start = datetime.now()
             
-            # Create lookup dictionary from household file SERIALNO to unique_hh_id
-            hh_lookup = household_df.set_index('SERIALNO')['unique_hh_id'].to_dict()
+            # Create lookup dictionary from household file: SERIALNO -> hh_id (integer)
+            hh_lookup = household_df.set_index('SERIALNO')['hh_id'].to_dict()
             
             # Map persons to household IDs using SERIALNO lookup
-            person_df['unique_hh_id'] = person_df['SERIALNO'].map(hh_lookup)
+            person_df['hh_id'] = person_df['SERIALNO'].map(hh_lookup)
             
             linking_time = datetime.now() - linking_start
-            logger.info(f"[SUCCESS] Linked persons to households using SERIALNO -> unique_hh_id lookup in {linking_time}")
+            logger.info(f"[SUCCESS] Linked persons to households using SERIALNO -> hh_id lookup in {linking_time}")
             
             # Check for orphaned persons (persons without matching households)
-            orphaned_persons = person_df['unique_hh_id'].isna().sum()
+            orphaned_persons = person_df['hh_id'].isna().sum()
             if orphaned_persons > 0:
                 logger.warning(f"[WARNING] Found {orphaned_persons} persons without household links - removing them")
-                person_df = person_df[person_df['unique_hh_id'].notna()].copy()
+                person_df = person_df[person_df['hh_id'].notna()].copy()
             
             logger.info(f"[SUCCESS] Final counts: {len(person_df):,} persons linked to {len(household_df):,} households")
             
             # Verify the linking worked correctly
-            unique_hh_in_persons = person_df['unique_hh_id'].nunique()
-            unique_hh_in_households = household_df['unique_hh_id'].nunique()
+            unique_hh_in_persons = person_df['hh_id'].nunique()
+            unique_hh_in_households = household_df['hh_id'].nunique()
             
-            logger.info(f"[VALIDATION] Households with unique_hh_id: {unique_hh_in_households:,}")
+            logger.info(f"[VALIDATION] Households with hh_id: {unique_hh_in_households:,}")
             logger.info(f"[VALIDATION] Unique households referenced by persons: {unique_hh_in_persons:,}")
             
             if unique_hh_in_persons == unique_hh_in_households:
@@ -761,9 +764,9 @@ class SeedPopulationCreator:
                 
                 # Filter out households without persons for PopulationSim compatibility
                 logger.info("[FILTER] Removing households without persons for PopulationSim compatibility...")
-                households_with_persons = person_df['unique_hh_id'].unique()
+                households_with_persons = person_df['hh_id'].unique()
                 original_household_count = len(household_df)
-                household_df = household_df[household_df['unique_hh_id'].isin(households_with_persons)].copy()
+                household_df = household_df[household_df['hh_id'].isin(households_with_persons)].copy()
                 removed_households = original_household_count - len(household_df)
                 
                 logger.info(f"[SUCCESS] Filtered households: {original_household_count:,} → {len(household_df):,} (removed {removed_households:,})")
