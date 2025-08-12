@@ -1,6 +1,6 @@
 # PopulationSim TM2 Setup Instructions
 
-## For New Machines - EXACT WORKING ENVIRONMENT
+## For New Machines - WORKING SETUP PROCESS
 
 ### 1. Clone Repository
 ```bash
@@ -9,27 +9,38 @@ cd populationsim
 git checkout tm2
 ```
 
-### 2. Create Environment from Export
+### 2. Create Environment (TESTED WORKING METHOD)
 ```bash
-# Use the exact working environment
-conda env create -f bay_area/environment_export.yml
-conda activate popsim_working
-```
-
-### 3. Install PopulationSim in Development Mode
-```bash
-# Must be done AFTER conda environment creation
-# This installs the local modified version of PopulationSim
-pip install -e .
-```
-
-### 4. Verify Installation
-```bash
+# The exact environment export has version conflicts
+# Use the simplified environment that works:
 cd bay_area
-python setup_environment.py
+conda env create -f environment_minimal.yml
+```
+
+**Note:** The `environment_export.yml` has package version conflicts on current conda channels. The `environment_minimal.yml` uses compatible versions and lets pip handle complex dependencies.
+
+### 3. Verify Environment Creation
+```bash
+# Check environment was created
+conda list -n popsim_working
+```
+
+### 4. Use Direct Python Path (PowerShell Activation Issues)
+```bash
+# PowerShell conda activation doesn't work reliably
+# Use direct path to Python executable instead:
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe --version
+# Should show: Python 3.8.20
 
 # Test PopulationSim import
-python -c "import populationsim; print('PopulationSim path:', populationsim.__file__)"
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe -c "import populationsim; print('PopulationSim path:', populationsim.__file__)"
+# Should show: C:\GitHub\populationsim\populationsim\__init__.py
+```
+
+### 5. Verify Installation
+```bash
+cd bay_area
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe setup_environment.py
 ```
 
 ### 5. Run Pipeline
@@ -77,6 +88,30 @@ python tm2_pipeline.py full --force
 - `bay_area/local_data/gis/` - Local GIS files
 - `bay_area/local_data/census/` - Local census cache
 - `bay_area/data_cache/` - Local data cache
+
+## Troubleshooting Environment Creation
+
+### Issue: LibMambaUnsatisfiableError with environment_export.yml
+**Problem:** Exact package versions from working environment aren't available on current conda channels
+**Solution:** Use `environment_minimal.yml` instead - it uses compatible versions and lets pip handle complex dependencies
+
+### Issue: "tables 3.8.0 does not exist" 
+**Problem:** PyTables 3.8.0 not available for Python 3.8 in conda channels
+**Solution:** Remove tables from conda dependencies, let PopulationSim install it via pip
+
+### Issue: PowerShell conda activate doesn't work
+**Problem:** `conda activate popsim_working` doesn't set PATH correctly in PowerShell
+**Solution:** Use direct Python executable path: `C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe`
+
+### Issue: "pip not recognized" after conda activate
+**Problem:** PATH not properly set in PowerShell environment
+**Solution:** Use `conda run -n popsim_working pip install -e .` OR use direct Python path
+
+### Environment Creation Process That Works:
+1. Use `environment_minimal.yml` (not `environment_export.yml`)
+2. PopulationSim installs automatically via pip in the minimal environment
+3. Use direct Python executable path instead of conda activate
+4. Verify with `conda list -n popsim_working` to see installed packages
 
 ## Troubleshooting
 

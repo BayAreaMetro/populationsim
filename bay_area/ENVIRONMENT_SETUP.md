@@ -17,18 +17,26 @@ git clone https://github.com/BayAreaMetro/populationsim.git
 cd populationsim
 git checkout tm2
 
-# Create exact working environment
-conda env create -f bay_area/environment_export.yml
+# Create working environment (use minimal, not export)
+conda env create -f bay_area/environment_minimal.yml
 
-# Activate environment
-conda activate popsim_working
+# Verify environment (PopulationSim installs automatically)
+conda list -n popsim_working
 
-# Install PopulationSim in development mode
-pip install -e .
+# Test with direct Python path (conda activate unreliable in PowerShell)
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe --version
 ```
 
 ### 3. Verify Installation
 ```bash
+cd bay_area
+
+# Test PopulationSim import
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe -c "import populationsim; print('PopulationSim path:', populationsim.__file__)"
+
+# Run environment verification
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe setup_environment.py
+```
 cd bay_area
 python setup_environment.py
 ```
