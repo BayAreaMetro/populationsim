@@ -2,13 +2,21 @@
 # -*- coding: utf-8 -*-
 """
 DEFINITIVE TM2 Crosswalk Creator
-Single script to create area-based MAZ-TAZ-PUMA crosswalk for PopulationSim TM2
+Single script to create area-based MAZ-TAZ-PUMA-COUNTY crosswalk for PopulationSim TM2
 
 This is the ONE AND ONLY crosswalk script for the TM2 pipeline.
 - Uses area-based TAZ-PUMA assignment (most accurate)
+- Uses spatial join for MAZ-to-County assignment via centroid
 - Outputs directly to consolidated output_2023 directory
 - Uses 1-9 county system from unified config
 - No copying, no duplication, no confusion
+
+DATA SOURCES:
+- MAZ/TAZ Shapefiles: TM2py-utils repository
+- PUMA Shapefiles: US Census TIGER/Line files
+- County Shapefiles: California Counties from California Open Data Portal
+  Source: https://gis.data.ca.gov/datasets/CDEGIS::california-counties-3/explore
+  Downloaded and placed in: C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/
 """
 
 import pandas as pd
@@ -126,6 +134,61 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
         print(f"ERROR loading PUMA shapefile: {e}")
         return False
     
+    # Load County shapefile for spatial county assignment
+    if verbose:
+        print(f"\nStep 2.5: Loading County shapefile...")
+        print(f"  File: {config.EXTERNAL_PATHS['county_shapefile']}")
+    
+    county_shapefile = config.EXTERNAL_PATHS['county_shapefile']
+    if not county_shapefile.exists():
+        print(f"ERROR: County shapefile not found: {county_shapefile}")
+        return False
+        
+    try:
+        county_gdf = gpd.read_file(county_shapefile, engine='pyogrio')
+        if verbose:
+            print(f"  Loaded {len(county_gdf):,} counties")
+            print(f"  CRS: {county_gdf.crs}")
+        
+        # Identify county name and FIPS columns
+        county_name_col = None
+        county_fips_col = None
+        
+        for col in county_gdf.columns:
+            if col.upper() in ['NAME', 'COUNTY_NAME', 'COUNTYNAME']:
+                county_name_col = col
+            elif col.upper() in ['FIPS', 'COUNTYFP', 'FIPSCODE', 'CNTY_FIPS', 'COUNTY_FIP']:
+                county_fips_col = col
+                
+        if not county_name_col or not county_fips_col:
+            print(f"ERROR: Could not identify county name and FIPS columns in {list(county_gdf.columns)}")
+            return False
+            
+        if verbose:
+            print(f"  County name column: {county_name_col}")
+            print(f"  County FIPS column: {county_fips_col}")
+        
+        # Filter to Bay Area counties using FIPS codes
+        bay_area_county_fips = ['001', '013', '041', '055', '075', '081', '085', '095', '097']
+        
+        # Handle both string and integer FIPS codes
+        county_gdf['FIPS_STR'] = county_gdf[county_fips_col].astype(str).str.zfill(3)
+        county_gdf_filtered = county_gdf[county_gdf['FIPS_STR'].isin(bay_area_county_fips)]
+        
+        if verbose:
+            print(f"  Filtered to Bay Area: {len(county_gdf_filtered):,} counties (was {len(county_gdf):,})")
+            print(f"  Bay Area counties: {sorted(county_gdf_filtered[county_name_col].tolist())}")
+        
+        # Reproject to match MAZ CRS if needed
+        if county_gdf_filtered.crs != maz_gdf.crs:
+            if verbose:
+                print(f"  Reprojecting County from {county_gdf_filtered.crs} to {maz_gdf.crs}")
+            county_gdf_filtered = county_gdf_filtered.to_crs(maz_gdf.crs)
+            
+    except Exception as e:
+        print(f"ERROR loading County shapefile: {e}")
+        return False
+    
     # Create TAZ summary for area-based assignment
     if verbose:
         print(f"\nStep 3: Area-based TAZ-PUMA assignment...")
@@ -197,121 +260,118 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
     crosswalk_df = maz_gdf[[maz_col, taz_col, 'PUMA']].copy()
     crosswalk_df.columns = ['MAZ', 'TAZ', 'PUMA']
     
-    # Add county information using 1-9 system from unified config
+    # Add spatial county assignment using MAZ centroids
     if verbose:
-        print(f"\nStep 4a: Adding county information using 1-9 system...")
+        print(f"\nStep 4.5: Spatial county assignment using MAZ centroids...")
     
-    # Use existing tm2py-utils crosswalk as reference for PUMA-to-county mapping
-    reference_crosswalk_file = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv")
-    
-    if reference_crosswalk_file.exists():
-        try:
-            ref_df = pd.read_csv(reference_crosswalk_file)
-            if 'PUMA' in ref_df.columns and 'COUNTY' in ref_df.columns:
-                # Create PUMA-to-county mapping from reference (this uses old FIPS-based system)
-                puma_county_ref = ref_df[['PUMA', 'COUNTY']].drop_duplicates()
-                
-                # Convert both PUMA formats to integers for comparison
-                def normalize_puma(puma_val):
-                    """Convert PUMA to integer for consistent comparison"""
-                    try:
-                        if pd.isna(puma_val):
-                            return None
-                        puma_str = str(puma_val).strip()
-                        # Remove leading zeros and convert to int
-                        return int(puma_str.lstrip('0')) if puma_str.strip('0') else 0
-                    except:
-                        return None
-                
-                # Normalize reference PUMAs - but map to FIPS first, then to 1-9 system
-                ref_df['PUMA_norm'] = ref_df['PUMA'].apply(normalize_puma)
-                puma_county_ref = ref_df[['PUMA_norm', 'COUNTY']].dropna().drop_duplicates()
-                
-                # Convert FIPS-based counties to 1-9 system using unified config
-                puma_to_county_seq = {}
-                for _, row in puma_county_ref.iterrows():
-                    puma_id = row['PUMA_norm']
-                    fips_county = row['COUNTY']
-                    
-                    # Look up the sequential county ID (1-9) from FIPS code
-                    county_seq_id, county_info = config.get_county_by_fips(fips_county)
-                    if county_seq_id:
-                        puma_to_county_seq[puma_id] = county_seq_id
-                
-                # Normalize our crosswalk PUMAs and map to 1-9 system
-                crosswalk_df['PUMA_norm'] = crosswalk_df['PUMA'].apply(normalize_puma)
-                crosswalk_df['COUNTY'] = crosswalk_df['PUMA_norm'].map(puma_to_county_seq)
-                
-                if verbose:
-                    print(f"  Loaded PUMA-to-county mapping and converted to 1-9 system:")
-                    print(f"  Found {len(puma_to_county_seq)} PUMA-to-county mappings")
-                    counties = sorted([c for c in set(puma_to_county_seq.values()) if pd.notna(c)])
-                    print(f"  Counties (1-9 system): {counties}")
-                    
-                    # Show the mapping for clarity
-                    print(f"  County mapping used:")
-                    for seq_id in sorted(config.BAY_AREA_COUNTIES.keys()):
-                        county_info = config.BAY_AREA_COUNTIES[seq_id]
-                        print(f"    {seq_id}: {county_info['name']} (FIPS {county_info['fips_int']})")
-                
-                # Check for missing mappings
-                missing_counties = crosswalk_df['COUNTY'].isna().sum()
-                if missing_counties > 0:
-                    print(f"  WARNING: {missing_counties:,} MAZ zones have no county assignment")
-                    missing_pumas = crosswalk_df[crosswalk_df['COUNTY'].isna()]['PUMA'].unique()
-                    print(f"  PUMAs without county mapping: {sorted(missing_pumas)}")
-                
-                # Clean up temporary column
-                crosswalk_df = crosswalk_df.drop('PUMA_norm', axis=1)
-                
-            else:
-                print(f"  ERROR: Reference crosswalk missing PUMA or COUNTY columns")
-                crosswalk_df['COUNTY'] = None
-                
-        except Exception as e:
-            print(f"  ERROR: Could not read reference crosswalk: {e}")
-            crosswalk_df['COUNTY'] = None
-    else:
-        print(f"  WARNING: Reference crosswalk not found: {reference_crosswalk_file}")
-        print(f"  Using PUMA-to-county mapping from unified config instead")
-        
-        # Use the PUMA-to-county mapping from unified config
-        puma_to_county_seq = config.get_puma_to_county_mapping()
-        
-        # Normalize our crosswalk PUMAs and map to 1-9 system
-        def normalize_puma(puma_val):
-            """Convert PUMA to integer for consistent comparison"""
-            try:
-                if pd.isna(puma_val):
-                    return None
-                puma_str = str(puma_val).strip()
-                # Remove leading zeros and convert to int
-                return int(puma_str.lstrip('0')) if puma_str.strip('0') else 0
-            except:
-                return None
-        
-        crosswalk_df['PUMA_norm'] = crosswalk_df['PUMA'].apply(normalize_puma)
-        crosswalk_df['COUNTY'] = crosswalk_df['PUMA_norm'].map(puma_to_county_seq)
+    try:
+        # Ensure both datasets are in the same CRS (use projected CRS for accuracy)
+        target_crs = 'EPSG:3857'  # Web Mercator for better spatial operations
         
         if verbose:
-            print(f"  Applied PUMA-to-county mapping from unified config:")
-            print(f"  Found {len(puma_to_county_seq)} PUMA-to-county mappings")
-            counties = sorted([c for c in set(puma_to_county_seq.values()) if pd.notna(c)])
-            print(f"  Counties (1-9 system): {counties}")
-            
-            # Show missing mappings
-            missing_counties = crosswalk_df['COUNTY'].isna().sum()
-            if missing_counties > 0:
-                print(f"  WARNING: {missing_counties:,} MAZ zones have no county assignment")
-                missing_pumas = crosswalk_df[crosswalk_df['COUNTY'].isna()]['PUMA'].unique()
-                print(f"  PUMAs without county mapping: {sorted(missing_pumas)}")
+            print(f"  Converting to {target_crs} for spatial operations...")
         
-        # Clean up temporary column
-        crosswalk_df = crosswalk_df.drop('PUMA_norm', axis=1)
+        # Reproject MAZ data to target CRS
+        maz_projected = maz_gdf.to_crs(target_crs)
+        maz_centroids = maz_projected.copy()
+        maz_centroids['geometry'] = maz_centroids.geometry.centroid
+        
+        # Reproject county data to target CRS
+        county_projected = county_gdf_filtered.to_crs(target_crs)
+        
+        if verbose:
+            print(f"  Performing spatial join with 'intersects' predicate...")
+        
+        # First try: spatial join with 'intersects' (more permissive than 'within')
+        maz_with_counties = gpd.sjoin(
+            maz_centroids[[maz_col, 'geometry']], 
+            county_projected[[county_name_col, county_fips_col, 'FIPS_STR', 'geometry']], 
+            how='left', 
+            predicate='intersects'
+        )
+        
+        # Check coverage and try fallback if needed
+        initial_coverage = maz_with_counties['FIPS_STR'].notna().sum()
+        if verbose:
+            print(f"  Initial spatial join coverage: {initial_coverage:,}/{len(maz_with_counties):,} ({initial_coverage/len(maz_with_counties)*100:.1f}%)")
+        
+        # If coverage is not 100%, try nearest neighbor assignment for missing ones
+        if initial_coverage < len(maz_with_counties):
+            if verbose:
+                print(f"  Using nearest neighbor for {len(maz_with_counties) - initial_coverage:,} unassigned MAZ zones...")
+            
+            missing_mask = maz_with_counties['FIPS_STR'].isna()
+            missing_indices = maz_with_counties[missing_mask].index
+            
+            # For each missing centroid, find nearest county using sjoin_nearest
+            missing_centroids = maz_centroids.loc[missing_indices, [maz_col, 'geometry']].copy()
+            
+            # Use sjoin_nearest to find closest counties
+            nearest_assignments = gpd.sjoin_nearest(
+                missing_centroids, 
+                county_projected[[county_name_col, county_fips_col, 'FIPS_STR', 'geometry']],
+                how='left'
+            )
+            
+            # Update the main assignments with nearest neighbor results
+            for _, nearest_row in nearest_assignments.iterrows():
+                maz_id = nearest_row[maz_col]
+                # Find the corresponding row in maz_with_counties
+                update_mask = maz_with_counties[maz_col] == maz_id
+                maz_with_counties.loc[update_mask, 'FIPS_STR'] = nearest_row['FIPS_STR']
+                maz_with_counties.loc[update_mask, county_name_col] = nearest_row[county_name_col]
+                maz_with_counties.loc[update_mask, county_fips_col] = nearest_row[county_fips_col]
+        
+        if verbose:
+            print(f"  Spatial join completed for {len(maz_with_counties):,} MAZ zones")
+            final_coverage = maz_with_counties['FIPS_STR'].notna().sum()
+            print(f"  Final coverage: {final_coverage:,}/{len(maz_with_counties):,} ({final_coverage/len(maz_with_counties)*100:.1f}%)")
+            
+        # Create mapping from MAZ to county FIPS
+        maz_to_fips = dict(zip(maz_with_counties[maz_col], maz_with_counties['FIPS_STR']))
+        
+        # Convert FIPS codes to sequential county IDs (1-9) using unified config
+        fips_to_sequential = config.get_fips_to_sequential_mapping()
+        
+        # Add county information to crosswalk
+        crosswalk_df['COUNTY_FIPS_STR'] = crosswalk_df['MAZ'].map(maz_to_fips)
+        crosswalk_df['COUNTY_FIPS_INT'] = crosswalk_df['COUNTY_FIPS_STR'].astype('Int64', errors='ignore')
+        crosswalk_df['COUNTY'] = crosswalk_df['COUNTY_FIPS_INT'].map(fips_to_sequential)
+        
+        # Count successful assignments
+        successful_assignments = crosswalk_df['COUNTY'].notna().sum()
+        if verbose:
+            print(f"  Successfully assigned counties to {successful_assignments:,} of {len(crosswalk_df):,} MAZ zones")
+            assignment_rate = (successful_assignments / len(crosswalk_df)) * 100
+            print(f"  Success rate: {assignment_rate:.1f}%")
+            
+            # Show county distribution
+            county_counts = crosswalk_df['COUNTY'].value_counts().sort_index()
+            print(f"  County distribution:")
+            for county_id, count in county_counts.items():
+                if pd.notna(county_id):
+                    county_info = config.BAY_AREA_COUNTIES.get(int(county_id), {})
+                    county_name = county_info.get('name', 'Unknown')
+                    print(f"    {int(county_id)}: {county_name} - {count:,} MAZ zones")
+            
+            missing_count = crosswalk_df['COUNTY'].isna().sum()
+            if missing_count > 0:
+                print(f"  WARNING: {missing_count:,} MAZ zones could not be assigned to counties")
+                print(f"  These may be in water areas or outside Bay Area county boundaries")
+            else:
+                print(f"  SUCCESS: 100% of MAZ zones assigned to counties!")
+        
+        # Clean up temporary columns
+        crosswalk_df = crosswalk_df.drop(['COUNTY_FIPS_STR', 'COUNTY_FIPS_INT'], axis=1, errors='ignore')
+        
+    except Exception as e:
+        print(f"ERROR in spatial county assignment: {e}")
+        print(f"Setting all counties to None - manual investigation needed")
+        crosswalk_df['COUNTY'] = None
     
     # Add county names and FIPS codes using unified config
     if verbose:
-        print(f"\nStep 4b: Adding county names and FIPS codes from unified config...")
+        print(f"\nStep 5: Adding county names and FIPS codes from unified config...")
     
     # Create county name mapping from unified config (1-9 system)
     county_name_map = {}
@@ -331,39 +391,28 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
     crosswalk_df['county_name'] = crosswalk_df['COUNTY'].map(county_name_map).fillna('Unknown')
     crosswalk_df['COUNTYFP10'] = crosswalk_df['COUNTY'].map(countyfp10_map)
     
-    # Reorder columns to match expected format
-    final_columns = ['MAZ', 'TAZ', 'COUNTY', 'county_name', 'COUNTYFP10', 'PUMA']
-    crosswalk_df = crosswalk_df[final_columns]
-    
-    # Ensure integer types for IDs
-    for col in ['MAZ', 'TAZ', 'COUNTY']:
-        if col in crosswalk_df.columns:
-            crosswalk_df[col] = pd.to_numeric(crosswalk_df[col], errors='coerce').astype('Int64')
-    
-    # Sort by MAZ
-    crosswalk_df = crosswalk_df.sort_values('MAZ').reset_index(drop=True)
-    
+    # Final summary
     if verbose:
-        print(f"  Final crosswalk: {len(crosswalk_df):,} MAZ zones")
-        print(f"  Unique TAZs: {crosswalk_df['TAZ'].nunique():,}")
-        print(f"  Unique PUMAs: {crosswalk_df['PUMA'].nunique():,}")
-        print(f"  Counties: {sorted(crosswalk_df['COUNTY'].dropna().unique())}")
-    
-    # Save output
-    if verbose:
-        print(f"\nStep 5: Saving crosswalk...")
-        print(f"  Output: {output_file}")
-    
-    try:
-        # Ensure output directory exists
-        output_file.parent.mkdir(parents=True, exist_ok=True)
+        print(f"\nStep 6: Saving crosswalk...")
+        unique_tazs = crosswalk_df['TAZ'].nunique()
+        unique_pumas = crosswalk_df['PUMA'].nunique()
+        assigned_counties = crosswalk_df['COUNTY'].nunique()
         
-        # Save CSV
+        print(f"  Final crosswalk: {len(crosswalk_df):,} MAZ zones")
+        print(f"  Unique TAZs: {unique_tazs:,}")
+        print(f"  Unique PUMAs: {unique_pumas}")
+        print(f"  Counties: {assigned_counties}")
+    
+    # Save the crosswalk
+    try:
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         crosswalk_df.to_csv(output_file, index=False)
         
         if verbose:
+            file_size = output_file.stat().st_size
+            print(f"  Output: {output_file}")
             print(f"  SAVED: {len(crosswalk_df):,} records")
-            print(f"  File size: {output_file.stat().st_size:,} bytes")
+            print(f"  File size: {file_size:,} bytes")
         
         return True
         
@@ -372,58 +421,33 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
         return False
 
 def main():
-    """Main function"""
+    """Main execution function"""
     
-    parser = argparse.ArgumentParser(description='Create definitive TM2 crosswalk')
-    parser.add_argument('--maz-shapefile', type=str, 
-                       help='Path to MAZ shapefile')
-    parser.add_argument('--puma-shapefile', type=str,
-                       help='Path to PUMA shapefile') 
-    parser.add_argument('--output', type=str,
-                       help='Output crosswalk file path')
-    parser.add_argument('--quiet', action='store_true',
-                       help='Suppress verbose output')
+    # Use paths from unified config
+    maz_shapefile = config.EXTERNAL_PATHS['maz_shapefile']
+    puma_shapefile = config.EXTERNAL_PATHS['puma_shapefile']
+    output_file = config.POPSIM_DATA_DIR / "geo_cross_walk_tm2_updated.csv"
     
-    args = parser.parse_args()
+    # Always print header information
+    print(f"MAZ shapefile: {maz_shapefile}")
+    print(f"PUMA shapefile: {puma_shapefile}")
+    print(f"County shapefile: {config.EXTERNAL_PATHS['county_shapefile']}")
+    print(f"Output file: {output_file}")
     
-    # Default paths using unified config
-    try:
-        sys.path.insert(0, str(Path(__file__).parent))
-        from unified_tm2_config import UnifiedTM2Config
-        config = UnifiedTM2Config()
-        
-        maz_shapefile = Path(args.maz_shapefile) if args.maz_shapefile else config.SHAPEFILES['maz_shapefile']
-        puma_shapefile = Path(args.puma_shapefile) if args.puma_shapefile else config.SHAPEFILES['puma_shapefile']
-        output_file = Path(args.output) if args.output else config.CROSSWALK_FILES['main_crosswalk']
-        
-    except Exception as e:
-        print(f"ERROR: Could not load configuration: {e}")
-        print("Using fallback paths...")
-        
-        maz_shapefile = Path(args.maz_shapefile) if args.maz_shapefile else Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_4.shp")
-        puma_shapefile = Path(args.puma_shapefile) if args.puma_shapefile else Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp")
-        output_file = Path(args.output) if args.output else Path("output_2023/geo_cross_walk_tm2_updated.csv")
-    
-    verbose = not args.quiet
-    
-    if verbose:
-        print(f"MAZ shapefile: {maz_shapefile}")
-        print(f"PUMA shapefile: {puma_shapefile}")
-        print(f"Output file: {output_file}")
-    
-    success = create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose)
+    # Create the crosswalk
+    success = create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=True)
     
     if success:
-        if verbose:
-            print(f"\n" + "=" * 60)
-            print("TM2 CROSSWALK CREATION COMPLETE")
-            print("=" * 60)
-            print(f"SUCCESS: Area-based crosswalk: {output_file}")
-            print("Each TAZ assigned to PUMA with largest area overlap")
-            print("Ready for next pipeline step")
+        print("=" * 60)
+        print("TM2 CROSSWALK CREATION COMPLETE")
+        print("=" * 60)
+        print(f"SUCCESS: Area-based crosswalk: {output_file}")
+        print("Each TAZ assigned to PUMA with largest area overlap")
+        print("Counties assigned via spatial join using MAZ centroids")
+        print("Ready for next pipeline step")
         return 0
     else:
-        print(f"\nFAILED: Could not create crosswalk")
+        print("FAILED: Crosswalk creation failed")
         return 1
 
 if __name__ == "__main__":

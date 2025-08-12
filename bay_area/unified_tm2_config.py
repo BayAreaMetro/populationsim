@@ -114,8 +114,9 @@ class UnifiedTM2Config:
             
             # Try multiple potential crosswalk locations
             crosswalk_paths = [
+                self.POPSIM_DATA_DIR / "geo_cross_walk_tm2_updated.csv",
                 self.OUTPUT_DIR / "geo_cross_walk_tm2_updated.csv",
-                Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv"),
+                Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_updated.csv"),
                 Path("geo_cross_walk_tm2_updated.csv")
             ]
             
@@ -157,7 +158,11 @@ class UnifiedTM2Config:
             'local_data': self.BASE_DIR / "local_data",
             'local_gis': self.BASE_DIR / "local_data" / "gis", 
             'local_census': self.BASE_DIR / "local_data" / "census",
-            'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls"
+            'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls",
+            # Shapefiles for geographic processing
+            'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_4.shp"),
+            'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
+            'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp")
         }
         
         # ============================================================
@@ -269,7 +274,8 @@ class UnifiedTM2Config:
             # PopulationSim needs this specific filename
             'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
             # PUMA crosswalk (2020 PUMA boundaries only)
-            'puma_crosswalk': self.EXTERNAL_PATHS['tm2py_utils'] / "inputs" / "maz_taz" / "puma_outputs" / "geo_cross_walk_tm2.csv",
+            # Crosswalk files (updated to use our generated crosswalk)
+            'puma_crosswalk': self.POPSIM_DATA_DIR / "geo_cross_walk_tm2_updated.csv",
         }
         
         # ============================================================
