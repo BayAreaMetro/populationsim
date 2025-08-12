@@ -24,9 +24,8 @@ class UnifiedTM2Config:
         if python_exe_env:
             self.PYTHON_EXE = Path(python_exe_env)
         else:
-            # Auto-detect current user and use popsim environment (not popsim_py312)
-            current_user = os.getenv('USERNAME', 'schildress')
-            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim\python.exe")
+            # Use specified MTCPB user popsim environment
+            self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim\python.exe")
         
         # Validate Python executable exists
         if not self.PYTHON_EXE.exists():
@@ -39,7 +38,7 @@ class UnifiedTM2Config:
         # PopulationSim working directory (this becomes our main output structure)
         self.POPSIM_WORKING_DIR = self.OUTPUT_DIR / "populationsim_working_dir"
         self.POPSIM_DATA_DIR = self.POPSIM_WORKING_DIR / "data"
-        self.POPSIM_CONFIG_DIR = self.POPSIM_WORKING_DIR / "configs"
+        self.POPSIM_CONFIG_DIR = self.BASE_DIR / "populationsimconfigs"
         self.POPSIM_OUTPUT_DIR = self.POPSIM_WORKING_DIR / "output"
         
         # Legacy alias for pipeline compatibility - POINT TO POPSIM DATA DIR
@@ -98,9 +97,10 @@ class UnifiedTM2Config:
             
             # Try multiple potential crosswalk locations
             crosswalk_paths = [
-                self.OUTPUT_DIR / "geo_cross_walk_tm2_updated.csv",
+                self.OUTPUT_DIR / "populationsim_working_dir" / "data" / "geo_cross_walk_tm2.csv",
+                self.OUTPUT_DIR / "geo_cross_walk_tm2.csv",
                 Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv"),
-                Path("geo_cross_walk_tm2_updated.csv")
+                Path("geo_cross_walk_tm2.csv")
             ]
             
             for crosswalk_path in crosswalk_paths:
@@ -176,6 +176,53 @@ class UnifiedTM2Config:
             'taz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tazs_TM2_2_4.shp",
             'puma_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tl_2022_06_puma20.shp"
         }
+        
+        # ============================================================
+        # BAY AREA PUMA-TO-COUNTY MAPPING (2020 PUMAs)
+        # ============================================================
+        # Based on official Census Bureau PUMA relationship files
+        # Used by crosswalk generation for PopulationSim county assignment
+        self.PUMA_COUNTY_MAPPING = {
+            # Alameda County (001)
+            '00101': 1,  # Additional Alameda PUMA
+            '00106': 1, '00107': 1, '00108': 1, '00109': 1, '00110': 1,
+            '00111': 1, '00112': 1, '00113': 1, '00114': 1, '00115': 1,  # Additional Alameda PUMAs
+            '00116': 1, '00117': 1, '00118': 1, '00119': 1, '00120': 1,  # Additional Alameda PUMAs
+            '00121': 1, '00122': 1, '00123': 1,  # Additional Alameda PUMAs
+            
+            # Contra Costa County (013) 
+            '01301': 13, '01302': 13, '01303': 13,
+            '01305': 13, '01308': 13, '01309': 13, '01310': 13, '01311': 13,  # Additional Contra Costa PUMAs
+            '01312': 13, '01313': 13, '01314': 13,  # Additional Contra Costa PUMAs
+            
+            # Marin County (041)
+            '04101': 41,
+            '04103': 41, '04104': 41,  # Additional Marin PUMAs
+            
+            # Napa County (055)
+            '05500': 55,
+            
+            # San Francisco County (075)
+            '07501': 75, '07502': 75, '07503': 75, '07504': 75, '07505': 75,
+            '07506': 75, '07507': 75, '07508': 75, '07509': 75, '07510': 75,
+            '07511': 75, '07512': 75, '07513': 75, '07514': 75,
+            
+            # San Mateo County (081)
+            '08101': 81, '08102': 81, '08103': 81, '08104': 81, '08105': 81, '08106': 81,
+            
+            # Santa Clara County (085)
+            '08501': 85, '08502': 85, '08503': 85, '08504': 85, '08505': 85,
+            '08506': 85, '08507': 85, '08508': 85, '08509': 85, '08510': 85,
+            '08511': 85, '08512': 85, '08513': 85, '08514': 85, '08515': 85,
+            '08516': 85, '08517': 85, '08518': 85, '08519': 85, '08520': 85,
+            '08521': 85, '08522': 85,
+            
+            # Solano County (095)
+            '09501': 95, '09502': 95, '09503': 95,
+            
+            # Sonoma County (097)
+            '09701': 97, '09702': 97, '09703': 97, '09704': 97, '09705': 97, '09706': 97
+        }
     
     def _setup_file_templates(self):
         """Setup file naming templates"""
@@ -249,7 +296,7 @@ class UnifiedTM2Config:
         # ============================================================
         self.CROSSWALK_FILES = {
             # Primary crosswalk (PopulationSim expects this in data directory)
-            'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_updated'],
+            'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
             # PopulationSim needs this specific filename
             'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
             # PUMA crosswalk (2020 PUMA boundaries only)

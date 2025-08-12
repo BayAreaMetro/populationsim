@@ -17,6 +17,43 @@ from pathlib import Path
 import sys
 import argparse
 
+def get_puma_county_mapping(config=None, verbose=True):
+    """
+    Get Bay Area PUMA-to-county mapping from config
+    """
+    if verbose:
+        print("  Loading Bay Area PUMA-to-county mapping from config...")
+    
+    # Try to get mapping from config first
+    if config and hasattr(config, 'PUMA_COUNTY_MAPPING'):
+        puma_county_mapping = config.PUMA_COUNTY_MAPPING
+        if verbose:
+            print(f"  Loaded {len(puma_county_mapping)} PUMA-to-county mappings from config")
+    else:
+        if verbose:
+            print("  Config not available, loading from unified config...")
+        # Import here to avoid circular dependencies
+        from unified_tm2_config import UnifiedTM2Config
+        try:
+            config = UnifiedTM2Config()
+            puma_county_mapping = config.PUMA_COUNTY_MAPPING
+            if verbose:
+                print(f"  Loaded {len(puma_county_mapping)} PUMA-to-county mappings from config")
+        except Exception as e:
+            if verbose:
+                print(f"  ERROR: Could not load PUMA_COUNTY_MAPPING from config: {e}")
+            return None
+    
+    if verbose and puma_county_mapping:
+        counties = sorted(set(puma_county_mapping.values()))
+        print(f"  Counties: {counties}")
+        print(f"  Sample mappings:")
+        for puma, county in list(puma_county_mapping.items())[:5]:
+            print(f"    PUMA {puma} -> County {county}")
+    
+    return puma_county_mapping
+
+
 def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=True):
     """
     Create definitive TM2 crosswalk with area-based PUMA assignment
@@ -193,67 +230,50 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
     crosswalk_df = maz_gdf[[maz_col, taz_col, 'PUMA']].copy()
     crosswalk_df.columns = ['MAZ', 'TAZ', 'PUMA']
     
-    # Add county information from PUMA assignments using reference crosswalk
+    # Add county information from Census PUMA-to-county crosswalk
     if verbose:
-        print(f"\nStep 4a: Adding county information from reference crosswalk...")
+        print(f"\nStep 4a: Adding county information from Census PUMA-to-county crosswalk...")
     
-    # Use existing tm2py-utils crosswalk as reference for PUMA-to-county mapping
-    reference_crosswalk_file = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv")
+    # Try to load config for PUMA-county mapping
+    config = None
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from unified_tm2_config import UnifiedTM2Config
+        config = UnifiedTM2Config()
+        if verbose:
+            print(f"  Loaded config with PUMA-county mapping")
+    except Exception as e:
+        if verbose:
+            print(f"  Could not load config: {e}")
+            print(f"  Will use built-in fallback")
     
-    if reference_crosswalk_file.exists():
-        try:
-            ref_df = pd.read_csv(reference_crosswalk_file)
-            if 'PUMA' in ref_df.columns and 'COUNTY' in ref_df.columns:
-                # Create PUMA-to-county mapping from reference
-                puma_county_ref = ref_df[['PUMA', 'COUNTY']].drop_duplicates()
-                
-                # Convert both PUMA formats to integers for comparison
-                # Our crosswalk has 5-digit strings, reference may have different format
-                def normalize_puma(puma_val):
-                    """Convert PUMA to integer for consistent comparison"""
-                    try:
-                        if pd.isna(puma_val):
-                            return None
-                        puma_str = str(puma_val).strip()
-                        # Remove leading zeros and convert to int
-                        return int(puma_str.lstrip('0')) if puma_str.strip('0') else 0
-                    except:
-                        return None
-                
-                # Normalize reference PUMAs
-                ref_df['PUMA_norm'] = ref_df['PUMA'].apply(normalize_puma)
-                puma_county_ref = ref_df[['PUMA_norm', 'COUNTY']].dropna().drop_duplicates()
-                puma_to_county = dict(zip(puma_county_ref['PUMA_norm'], puma_county_ref['COUNTY']))
-                
-                # Normalize our crosswalk PUMAs and map
-                crosswalk_df['PUMA_norm'] = crosswalk_df['PUMA'].apply(normalize_puma)
-                crosswalk_df['COUNTY'] = crosswalk_df['PUMA_norm'].map(puma_to_county)
-                
-                if verbose:
-                    print(f"  Loaded PUMA-to-county mapping from reference crosswalk:")
-                    print(f"  Found {len(puma_to_county)} PUMA-to-county mappings")
-                    counties = sorted([c for c in set(puma_to_county.values()) if pd.notna(c)])
-                    print(f"  Counties: {counties}")
-                
-                # Check for missing mappings
-                missing_counties = crosswalk_df['COUNTY'].isna().sum()
-                if missing_counties > 0:
-                    print(f"  WARNING: {missing_counties:,} MAZ zones have no county assignment")
-                    missing_pumas = crosswalk_df[crosswalk_df['COUNTY'].isna()]['PUMA'].unique()
-                    print(f"  PUMAs without county mapping: {sorted(missing_pumas)}")
-                
-                # Clean up temporary column
-                crosswalk_df = crosswalk_df.drop('PUMA_norm', axis=1)
-                
-            else:
-                print(f"  ERROR: Reference crosswalk missing PUMA or COUNTY columns")
-                crosswalk_df['COUNTY'] = None
-                
-        except Exception as e:
-            print(f"  ERROR: Could not read reference crosswalk: {e}")
-            crosswalk_df['COUNTY'] = None
+    # Load PUMA-to-county mapping from config
+    puma_to_county = get_puma_county_mapping(config, verbose)
+    
+    if puma_to_county:
+        # Apply county mapping to crosswalk
+        crosswalk_df['COUNTY'] = crosswalk_df['PUMA'].map(puma_to_county)
+        
+        if verbose:
+            print(f"  Applied Census PUMA-to-county mapping:")
+            print(f"  Found {len(puma_to_county)} PUMA-to-county mappings")
+            counties = sorted([c for c in set(puma_to_county.values()) if pd.notna(c)])
+            print(f"  Counties: {counties}")
+        
+        # Check for missing mappings
+        missing_counties = crosswalk_df['COUNTY'].isna().sum()
+        if missing_counties > 0:
+            print(f"  WARNING: {missing_counties:,} MAZ zones have no county assignment")
+            missing_pumas = crosswalk_df[crosswalk_df['COUNTY'].isna()]['PUMA'].unique()
+            print(f"  PUMAs without county mapping: {sorted(missing_pumas)}")
+            
+            # Show unmapped PUMAs for debugging
+            if verbose:
+                print(f"  Crosswalk PUMAs: {sorted(crosswalk_df['PUMA'].unique())}")
+                print(f"  Census mapping PUMAs: {sorted(puma_to_county.keys())}")
+        
     else:
-        print(f"  WARNING: Reference crosswalk not found: {reference_crosswalk_file}")
+        print(f"  ERROR: Could not obtain Census PUMA-to-county mapping")
         print(f"  Setting all counties to None")
         crosswalk_df['COUNTY'] = None
     
