@@ -161,8 +161,7 @@ class UnifiedTM2Config:
             'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls",
             # Shapefiles for geographic processing
             'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_4.shp"),
-            'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
-            'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp")
+            'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp")
         }
         
         # ============================================================
@@ -195,7 +194,8 @@ class UnifiedTM2Config:
         self.SHAPEFILES = {
             'maz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "mazs_TM2_2_4.shp",
             'taz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tazs_TM2_2_4.shp",
-            'puma_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tl_2022_06_puma20.shp"
+            'puma_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tl_2022_06_puma20.shp",
+            'county_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "Counties.shp"
         }
     
     def _setup_file_templates(self):
@@ -377,7 +377,8 @@ class UnifiedTM2Config:
             # Step 0: Crosswalk creation (MUST be first - seed generation needs it)
             'crosswalk': [
                 str(self.PYTHON_EXE),
-                str(self.BASE_DIR / "create_tm2_crosswalk.py")
+                str(self.BASE_DIR / "create_tm2_crosswalk.py"),
+                "--output", str(self.CROSSWALK_FILES['popsim_crosswalk'])
             ] + self.get_test_puma_args(),
             
             # Step 1: PUMS data download (depends on crosswalk for PUMA filtering)

@@ -71,7 +71,8 @@ class SeedPopulationConfig:
         if self.bay_area_pumas is None:
             # Try to read PUMAs dynamically from the crosswalk file
             try:
-                crosswalk_file = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv")
+                from unified_tm2_config import config as unified_config
+                crosswalk_file = unified_config.CROSSWALK_FILES['main_crosswalk']
                 if crosswalk_file.exists():
                     import pandas as pd
                     crosswalk_df = pd.read_csv(crosswalk_file)
@@ -117,12 +118,21 @@ class PUMACountyMapper:
         if crosswalk_file:
             crosswalk_paths = [Path(crosswalk_file)]
         else:
-            crosswalk_paths = [
-                Path("C:/GitHub/populationsim/bay_area/output_2023/geo_cross_walk_tm2_updated.csv"),
-                Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/puma_outputs/geo_cross_walk_tm2.csv"),
-                Path("output_2023/geo_cross_walk_tm2_updated.csv"),
-                Path("geo_cross_walk_tm2_updated.csv")
-            ]
+            # Use unified config to get crosswalk paths
+            try:
+                from unified_tm2_config import config as unified_config
+                crosswalk_paths = [
+                    unified_config.CROSSWALK_FILES['main_crosswalk'],
+                    unified_config.CROSSWALK_FILES['popsim_crosswalk']
+                ]
+            except:
+                # Fallback to hardcoded paths if config fails
+                crosswalk_paths = [
+                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_updated.csv"),
+                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv"),
+                    Path("output_2023/geo_cross_walk_tm2_updated.csv"),
+                    Path("geo_cross_walk_tm2_updated.csv")
+                ]
         
         for crosswalk_path in crosswalk_paths:
             if crosswalk_path.exists():

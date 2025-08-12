@@ -161,6 +161,11 @@ class TM2Pipeline:
         
         # Special handling for PopulationSim with log monitoring
         elif step_name == 'populationsim':
+            # Prepare PopulationSim data directory first
+            if not self.prepare_populationsim_data():
+                self.log("Failed to prepare PopulationSim data", "ERROR")
+                return False
+                
             # Fix crosswalk before running PopulationSim
             if not self.fix_crosswalk_multi_puma():
                 self.log("Failed to fix crosswalk - this may cause NaN control aggregation issues", "ERROR")
@@ -283,7 +288,7 @@ class TM2Pipeline:
         
         try:
             data_dir = self.config.DATA_DIR
-            crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2_updated.csv")
+            crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2.csv")
             
             if not os.path.exists(crosswalk_file):
                 self.log(f"Crosswalk file not found: {crosswalk_file}", "ERROR")
@@ -368,7 +373,7 @@ class TM2Pipeline:
             required_files = [
                 'seed_households.csv',
                 'seed_persons.csv', 
-                'geo_cross_walk_tm2_updated.csv',
+                'geo_cross_walk_tm2.csv',
                 'maz_marginals.csv',
                 'taz_marginals.csv',
                 'county_marginals.csv'
@@ -378,10 +383,6 @@ class TM2Pipeline:
             for filename in required_files:
                 source_file = source_dir / filename
                 target_file = target_dir / filename
-                
-                # Handle special case for crosswalk filename
-                if filename == 'geo_cross_walk_tm2_updated.csv':
-                    target_file = target_dir / 'geo_cross_walk_tm2.csv'  # PopulationSim expects this name
                 
                 if not source_file.exists():
                     self.log(f"ERROR: Required file not found: {source_file}", "ERROR")
