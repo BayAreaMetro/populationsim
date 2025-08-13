@@ -51,7 +51,17 @@ def build_incidence_table(control_spec, households_df, persons_df, crosswalk_df)
 
     hh_col = setting('household_id_col')
 
-    incidence_table = pd.DataFrame(index=households_df.index)
+    # CRITICAL FIX: Use household IDs as index instead of DataFrame positional index
+    logger.info(f"BUILD_INCIDENCE_TABLE: Creating incidence table indexed by household IDs ({hh_col})")
+    logger.info(f"  households_df shape: {households_df.shape}")
+    logger.info(f"  households_df index range: {households_df.index.min()} to {households_df.index.max()}")
+    logger.info(f"  {hh_col} sample values: {households_df[hh_col].head().tolist()}")
+    logger.info(f"  {hh_col} unique count: {households_df[hh_col].nunique()}")
+    
+    # Create incidence table with household IDs as the index
+    incidence_table = pd.DataFrame(index=households_df[hh_col])
+    logger.info(f"  incidence_table initial shape: {incidence_table.shape}")
+    logger.info(f"  incidence_table index sample: {incidence_table.index[:5].tolist()}")
 
     seed_tables = {
         'households': households_df,
@@ -76,8 +86,22 @@ def build_incidence_table(control_spec, households_df, persons_df, crosswalk_df)
         # convert boolean True/False values to 1/0
         incidence = incidence * 1
 
-        # aggregate person incidence counts to household
-        if control_row.seed_table == 'persons':
+        # Handle household vs person level controls differently
+        if control_row.seed_table == 'households':
+            logger.info(f"  Processing household-level control: {control_row.target}")
+            logger.info(f"    households_df shape: {households_df.shape}")
+            logger.info(f"    incidence shape: {incidence.shape}")
+            logger.info(f"    households_df index range: {households_df.index.min()} to {households_df.index.max()}")
+            logger.info(f"    incidence index range: {incidence.index.min()} to {incidence.index.max()}")
+            
+            # CRITICAL FIX: For household controls, map incidence by household ID
+            # Create a mapping from household ID to incidence value
+            incidence_for_assignment = pd.Series(incidence.values, index=households_df[hh_col])
+            logger.info(f"    Created household ID to incidence mapping with {len(incidence_for_assignment)} entries")
+            logger.info(f"    incidence_for_assignment index sample: {incidence_for_assignment.index[:5].tolist()}")
+            logger.info(f"    incidence_table index sample: {incidence_table.index[:5].tolist()}")
+            
+        elif control_row.seed_table == 'persons':
             logger.info(f"  Processing person-level control: {control_row.target}")
             logger.info(f"    persons_df shape: {persons_df.shape}")
             logger.info(f"    hh_col value: {hh_col}")
@@ -102,23 +126,23 @@ def build_incidence_table(control_spec, households_df, persons_df, crosswalk_df)
             logger.info(f"    Aggregation dataframe shape: {df.shape}")
             logger.info(f"    Aggregation dataframe null counts: {df.isna().sum().to_dict()}")
             
-            incidence = df.groupby([hh_col], as_index=True).sum()
-            logger.info(f"    incidence shape after aggregation: {incidence.shape}")
-            logger.info(f"    incidence sum after aggregation: {incidence['incidence'].sum()}")
-            logger.info(f"    incidence null count after aggregation: {incidence['incidence'].isna().sum()}")
+            aggregated = df.groupby([hh_col], as_index=True).sum()
+            logger.info(f"    aggregated shape after aggregation: {aggregated.shape}")
+            logger.info(f"    aggregated sum after aggregation: {aggregated['incidence'].sum()}")
+            logger.info(f"    aggregated null count after aggregation: {aggregated['incidence'].isna().sum()}")
             
             # Extract the series for assignment
-            incidence = incidence['incidence']
+            incidence_for_assignment = aggregated['incidence']
             
-            logger.info(f"    Final incidence series shape: {incidence.shape}")
-            logger.info(f"    Final incidence index type: {type(incidence.index[0]) if len(incidence) > 0 else 'EMPTY'}")
-            logger.info(f"    Final incidence index sample: {incidence.index[:5].tolist()}")
+            logger.info(f"    Final incidence_for_assignment series shape: {incidence_for_assignment.shape}")
+            logger.info(f"    Final incidence_for_assignment index type: {type(incidence_for_assignment.index[0]) if len(incidence_for_assignment) > 0 else 'EMPTY'}")
+            logger.info(f"    Final incidence_for_assignment index sample: {incidence_for_assignment.index[:5].tolist()}")
             logger.info(f"    Incidence table index type: {type(incidence_table.index[0]) if len(incidence_table) > 0 else 'EMPTY'}")
             logger.info(f"    Incidence table index sample: {incidence_table.index[:5].tolist()}")
             
             # Check for index alignment issues
-            missing_from_incidence_table = set(incidence.index) - set(incidence_table.index)
-            missing_from_incidence = set(incidence_table.index) - set(incidence.index)
+            missing_from_incidence_table = set(incidence_for_assignment.index) - set(incidence_table.index)
+            missing_from_incidence = set(incidence_table.index) - set(incidence_for_assignment.index)
             
             if len(missing_from_incidence_table) > 0:
                 logger.warning(f"    WARNING: {len(missing_from_incidence_table)} household IDs in person aggregation not found in incidence table")
@@ -128,8 +152,9 @@ def build_incidence_table(control_spec, households_df, persons_df, crosswalk_df)
                 logger.warning(f"    WARNING: {len(missing_from_incidence)} household IDs in incidence table not found in person aggregation")
                 logger.warning(f"    Sample missing IDs: {list(missing_from_incidence)[:5]}")
 
+        # Single assignment point for both household and person controls
         logger.info(f"    ASSIGNING to incidence_table[{control_row.target}]...")
-        incidence_table[control_row.target] = incidence
+        incidence_table[control_row.target] = incidence_for_assignment
         
         # Verify the assignment worked
         assigned_nan_count = incidence_table[control_row.target].isna().sum()
@@ -159,15 +184,42 @@ def add_geography_columns(incidence_table, households_df, crosswalk_df):
     geographies = setting('geographies')
     meta_geography = geographies[0]
     seed_geography = setting('seed_geography')
+    hh_col = setting('household_id_col')
 
-    # add seed_geography col to incidence table
-    incidence_table[seed_geography] = households_df[seed_geography]
+    logger.info(f"ADD_GEOGRAPHY_COLUMNS: Adding {seed_geography} and {meta_geography} columns")
+    logger.info(f"  incidence_table shape: {incidence_table.shape}")
+    logger.info(f"  households_df shape: {households_df.shape}")
+    logger.info(f"  incidence_table indexed by: {hh_col}")
+
+    # CRITICAL FIX: Create mapping from household ID to seed geography
+    # Since incidence_table is indexed by household IDs, we need to map from household ID to geography
+    hh_to_seed_geo = households_df.set_index(hh_col)[seed_geography]
+    logger.info(f"  Created household ID to {seed_geography} mapping with {len(hh_to_seed_geo)} entries")
+    
+    # add seed_geography col to incidence table using household ID mapping
+    incidence_table[seed_geography] = incidence_table.index.map(hh_to_seed_geo)
+    logger.info(f"  Added {seed_geography} column to incidence table")
+    
+    # Check for any missing mappings
+    missing_seed_geo = incidence_table[seed_geography].isna().sum()
+    if missing_seed_geo > 0:
+        logger.error(f"  ERROR: {missing_seed_geo} households missing {seed_geography} assignments!")
+    else:
+        logger.info(f"  SUCCESS: All households have {seed_geography} assignments")
 
     # add meta column to incidence table (unless it's already there)
     if seed_geography != meta_geography:
         tmp = crosswalk_df[list({seed_geography, meta_geography})]
         seed_to_meta = tmp.groupby(seed_geography, as_index=True).min()[meta_geography]
         incidence_table[meta_geography] = incidence_table[seed_geography].map(seed_to_meta)
+        logger.info(f"  Added {meta_geography} column to incidence table")
+        
+        # Check for any missing meta geography mappings
+        missing_meta_geo = incidence_table[meta_geography].isna().sum()
+        if missing_meta_geo > 0:
+            logger.error(f"  ERROR: {missing_meta_geo} households missing {meta_geography} assignments!")
+        else:
+            logger.info(f"  SUCCESS: All households have {meta_geography} assignments")
 
     # Final diagnostic
     logger.info(f"COMPLETED build_incidence_table - final shape: {incidence_table.shape}")
@@ -406,20 +458,72 @@ def filter_households(households_df, persons_df, crosswalk_df):
 
     Returns filtered households_df and persons_df
     """
+    
+    # Store original counts for logging
+    original_hh_count = len(households_df)
+    original_person_count = len(persons_df)
+    logger.info(f"FILTER_HOUSEHOLDS: Starting with {original_hh_count} households, {original_person_count} persons")
 
     # drop any zero weight households (there are some in calm data)
     hh_weight_col = setting('household_weight_col')
+    zero_weight_count = (households_df[hh_weight_col] <= 0).sum()
+    logger.info(f"FILTER_HOUSEHOLDS: Found {zero_weight_count} zero-weight households to remove")
     households_df = households_df[households_df[hh_weight_col] > 0]
+    logger.info(f"FILTER_HOUSEHOLDS: After zero-weight removal: {len(households_df)} households")
 
     # remove any households not in seed zones
     seed_geography = setting('seed_geography')
     seed_ids = crosswalk_df[seed_geography].unique()
+    logger.info(f"FILTER_HOUSEHOLDS: Seed geography '{seed_geography}' has {len(seed_ids)} zones")
 
     rows_in_seed_zones = households_df[seed_geography].isin(seed_ids)
     if rows_in_seed_zones.any():
         households_df = households_df[rows_in_seed_zones]
         logger.info("dropped %s households not in seed zones" % (~rows_in_seed_zones).sum())
         logger.info("kept %s households in seed zones" % len(households_df))
+
+    # CRITICAL FIX: Filter persons to match the filtered households
+    household_id_col = setting('household_id_col')
+    retained_household_ids = set(households_df[household_id_col])
+    logger.info(f"FILTER_HOUSEHOLDS: Filtering persons to match {len(retained_household_ids)} retained households")
+    
+    # Filter persons to only include those belonging to retained households
+    persons_df = persons_df[persons_df[household_id_col].isin(retained_household_ids)]
+    logger.info(f"FILTER_HOUSEHOLDS: After person filtering: {len(persons_df)} persons")
+    
+    # CRITICAL FIX: Reset DataFrame indexes to ensure proper alignment
+    households_df = households_df.reset_index(drop=True)
+    persons_df = persons_df.reset_index(drop=True)
+    logger.info("FILTER_HOUSEHOLDS: Reset DataFrame indexes for proper alignment")
+    
+    # Final summary and verification
+    logger.info("FILTER_SUMMARY:")
+    logger.info(f"  Original households: {original_hh_count} -> Filtered households: {len(households_df)}")
+    logger.info(f"  Original persons: {original_person_count} -> Filtered persons: {len(persons_df)}")
+    logger.info(f"  Retained {len(retained_household_ids)} household IDs")
+    logger.info(f"  Households index range: {households_df.index.min()} to {households_df.index.max()}")
+    logger.info(f"  Persons index range: {persons_df.index.min()} to {persons_df.index.max()}")
+    
+    # Verify household ID alignment
+    hh_ids_households = set(households_df[household_id_col])
+    hh_ids_persons = set(persons_df[household_id_col])
+    missing_from_persons = hh_ids_households - hh_ids_persons
+    missing_from_households = hh_ids_persons - hh_ids_households
+    
+    logger.info(f"  Final household ID alignment check:")
+    logger.info(f"    Household IDs in households: {len(hh_ids_households)}")
+    logger.info(f"    Household IDs in persons: {len(hh_ids_persons)}")
+    logger.info(f"    Missing from persons: {len(missing_from_persons)}")
+    logger.info(f"    Missing from households: {len(missing_from_households)}")
+    
+    if missing_from_persons or missing_from_households:
+        logger.error("FILTER_HOUSEHOLDS: ERROR - Household ID mismatch detected!")
+        if missing_from_persons:
+            logger.error(f"    Sample missing from persons: {list(missing_from_persons)[:5]}")
+        if missing_from_households:
+            logger.error(f"    Sample missing from households: {list(missing_from_households)[:5]}")
+    else:
+        logger.info("  SUCCESS: Perfect household ID alignment achieved")
 
     return households_df, persons_df
 
@@ -498,9 +602,26 @@ def setup_data_structures(settings, households, persons):
 
     incidence_table = add_geography_columns(incidence_table, households_df, crosswalk_df)
 
-    # add sample_weight col to incidence table
+    # CRITICAL FIX: add sample_weight col to incidence table using household ID mapping
     hh_weight_col = setting('household_weight_col')
-    incidence_table['sample_weight'] = households_df[hh_weight_col]
+    hh_col = setting('household_id_col')
+    logger.info(f"ADDING SAMPLE_WEIGHT: Mapping {hh_weight_col} by household ID ({hh_col})")
+    
+    # Create mapping from household ID to sample weight
+    hh_id_to_weight = pd.Series(households_df[hh_weight_col].values, index=households_df[hh_col])
+    logger.info(f"  Created household ID to sample weight mapping with {len(hh_id_to_weight)} entries")
+    logger.info(f"  Sample weight stats: min={hh_id_to_weight.min()}, max={hh_id_to_weight.max()}, mean={hh_id_to_weight.mean():.1f}")
+    
+    # Assign using household ID alignment
+    incidence_table['sample_weight'] = hh_id_to_weight
+    
+    # Verify the assignment worked
+    sample_weight_nan_count = incidence_table['sample_weight'].isna().sum()
+    logger.info(f"  POST-ASSIGNMENT: sample_weight has {sample_weight_nan_count} NaN values out of {len(incidence_table)}")
+    if sample_weight_nan_count > 0:
+        logger.error(f"  ERROR: Sample weight assignment created {sample_weight_nan_count} NaN values!")
+    else:
+        logger.info("  SUCCESS: Sample weight assignment completed with no NaN values")
 
     if setting('GROUP_BY_INCIDENCE_SIGNATURE') and not setting('NO_INTEGERIZATION_EVER', False):
         group_incidence_table, household_groups \
@@ -564,9 +685,26 @@ def repop_setup_data_structures(households, persons):
     households_df, persons_df = filter_households(households_df, persons_df, crosswalk_df)
     incidence_table = build_incidence_table(control_spec, households_df, persons_df, crosswalk_df)
     incidence_table = add_geography_columns(incidence_table, households_df, crosswalk_df)
-    # add sample_weight col to incidence table
+    
+    # CRITICAL FIX: add sample_weight col to incidence table using household ID mapping
     hh_weight_col = setting('household_weight_col')
-    incidence_table['sample_weight'] = households_df[hh_weight_col]
+    hh_col = setting('household_id_col')
+    logger.info(f"ADDING SAMPLE_WEIGHT (repop): Mapping {hh_weight_col} by household ID ({hh_col})")
+    
+    # Create mapping from household ID to sample weight
+    hh_id_to_weight = pd.Series(households_df[hh_weight_col].values, index=households_df[hh_col])
+    logger.info(f"  Created household ID to sample weight mapping with {len(hh_id_to_weight)} entries")
+    
+    # Assign using household ID alignment
+    incidence_table['sample_weight'] = hh_id_to_weight
+    
+    # Verify the assignment worked
+    sample_weight_nan_count = incidence_table['sample_weight'].isna().sum()
+    logger.info(f"  POST-ASSIGNMENT (repop): sample_weight has {sample_weight_nan_count} NaN values out of {len(incidence_table)}")
+    if sample_weight_nan_count > 0:
+        logger.error(f"  ERROR: Sample weight assignment created {sample_weight_nan_count} NaN values!")
+    else:
+        logger.info("  SUCCESS: Sample weight assignment completed with no NaN values")
 
     # rebuild control tables with only the low level controls (aggregated at higher levels)
     for g in geographies:

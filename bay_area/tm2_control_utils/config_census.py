@@ -88,7 +88,7 @@ from unified_tm2_config import config as unified_config
 PRIMARY_OUTPUT_DIR = str(unified_config.POPSIM_DATA_DIR)
 
 # Geographic crosswalk file location (single source of truth)
-GEO_CROSSWALK_TM2_PATH = r"C:\GitHub\populationsim\bay_area\output_2023\populationsim_working_dir\data\geo_cross_walk_tm2_updated.csv"
+GEO_CROSSWALK_TM2_PATH = str(unified_config.CROSSWALK_FILES['popsim_crosswalk'])
 
 
 

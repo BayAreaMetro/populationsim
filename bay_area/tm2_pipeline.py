@@ -362,10 +362,14 @@ class TM2Pipeline:
         
         self.log("Preparing PopulationSim data directory...")
         
+    def prepare_populationsim_data(self):
+        """Prepare PopulationSim data directory with proper file structure and symbolic links"""
+        import os
+        from pathlib import Path
+        
+        self.log("Preparing PopulationSim data directory...")
+        
         try:
-            # Source directory (where our files are)
-            source_dir = Path(self.config.OUTPUT_DIR)
-            
             # Target directory (where PopulationSim expects files)
             target_dir = Path(self.config.POPSIM_DATA_DIR)
             
@@ -379,28 +383,34 @@ class TM2Pipeline:
                 'county_marginals.csv'
             ]
             
-            # Create symbolic links for each required file
+            # Check if files are already in target location (unified config approach)
+            all_files_present = True
             for filename in required_files:
-                source_file = source_dir / filename
                 target_file = target_dir / filename
-                
-                if not source_file.exists():
-                    self.log(f"ERROR: Required file not found: {source_file}", "ERROR")
-                    return False
-                
-                # Remove existing link/file if it exists
-                if target_file.exists() or target_file.is_symlink():
-                    target_file.unlink()
-                
-                # Create symbolic link (Windows)
-                try:
-                    target_file.symlink_to(source_file)
-                    self.log(f"✓ Linked: {filename}")
-                except OSError:
-                    # Fallback to copy if symlink fails
-                    import shutil
-                    shutil.copy2(source_file, target_file)
-                    self.log(f"✓ Copied: {filename} (symlink failed)")
+                if target_file.exists():
+                    self.log(f"✓ Found: {filename}")
+                else:
+                    all_files_present = False
+                    # Try to find in source directory (legacy approach)
+                    source_dir = Path(self.config.OUTPUT_DIR)
+                    source_file = source_dir / filename
+                    
+                    if source_file.exists():
+                        # Create symbolic link (Windows) 
+                        try:
+                            target_file.symlink_to(source_file)
+                            self.log(f"✓ Linked: {filename}")
+                        except OSError:
+                            # Fallback to copy if symlink fails
+                            import shutil
+                            shutil.copy2(source_file, target_file)
+                            self.log(f"✓ Copied: {filename} (symlink failed)")
+                    else:
+                        self.log(f"ERROR: Required file not found: {filename} (checked both {target_file} and {source_file})", "ERROR")
+                        return False
+            
+            if all_files_present:
+                self.log("✓ All required files already in PopulationSim data directory", "SUCCESS")
             
             self.log("✓ PopulationSim data directory prepared successfully", "SUCCESS")
             return True

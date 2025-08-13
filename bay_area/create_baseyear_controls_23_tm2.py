@@ -2053,12 +2053,21 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         out_df = out_df.loc[out_df[control_geo] > 0, :]
 
     if control_geo == "COUNTY":
-        # Fix county code format mismatch: Convert full FIPS codes to last 2 digits to match crosswalk
+        # Fix county code format mismatch: Convert full FIPS codes to sequential IDs to match crosswalk
         logger.info(f"Converting COUNTY codes from full FIPS to crosswalk format")
         logger.info(f"Original COUNTY values: {sorted(out_df['COUNTY'].unique())}")
         
-        # Convert full FIPS codes (like 6001) to last 2 digits (like 1) to match crosswalk
-        out_df['COUNTY'] = out_df['COUNTY'].apply(lambda x: int(x) % 100 if pd.notna(x) and x > 100 else x)
+        # Use unified configuration's FIPS-to-sequential mapping
+        from unified_tm2_config import config
+        fips_to_sequential = config.get_fips_to_sequential_mapping()
+        
+        def convert_fips_to_sequential(fips_code):
+            if pd.isna(fips_code):
+                return fips_code
+            fips_int = int(fips_code) % 100 if fips_code > 100 else int(fips_code)
+            return fips_to_sequential.get(fips_int, fips_int)
+        
+        out_df['COUNTY'] = out_df['COUNTY'].apply(convert_fips_to_sequential)
         logger.info(f"Converted COUNTY values: {sorted(out_df['COUNTY'].unique())}")
         
         # Create county name mapping using crosswalk instead of COUNTY_RECODE
