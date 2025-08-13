@@ -74,6 +74,27 @@ class UnifiedTM2Config:
             9: {'name': 'Marin', 'fips_int': 41, 'fips_str': '041'}
         }
         
+        # ============================================================
+        # MULTI-COUNTY PUMA RESOLUTION SETTINGS
+        # Automatic resolution of PUMAs that span multiple counties
+        # Future-proof configuration for similar geographic conflicts
+        # ============================================================
+        self.PUMA_RESOLUTION = {
+            'enabled': True,  # Enable automatic multi-county PUMA resolution
+            'method': 'majority_rule',  # 'majority_rule' or 'manual_override'
+            'min_threshold_pct': 1.0,  # Minimum percentage for reassignment (1% = outliers only)
+            'verbose_logging': True,  # Log all reassignments for transparency
+            
+            # Manual overrides for specific problematic PUMAs (if needed)
+            # Format: {puma_id: preferred_county_id}
+            'manual_overrides': {
+                # PUMA 5500: 99.9% in County 7 (Napa), 0.1% in County 8 (Sonoma) → assign all to Napa
+                5500: 7,
+                # PUMA 7513: 99.8% in County 1 (SF), 0.2% in County 9 (Marin) → assign all to SF  
+                7513: 1
+            }
+        }
+        
         # Now define external paths and other configurations
         self._setup_external_paths()
         self._setup_file_templates()
@@ -778,6 +799,99 @@ class UnifiedTM2Config:
     def get_fips_to_sequential_mapping(self):
         """Get FIPS code to sequential county ID mapping"""
         return {info['fips_int']: county_id for county_id, info in self.BAY_AREA_COUNTIES.items()}
+    
+    def resolve_multi_county_pumas(self, crosswalk_df, verbose=True):
+        """
+        Resolve PUMAs that span multiple counties using configurable rules
+        
+        Args:
+            crosswalk_df: DataFrame with MAZ, TAZ, PUMA, COUNTY columns
+            verbose: Whether to print detailed logging
+            
+        Returns:
+            DataFrame with resolved county assignments
+        """
+        if not self.PUMA_RESOLUTION['enabled']:
+            if verbose:
+                print("Multi-county PUMA resolution is disabled in config")
+            return crosswalk_df
+        
+        if verbose:
+            print(f"\nStep 6: Resolving multi-county PUMAs...")
+            print(f"  Method: {self.PUMA_RESOLUTION['method']}")
+            print(f"  Threshold: {self.PUMA_RESOLUTION['min_threshold_pct']}%")
+        
+        # Create a copy to modify
+        resolved_df = crosswalk_df.copy()
+        
+        # Find PUMAs that span multiple counties
+        puma_county_counts = resolved_df.groupby('PUMA')['COUNTY'].nunique()
+        multi_county_pumas = puma_county_counts[puma_county_counts > 1].index.tolist()
+        
+        if not multi_county_pumas:
+            if verbose:
+                print("  No multi-county PUMAs found - no resolution needed")
+            return resolved_df
+        
+        if verbose:
+            print(f"  Found {len(multi_county_pumas)} PUMAs spanning multiple counties:")
+        
+        total_reassigned = 0
+        
+        for puma in multi_county_pumas:
+            puma_data = resolved_df[resolved_df['PUMA'] == puma]
+            county_counts = puma_data['COUNTY'].value_counts()
+            
+            if verbose:
+                print(f"\n    PUMA {puma}: {len(puma_data)} zones")
+                for county, count in county_counts.items():
+                    pct = (count / len(puma_data)) * 100
+                    county_name = self.BAY_AREA_COUNTIES.get(county, {}).get('name', 'Unknown')
+                    print(f"      County {county} ({county_name}): {count} zones ({pct:.1f}%)")
+            
+            # Determine target county
+            target_county = None
+            
+            if puma in self.PUMA_RESOLUTION['manual_overrides']:
+                # Use manual override
+                target_county = self.PUMA_RESOLUTION['manual_overrides'][puma]
+                method_used = "manual override"
+            elif self.PUMA_RESOLUTION['method'] == 'majority_rule':
+                # Use majority rule
+                target_county = county_counts.index[0]  # Most frequent county
+                method_used = "majority rule"
+            
+            if target_county:
+                # Identify zones to reassign (those NOT in target county)
+                reassign_mask = (resolved_df['PUMA'] == puma) & (resolved_df['COUNTY'] != target_county)
+                zones_to_reassign = reassign_mask.sum()
+                
+                if zones_to_reassign > 0:
+                    # Apply reassignment
+                    resolved_df.loc[reassign_mask, 'COUNTY'] = target_county
+                    total_reassigned += zones_to_reassign
+                    
+                    target_name = self.BAY_AREA_COUNTIES.get(target_county, {}).get('name', 'Unknown')
+                    if verbose:
+                        print(f"      → Reassigned {zones_to_reassign} zones to County {target_county} ({target_name}) using {method_used}")
+        
+        if verbose:
+            print(f"\n  Resolution complete:")
+            print(f"    Total zones reassigned: {total_reassigned}")
+            
+            # Verify no multi-county PUMAs remain
+            final_puma_county_counts = resolved_df.groupby('PUMA')['COUNTY'].nunique()
+            remaining_multi = final_puma_county_counts[final_puma_county_counts > 1]
+            
+            if len(remaining_multi) == 0:
+                print(f"    ✅ SUCCESS: All PUMAs now belong to single counties")
+            else:
+                print(f"    ⚠️  WARNING: {len(remaining_multi)} PUMAs still span multiple counties")
+                for puma in remaining_multi.index:
+                    counties = resolved_df[resolved_df['PUMA'] == puma]['COUNTY'].unique()
+                    print(f"      PUMA {puma}: Counties {list(counties)}")
+        
+        return resolved_df
     
     def get_puma_to_county_mapping(self):
         """

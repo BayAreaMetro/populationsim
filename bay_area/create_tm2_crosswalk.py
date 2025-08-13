@@ -369,9 +369,16 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
         print(f"Setting all counties to None - manual investigation needed")
         crosswalk_df['COUNTY'] = None
     
+    # ============================================================
+    # STEP 6: RESOLVE MULTI-COUNTY PUMAS
+    # ============================================================
+    # Use configurable logic to resolve PUMAs that span multiple counties
+    # This ensures PopulationSim's geography hierarchy assumptions are met
+    crosswalk_df = config.resolve_multi_county_pumas(crosswalk_df, verbose=verbose)
+    
     # Add county names and FIPS codes using unified config
     if verbose:
-        print(f"\nStep 5: Adding county names and FIPS codes from unified config...")
+        print(f"\nStep 7: Adding county names and FIPS codes from unified config...")
     
     # Create county name mapping from unified config (1-9 system)
     county_name_map = {}
@@ -393,7 +400,7 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
     
     # Final summary
     if verbose:
-        print(f"\nStep 6: Saving crosswalk...")
+        print(f"\nStep 8: Saving crosswalk...")
         unique_tazs = crosswalk_df['TAZ'].nunique()
         unique_pumas = crosswalk_df['PUMA'].nunique()
         assigned_counties = crosswalk_df['COUNTY'].nunique()
