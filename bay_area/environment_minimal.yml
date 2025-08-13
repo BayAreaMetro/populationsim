@@ -41,3 +41,4 @@ dependencies:
     - activitysim>=1.0,<2.0
     - pyogrio
     - psutil
+    - census  # US Census API access for control generation

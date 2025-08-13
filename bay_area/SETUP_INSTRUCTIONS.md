@@ -53,7 +53,8 @@ python tm2_pipeline.py full --force
 ### Environment Details
 - **Python Version**: 3.8.20 (DO NOT use 3.12 - causes compatibility issues)
 - **PopulationSim**: Development version from this repository
-- **Key Dependencies**: activitysim==1.1.0, pandas==2.0.3, numpy==1.21.0
+- **Key Dependencies**: activitysim==1.1.0, pandas==2.0.3, numpy==1.21.0, geopandas, census
+- **Note**: pandas and census are essential and included in environment_minimal.yml
 
 ### Installation Order
 1. Create conda environment first
@@ -120,6 +121,7 @@ python tm2_pipeline.py full --force
 2. **PUMS data not found** - Download automatically with `python tm2_pipeline.py pums`
 3. **Census API limits** - Use cached data in `data_cache/`
 4. **County mismatch** - All county mappings now centralized in config
+5. **"No module named 'census'"** - Install with: `pip install census` (included in environment_minimal.yml)
 
 ### Environment Variables
 Set these for consistency:
