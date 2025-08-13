@@ -6,7 +6,6 @@ example_mtc/
 .ipynb_checkpoints
 input_2023/
 local_data/
-output_2023/
 persons_2023_tm2.csv
 households_2023_tm2.csv
 seed_households.csv
