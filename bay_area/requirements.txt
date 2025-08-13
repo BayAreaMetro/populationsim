@@ -24,6 +24,7 @@ activitysim>=1.0,<2.0
 pyogrio>=0.9.0
 psutil>=6.0.0
 census>=0.8.0  # US Census API access for control generation
+beautifulsoup4>=4.12.0  # HTML/XML parsing for geography utilities
 
 # Additional packages (installed as dependencies):
 PyYAML>=6.0.0
