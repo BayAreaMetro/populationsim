@@ -2,8 +2,8 @@ target,geography,seed_table,importance,control_field,expression
 numhh_gq,MAZ,households,10000000,numhh_gq,households.unique_hh_id > 0
 gq_pop,MAZ,persons,10000000,gq_pop,persons.hhgqtype>=2
 gq_military,MAZ,persons,1000000,gq_military,persons.hhgqtype==2
-gq_university,MAZ,persons,1000000,gq_university,(persons.hhgqtype==3) & (persons.AGEP >= 18) & (persons.AGEP <= 25)
-gq_other,MAZ,persons,1000000,gq_other,(persons.hhgqtype==3) & ((persons.AGEP < 18) | (persons.AGEP > 25))
+gq_university,MAZ,persons,1000000,gq_university,(persons.hhgqtype >= 2) & (persons.AGEP >= 18) & (persons.AGEP <= 25)
+gq_other,MAZ,persons,1000000,gq_other,(persons.hhgqtype >= 2) & ((persons.AGEP < 18) | (persons.AGEP > 25))
 hh_size_1,TAZ,households,100000,hh_size_1_gq,households.NP == 1
 hh_size_2,TAZ,households,100000,hh_size_2,households.NP == 2
 hh_size_3,TAZ,households,100000,hh_size_3,households.NP == 3

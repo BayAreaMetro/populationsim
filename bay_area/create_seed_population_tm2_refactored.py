@@ -252,8 +252,42 @@ class HouseholdProcessor:
         logger.info("[BUILDING] Step 2/6: Creating group quarters type...")
         initial_gq = len(df[df.get('TYPEHUGQ', 0) != 1]) if 'TYPEHUGQ' in df.columns else 0
         df = self._create_group_quarters_type(df)
-        final_gq = len(df[df['hhgqtype'] != 1])
+        final_gq = len(df[df['hhgqtype'] != 0])  # Count non-household (GQ) units
         logger.info(f"   Group quarters households: {initial_gq} → {final_gq}")
+        
+        # Add detailed hhgqtype distribution for households
+        hh_gq_counts = df['hhgqtype'].value_counts().sort_index()
+        gq_labels = {0: 'Household', 1: 'University GQ', 2: 'Military GQ', 3: 'Other GQ'}
+        for gq_type, count in hh_gq_counts.items():
+            label = gq_labels.get(gq_type, f'Type {gq_type}')
+            logger.info(f"     {label}: {count:,} households")
+        
+        # Check TYPEHUGQ distribution for debugging
+        if 'TYPEHUGQ' in df.columns:
+            typehugq_counts = df['TYPEHUGQ'].value_counts().sort_index()
+            typehugq_labels = {1: 'Household', 2: 'Institutional GQ', 3: 'Noninstitutional GQ'}
+            logger.info("   TYPEHUGQ source distribution:")
+            for typ, count in typehugq_counts.items():
+                label = typehugq_labels.get(typ, f'Type {typ}')
+                logger.info(f"     {label}: {count:,} households")
+        
+        # Fix WGTP weights for group quarters households
+        logger.info("[WEIGHT] Step 2.5/6: Fixing WGTP weights for group quarters...")
+        gq_mask = df['hhgqtype'] != 0
+        zero_weight_gq = len(df[gq_mask & (df['WGTP'] == 0)])
+        if zero_weight_gq > 0:
+            logger.info(f"   Found {zero_weight_gq:,} GQ households with zero WGTP - setting to 1")
+            df.loc[gq_mask & (df['WGTP'] == 0), 'WGTP'] = 1
+            logger.info(f"   Fixed WGTP weights for {zero_weight_gq:,} GQ households")
+        else:
+            logger.info("   No GQ households with zero WGTP found")
+        
+        # Verify weight fix
+        final_zero_weights = len(df[df['WGTP'] == 0])
+        if final_zero_weights > 0:
+            logger.warning(f"   WARNING: {final_zero_weights:,} households still have zero WGTP")
+        else:
+            logger.info("   ✓ All households now have non-zero WGTP")
         
         # Handle HUPAC (Household Under Poverty Level)
         logger.info("[MONEY] Step 3/6: Processing poverty status...")
@@ -418,7 +452,18 @@ class PersonProcessor:
         logger.info("[BUILDING] Step 6/8: Mapping group quarters type...")
         df = self._map_group_quarters_type(df, household_df)
         gq_counts = df['hhgqtype'].value_counts().sort_index()
-        logger.info(f"   GQ type distribution: {dict(gq_counts)}")
+        gq_labels = {0: 'Household', 1: 'University GQ', 2: 'Military GQ', 3: 'Other GQ'}
+        logger.info("   Person GQ type distribution:")
+        for gq_type, count in gq_counts.items():
+            label = gq_labels.get(gq_type, f'Type {gq_type}')
+            pct = count / len(df) * 100
+            logger.info(f"     {label}: {count:,} persons ({pct:.1f}%)")
+        
+        # Check for GQ people specifically
+        total_gq_persons = len(df[df['hhgqtype'] >= 2])
+        logger.info(f"   Total GQ persons (hhgqtype >= 2): {total_gq_persons:,}")
+        if total_gq_persons == 0:
+            logger.warning("   WARNING: No GQ persons found! This may indicate a data mapping issue.")
         
         # Clean numeric data
         logger.info("[CLEAN] Step 7/8: Cleaning numeric data...")
@@ -500,7 +545,7 @@ class PersonProcessor:
     def _map_group_quarters_type(self, df: pd.DataFrame, household_df: pd.DataFrame) -> pd.DataFrame:
         """Map group quarters type from household data"""
         hh_gq_lookup = household_df.set_index('unique_hh_id')['hhgqtype'].to_dict()
-        df['hhgqtype'] = df['unique_hh_id'].map(hh_gq_lookup).fillna(1).astype(int)
+        df['hhgqtype'] = df['unique_hh_id'].map(hh_gq_lookup).fillna(0).astype(int)
         return df
 
 class SeedPopulationCreator:

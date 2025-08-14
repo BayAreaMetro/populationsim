@@ -24,9 +24,9 @@ class UnifiedTM2Config:
         if python_exe_env:
             self.PYTHON_EXE = Path(python_exe_env)
         else:
-            # Auto-detect current user and use working popsim environment
+            # Auto-detect current user and use popsim environment
             current_user = os.getenv('USERNAME', 'schildress')
-            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim_working\python.exe")
+            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim\python.exe")
         
         # Validate Python executable exists
         if not self.PYTHON_EXE.exists():
@@ -48,8 +48,9 @@ class UnifiedTM2Config:
         # Example/reference data directories (for template employment/land use data)
         self.EXAMPLE_CONTROLS_DIR = self.BASE_DIR / "example_controls_2015"
         
-        # Test PUMA setting (needed for command setup)
-        self.TEST_PUMA = os.getenv('TEST_PUMA', None)
+        # Test PUMA setting (for single PUMA testing)
+        # Set to specific PUMA for fast testing, or None for full synthesis
+        self.TEST_PUMA = None  # Disabled - run full synthesis to test GQ fixes
         
         # ============================================================
         # BAY AREA PUMA DEFINITIONS - SINGLE SOURCE OF TRUTH
