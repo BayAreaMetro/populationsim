@@ -218,6 +218,7 @@ output_synthetic_population:
       - employ_status        # employment status for tm1. 1 is full-time worker, 2 is part-time worker, 3 is not in the labor force, 4 is student under 16
       - student_status       # student status for tm1. 1 is pre-school through grade 12 student, 2 is university/professional school student, 3 is non-student
       - person_type          # person type for tm1. 1 is full-time worker, 2 is part-time worker, 3 is college student, 4 is non-working adult, 
+      - hhgqtype             # group quarters type: 0: household (not gq), 1 college, 2 militar, 3 other 
                              # 5 is retired, 6 is driving-age student, 7 is non-driving age student, 8 is child too young for school
 # Steps for base mode
 # ------------------------------------------------------------------

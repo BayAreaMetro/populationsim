@@ -523,12 +523,23 @@ class PersonProcessor:
         return df
     
     def _create_person_type(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create person type categories by age"""
-        df['person_type'] = 1  # Default
-        df.loc[df['AGEP'] < 5, 'person_type'] = 1   # Preschool
-        df.loc[(df['AGEP'] >= 5) & (df['AGEP'] < 18), 'person_type'] = 2  # School age
-        df.loc[(df['AGEP'] >= 18) & (df['AGEP'] < 65), 'person_type'] = 3  # Working age
-        df.loc[df['AGEP'] >= 65, 'person_type'] = 4  # Senior
+        """Create person type categories based on employment status"""
+        # Map employment status to person type as per TM1 convention
+        # 1 = full-time worker, 2 = part-time worker, 3 = college student, 4 = non-working adult
+        df['person_type'] = 4  # Default to non-working adult
+        
+        # Map from employ_status if it exists
+        if 'employ_status' in df.columns:
+            df.loc[df['employ_status'] == 1, 'person_type'] = 1  # Full-time worker
+            df.loc[df['employ_status'] == 2, 'person_type'] = 2  # Part-time worker  
+            df.loc[df['employ_status'] == 4, 'person_type'] = 3  # Student (under 16, map to college student category)
+            # employ_status == 3 (not in labor force) stays as person_type = 4
+        else:
+            # Fallback to age-based if employ_status doesn't exist
+            df.loc[df['AGEP'] < 18, 'person_type'] = 3   # Students
+            df.loc[(df['AGEP'] >= 18) & (df['AGEP'] < 65), 'person_type'] = 1  # Working age -> full-time
+            df.loc[df['AGEP'] >= 65, 'person_type'] = 4  # Seniors -> non-working
+            
         return df
     
     def _create_occupation_categories(self, df: pd.DataFrame) -> pd.DataFrame:
