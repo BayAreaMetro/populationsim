@@ -1,0 +1,15 @@
+metric,value
+Total MAZs,39726.0
+MAZs with HH Target > 0,35510.0
+MAZs with Results > 0,1185.0
+Total Target HH,3031770.0
+Total Result HH,3031769.9999999995
+R-squared,-68.38708275891055
+Correlation,0.048699570179283225
+RMSE,869.3401805488669
+MAE,148.75938590847304
+MAPE (%),234.79436431000806
+Total Percent Error (%),1.5359387001907772e-14
+MAZs with Error > 10%,35510.0
+MAZs with Error > 50%,35509.0
+Perfect Matches,4197.0
