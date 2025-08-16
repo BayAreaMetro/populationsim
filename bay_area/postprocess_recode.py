@@ -42,18 +42,18 @@ HOUSING_COLUMNS = {
     ]),
     # http://bayareametro.github.io/travel-model-two/input/#households
     'TM2':collections.OrderedDict([
-      ("HHID",                "HHID"),
+      ("unique_hh_id",        "HHID"),          # Fixed: use unique_hh_id from PopulationSim
       ("TAZ",                 "TAZ"),
       ("MAZ",                 "MAZ"),
-      ("COUNTY",              "MTCCountyID"),
-      ("hh_income_2010",      "HHINCADJ"),
+      ("COUNTY",              "MTCCountyID"),   # Maps to county 1-9
+      ("hh_income_2010",      "HHINCADJ"),     # 2010 dollars as required by TM2
       ("hh_workers_from_esr", "NWRKRS_ESR"),
       ("VEH",                 "VEH"),
-      ("TEN",                 "TEN"),       # added Feb '23
+      ("TEN",                 "TEN"),
       ("NP",                  "NP"),
       ("HHT",                 "HHT"),
       ("BLD",                 "BLD"),
-      ("TYPE",                "TYPE")
+      ("TYPEHUGQ",            "TYPE"),          # Fixed: use TYPEHUGQ from PopulationSim
     ]),
   }
   
@@ -70,8 +70,8 @@ PERSON_COLUMNS = {
     ]),
     # http://bayareametro.github.io/travel-model-two/input/#persons
     'TM2':collections.OrderedDict([
-      ("HHID",                "HHID"),
-      ("PERID",               "PERID"),
+      ("unique_hh_id",        "HHID"),          # Fixed: use unique_hh_id from PopulationSim
+      ("unique_per_id",       "PERID"),         # Fixed: use unique_per_id from PopulationSim
       ("AGEP",                "AGEP"),
       ("SEX",                 "SEX"),
       ("SCHL",                "SCHL"),
@@ -81,6 +81,8 @@ PERSON_COLUMNS = {
       ("employed",            "EMPLOYED"),
       ("ESR",                 "ESR"),
       ("SCHG",                "SCHG"),
+      ("hhgqtype",            "hhgqtype"),      # Added: group quarters type
+      ("person_type",         "person_type"),  # Added: employment-based person type
     ])
   }
 
@@ -116,11 +118,35 @@ if __name__ == '__main__':
       geocrosswalk_df = pandas.read_csv(pathlib.Path("hh_gq/data/geo_cross_walk_tm1.csv"))
       # print(geocrosswalk_df.head())
     if args.model_type == 'TM2':
-      print("Not implemented")
-      sys.exit(2)
+      # TM2 uses the unified crosswalk from the pipeline
+      from unified_tm2_config import UnifiedTM2Config
+      config = UnifiedTM2Config()
+      geocrosswalk_df = pandas.read_csv(config.CROSSWALK_FILES['popsim_crosswalk'])
+      logging.info("Read TM2 crosswalk with {:,} rows".format(len(geocrosswalk_df)))
 
     # (a) Create control vs result summary, summary_melt.csv
-    # read the taz and county summaries
+
+    # Functions for generating unique IDs in TM2
+    def add_unique_household_id(households_df):
+        """Add unique_hh_id field if it doesn't exist"""
+        if 'unique_hh_id' not in households_df.columns:
+            if 'SERIALNO' in households_df.columns:
+                households_df['unique_hh_id'] = households_df['SERIALNO']
+            else:
+                households_df['unique_hh_id'] = households_df.index + 1
+        return households_df
+    
+    def add_unique_person_id(persons_df):
+        """Add unique_per_id field if it doesn't exist"""
+        if 'unique_per_id' not in persons_df.columns:
+            if 'SERIALNO' in persons_df.columns and 'SPORDER' in persons_df.columns:
+                persons_df['unique_per_id'] = persons_df['SERIALNO'].astype(str) + '_' + persons_df['SPORDER'].astype(str)
+            else:
+                persons_df['unique_per_id'] = persons_df.index + 1
+        return persons_df
+
+
+        # read the taz and county summaries
     taz_summary_file = pathlib.Path(args.directory) / "final_summary_TAZ.csv"
     taz_summary_df = pandas.read_csv(taz_summary_file)
     logging.info("Read {:,} rows from {}".format(len(taz_summary_df), taz_summary_file))

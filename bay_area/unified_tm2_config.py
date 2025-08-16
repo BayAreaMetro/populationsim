@@ -19,14 +19,8 @@ class UnifiedTM2Config:
         self.MODEL_TYPE = model_type
         
         # Python executable (full path to popsim environment)
-        # Allow environment variable override, otherwise use current user
-        python_exe_env = os.getenv('POPSIM_PYTHON_EXE')
-        if python_exe_env:
-            self.PYTHON_EXE = Path(python_exe_env)
-        else:
-            # Auto-detect current user and use popsim environment
-            current_user = os.getenv('USERNAME', 'schildress')
-            self.PYTHON_EXE = Path(rf"C:\Users\{current_user}\AppData\Local\anaconda3\envs\popsim\python.exe")
+        # Always use the specific MTCPB user Python environment for tm2_pipeline
+        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
         
         # Validate Python executable exists
         if not self.PYTHON_EXE.exists():
@@ -874,7 +868,7 @@ class UnifiedTM2Config:
                     
                     target_name = self.BAY_AREA_COUNTIES.get(target_county, {}).get('name', 'Unknown')
                     if verbose:
-                        print(f"      → Reassigned {zones_to_reassign} zones to County {target_county} ({target_name}) using {method_used}")
+                        print(f"      -> Reassigned {zones_to_reassign} zones to County {target_county} ({target_name}) using {method_used}")
         
         if verbose:
             print(f"\n  Resolution complete:")
@@ -885,9 +879,9 @@ class UnifiedTM2Config:
             remaining_multi = final_puma_county_counts[final_puma_county_counts > 1]
             
             if len(remaining_multi) == 0:
-                print(f"    ✅ SUCCESS: All PUMAs now belong to single counties")
+                print(f"    SUCCESS: All PUMAs now belong to single counties")
             else:
-                print(f"    ⚠️  WARNING: {len(remaining_multi)} PUMAs still span multiple counties")
+                print(f"    WARNING: {len(remaining_multi)} PUMAs still span multiple counties")
                 for puma in remaining_multi.index:
                     counties = resolved_df[resolved_df['PUMA'] == puma]['COUNTY'].unique()
                     print(f"      PUMA {puma}: Counties {list(counties)}")
