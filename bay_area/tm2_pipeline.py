@@ -524,12 +524,12 @@ class TM2Pipeline:
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
         
-        # Default to starting with crosswalk (skip PUMS download unless explicitly requested)
-        steps = ['crosswalk', 'seed', 'controls', 'populationsim']
+        # Default pipeline includes analysis after PopulationSim
+        steps = ['crosswalk', 'seed', 'controls', 'populationsim', 'analysis']
         
         # If start_step is explicitly 'pums', include it
         if start_step == 'pums':
-            steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim']
+            steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim', 'analysis']
         
         # Determine step range
         if start_step:
@@ -568,7 +568,7 @@ class TM2Pipeline:
         self.log("Pipeline Status Check")
         self.log("-" * 40)
         
-        steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim']
+        steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim', 'analysis']
         for step in steps:
             if self.check_step_completion(step):
                 self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
@@ -597,7 +597,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='status',
-                       choices=['status', 'pums', 'crosswalk', 'seed', 'controls', 'populationsim', 'full', 'clean'],
+                       choices=['status', 'pums', 'crosswalk', 'seed', 'controls', 'populationsim', 'analysis', 'full', 'clean'],
                        help='Command to run')
     parser.add_argument('--force', action='store_true',
                        help='Force rerun even if outputs exist')

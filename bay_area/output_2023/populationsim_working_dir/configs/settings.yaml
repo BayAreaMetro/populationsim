@@ -16,18 +16,18 @@ USE_SIMUL_INTEGERIZER: True
 USE_CVXPY: False
 max_expansion_factor: 30
 
-# Tolerance Settings to handle floating-point precision
+# Tolerance Settings - TIGHTENED for better accuracy
 # ------------------------------------------------------------------
-rel_tolerance: 0.005        # Slightly relaxed relative tolerance
-abs_tolerance: 5.0          # Slightly relaxed absolute tolerance
-integer_tolerance: 0.05     # Tolerance for integer checking
+rel_tolerance: 0.001        # Tightened from 0.005 for better precision
+abs_tolerance: 1.0          # Tightened from 5.0 for better accuracy  
+integer_tolerance: 0.01     # Tightened from 0.05 for stricter integer checking
 
-# Convergence Settings for Performance
+# Convergence Settings - TIGHTENED for better convergence
 # ------------------------------------------------------------------
-MAX_BALANCE_ITERATIONS_SIMULTANEOUS: 500  # Reduce from default 1000
-MAX_BALANCE_ITERATIONS_SEQUENTIAL: 5000   # Reduce from default 10000
-MAX_DELTA: 1.0e-6                         # Looser from default 1.0e-9  
-MAX_GAMMA: 1.0e-4                         # Looser from default 1.0e-7
+MAX_BALANCE_ITERATIONS_SIMULTANEOUS: 1000  # Increased back to default from 500
+MAX_BALANCE_ITERATIONS_SEQUENTIAL: 10000   # Increased back to default from 5000
+MAX_DELTA: 1.0e-8                          # Tightened from 1.0e-6 (closer to default 1.0e-9)
+MAX_GAMMA: 1.0e-6                          # Tightened from 1.0e-4 (closer to default 1.0e-7)
 
 
 # Geographic Settings

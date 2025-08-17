@@ -19,8 +19,8 @@ class UnifiedTM2Config:
         self.MODEL_TYPE = model_type
         
         # Python executable (full path to popsim environment)
-        # Always use the specific MTCPB user Python environment for tm2_pipeline
-        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
+        # Use the current user's popsim environment
+        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
         
         # Validate Python executable exists
         if not self.PYTHON_EXE.exists():
@@ -176,7 +176,7 @@ class UnifiedTM2Config:
             'local_census': self.BASE_DIR / "local_data" / "census",
             'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls",
             # Shapefiles for geographic processing
-            'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_4.shp"),
+            'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
             'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
             'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp")
         }
@@ -209,8 +209,8 @@ class UnifiedTM2Config:
         # SHAPEFILE PATHS
         # ============================================================
         self.SHAPEFILES = {
-            'maz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "mazs_TM2_2_4.shp",
-            'taz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tazs_TM2_2_4.shp",
+            'maz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "mazs_TM2_2_5.shp",
+            'taz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tazs_TM2_2_5.shp",
             'puma_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tl_2022_06_puma20.shp",
             'county_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "Counties.shp"
         }
@@ -383,6 +383,16 @@ class UnifiedTM2Config:
             'output_dir': self.OUTPUT_DIR / "tableau",
             'script': self.BASE_DIR / "prepare_tableau_data.py"
         }
+        
+        # ============================================================
+        # STEP 7: ANALYSIS FILES
+        # ============================================================
+        self.ANALYSIS_FILES = {
+            'quick_analysis_script': self.BASE_DIR / "quick_corrected_analysis.py",
+            'comprehensive_script': self.BASE_DIR / "analyze_populationsim_results_fast.py",
+            'performance_summary': self.OUTPUT_DIR / "PERFORMANCE_SUMMARY.txt",
+            'analysis_results': self.OUTPUT_DIR / "README_ANALYSIS_RESULTS.md"
+        }
     
     def _setup_commands(self):
         """Define ALL commands in the system"""
@@ -447,7 +457,13 @@ class UnifiedTM2Config:
                 str(self.TABLEAU_FILES['script']),
                 "--output_dir", str(self.TABLEAU_FILES['output_dir']),
                 "--year", str(self.YEAR)
-            ] + self.get_test_puma_args()
+            ] + self.get_test_puma_args(),
+            
+            # Step 8: Performance Analysis
+            'analysis': [
+                str(self.PYTHON_EXE),
+                str(self.ANALYSIS_FILES['quick_analysis_script'])
+            ]
         }
     
     # ============================================================
@@ -739,10 +755,15 @@ class UnifiedTM2Config:
         self.POPSIM_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         self.POPSIM_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         
-        # Create M: drive directories if they don't exist
+        # Create M: drive directories if they don't exist and are accessible
         for path_key in ['pums_current', 'pums_cached']:
             path = self.EXTERNAL_PATHS[path_key]
-            path.mkdir(parents=True, exist_ok=True)
+            try:
+                path.mkdir(parents=True, exist_ok=True)
+            except (FileNotFoundError, OSError) as e:
+                # M: drive not accessible, skip creating these directories
+                print(f"[CONFIG] WARNING: Cannot create {path_key} directory (M: drive not accessible): {path}")
+                continue
     
     def get_step_files(self, step_name):
         """Get the files that should exist after a step completes"""
@@ -761,6 +782,10 @@ class UnifiedTM2Config:
             'populationsim': [
                 self.POPSIM_OUTPUT_DIR / "synthetic_households.csv",
                 self.POPSIM_OUTPUT_DIR / "synthetic_persons.csv"
+            ],
+            'analysis': [
+                self.ANALYSIS_FILES['performance_summary'],
+                self.ANALYSIS_FILES['analysis_results']
             ]
         }
         return step_files.get(step_name, [])
