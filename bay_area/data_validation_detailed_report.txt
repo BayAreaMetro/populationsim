@@ -1,0 +1,6 @@
+COMPREHENSIVE POPULATIONSIM DATA VALIDATION - DETAILED REPORT
+================================================================================
+Report saved to: C:\GitHub\populationsim\bay_area\data_validation_detailed_report.txt
+================================================================================
+Loading data files...
+\n[ERROR] Error during validation: [Errno 2] No such file or directory: 'C:\\GitHub\\populationsim\\bay_area\\hh_gq\\data\\seed_households.csv'

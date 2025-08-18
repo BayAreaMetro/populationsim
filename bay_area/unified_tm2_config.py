@@ -299,18 +299,12 @@ class UnifiedTM2Config:
         # STEP 1: SEED POPULATION FILES - PopulationSim expects these in data directory
         # ============================================================
         self.SEED_FILES = {
-            # Raw downloaded files (can be in data directory)
+            # Raw downloaded files (temporary processing in data directory)
             'households_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['households_raw'],
             'persons_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['persons_raw'],
-            # Processed files (data directory)
-            'households_processed': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['households_processed'],
-            'persons_processed': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['persons_processed'],
-            # Final seed files (PopulationSim data directory)
-            'households_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_households'], 
-            'persons_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_persons'],
-            # PopulationSim copies (same location now)
-            'households_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_households'],
-            'persons_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_persons']
+            # Final seed files (PopulationSim data directory) - used directly by PopulationSim
+            'households': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_households'], 
+            'persons': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_persons']
         }
         
         # ============================================================
@@ -388,13 +382,49 @@ class UnifiedTM2Config:
         }
         
         # ============================================================
-        # STEP 7: ANALYSIS FILES
+        # STEP 7: COMPREHENSIVE ANALYSIS FILES
         # ============================================================
         self.ANALYSIS_FILES = {
-            'quick_analysis_script': self.BASE_DIR / "quick_corrected_analysis.py",
-            'comprehensive_script': self.BASE_DIR / "analyze_populationsim_results_fast.py",
+            # Main analysis outputs
             'performance_summary': self.OUTPUT_DIR / "PERFORMANCE_SUMMARY.txt",
-            'analysis_results': self.OUTPUT_DIR / "README_ANALYSIS_RESULTS.md"
+            'analysis_results': self.OUTPUT_DIR / "README_ANALYSIS_RESULTS.md",
+            'analysis_log': self.OUTPUT_DIR / "analysis_complete.log",
+            
+            # Analysis scripts (organized by category)
+            'scripts_dir': self.BASE_DIR / "analysis",
+            'main_scripts': {
+                'populationsim_results': self.BASE_DIR / "analysis" / "analyze_populationsim_results.py",
+                'full_dataset': self.BASE_DIR / "analysis" / "analyze_full_dataset.py", 
+                'performance': self.BASE_DIR / "analysis" / "analyze_corrected_populationsim_performance.py",
+                'group_quarters': self.BASE_DIR / "analysis" / "analyze_gq_issue.py",
+                'postprocessing_req': self.BASE_DIR / "analysis" / "analyze_postprocessing_requirements.py",
+                'regional_income': self.BASE_DIR / "analysis" / "analyze_regional_income_distribution.py",
+                'remaining_bias': self.BASE_DIR / "analysis" / "analyze_remaining_bias.py",
+                'quick_analysis': self.BASE_DIR / "analysis" / "quick_corrected_analysis.py"
+            },
+            
+            'validation_scripts': {
+                'income_vs_acs': self.BASE_DIR / "analysis" / "validate_income_vs_acs.py",
+                'vehicle_ownership': self.BASE_DIR / "analysis" / "validate_vehicle_ownership.py",
+                'data_validation': self.BASE_DIR / "analysis" / "data_validation.py",
+                'detailed_validation': self.BASE_DIR / "analysis" / "detailed_data_validation.py"
+            },
+            
+            'check_scripts': {
+                'taz_controls_rollup': self.BASE_DIR / "analysis" / "check_taz_controls_rollup.py",
+                'census_vintage': self.BASE_DIR / "analysis" / "check_census_vintage.py",
+                'puma_mismatch': self.BASE_DIR / "analysis" / "check_puma_mismatch.py"
+            },
+            
+            'debug_scripts': {
+                'income_mismatch': self.BASE_DIR / "analysis" / "debug_income_mismatch.py",
+                'geographic_aggregation': self.BASE_DIR / "analysis" / "debug_geographic_aggregation.py"
+            },
+            
+            'visualization_scripts': {
+                'taz_puma_mapping': self.BASE_DIR / "analysis" / "visualize_taz_puma_mapping.py",
+                'corrected_maz_chart': self.BASE_DIR / "analysis" / "create_corrected_maz_chart.py"
+            }
         }
     
     def _setup_commands(self):
@@ -465,10 +495,38 @@ class UnifiedTM2Config:
                 "--year", str(self.YEAR)
             ] + self.get_test_puma_args(),
             
-            # Step 8: Performance Analysis
+            # Step 8: Comprehensive Analysis and Validation
             'analysis': [
                 "python",
-                str(self.ANALYSIS_FILES['quick_analysis_script'])
+                str(self.BASE_DIR / "run_comprehensive_analysis.py"),
+                "--output_dir", str(self.OUTPUT_DIR),
+                "--year", str(self.YEAR)
+            ],
+            
+            # Individual analysis components (can be run separately)
+            'validate_income': [
+                "python", 
+                str(self.ANALYSIS_FILES['validation_scripts']['income_vs_acs'])
+            ],
+            
+            'validate_vehicles': [
+                "python",
+                str(self.ANALYSIS_FILES['validation_scripts']['vehicle_ownership'])
+            ],
+            
+            'check_controls': [
+                "python",
+                str(self.ANALYSIS_FILES['check_scripts']['taz_controls_rollup'])
+            ],
+            
+            'visualize_geography': [
+                "python",
+                str(self.ANALYSIS_FILES['visualization_scripts']['taz_puma_mapping'])
+            ],
+            
+            'debug_income': [
+                "python",
+                str(self.ANALYSIS_FILES['debug_scripts']['income_mismatch'])
             ]
         }
     
@@ -494,8 +552,8 @@ class UnifiedTM2Config:
             'persons_raw': self.SEED_FILES['persons_raw'],
             'households_processed': self.SEED_FILES['households_processed'],
             'persons_processed': self.SEED_FILES['persons_processed'],
-            'households_final': self.SEED_FILES['households_main'],
-            'persons_final': self.SEED_FILES['persons_main']
+            'households_final': self.SEED_FILES['households'],
+            'persons_final': self.SEED_FILES['persons']
         }
     
     def get_control_paths(self):
@@ -623,8 +681,8 @@ class UnifiedTM2Config:
     
     def check_seed_exists(self):
         """Check if seed files exist"""
-        return (self.SEED_FILES['households_main'].exists() and 
-                self.SEED_FILES['persons_main'].exists())
+        return (self.SEED_FILES['households'].exists() and 
+                self.SEED_FILES['persons'].exists())
     
     def check_controls_exist(self):
         """Check if control files exist"""
@@ -703,20 +761,8 @@ class UnifiedTM2Config:
         # First sync control files
         self._sync_control_files()
         
-        # Then sync seed files
-        seed_mappings = [
-            (self.SEED_FILES['households_main'], self.SEED_FILES['households_popsim']),
-            (self.SEED_FILES['persons_main'], self.SEED_FILES['persons_popsim'])
-        ]
-        
-        for src, dst in seed_mappings:
-            if src.exists():
-                shutil.copy2(src, dst)
-                print(f"Synced: {src.name} -> {dst}")
-            elif dst.exists():
-                print(f"Using existing: {dst.name} (source {src.name} not found)")
-            else:
-                print(f"WARNING: Missing source file: {src}")
+        # Seed files are already in the correct PopulationSim data directory
+        # No additional syncing needed since SEED_FILES point directly to POPSIM_DATA_DIR
     
     # ============================================================
     # WORKFLOW STATUS
@@ -785,7 +831,7 @@ class UnifiedTM2Config:
             ],
             'crosswalk': [self.CROSSWALK_FILES['main_crosswalk']],
             'geographic_rebuild': [self.POPSIM_DATA_DIR / "mazs_tazs_all_geog.csv"],
-            'seed': [self.SEED_FILES['households_main'], self.SEED_FILES['persons_main']],
+            'seed': [self.SEED_FILES['households'], self.SEED_FILES['persons']],
             'controls': [
                 self.CONTROL_FILES['maz_marginals_main'], 
                 self.CONTROL_FILES['taz_marginals_main'], 
@@ -802,7 +848,11 @@ class UnifiedTM2Config:
             ],
             'analysis': [
                 self.ANALYSIS_FILES['performance_summary'],
-                self.ANALYSIS_FILES['analysis_results']
+                self.ANALYSIS_FILES['analysis_results'],
+                self.ANALYSIS_FILES['analysis_log'],
+                self.OUTPUT_DIR / "validation_summary.txt",
+                self.OUTPUT_DIR / "control_checks_summary.txt",
+                self.OUTPUT_DIR / "populationsim_analysis_charts.html"
             ]
         }
         return step_files.get(step_name, [])

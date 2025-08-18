@@ -310,16 +310,22 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
 # TAZ controls for ACS estimate year - PopulationSim expects: workers, age, children, income
 CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
     # ACS5 household income distribution at block-group - DIRECT AGGREGATION (no scaling needed)
-    # Income breakpoints aligned with ACS B19001 table brackets for accurate aggregation
-    # Using actual ACS bracket boundaries to avoid splitting households across categories
-    ('hh_inc_30',             ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',39999)])])),
-    ('hh_inc_30_60',          ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',40000),('hhinc_max',74999)])])),
-    ('hh_inc_60_100',         ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',75000),('hhinc_max',124999)])])),
-    ('hh_inc_100_plus',       ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',125000),('hhinc_max',HINC_MAX)])])),
+    # NON-OVERLAPPING income controls labeled in 2010 dollars for PopulationSim
+    # Controls capture income distribution with proper boundaries
+    
+    # Non-overlapping income controls in 2010 dollars:
+    ('hhinc_0_14',            ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
+                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',19999)])])),     # 0-$20K in 2023$ = 0-$14K in 2010$
+    ('hhinc_14_30',           ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
+                               [collections.OrderedDict([('hhinc_min',20000),('hhinc_max',42499)])])),     # $20K-$40K in 2023$ = $14K-$30K in 2010$
+    ('hhinc_30_60',           ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
+                               [collections.OrderedDict([('hhinc_min',42500),('hhinc_max',84999)])])),     # $40K-$75K in 2023$ = $30K-$60K in 2010$
+    ('hhinc_60_100',          ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
+                               [collections.OrderedDict([('hhinc_min',85000),('hhinc_max',141999)])])),    # $75K-$125K in 2023$ = $60K-$100K in 2010$
+    ('hhinc_100_175',         ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
+                               [collections.OrderedDict([('hhinc_min',142000),('hhinc_max',354999)])])),   # $125K-$250K in 2023$ = $100K-$175K in 2010$
+    ('hhinc_175_plus',        ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
+                               [collections.OrderedDict([('hhinc_min',355000),('hhinc_max',HINC_MAX)])])),
     # ACS5 workers per household at tract level - DISAGGREGATED using household distribution
     ('temp_hh_bg_for_tract_weights', ('acs5', ACS_EST_YEAR, 'B11016', 'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
@@ -1113,7 +1119,7 @@ CONTROL_CATEGORIES = {
         'group_quarters': ['gq_pop', 'gq_military', 'gq_university', 'gq_other'],
     },
     'TAZ': {
-        'household_income': ['hh_inc_30', 'hh_inc_30_60', 'hh_inc_60_100', 'hh_inc_100_plus'],
+        'household_income': ['hhinc_0_14', 'hhinc_14_30', 'hhinc_30_60', 'hhinc_60_100', 'hhinc_100_175', 'hhinc_175_plus'],
         'household_workers': ['hh_wrks_0', 'hh_wrks_1', 'hh_wrks_2', 'hh_wrks_3_plus'],
         'person_age': ['pers_age_00_19', 'pers_age_20_34', 'pers_age_35_64', 'pers_age_65_plus'],
         'household_children': ['hh_kids_no', 'hh_kids_yes'],

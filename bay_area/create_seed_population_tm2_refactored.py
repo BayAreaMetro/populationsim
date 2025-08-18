@@ -8,26 +8,11 @@ Key improvements:
 - Better configuration management
 - Improved error handling and logging
 - More readable and maintainable code structure
+- Direct output to final PopulationSim data directory (no intermediate copies)
 
 Key ID Columns:
 - SERIALNO: Original Census household serial number (preserved on both tables)
-- unique_hh_id: G                # Step 4: Create PopulationSim-compatible copies
-                logger.info("-" * 50)
-                logger.info("[SUMMARY] Creating PopulationSim-compatible seed file copies...")
-                import shutil
-                
-                # Use unified configuration for PopulationSim data directory
-                from unified_tm2_config import config as unified_config
-                
-                seed_h = unified_config.SEED_FILES['households_popsim']
-                seed_p = unified_config.SEED_FILES['persons_popsim']
-                
-                # Ensure directory exists
-                seed_h.parent.mkdir(parents=True, exist_ok=True)
-                
-                shutil.copy2(h_processed, seed_h)
-                shutil.copy2(p_processed, seed_p)
-                logger.info("[SUCCESS] PopulationSim-compatible seed files created")usehold identifier for PopulationSim
+- unique_hh_id: Household identifier for PopulationSim
   Format: YEAR_STATE_PUMA_SERIALNO (e.g., "2023_6_06001_0000001")
   Used for household-person linkage in PopulationSim
 """
@@ -395,10 +380,11 @@ class HouseholdProcessor:
         cpi_2021_to_2023 = 310.0 / 270.970
         df['hh_income_2023'] = df['hh_income_2021'] * cpi_2021_to_2023
         
-        # Step 3: Convert 2021 dollars to 2010 dollars for PopulationSim controls
-        # CPI 2021 ≈ 270.970, CPI 2010 = 218.056  
-        cpi_2021_to_2010 = 218.056 / 270.970
-        df['hh_income_2010'] = df['hh_income_2021'] * cpi_2021_to_2010
+        # Step 3: Convert 2023 dollars to 2010 dollars for PopulationSim controls  
+        # Note: 2023 ACS data requires 2023→2010 conversion, not 2021→2010
+        # CPI 2023 ≈ 310.0, CPI 2010 = 218.056  
+        cpi_2023_to_2010 = 218.056 / 310.0
+        df['hh_income_2010'] = df['hh_income_2023'] * cpi_2023_to_2010
         
         # Log conversion summary
         valid_income_count = valid_mask.sum()
@@ -413,11 +399,12 @@ class HouseholdProcessor:
             
             logger.info(f"   Created income fields for {valid_income_count:,} households")
             logger.info(f"   Median income: 2021=${median_2021:,.0f} → 2023=${median_2023:,.0f} → 2010=${median_2010:,.0f}")
+            logger.info(f"   CPI conversion: 2023→2010 factor = {cpi_2023_to_2010:.4f}")
             
             # Validate against expected Bay Area medians (rough check)
-            if median_2010 < 60000:
+            if median_2010 < 70000:
                 logger.warning(f"   ⚠️  2010$ median (${median_2010:,.0f}) seems low for Bay Area")
-            elif median_2010 > 120000:
+            elif median_2010 > 100000:
                 logger.warning(f"   ⚠️  2010$ median (${median_2010:,.0f}) seems high for Bay Area")
             else:
                 logger.info(f"   ✓ 2010$ median (${median_2010:,.0f}) appears reasonable for Bay Area")
@@ -606,45 +593,32 @@ class SeedPopulationCreator:
             logger.info(f"   Chunk size: {self.config.chunk_size:,}")
             logger.info("=" * 80)
             
-            # Define file paths
-            h_raw = self.config.output_dir / "households_2023_raw.csv"
-            p_raw = self.config.output_dir / "persons_2023_raw.csv"
-            h_processed = self.config.output_dir / "households_2023_tm2.csv"
-            p_processed = self.config.output_dir / "persons_2023_tm2.csv"
+            # Use unified configuration for all file paths
+            from unified_tm2_config import config as unified_config
             
-            # Step 1: Check for existing files
+            # Define file paths from unified config
+            h_raw = unified_config.SEED_FILES['households_raw']
+            p_raw = unified_config.SEED_FILES['persons_raw']
+            # Final seed files - write directly to PopulationSim data directory
+            h_final = unified_config.SEED_FILES['households'] 
+            p_final = unified_config.SEED_FILES['persons']
+            
+            # Step 1: Check for existing final seed files
             step_time = datetime.now()
-            logger.info("STEP 1: CHECKING EXISTING FILES")
+            logger.info("STEP 1: CHECKING EXISTING SEED FILES")
             logger.info("=" * 70)
             
-            if h_processed.exists() and p_processed.exists():
-                logger.info("[SUCCESS] Found existing processed TM2 files - using them...")
+            if h_final.exists() and p_final.exists():
+                logger.info("[SUCCESS] Found existing seed files - using them...")
                 
                 load_start = datetime.now()
-                logger.info("📖 Loading existing processed files...")
-                household_df = pd.read_csv(h_processed)
-                person_df = pd.read_csv(p_processed)
+                logger.info("📖 Loading existing seed files...")
+                household_df = pd.read_csv(h_final)
+                person_df = pd.read_csv(p_final)
                 load_time = datetime.now() - load_start
                 logger.info(f"[SUCCESS] Loaded {len(household_df):,} households and {len(person_df):,} persons in {load_time}")
                 
-                # Step 4: Create PopulationSim-compatible copies
-                logger.info("-" * 50)
-                logger.info("[SUMMARY] Creating PopulationSim-compatible seed file copies...")
-                import shutil
-                
-                # Use unified configuration for PopulationSim data directory
-                from unified_tm2_config import config as unified_config
-                unified = unified_config
-                
-                seed_h = unified.SEED_FILES['households_popsim']
-                seed_p = unified.SEED_FILES['persons_popsim']
-                
-                # Ensure directory exists
-                seed_h.parent.mkdir(parents=True, exist_ok=True)
-                
-                shutil.copy2(h_processed, seed_h)
-                shutil.copy2(p_processed, seed_p)
-                logger.info("[SUCCESS] PopulationSim-compatible seed files created")
+                # Files are already in final location - no copying needed
                 
                 # Step 5: Generate validation report
                 logger.info("-" * 50)
@@ -904,30 +878,21 @@ class SeedPopulationCreator:
             logger.info("[PERSON] Finalizing person data...")
             person_df = self._finalize_person_data(person_df)
             
-            # Step 4: Save processed files
+            # Step 4: Save final seed files directly to PopulationSim data directory
             logger.info("-" * 50)
-            logger.info("💾 SAVING PROCESSED FILES")
+            logger.info("💾 SAVING FINAL SEED FILES")
             logger.info("-" * 50)
-            self._save_processed_files(household_df, person_df, h_processed, p_processed)
+            self._save_seed_files(household_df, person_df, h_final, p_final)
             
-            # Step 4b: Create PopulationSim-compatible copies
-            logger.info("[SUMMARY] Creating PopulationSim-compatible seed file copies...")
-            import shutil
+            # Files are saved directly to final location - no copying needed
             
             # Use unified configuration for PopulationSim data directory
-            from unified_tm2_config import config as unified_config
+            from unified_tm2_config import UnifiedTM2Config
+            unified_config = UnifiedTM2Config()
             
-            seed_h = unified_config.SEED_FILES['households_popsim']
-            seed_p = unified_config.SEED_FILES['persons_popsim']
+            seed_h = unified_config.SEED_FILES['households']
+            seed_p = unified_config.SEED_FILES['persons']
             
-            # Ensure directory exists
-            seed_h.parent.mkdir(parents=True, exist_ok=True)
-            
-            logger.info(f"   Copying: {h_processed} → {seed_h}")
-            shutil.copy2(h_processed, seed_h)
-            logger.info(f"   Copying: {p_processed} → {seed_p}")
-            shutil.copy2(p_processed, seed_p)
-            logger.info("[SUCCESS] PopulationSim-compatible seed files created")
             
             # Step 5: Generate validation report
             logger.info("-" * 50)
@@ -1046,10 +1011,13 @@ class SeedPopulationCreator:
         
         return df
     
-    def _save_processed_files(self, household_df: pd.DataFrame, person_df: pd.DataFrame, 
+    def _save_seed_files(self, household_df: pd.DataFrame, person_df: pd.DataFrame, 
                             h_path: Path, p_path: Path) -> None:
-        """Save processed files with validation"""
-        logger.info("💾 Writing PopulationSim-compatible files...")
+        """Save final seed files with validation"""
+        logger.info("💾 Writing final seed files to PopulationSim data directory...")
+        
+        # Ensure directory exists
+        h_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Validate data before saving
         logger.info("   Step 1/4: Validating household data...")
@@ -1069,7 +1037,7 @@ class SeedPopulationCreator:
         file_size_mb = p_path.stat().st_size / 1024**2
         logger.info(f"   [SUCCESS] Person file written: {len(person_df):,} records, {file_size_mb:.1f}MB")
         
-        logger.info("💾 All files saved successfully!")
+        logger.info("💾 Final seed files saved successfully!")
     
     def _validate_data(self, df: pd.DataFrame, data_type: str) -> None:
         """Validate data quality before saving"""

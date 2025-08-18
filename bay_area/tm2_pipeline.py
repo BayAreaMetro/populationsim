@@ -611,6 +611,14 @@ class TM2Pipeline:
                 self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
             else:
                 self.log(f"{step.ljust(15)}: ✗ INCOMPLETE", "STATUS")
+        
+        # Show available analysis sub-steps
+        self.log("")
+        self.log("Available Analysis Sub-steps:")
+        self.log("-" * 40)
+        analysis_steps = ['validate_income', 'validate_vehicles', 'check_controls', 'visualize_geography', 'debug_income']
+        for step in analysis_steps:
+            self.log(f"{step.ljust(15)}: Available", "INFO")
     
     def clean(self, step_name=None):
         """Clean outputs for a specific step or all steps"""
@@ -634,7 +642,9 @@ def main():
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='status',
-                       choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis', 'full', 'clean'],
+                       choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 
+                               'postprocess', 'analysis', 'validate_income', 'validate_vehicles', 'check_controls', 
+                               'visualize_geography', 'debug_income', 'full', 'clean'],
                        help='Command to run')
     parser.add_argument('--force', action='store_true',
                        help='Force rerun even if outputs exist')
