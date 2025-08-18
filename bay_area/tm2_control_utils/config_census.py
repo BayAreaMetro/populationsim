@@ -49,27 +49,25 @@ ACS_EST_YEAR = 2023
 # Census API Configuration  
 CENSUS_API_KEY_FILE = r"M:\Data\Census\API\new_key\api-key.txt"
 LOCAL_CACHE_FOLDER = r"M:\Data\Census\NewCachedTablesForPopulationSimControls"
+NETWORK_CACHE_FOLDER = r"M:\Data\Census\NewCachedTablesForPopulationSimControls"
+INPUT_2023_CACHE_FOLDER = "input_2023/NewCachedTablesForPopulationSimControls"
 
-# Geographic data files
+# Network (M: drive) file locations
 NETWORK_MAZ_TAZ_DEF_FILE = r"M:\Data\GIS layers\TM2_maz_taz_v2.2\blocks_mazs_tazs.csv"
 NETWORK_MAZ_TAZ_ALL_GEOG_FILE = r"M:\Data\GIS layers\TM2_maz_taz_v2.2\mazs_tazs_all_geog.csv"
 NETWORK_CENSUS_API_KEY_FILE = r"M:\Data\Census\API\new_key\api-key.txt"
-NETWORK_CACHE_FOLDER = r"M:\Data\Census\NewCachedTablesForPopulationSimControls"
 
-# Local data paths (for offline work)
-LOCAL_MAZ_TAZ_DEF_FILE = r"local_data\gis\blocks_mazs_tazs.csv"
-LOCAL_MAZ_TAZ_ALL_GEOG_FILE = r"local_data\gis\mazs_tazs_all_geog.csv"
-LOCAL_CENSUS_API_KEY_FILE = r"local_data\census\api-key.txt"
+# Local fallback file locations
+LOCAL_MAZ_TAZ_DEF_FILE = "local_data/gis/blocks_mazs_tazs.csv"
+LOCAL_MAZ_TAZ_ALL_GEOG_FILE = "local_data/gis/mazs_tazs_all_geog.csv"
+LOCAL_CENSUS_API_KEY_FILE = "local_data/census/api-key.txt"
 
-# Alternative local cache folder (for manually copied cache files)
-INPUT_2023_CACHE_FOLDER = r"input\NewCachedTablesForPopulationSimControls"
-
-# Active file paths (defaults to network, configure_file_paths() will set these)
-MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE
-MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE
+# Geographic data files - Using verified 2010 Census blocks
+BLOCKS_MAZ_TAZ_FILE = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\blocks_mazs_tazs_2.5.csv"  # Verified 2010 Census blocks with MAZ/TAZ mapping
 
 # Output file names
 GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
+MAZ_TAZ_ALL_GEOG_OUTPUT_FILE = "mazs_tazs_all_geog.csv"  # Rebuilt complete geography file
 COUNTY_TARGETS_FILE = "county_targets_2023.csv"
 MAZ_MARGINALS_FILE = "maz_marginals.csv"
 TAZ_MARGINALS_FILE = "taz_marginals.csv"
@@ -84,12 +82,196 @@ EXAMPLE_MAZ_DENSITY_FILE = "example_controls_2015/maz_data_withDensity_2015.csv"
 
 # Default output directory (can be overridden in main script)
 # Use unified configuration for PopulationSim-compatible output directory
-from unified_tm2_config import config as unified_config
+from unified_tm2_config import UnifiedTM2Config
+unified_config = UnifiedTM2Config()
 PRIMARY_OUTPUT_DIR = str(unified_config.POPSIM_DATA_DIR)
 
 # Geographic crosswalk file location (single source of truth)
 GEO_CROSSWALK_TM2_PATH = str(unified_config.CROSSWALK_FILES['popsim_crosswalk'])
 
+# Define variables that may not be set but are used by legacy scripts
+MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location
+MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE  # Default to network location
+
+
+def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
+    """
+    Rebuild the complete MAZ/TAZ geography file with block-level GEOIDs from the verified 
+    2010 Census blocks file. This creates the missing geographic hierarchy needed for 
+    Census control aggregation.
+    
+    Args:
+        blocks_file_path: Path to the blocks file (defaults to BLOCKS_MAZ_TAZ_FILE)
+        output_path: Where to save the rebuilt file (defaults to PRIMARY_OUTPUT_DIR/MAZ_TAZ_ALL_GEOG_OUTPUT_FILE)
+        
+    Returns:
+        DataFrame with complete geographic hierarchy: MAZ, TAZ, GEOID_block, GEOID_block_group, etc.
+    """
+    global MAZ_TAZ_ALL_GEOG_FILE
+    import os
+    import pandas as pd
+    from tm2_control_utils.geog_utils import add_aggregate_geography_colums
+    
+    # Use default blocks file if not specified
+    if blocks_file_path is None:
+        blocks_file_path = BLOCKS_MAZ_TAZ_FILE
+    
+    # Set default output path
+    if output_path is None:
+        output_path = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_TAZ_ALL_GEOG_OUTPUT_FILE)
+    
+    print("=== REBUILDING MAZ/TAZ ALL GEOGRAPHY FILE ===")
+    print(f"Input file: {blocks_file_path}")
+    print(f"Output file: {output_path}")
+    
+    if not os.path.exists(blocks_file_path):
+        raise FileNotFoundError(f"Blocks file not found: {blocks_file_path}")
+    
+    # Step 1: Load and validate the blocks file
+    print("\n1. LOADING BLOCKS FILE...")
+    blocks_df = pd.read_csv(blocks_file_path)
+    print(f"   - Loaded {len(blocks_df)} block records")
+    print(f"   - Columns: {list(blocks_df.columns)}")
+    
+    # Standardize column names to match expected format
+    blocks_df.rename(columns={
+        'GEOID10': 'GEOID10',  # Keep as-is if already correct
+        'maz': 'MAZ',
+        'taz': 'TAZ'
+    }, inplace=True)
+    
+    # Step 2: Create standardized GEOID_block (15 digits, 2010 format)
+    print("\n2. CREATING STANDARDIZED GEOID_BLOCK...")
+    
+    # Ensure GEOID10 is treated as string and properly zero-padded to 15 digits
+    blocks_df['GEOID10_str'] = blocks_df['GEOID10'].astype(str).str.zfill(15)
+    
+    # Create GEOID_block in the format expected by the control system
+    blocks_df['GEOID_block'] = blocks_df['GEOID10_str']
+    
+    print(f"   - Sample GEOID_block values:")
+    for i in range(min(3, len(blocks_df))):
+        sample_geoid = blocks_df['GEOID_block'].iloc[i]
+        print(f"     {sample_geoid} (length: {len(sample_geoid)})")
+        
+    # Validate GEOID structure
+    geoid_lengths = blocks_df['GEOID_block'].str.len()
+    if not (geoid_lengths == 15).all():
+        bad_geoids = blocks_df[geoid_lengths != 15]['GEOID_block'].head(5).tolist()
+        raise ValueError(f"Invalid GEOID lengths found. Expected 15 digits. Examples: {bad_geoids}")
+    
+    # Step 3: Create aggregate geography columns using the existing utility function
+    print("\n3. CREATING AGGREGATE GEOGRAPHY COLUMNS...")
+    add_aggregate_geography_colums(blocks_df)
+    
+    print(f"   - GEOID_county: {blocks_df['GEOID_county'].nunique()} unique (should be 9 Bay Area counties)")
+    print(f"   - GEOID_tract: {blocks_df['GEOID_tract'].nunique()} unique")
+    print(f"   - GEOID_block group: {blocks_df['GEOID_block group'].nunique()} unique")
+    
+    # Step 4: Add county information using COUNTY_RECODE
+    print("\n4. ADDING COUNTY INFORMATION...")
+    blocks_df = pd.merge(
+        left=blocks_df,
+        right=COUNTY_RECODE[['GEOID_county', 'COUNTY', 'county_name']],
+        on='GEOID_county',
+        how='left'
+    )
+    
+    # Validate county mapping
+    missing_counties = blocks_df['COUNTY'].isna().sum()
+    if missing_counties > 0:
+        print(f"   - WARNING: {missing_counties} blocks missing county mapping")
+        unmapped_counties = blocks_df[blocks_df['COUNTY'].isna()]['GEOID_county'].unique()
+        print(f"   - Unmapped county GEOIDs: {unmapped_counties}")
+    else:
+        print(f"   - Successfully mapped all blocks to counties")
+        county_counts = blocks_df.groupby(['COUNTY', 'county_name']).size().reset_index(name='block_count')
+        for _, row in county_counts.iterrows():
+            print(f"     County {row['COUNTY']} ({row['county_name']}): {row['block_count']} blocks")
+    
+    # Step 5: Add PUMA information from existing crosswalk if available
+    print("\n5. ADDING PUMA INFORMATION...")
+    
+    # Try to load the existing crosswalk to get PUMA mappings
+    if os.path.exists(GEO_CROSSWALK_TM2_PATH):
+        crosswalk_df = pd.read_csv(GEO_CROSSWALK_TM2_PATH)
+        if 'PUMA' in crosswalk_df.columns:
+            puma_mapping = crosswalk_df[['MAZ', 'PUMA']].drop_duplicates()
+            
+            blocks_df = pd.merge(
+                left=blocks_df,
+                right=puma_mapping,
+                on='MAZ',
+                how='left'
+            )
+            
+            missing_pumas = blocks_df['PUMA'].isna().sum()
+            if missing_pumas > 0:
+                print(f"   - WARNING: {missing_pumas} blocks missing PUMA mapping")
+            else:
+                print(f"   - Successfully mapped all blocks to PUMAs")
+        else:
+            print(f"   - No PUMA column in existing crosswalk")
+            blocks_df['PUMA'] = None
+    else:
+        print(f"   - No existing crosswalk found, PUMA mapping skipped")
+        blocks_df['PUMA'] = None
+    
+    # Step 6: Prepare final output with proper column order
+    print("\n6. PREPARING FINAL OUTPUT...")
+    
+    # Select and order columns to match expected format
+    output_columns = [
+        'MAZ', 'TAZ', 'COUNTY', 'county_name', 'PUMA',
+        'GEOID_block', 'GEOID_block group', 'GEOID_tract', 'GEOID_county'
+    ]
+    
+    # Only include columns that exist
+    final_columns = [col for col in output_columns if col in blocks_df.columns]
+    result_df = blocks_df[final_columns].copy()
+    
+    # Step 7: Save the rebuilt file in the control data output directory
+    print(f"\n7. SAVING REBUILT FILE...")
+    
+    # Create directory if needed
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Save the file
+    result_df.to_csv(output_path, index=False)
+    print(f"   - Saved to: {output_path}")
+    print(f"   - Final columns: {list(result_df.columns)}")
+    print(f"   - Total records: {len(result_df)}")
+    
+    # Step 8: Set this as the active geography file
+    MAZ_TAZ_ALL_GEOG_FILE = output_path
+    print(f"   - Set as active MAZ_TAZ_ALL_GEOG_FILE: {MAZ_TAZ_ALL_GEOG_FILE}")
+    
+    # Step 9: Validation summary
+    print(f"\n8. VALIDATION SUMMARY:")
+    print(f"   - MAZs: {result_df['MAZ'].nunique()}")
+    print(f"   - TAZs: {result_df['TAZ'].nunique()}")  
+    print(f"   - Block groups: {result_df['GEOID_block group'].nunique()}")
+    print(f"   - Counties: {result_df['COUNTY'].nunique()}")
+    
+    if 'PUMA' in result_df.columns:
+        print(f"   - PUMAs: {result_df['PUMA'].nunique()}")
+    
+    # Check for any potential joinability issues
+    print(f"\n9. JOINABILITY CHECKS:")
+    duplicate_blocks = result_df['GEOID_block'].duplicated().sum()
+    if duplicate_blocks > 0:
+        print(f"   - WARNING: {duplicate_blocks} duplicate block GEOIDs found!")
+    else:
+        print(f"   - ✅ All block GEOIDs are unique")
+        
+    duplicate_bg = result_df[['GEOID_block group', 'TAZ']].duplicated().sum()
+    if duplicate_bg > 0:
+        print(f"   - INFO: {duplicate_bg} block groups span multiple TAZs (expected)")
+    
+    print(f"\n=== REBUILD COMPLETE ===")
+    print(f"The rebuilt file is now active and should work with the Census control aggregation system.")
+    
+    return True
 
 
 CONTROLS = {
@@ -100,13 +282,13 @@ CONTROLS = {
 # ----------------------------------------
 # MAZ controls for ACS estimate year - PopulationSim expects: num_hh + group quarters 
 # 
-# NOTE: Income breakpoints adjusted to represent 2010 purchasing power using 2023 dollars.
-# Adjustments based on:
-# - CPI-U inflation adjustment: ~38% cumulative inflation from 2010 to 2023
-# - Regional income distribution patterns from ACS 2010 Bay Area data
-# - Maintains 4-category structure for PopulationSim compatibility
-# - 2010 purchasing power: $0-30K, $30-60K, $60-100K, $100K+
-# - 2023 dollar equivalents: $0-41K, $41-83K, $83-138K, $138K+ (inflated for purchasing power parity) 
+# NOTE: Income breakpoints aligned with ACS B19001 table boundaries for accurate aggregation.
+# Using actual Census bracket boundaries eliminates household splitting across income categories:
+# - $0-39,999 (ACS brackets B19001_002E through B19001_008E)
+# - $40,000-74,999 (ACS brackets B19001_009E through B19001_012E) 
+# - $75,000-124,999 (ACS brackets B19001_013E through B19001_014E)
+# - $125,000+ (ACS brackets B19001_015E through B19001_017E)
+# This ensures perfect alignment between control generation and ACS source data. 
 CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     # Number of households (PopulationSim: num_hh) - Start with 2020 Census H1_002N, apply county-level scaling factors
     ('num_hh',                ('pl',  CENSUS_EST_YEAR, 'H1_002N',      'block',
@@ -128,17 +310,16 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
 # TAZ controls for ACS estimate year - PopulationSim expects: workers, age, children, income
 CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
     # ACS5 household income distribution at block-group - DIRECT AGGREGATION (no scaling needed)
-    # Income breakpoints adjusted to 2023 dollars representing 2010 purchasing power
-    # Methodology: Applied ~38% inflation based on CPI-U 2010-2023 cumulative inflation
-    # to convert 2010 income categories ($0-30K, $30-60K, $60-100K, $100K+) to 2023 equivalent purchasing power
+    # Income breakpoints aligned with ACS B19001 table brackets for accurate aggregation
+    # Using actual ACS bracket boundaries to avoid splitting households across categories
     ('hh_inc_30',             ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',41399)])])),
+                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',39999)])])),
     ('hh_inc_30_60',          ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',41400),('hhinc_max',82799)])])),
+                               [collections.OrderedDict([('hhinc_min',40000),('hhinc_max',74999)])])),
     ('hh_inc_60_100',         ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',82800),('hhinc_max',137999)])])),
+                               [collections.OrderedDict([('hhinc_min',75000),('hhinc_max',124999)])])),
     ('hh_inc_100_plus',       ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',138000),('hhinc_max',HINC_MAX)])])),
+                               [collections.OrderedDict([('hhinc_min',125000),('hhinc_max',HINC_MAX)])])),
     # ACS5 workers per household at tract level - DISAGGREGATED using household distribution
     ('temp_hh_bg_for_tract_weights', ('acs5', ACS_EST_YEAR, 'B11016', 'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),

@@ -127,8 +127,7 @@ class PUMACountyMapper:
             except:
                 # Fallback to hardcoded paths if config fails
                 crosswalk_paths = [
-                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv"),  # Correct filename first
-                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_updated.csv"),
+                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv"),  # Fresh crosswalk only
                     Path("output_2023/geo_cross_walk_tm2.csv"),
                     Path("geo_cross_walk_tm2.csv")
                 ]
@@ -372,31 +371,56 @@ class HouseholdProcessor:
         return df
 
     def _create_income_fields(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create income fields in both 2010 and 2023 dollars from HINCP"""
+        """Create income fields in both 2010 and 2023 dollars from HINCP using proper ADJINC adjustment"""
         if 'HINCP' not in df.columns:
             logger.warning("HINCP column not found - cannot create income fields")
             return df
         
-        # Import CPI conversion function
-        try:
-            from cpi_conversion import convert_2023_to_2010_dollars
-        except ImportError:
-            logger.error("Cannot import cpi_conversion module - income conversion failed")
+        if 'ADJINC' not in df.columns:
+            logger.error("ADJINC column not found - cannot properly adjust PUMS income!")
+            logger.error("HINCP values are in survey year dollars and must be adjusted with ADJINC")
             return df
         
-        # Keep original 2023 income
-        df['hh_income_2023'] = df['HINCP'].fillna(0)
+        # Step 1: Apply ADJINC to get income in 2021 dollars (PUMS standard reference year)
+        # ADJINC is provided as integer with 6 implied decimal places
+        # Formula: (ADJINC / 1,000,000) * HINCP = 2021 dollars
+        logger.info("   Applying ADJINC factor to convert survey year income to 2021 dollars...")
         
-        # Convert to 2010 dollars for PopulationSim controls compatibility
-        df['hh_income_2010'] = convert_2023_to_2010_dollars(df['HINCP'].fillna(0))
+        valid_mask = (df['HINCP'] > 0) & (df['ADJINC'] > 0)
+        df['hh_income_2021'] = 0.0
+        df.loc[valid_mask, 'hh_income_2021'] = (df.loc[valid_mask, 'ADJINC'] / 1_000_000) * df.loc[valid_mask, 'HINCP']
+        
+        # Step 2: Convert 2021 dollars to 2023 dollars for reference
+        # CPI 2021 ≈ 270.970, CPI 2023 ≈ 310.0
+        cpi_2021_to_2023 = 310.0 / 270.970
+        df['hh_income_2023'] = df['hh_income_2021'] * cpi_2021_to_2023
+        
+        # Step 3: Convert 2021 dollars to 2010 dollars for PopulationSim controls
+        # CPI 2021 ≈ 270.970, CPI 2010 = 218.056  
+        cpi_2021_to_2010 = 218.056 / 270.970
+        df['hh_income_2010'] = df['hh_income_2021'] * cpi_2021_to_2010
         
         # Log conversion summary
-        valid_income_count = (df['HINCP'] > 0).sum() if 'HINCP' in df.columns else 0
+        valid_income_count = valid_mask.sum()
         if valid_income_count > 0:
-            median_2023 = df[df['HINCP'] > 0]['hh_income_2023'].median()
-            median_2010 = df[df['HINCP'] > 0]['hh_income_2010'].median()
+            # Show ADJINC factor distribution
+            adjinc_factors = (df.loc[valid_mask, 'ADJINC'] / 1_000_000).describe()
+            logger.info(f"   ADJINC factors: min={adjinc_factors['min']:.6f}, max={adjinc_factors['max']:.6f}, mean={adjinc_factors['mean']:.6f}")
+            
+            median_2021 = df.loc[valid_mask, 'hh_income_2021'].median()
+            median_2023 = df.loc[valid_mask, 'hh_income_2023'].median()
+            median_2010 = df.loc[valid_mask, 'hh_income_2010'].median()
+            
             logger.info(f"   Created income fields for {valid_income_count:,} households")
-            logger.info(f"   Median income: ${median_2023:,.0f} (2023) → ${median_2010:,.0f} (2010)")
+            logger.info(f"   Median income: 2021=${median_2021:,.0f} → 2023=${median_2023:,.0f} → 2010=${median_2010:,.0f}")
+            
+            # Validate against expected Bay Area medians (rough check)
+            if median_2010 < 60000:
+                logger.warning(f"   ⚠️  2010$ median (${median_2010:,.0f}) seems low for Bay Area")
+            elif median_2010 > 120000:
+                logger.warning(f"   ⚠️  2010$ median (${median_2010:,.0f}) seems high for Bay Area")
+            else:
+                logger.info(f"   ✓ 2010$ median (${median_2010:,.0f}) appears reasonable for Bay Area")
         else:
             logger.warning("   No valid income data found")
         

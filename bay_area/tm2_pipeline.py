@@ -140,7 +140,10 @@ class TM2Pipeline:
         
         # Get command for this step
         command = self.config.get_command(step_name)
-        if not command:
+        
+        # Check for special steps that are handled internally (not via external commands)
+        special_steps = ['geographic_rebuild']
+        if not command and step_name not in special_steps:
             self.log(f"Unknown step: {step_name}", "ERROR")
             return False
         
@@ -158,6 +161,10 @@ class TM2Pipeline:
                     return False
                 return True
             self.log("Downloading PUMS data...")
+        
+        # Special handling for geographic rebuild
+        elif step_name == 'geographic_rebuild':
+            return self.run_geographic_rebuild()
         
         # Special handling for PopulationSim with log monitoring
         elif step_name == 'populationsim':
@@ -191,8 +198,8 @@ class TM2Pipeline:
             self.log(f"FIPS to sequential mapping: {fips_to_sequential}")
             
             # Load and update crosswalk
-            crosswalk_path = os.path.join(data_dir, "geo_cross_walk_tm2_updated.csv")
-            if not os.path.exists(crosswalk_path):
+            crosswalk_path = self.config.CROSSWALK_FILES['main_crosswalk']
+            if not crosswalk_path.exists():
                 self.log(f"Crosswalk file not found: {crosswalk_path}", "ERROR")
                 return False
                 
@@ -275,6 +282,36 @@ class TM2Pipeline:
             
         except Exception as e:
             self.log(f"Error fixing county codes: {e}", "ERROR")
+            import traceback
+            self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
+            return False
+    
+    def run_geographic_rebuild(self):
+        """Rebuild complete geographic crosswalk from 2010 Census blocks"""
+        try:
+            from tm2_control_utils.config_census import rebuild_maz_taz_all_geog_file
+            
+            self.log("Rebuilding complete geographic crosswalk from 2010 Census blocks...")
+            
+            # Use unified config paths
+            blocks_file = self.config.TM2PY_UTILS_BLOCKS_FILE
+            output_dir = self.config.PRIMARY_OUTPUT_DIR
+            
+            self.log(f"Source blocks file: {blocks_file}")
+            self.log(f"Output directory: {output_dir}")
+            
+            # Call the rebuild function - pass None for output_path to use default
+            success = rebuild_maz_taz_all_geog_file(blocks_file, None)
+            
+            if success:
+                self.log("✓ Successfully rebuilt complete geographic crosswalk", "SUCCESS")
+                return True
+            else:
+                self.log("Failed to rebuild geographic crosswalk", "ERROR")
+                return False
+                
+        except Exception as e:
+            self.log(f"Error rebuilding geographic crosswalk: {e}", "ERROR")
             import traceback
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
@@ -524,12 +561,12 @@ class TM2Pipeline:
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
         
-        # Default pipeline includes analysis after PopulationSim
-        steps = ['crosswalk', 'seed', 'controls', 'populationsim', 'analysis']
+        # Default pipeline includes geographic rebuild before controls
+        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
         
         # If start_step is explicitly 'pums', include it
         if start_step == 'pums':
-            steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim', 'analysis']
+            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
         
         # Determine step range
         if start_step:
@@ -568,7 +605,7 @@ class TM2Pipeline:
         self.log("Pipeline Status Check")
         self.log("-" * 40)
         
-        steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim', 'analysis']
+        steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
         for step in steps:
             if self.check_step_completion(step):
                 self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
@@ -597,7 +634,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='status',
-                       choices=['status', 'pums', 'crosswalk', 'seed', 'controls', 'populationsim', 'analysis', 'full', 'clean'],
+                       choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis', 'full', 'clean'],
                        help='Command to run')
     parser.add_argument('--force', action='store_true',
                        help='Force rerun even if outputs exist')

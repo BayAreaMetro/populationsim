@@ -38,6 +38,8 @@ class UnifiedTM2Config:
         
         # Legacy alias for pipeline compatibility - POINT TO POPSIM DATA DIR
         self.DATA_DIR = self.POPSIM_DATA_DIR
+        # Primary output directory alias for geographic rebuild functionality
+        self.PRIMARY_OUTPUT_DIR = self.OUTPUT_DIR
         
         # Example/reference data directories (for template employment/land use data)
         self.EXAMPLE_CONTROLS_DIR = self.BASE_DIR / "example_controls_2015"
@@ -178,7 +180,9 @@ class UnifiedTM2Config:
             # Shapefiles for geographic processing
             'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
             'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
-            'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp")
+            'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp"),
+            # Geographic crosswalk source
+            'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv")
         }
         
         # ============================================================
@@ -243,7 +247,6 @@ class UnifiedTM2Config:
             
             # Crosswalk files
             'geo_crosswalk_base': f"geo_cross_walk_{self.MODEL_TYPE.lower()}.csv",
-            'geo_crosswalk_updated': f"geo_cross_walk_{self.MODEL_TYPE.lower()}_updated.csv",
             
             # Group quarters files
             'maz_marginals_hhgq': "maz_marginals_hhgq.csv",
@@ -287,7 +290,7 @@ class UnifiedTM2Config:
         # ============================================================
         self.CROSSWALK_FILES = {
             # Primary crosswalk (PopulationSim expects this in data directory)
-            'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_updated'],
+            'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
             # PopulationSim needs this specific filename
             'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
         }
@@ -400,20 +403,23 @@ class UnifiedTM2Config:
         self.COMMANDS = {
             # Step 0: Crosswalk creation (MUST be first - seed generation needs it)
             'crosswalk': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.BASE_DIR / "create_tm2_crosswalk.py"),
                 "--output", str(self.CROSSWALK_FILES['popsim_crosswalk'])
             ] + self.get_test_puma_args(),
             
+            # Step 0.5: Geographic rebuild (rebuild complete crosswalk from Census blocks)
+            'geographic_rebuild': [],  # Handled specially in pipeline - no external command needed
+            
             # Step 1: PUMS data download (depends on crosswalk for PUMA filtering)
             'pums': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.BASE_DIR / "download_2023_5year_pums.py")
             ],
             
             # Step 2: Seed generation (depends on crosswalk and PUMS data)
             'seed': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.BASE_DIR / "create_seed_population_tm2_refactored.py"),
                 "--year", str(self.YEAR),
                 "--model_type", self.MODEL_TYPE
@@ -421,13 +427,13 @@ class UnifiedTM2Config:
             
             # Step 3: Control generation
             'controls': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.BASE_DIR / "create_baseyear_controls_23_tm2.py")
             ] + self.get_test_puma_args(),
             
             # Step 4: Group quarters integration
             'hhgq': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.BASE_DIR / "add_hhgq_combined_controls.py"), 
                 "--model_type", self.MODEL_TYPE,
                 "--input_dir", str(self.OUTPUT_DIR),
@@ -436,7 +442,7 @@ class UnifiedTM2Config:
             
             # Step 5: PopulationSim synthesis
             'populationsim': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.BASE_DIR / "run_populationsim_synthesis.py"),
                 "--working_dir", str(self.POPSIM_WORKING_DIR),
                 "--output", str(self.POPSIM_OUTPUT_DIR)
@@ -444,7 +450,7 @@ class UnifiedTM2Config:
             
             # Step 6: Post-processing
             'postprocess': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.BASE_DIR / "postprocess_recode.py"),
                 "--model_type", self.MODEL_TYPE,
                 "--directory", str(self.POPSIM_OUTPUT_DIR),
@@ -453,7 +459,7 @@ class UnifiedTM2Config:
             
             # Step 7: Tableau preparation
             'tableau': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.TABLEAU_FILES['script']),
                 "--output_dir", str(self.TABLEAU_FILES['output_dir']),
                 "--year", str(self.YEAR)
@@ -461,7 +467,7 @@ class UnifiedTM2Config:
             
             # Step 8: Performance Analysis
             'analysis': [
-                str(self.PYTHON_EXE),
+                "python",
                 str(self.ANALYSIS_FILES['quick_analysis_script'])
             ]
         }
@@ -501,7 +507,7 @@ class UnifiedTM2Config:
             'county_marginals': self.CONTROL_FILES['county_marginals_main'],
             'maz_data': self.CONTROL_FILES['maz_data_main'],
             'maz_data_density': self.CONTROL_FILES['maz_data_density_main'],
-            'crosswalk_updated': self.CROSSWALK_FILES['main_crosswalk']
+            'crosswalk': self.CROSSWALK_FILES['main_crosswalk']
         }
     
     def get_hhgq_paths(self):
@@ -519,6 +525,11 @@ class UnifiedTM2Config:
     def get_external_paths(self):
         """Get external system paths for scripts that need them"""
         return self.EXTERNAL_PATHS
+    
+    @property
+    def TM2PY_UTILS_BLOCKS_FILE(self):
+        """Get path to TM2PY utils blocks file for geographic rebuild"""
+        return self.EXTERNAL_PATHS['blocks_file']
     
     def get_file_template(self, template_name):
         """Get a specific file template"""
@@ -773,6 +784,7 @@ class UnifiedTM2Config:
                 self.PUMS_FILES['persons_current']
             ],
             'crosswalk': [self.CROSSWALK_FILES['main_crosswalk']],
+            'geographic_rebuild': [self.POPSIM_DATA_DIR / "mazs_tazs_all_geog.csv"],
             'seed': [self.SEED_FILES['households_main'], self.SEED_FILES['persons_main']],
             'controls': [
                 self.CONTROL_FILES['maz_marginals_main'], 
@@ -782,6 +794,11 @@ class UnifiedTM2Config:
             'populationsim': [
                 self.POPSIM_OUTPUT_DIR / "synthetic_households.csv",
                 self.POPSIM_OUTPUT_DIR / "synthetic_persons.csv"
+            ],
+            'postprocess': [
+                self.POPSIM_OUTPUT_DIR / "summary_melt.csv",
+                self.POPSIM_OUTPUT_DIR / f"households_{self.YEAR}_tm2.csv", 
+                self.POPSIM_OUTPUT_DIR / f"persons_{self.YEAR}_tm2.csv"
             ],
             'analysis': [
                 self.ANALYSIS_FILES['performance_summary'],

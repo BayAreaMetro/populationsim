@@ -207,6 +207,17 @@ if __name__ == '__main__':
     logging.debug("households_df.head():\n{}".format(households_df.head()))
     logging.debug("households_df.dtypes:\n{}".format(households_df.dtypes))
 
+    # Add COUNTY field by joining with crosswalk for Group Quarters support
+    if args.model_type == 'TM2':
+        # Use the crosswalk to add COUNTY field based on MAZ
+        households_df = households_df.merge(
+            geocrosswalk_df[['MAZ', 'COUNTY']].drop_duplicates(),
+            on='MAZ',
+            how='left'
+        )
+        logging.info("Added COUNTY field via crosswalk join - {} households now have COUNTY field".format(
+            households_df['COUNTY'].notna().sum()))
+    
     persons_file = pathlib.Path(args.directory) / "synthetic_persons.csv"
     persons_df = pandas.read_csv(persons_file)
     logging.info("Read {:,} rows from {}".format(len(persons_df), persons_file))
@@ -215,6 +226,25 @@ if __name__ == '__main__':
   
     # (b) Add PERID to persons
     persons_df["PERID"] = persons_df.index + 1 # start from 1
+    
+    # Add missing TM2 fields if needed
+    if args.model_type == 'TM2':
+        # Add unique_per_id field if it doesn't exist
+        if 'unique_per_id' not in persons_df.columns:
+            if 'SERIALNO' in persons_df.columns and 'SPORDER' in persons_df.columns:
+                persons_df['unique_per_id'] = persons_df['SERIALNO'].astype(str) + '_' + persons_df['SPORDER'].astype(str)
+            else:
+                persons_df['unique_per_id'] = persons_df.index + 1
+        
+        # Add WKW field if it doesn't exist (weeks worked per year)
+        if 'WKW' not in persons_df.columns:
+            # Create a reasonable default - people who are employed work ~50 weeks
+            persons_df['WKW'] = 0  # Default to 0 for non-workers
+            persons_df.loc[persons_df['employed'] == 1, 'WKW'] = 50  # Full-time workers
+            persons_df.loc[persons_df['ESR'] == 2, 'WKW'] = 30  # Armed forces
+            persons_df.loc[persons_df['ESR'] == 4, 'WKW'] = 25  # Part-time workers
+        
+        logging.info(f"Added unique_per_id and WKW fields for TM2 compatibility")
   
     # (c) Fills NaN values with -9
     households_df.fillna(value=-9, inplace=True)
@@ -265,18 +295,31 @@ if __name__ == '__main__':
         persons_df.loc[persons_df.OCCP==0, "OCCP"] = 999
 
     # (f) Downcasts columns to int where possible
-    import create_seed_population
-    logger.info("-- clean_types(households_df) --")
-    create_seed_population.clean_types(households_df)
-    logger.info("-- clean_types(persons_df) --")
-    create_seed_population.clean_types(persons_df)
+    logging.info("-- Converting numeric columns to integers where possible --")
+    
+    # Convert float columns to int if they contain no fractional data
+    for df_name, df in [("households", households_df), ("persons", persons_df)]:
+        for col in df.columns:
+            if df[col].dtype in ['float64', 'float32']:
+                # Check if all values are integers (no fractional part)
+                if df[col].notna().all() and (df[col] % 1 == 0).all():
+                    df[col] = df[col].astype('int64')
+                    logging.info(f"Converted {df_name} column {col} from float to int")
+    
+    logging.info("-- Type conversion complete --")
 
-    households_outfile = pathlib.Path(args.directory) /  "synthetic_households_recode.csv"
+    # Generate TM2-specific output filenames
+    if args.model_type == 'TM2':
+        households_outfile = pathlib.Path(args.directory) / f"households_{args.year}_tm2.csv"
+        persons_outfile = pathlib.Path(args.directory) / f"persons_{args.year}_tm2.csv"
+    else:
+        households_outfile = pathlib.Path(args.directory) / "synthetic_households_recode.csv"
+        persons_outfile = pathlib.Path(args.directory) / "synthetic_persons_recode.csv"
+    
     logging.info("Writing {:,} rows to {}".format(len(households_df), households_outfile))
     households_df.to_csv(households_outfile, header=True, index=False)
     logging.info("Done")
 
-    persons_outfile = pathlib.Path(args.directory) /  "synthetic_persons_recode.csv"
     logging.info("Writing {:,} rows to {}".format(len(persons_df), persons_outfile))
     persons_df.to_csv(persons_outfile, header=True, index=False)
     logging.info("Done")
