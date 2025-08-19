@@ -17,7 +17,7 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
+        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
@@ -124,7 +124,7 @@ class UnifiedTM2Config:
             import pandas as pd
             
             # Use single, definitive crosswalk location
-            crosswalk_path = self.CROSSWALK_FILES['popsim_crosswalk']
+            crosswalk_path = self.CROSSWALK_FILES['main_crosswalk']
             
             if crosswalk_path.exists():
                 crosswalk_df = pd.read_csv(crosswalk_path)
@@ -278,10 +278,8 @@ class UnifiedTM2Config:
         # STEP 0: CROSSWALK FILES
         # ============================================================
         self.CROSSWALK_FILES = {
-            # Primary crosswalk (PopulationSim expects this in data directory)
+            # Primary and only crosswalk (PopulationSim expects this in data directory)
             'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
-            # PopulationSim needs this specific filename
-            'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
         }
         
         # ============================================================
@@ -425,7 +423,7 @@ class UnifiedTM2Config:
                 [
                     "python",
                     str(self.BASE_DIR / "create_tm2_crosswalk.py"),
-                    "--output", str(self.CROSSWALK_FILES['popsim_crosswalk'])
+                    "--output", str(self.CROSSWALK_FILES['main_crosswalk'])
                 ] + self.get_test_puma_args(),
                 [
                     "python",
@@ -534,14 +532,14 @@ class UnifiedTM2Config:
         return {
             'maz_shapefile': self.SHAPEFILES['maz_shapefile'],
             'puma_shapefile': self.SHAPEFILES['puma_shapefile'], 
-            'output_primary': self.CROSSWALK_FILES['popsim_crosswalk'],
+            'output_primary': self.CROSSWALK_FILES['main_crosswalk'],
             'output_reference': self.CROSSWALK_FILES['main_crosswalk']
         }
     
     def get_seed_paths(self):
         """Get paths for seed generation scripts"""
         return {
-            'crosswalk_file': self.CROSSWALK_FILES['popsim_crosswalk'],
+            'crosswalk_file': self.CROSSWALK_FILES['main_crosswalk'],
             'output_dir': self.OUTPUT_DIR,
             'households_raw': self.SEED_FILES['households_raw'],
             'persons_raw': self.SEED_FILES['persons_raw'],
@@ -730,7 +728,7 @@ class UnifiedTM2Config:
             (self.CONTROL_FILES['taz_marginals_main'], self.CONTROL_FILES['taz_marginals_popsim']),
             (self.CONTROL_FILES['county_marginals_main'], self.CONTROL_FILES['county_marginals_popsim']),
             (self.CONTROL_FILES['maz_data_density_main'], self.CONTROL_FILES['maz_data_popsim']),
-            (self.CROSSWALK_FILES['main_crosswalk'], self.CROSSWALK_FILES['popsim_crosswalk'])
+            (self.CROSSWALK_FILES['main_crosswalk'], self.CROSSWALK_FILES['main_crosswalk'])
         ]
         
         for src, dst in mappings:

@@ -433,7 +433,7 @@ def main():
     # Use paths from unified config
     maz_shapefile = config.SHAPEFILES['maz_shapefile']
     puma_shapefile = config.SHAPEFILES['puma_shapefile']
-    output_file = config.CROSSWALK_FILES['popsim_crosswalk']  # Output directly to final name
+    output_file = config.CROSSWALK_FILES['main_crosswalk']  # Output directly to final name
     
     # Always print header information
     print(f"MAZ shapefile: {maz_shapefile}")

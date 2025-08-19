@@ -163,7 +163,7 @@ unified_config = UnifiedTM2Config()
 PRIMARY_OUTPUT_DIR = str(unified_config.POPSIM_DATA_DIR)
 
 # Geographic crosswalk file location (single source of truth)
-GEO_CROSSWALK_TM2_PATH = str(unified_config.CROSSWALK_FILES['popsim_crosswalk'])
+GEO_CROSSWALK_TM2_PATH = str(unified_config.CROSSWALK_FILES['main_crosswalk'])
 
 # Define variables that may not be set but are used by legacy scripts
 MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location

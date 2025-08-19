@@ -107,7 +107,7 @@ class PUMACountyMapper:
             try:
                 from unified_tm2_config import config as unified_config
                 crosswalk_paths = [
-                    unified_config.CROSSWALK_FILES['popsim_crosswalk']  # Use the definitive crosswalk location
+                    unified_config.CROSSWALK_FILES['main_crosswalk']  # Use the definitive crosswalk location
                 ]
             except:
                 # Fallback to hardcoded paths if config fails

@@ -4,8 +4,6 @@ example_test_no_integerizing/
 example_mtc/
 .idea
 .ipynb_checkpoints
-input_2023/
-local_data/
 persons_2023_tm2.csv
 households_2023_tm2.csv
 seed_households.csv

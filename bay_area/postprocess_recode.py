@@ -117,143 +117,146 @@ if __name__ == '__main__':
     if args.model_type == 'TM1':
       geocrosswalk_df = pandas.read_csv(pathlib.Path("hh_gq/data/geo_cross_walk_tm1.csv"))
       # print(geocrosswalk_df.head())
-    if args.model_type == 'TM2':
-      # TM2 uses the unified crosswalk from the pipeline
-      from unified_tm2_config import UnifiedTM2Config
-      config = UnifiedTM2Config()
-      geocrosswalk_df = pandas.read_csv(config.CROSSWALK_FILES['popsim_crosswalk'])
-      logging.info("Read TM2 crosswalk with {:,} rows".format(len(geocrosswalk_df)))
 
-    # (a) Create control vs result summary, summary_melt.csv
 
-    # Functions for generating unique IDs in TM2
-    def add_unique_household_id(households_df):
-        """Add unique_hh_id field if it doesn't exist"""
-        if 'unique_hh_id' not in households_df.columns:
-            if 'SERIALNO' in households_df.columns:
-                households_df['unique_hh_id'] = households_df['SERIALNO']
-            else:
-                households_df['unique_hh_id'] = households_df.index + 1
-        return households_df
+if args.model_type == 'TM2':
+  # TM2 uses the unified crosswalk from the pipeline
+  from unified_tm2_config import UnifiedTM2Config
+  config = UnifiedTM2Config()
+  geocrosswalk_df = pandas.read_csv(config.CROSSWALK_FILES['main_crosswalk'])
+  logging.info("Read TM2 crosswalk with {:,} rows".format(len(geocrosswalk_df)))
+
+# (a) Create control vs result summary, summary_melt.csv
+
+# Functions for generating unique IDs in TM2
+def add_unique_household_id(households_df):
+  """Add unique_hh_id field if it doesn't exist"""
+  if 'unique_hh_id' not in households_df.columns:
+    if 'SERIALNO' in households_df.columns:
+      households_df['unique_hh_id'] = households_df['SERIALNO']
+    else:
+      households_df['unique_hh_id'] = households_df.index + 1
+  return households_df
+
+def add_unique_person_id(persons_df):
+  """Add unique_per_id field if it doesn't exist"""
+  if 'unique_per_id' not in persons_df.columns:
+    if 'SERIALNO' in persons_df.columns and 'SPORDER' in persons_df.columns:
+      persons_df['unique_per_id'] = persons_df['SERIALNO'].astype(str) + '_' + persons_df['SPORDER'].astype(str)
+    else:
+      persons_df['unique_per_id'] = persons_df.index + 1
+  return persons_df
+
+# read the taz and county summaries
+taz_summary_file = pathlib.Path(args.directory) / "final_summary_TAZ.csv"
+taz_summary_df = pandas.read_csv(taz_summary_file)
+logging.info("Read {:,} rows from {}".format(len(taz_summary_df), taz_summary_file))
+logging.debug("taz_summary_df.dtypes():\n{}".format(taz_summary_df.dtypes))
+
+# melt to columns: geography, id, variable, result, control, diff
+control_vars = []
+for column in list(taz_summary_df.columns):
+  if column.endswith("_control"):
+    control_vars.append(column[:-8])
+logging.debug("TAZ control_vars = {}".format(control_vars))
+
+taz_summary_result_melt_df = pandas.melt(
+  taz_summary_df, 
+  id_vars=['geography','id'],
+  value_vars=[var + "_result" for var in control_vars],
+  value_name = 'result'
+)
+taz_summary_result_melt_df.variable = taz_summary_result_melt_df.variable.str[:-7] # strip _result
+taz_summary_control_melt_df = pandas.melt(
+  taz_summary_df, 
+  id_vars=['geography','id'],
+  value_vars=[var + "_control" for var in control_vars],
+  value_name = 'control'
+)
+taz_summary_control_melt_df.variable = taz_summary_control_melt_df.variable.str[:-8] # strip _control
+summary_melt_df = pandas.merge(
+  left=taz_summary_result_melt_df,
+  right=taz_summary_control_melt_df,
+  on=['geography','id','variable']
+)
+
+
+# in the county summary files, columns are named differently
+for county_num in range(1,10):
+  county_result_file = pathlib.Path(args.directory) / "final_summary_COUNTY_{}.csv".format(county_num)
+  county_result_df = pandas.read_csv(county_result_file, 
+                     usecols=['control_name','control_value','TAZ_integer_weight'])
+  county_result_df['geography'] = 'county'
+  county_result_df['id'] = county_num
+  county_result_df.rename(columns={
+     'control_name':'variable',
+     'control_value':'control', 
+     'TAZ_integer_weight':'result'}, inplace=True)
     
-    def add_unique_person_id(persons_df):
-        """Add unique_per_id field if it doesn't exist"""
-        if 'unique_per_id' not in persons_df.columns:
-            if 'SERIALNO' in persons_df.columns and 'SPORDER' in persons_df.columns:
-                persons_df['unique_per_id'] = persons_df['SERIALNO'].astype(str) + '_' + persons_df['SPORDER'].astype(str)
-            else:
-                persons_df['unique_per_id'] = persons_df.index + 1
-        return persons_df
+  summary_melt_df = pandas.concat([summary_melt_df, county_result_df])
 
+# I'll calculate my own diff, thank you
+summary_melt_df['diff'] = summary_melt_df.result - summary_melt_df.control
+logging.debug("summary_melt_df:\n{}".format(summary_melt_df))
 
-        # read the taz and county summaries
-    taz_summary_file = pathlib.Path(args.directory) / "final_summary_TAZ.csv"
-    taz_summary_df = pandas.read_csv(taz_summary_file)
-    logging.info("Read {:,} rows from {}".format(len(taz_summary_df), taz_summary_file))
-    logging.debug("taz_summary_df.dtypes():\n{}".format(taz_summary_df.dtypes))
+summary_melt_output_file = pathlib.Path(args.directory) / "summary_melt.csv"
+summary_melt_df.to_csv(summary_melt_output_file, index=False)
+logging.info("Wrote {:,} rows to {}".format(len(summary_melt_df), summary_melt_output_file))
 
-    # melt to columns: geography, id, variable, result, control, diff
-    control_vars = []
-    for column in list(taz_summary_df.columns):
-      if column.endswith("_control"):
-        control_vars.append(column[:-8])
-    logging.debug("TAZ control_vars = {}".format(control_vars))
+# read households
+household_file = pathlib.Path(args.directory) / "synthetic_households.csv"
+households_df = pandas.read_csv(household_file)
+logging.info("Read {:,} rows from {}".format(len(households_df), household_file))
+logging.debug("households_df.head():\n{}".format(households_df.head()))
+logging.debug("households_df.dtypes:\n{}".format(households_df.dtypes))
 
-    taz_summary_result_melt_df = pandas.melt(
-      taz_summary_df, 
-      id_vars=['geography','id'],
-      value_vars=[var + "_result" for var in control_vars],
-      value_name = 'result'
-    )
-    taz_summary_result_melt_df.variable = taz_summary_result_melt_df.variable.str[:-7] # strip _result
-    taz_summary_control_melt_df = pandas.melt(
-      taz_summary_df, 
-      id_vars=['geography','id'],
-      value_vars=[var + "_control" for var in control_vars],
-      value_name = 'control'
-    )
-    taz_summary_control_melt_df.variable = taz_summary_control_melt_df.variable.str[:-8] # strip _control
-    summary_melt_df = pandas.merge(
-      left=taz_summary_result_melt_df,
-      right=taz_summary_control_melt_df,
-      on=['geography','id','variable']
-    )
+# Add COUNTY field by joining with crosswalk for Group Quarters support
+if args.model_type == 'TM2':
+  # Use the crosswalk to add COUNTY field based on MAZ
+  households_df = households_df.merge(
+    geocrosswalk_df[['MAZ', 'COUNTY']].drop_duplicates(),
+    on='MAZ',
+    how='left'
+  )
+  logging.info("Added COUNTY field via crosswalk join - {} households now have COUNTY field".format(
+    households_df['COUNTY'].notna().sum()))
 
-    # in the county summary files, columns are named differently
-    for county_num in range(1,10):
-        county_result_file = pathlib.Path(args.directory) / "final_summary_COUNTY_{}.csv".format(county_num)
-        county_result_df = pandas.read_csv(county_result_file, 
-                                           usecols=['control_name','control_value','TAZ_integer_weight'])
-        county_result_df['geography'] = 'county'
-        county_result_df['id'] = county_num
-        county_result_df.rename(columns={
-           'control_name':'variable',
-           'control_value':'control', 
-           'TAZ_integer_weight':'result'}, inplace=True)
-        
-        summary_melt_df = pandas.concat([summary_melt_df, county_result_df])
+persons_file = pathlib.Path(args.directory) / "synthetic_persons.csv"
+persons_df = pandas.read_csv(persons_file)
 
-    # I'll calculate my own diff, thank you
-    summary_melt_df['diff'] = summary_melt_df.result - summary_melt_df.control
-    logging.debug("summary_melt_df:\n{}".format(summary_melt_df))
-    summary_melt_output_file = pathlib.Path(args.directory) / "summary_melt.csv"
-    summary_melt_df.to_csv(summary_melt_output_file, index=False)
-    logging.info("Wrote {:,} rows to {}".format(len(summary_melt_df), summary_melt_output_file))
+logging.info("Read {:,} rows from {}".format(len(persons_df), persons_file))
+logging.debug("persons_df.head():\n{}".format(persons_df.head()))
+logging.debug("persons_df.dtypes:\n{}".format(persons_df.dtypes))
 
-    # read households
-    household_file = pathlib.Path(args.directory) / "synthetic_households.csv"
-    households_df = pandas.read_csv(household_file)
-    logging.info("Read {:,} rows from {}".format(len(households_df), household_file))
-    logging.debug("households_df.head():\n{}".format(households_df.head()))
-    logging.debug("households_df.dtypes:\n{}".format(households_df.dtypes))
+# (b) Add PERID to persons
+persons_df["PERID"] = persons_df.index + 1 # start from 1
 
-    # Add COUNTY field by joining with crosswalk for Group Quarters support
-    if args.model_type == 'TM2':
-        # Use the crosswalk to add COUNTY field based on MAZ
-        households_df = households_df.merge(
-            geocrosswalk_df[['MAZ', 'COUNTY']].drop_duplicates(),
-            on='MAZ',
-            how='left'
-        )
-        logging.info("Added COUNTY field via crosswalk join - {} households now have COUNTY field".format(
-            households_df['COUNTY'].notna().sum()))
+# Add missing TM2 fields if needed
+if args.model_type == 'TM2':
+  # Add unique_per_id field if it doesn't exist
+  if 'unique_per_id' not in persons_df.columns:
+    if 'SERIALNO' in persons_df.columns and 'SPORDER' in persons_df.columns:
+      persons_df['unique_per_id'] = persons_df['SERIALNO'].astype(str) + '_' + persons_df['SPORDER'].astype(str)
+    else:
+      persons_df['unique_per_id'] = persons_df.index + 1
     
-    persons_file = pathlib.Path(args.directory) / "synthetic_persons.csv"
-    persons_df = pandas.read_csv(persons_file)
-    logging.info("Read {:,} rows from {}".format(len(persons_df), persons_file))
-    logging.debug("persons_df.head():\n{}".format(persons_df.head()))
-    logging.debug("persons_df.dtypes:\n{}".format(persons_df.dtypes))
-  
-    # (b) Add PERID to persons
-    persons_df["PERID"] = persons_df.index + 1 # start from 1
-    
-    # Add missing TM2 fields if needed
-    if args.model_type == 'TM2':
-        # Add unique_per_id field if it doesn't exist
-        if 'unique_per_id' not in persons_df.columns:
-            if 'SERIALNO' in persons_df.columns and 'SPORDER' in persons_df.columns:
-                persons_df['unique_per_id'] = persons_df['SERIALNO'].astype(str) + '_' + persons_df['SPORDER'].astype(str)
-            else:
-                persons_df['unique_per_id'] = persons_df.index + 1
-        
-        # Add WKW field if it doesn't exist (weeks worked per year)
-        if 'WKW' not in persons_df.columns:
-            # Create a reasonable default - people who are employed work ~50 weeks
-            persons_df['WKW'] = 0  # Default to 0 for non-workers
-            persons_df.loc[persons_df['employed'] == 1, 'WKW'] = 50  # Full-time workers
-            persons_df.loc[persons_df['ESR'] == 2, 'WKW'] = 30  # Armed forces
-            persons_df.loc[persons_df['ESR'] == 4, 'WKW'] = 25  # Part-time workers
-        
-        logging.info(f"Added unique_per_id and WKW fields for TM2 compatibility")
-  
-    # (c) Fills NaN values with -9
-    households_df.fillna(value=-9, inplace=True)
-    persons_df.fillna(value=-9, inplace=True)
+  # Add WKW field if it doesn't exist (weeks worked per year)
+  if 'WKW' not in persons_df.columns:
+      # Create a reasonable default - people who are employed work ~50 weeks
+      persons_df['WKW'] = 0  # Default to 0 for non-workers
+      persons_df.loc[persons_df['employed'] == 1, 'WKW'] = 50  # Full-time workers
+      persons_df.loc[persons_df['ESR'] == 2, 'WKW'] = 30  # Armed forces
+      persons_df.loc[persons_df['ESR'] == 4, 'WKW'] = 25  # Part-time workers
+      logging.info(f"Added unique_per_id and WKW fields for TM2 compatibility")
 
-    # (d) subset & rename household columns according to HOUSING_COLUMNS
-    households_df = households_df[HOUSING_COLUMNS[args.model_type].keys()].rename(columns=HOUSING_COLUMNS[args.model_type])
+# (c) Fills NaN values with -9
+households_df.fillna(value=-9, inplace=True)
+persons_df.fillna(value=-9, inplace=True)
 
-    if args.model_type == 'TM1': 
+# (d) subset & rename household columns according to HOUSING_COLUMNS
+households_df = households_df[HOUSING_COLUMNS[args.model_type].keys()].rename(columns=HOUSING_COLUMNS[args.model_type])
+
+if args.model_type == 'TM1':
         # add hinccat1 as variable for tm1, group hh_income_2000 by tm1 income categories
         households_df['hinccat1'] = 0
         households_df.loc[                              (households_df.HINC< 20000), 'hinccat1'] = 1
@@ -289,39 +292,40 @@ if __name__ == '__main__':
         households_df['pct_of_poverty'] = round(100.0 * (households_df.HINC / households_df.poverty_income_2000d))
 
     # (f) subset & rename persons columns according to PERSON_COLUMNS
-    persons_df = persons_df[PERSON_COLUMNS[args.model_type].keys()].rename(columns=PERSON_COLUMNS[args.model_type])
-    # set occp=0 to 999
-    if args.model_type == 'TM2':
-        persons_df.loc[persons_df.OCCP==0, "OCCP"] = 999
+persons_df = persons_df[PERSON_COLUMNS[args.model_type].keys()].rename(columns=PERSON_COLUMNS[args.model_type])
+# set occp=0 to 999
+if args.model_type == 'TM2':
+  persons_df.loc[persons_df.OCCP==0, "OCCP"] = 999
 
-    # (f) Downcasts columns to int where possible
-    logging.info("-- Converting numeric columns to integers where possible --")
-    
-    # Convert float columns to int if they contain no fractional data
-    for df_name, df in [("households", households_df), ("persons", persons_df)]:
-        for col in df.columns:
+# (f) Downcasts columns to int where possible
+logging.info("-- Converting numeric columns to integers where possible --")
+
+# Convert float columns to int if they contain no fractional data
+for df_name, df in [("households", households_df), ("persons", persons_df)]:
+  for col in df.columns:
             if df[col].dtype in ['float64', 'float32']:
                 # Check if all values are integers (no fractional part)
                 if df[col].notna().all() and (df[col] % 1 == 0).all():
                     df[col] = df[col].astype('int64')
                     logging.info(f"Converted {df_name} column {col} from float to int")
     
-    logging.info("-- Type conversion complete --")
 
-    # Generate TM2-specific output filenames
-    if args.model_type == 'TM2':
-        households_outfile = pathlib.Path(args.directory) / f"households_{args.year}_tm2.csv"
-        persons_outfile = pathlib.Path(args.directory) / f"persons_{args.year}_tm2.csv"
-    else:
-        households_outfile = pathlib.Path(args.directory) / "synthetic_households_recode.csv"
-        persons_outfile = pathlib.Path(args.directory) / "synthetic_persons_recode.csv"
-    
-    logging.info("Writing {:,} rows to {}".format(len(households_df), households_outfile))
-    households_df.to_csv(households_outfile, header=True, index=False)
-    logging.info("Done")
+logging.info("-- Type conversion complete --")
 
-    logging.info("Writing {:,} rows to {}".format(len(persons_df), persons_outfile))
-    persons_df.to_csv(persons_outfile, header=True, index=False)
-    logging.info("Done")
+# Generate TM2-specific output filenames
+if args.model_type == 'TM2':
+  households_outfile = pathlib.Path(args.directory) / f"households_{args.year}_tm2.csv"
+  persons_outfile = pathlib.Path(args.directory) / f"persons_{args.year}_tm2.csv"
+else:
+  households_outfile = pathlib.Path(args.directory) / "synthetic_households_recode.csv"
+  persons_outfile = pathlib.Path(args.directory) / "synthetic_persons_recode.csv"
+
+logging.info("Writing {:,} rows to {}".format(len(households_df), households_outfile))
+households_df.to_csv(households_outfile, header=True, index=False)
+logging.info("Done")
+
+logging.info("Writing {:,} rows to {}".format(len(persons_df), persons_outfile))
+persons_df.to_csv(persons_outfile, header=True, index=False)
+logging.info("Done")
 
 
