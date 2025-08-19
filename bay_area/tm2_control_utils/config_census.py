@@ -1,3 +1,82 @@
+# ============================================================================
+# INCOME BIN MAPPING: 2010$ BINS, 2023$ BINS, AND ACS BIN MAPPING
+# This dictionary is the canonical mapping for all scripts and summarization.
+#
+# Each entry is a dict with:
+#   - '2010_bin': (min_2010, max_2010)
+#   - '2023_bin': (min_2023, max_2023)
+#   - 'acs_bin_label': str (human readable)
+#   - 'acs_var': str (B19001_xxxE)
+#   - 'acs_bin_range': (min_2023, max_2023)
+#   - 'acs_bin_mid': float
+#   - 'mapping_note': str (how mapping is determined)
+# ============================================================================
+INCOME_BIN_MAPPING = [
+    {
+        'control': 'hhinc_0_14',
+        '2010_bin': (0, 13999),
+        '2023_bin': (0, 19999),
+        'acs_vars': [
+            'B19001_002E', 'B19001_003E', 'B19001_004E'  # <$10k, $10-15k, $15-20k
+        ],
+    },
+    {
+        'control': 'hhinc_14_30',
+        '2010_bin': (14000, 29999),
+        '2023_bin': (20000, 44999),
+        'acs_vars': [
+            'B19001_005E', 'B19001_006E', 'B19001_007E', 'B19001_008E', 'B19001_009E'  # $20-25k, $25-30k, $30-35k, $35-40k, $40-45k
+        ],
+    },
+    {
+        'control': 'hhinc_45_60',
+        '2010_bin': (45000, 59999),
+        '2023_bin': (45000, 59999),
+        'acs_vars': [
+            'B19001_010E', 'B19001_011E'  # $45-50k, $50-60k
+        ],
+    },
+    {
+        'control': 'hhinc_60_75',
+        '2010_bin': (60000, 74999),
+        '2023_bin': (60000, 74999),
+        'acs_vars': [
+            'B19001_012E'  # $60-75k
+        ],
+    },
+    {
+        'control': 'hhinc_75_100',
+        '2010_bin': (75000, 99999),
+        '2023_bin': (75000, 99999),
+        'acs_vars': [
+            'B19001_013E', 'B19001_014E'  # $75-100k, $100-125k
+        ],
+    },
+    {
+        'control': 'hhinc_125_150',
+        '2010_bin': (125000, 149999),
+        '2023_bin': (125000, 149999),
+        'acs_vars': [
+            'B19001_015E'  # $125-150k
+        ],
+    },
+    {
+        'control': 'hhinc_150_200',
+        '2010_bin': (150000, 199999),
+        '2023_bin': (150000, 199999),
+        'acs_vars': [
+            'B19001_016E'  # $150-200k
+        ],
+    },
+    {
+        'control': 'hhinc_200_plus',
+        '2010_bin': (200000, 2000000),
+        '2023_bin': (200000, 2000000),
+        'acs_vars': [
+            'B19001_017E'  # $200k+
+        ],
+    },
+]
 #!/usr/bin/env python3
 """
 TM2 Control Utils Config - Control generation configuration
@@ -53,21 +132,18 @@ NETWORK_CACHE_FOLDER = r"M:\Data\Census\NewCachedTablesForPopulationSimControls"
 INPUT_2023_CACHE_FOLDER = "input_2023/NewCachedTablesForPopulationSimControls"
 
 # Network (M: drive) file locations
-NETWORK_MAZ_TAZ_DEF_FILE = r"M:\Data\GIS layers\TM2_maz_taz_v2.2\blocks_mazs_tazs.csv"
-NETWORK_MAZ_TAZ_ALL_GEOG_FILE = r"M:\Data\GIS layers\TM2_maz_taz_v2.2\mazs_tazs_all_geog.csv"
+NETWORK_MAZ_TAZ_DEF_FILE = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles\mazs_TM2_2_5.shp"
+NETWORK_MAZ_TAZ_ALL_GEOG_FILE = "output_2023/populationsim_working_dir/data/mazs_tazs_all_geog.csv"
 NETWORK_CENSUS_API_KEY_FILE = r"M:\Data\Census\API\new_key\api-key.txt"
 
-# Local fallback file locations
-LOCAL_MAZ_TAZ_DEF_FILE = "local_data/gis/blocks_mazs_tazs.csv"
-LOCAL_MAZ_TAZ_ALL_GEOG_FILE = "local_data/gis/mazs_tazs_all_geog.csv"
-LOCAL_CENSUS_API_KEY_FILE = "local_data/census/api-key.txt"
+
 
 # Geographic data files - Using verified 2010 Census blocks
 BLOCKS_MAZ_TAZ_FILE = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\blocks_mazs_tazs_2.5.csv"  # Verified 2010 Census blocks with MAZ/TAZ mapping
 
 # Output file names
 GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
-MAZ_TAZ_ALL_GEOG_OUTPUT_FILE = "mazs_tazs_all_geog.csv"  # Rebuilt complete geography file
+MAZ_TAZ_ALL_GEOG_OUTPUT_FILE = "output_2023/populationsim_working_dir/data/mazs_tazs_all_geog.csv"  # Rebuilt complete geography file
 COUNTY_TARGETS_FILE = "county_targets_2023.csv"
 MAZ_MARGINALS_FILE = "maz_marginals.csv"
 TAZ_MARGINALS_FILE = "taz_marginals.csv"
@@ -91,7 +167,7 @@ GEO_CROSSWALK_TM2_PATH = str(unified_config.CROSSWALK_FILES['popsim_crosswalk'])
 
 # Define variables that may not be set but are used by legacy scripts
 MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location
-MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE  # Default to network location
+MAZ_TAZ_ALL_GEOG_FILE = "output_2023/populationsim_working_dir/data/mazs_tazs_all_geog.csv"  # Use canonical, up-to-date geography file
 
 
 def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
@@ -308,25 +384,19 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
 
 # ----------------------------------------
 # TAZ controls for ACS estimate year - PopulationSim expects: workers, age, children, income
-CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
-    # ACS5 household income distribution at block-group - DIRECT AGGREGATION (no scaling needed)
-    # NON-OVERLAPPING income controls labeled in 2010 dollars for PopulationSim
-    # Controls capture income distribution with proper boundaries
-    
-    # Non-overlapping income controls in 2010 dollars:
-    ('hhinc_0_14',            ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',0),   ('hhinc_max',19999)])])),     # 0-$20K in 2023$ = 0-$14K in 2010$
-    ('hhinc_14_30',           ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',20000),('hhinc_max',42499)])])),     # $20K-$40K in 2023$ = $14K-$30K in 2010$
-    ('hhinc_30_60',           ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',42500),('hhinc_max',84999)])])),     # $40K-$75K in 2023$ = $30K-$60K in 2010$
-    ('hhinc_60_100',          ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',85000),('hhinc_max',141999)])])),    # $75K-$125K in 2023$ = $60K-$100K in 2010$
-    ('hhinc_100_175',         ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',142000),('hhinc_max',354999)])])),   # $125K-$250K in 2023$ = $100K-$175K in 2010$
-    ('hhinc_175_plus',        ('acs5', ACS_EST_YEAR,    'B19001',       'block group',
-                               [collections.OrderedDict([('hhinc_min',355000),('hhinc_max',HINC_MAX)])])),
-    # ACS5 workers per household at tract level - DISAGGREGATED using household distribution
+CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict()
+# Income bins: programmatically generated from INCOME_BIN_MAPPING
+# Use the ACS bin min/max (2023_bin) for each control
+for bin_def in INCOME_BIN_MAPPING:
+    CONTROLS[ACS_EST_YEAR]['TAZ'][bin_def['control']] = (
+        'acs5', ACS_EST_YEAR, 'B19001', 'block group',
+        [collections.OrderedDict([
+            ('hhinc_min', bin_def['2023_bin'][0]),
+            ('hhinc_max', bin_def['2023_bin'][1])
+        ])]
+    )
+# Add the rest of the TAZ controls (unchanged)
+CONTROLS[ACS_EST_YEAR]['TAZ'].update(collections.OrderedDict([
     ('temp_hh_bg_for_tract_weights', ('acs5', ACS_EST_YEAR, 'B11016', 'block group',
                                [collections.OrderedDict([('pers_min',1),('pers_max',NPER_MAX)])])),
     ('hh_wrks_0',             ('acs5', ACS_EST_YEAR,    'B08202',       'tract',
@@ -372,7 +442,7 @@ CONTROLS[ACS_EST_YEAR]['TAZ'] = collections.OrderedDict([
                                [collections.OrderedDict([('pers_min',3),('pers_max',3)])])),
     ('hh_size_4_plus',        ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
                                [collections.OrderedDict([('pers_min',4),('pers_max',NPER_MAX)])])),
-])
+]))
 
 
 # ----------------------------------------
@@ -1142,18 +1212,22 @@ def get_control_categories_for_geography(geography):
     """
     categories = {}
     
+    # Always use INCOME_BIN_MAPPING for TAZ household_income
+    if geography == 'TAZ':
+        # Build household_income from INCOME_BIN_MAPPING
+        categories['household_income'] = [b['control'] for b in INCOME_BIN_MAPPING]
+
     # Try to get from current CONTROLS configuration
     if geography in CONTROLS.get(ACS_EST_YEAR, {}):
         control_names = list(CONTROLS[ACS_EST_YEAR][geography].keys())
-        
         # Group controls by patterns (prefix-based categorization)
         for control_name in control_names:
             if control_name.startswith('temp_'):
                 continue  # Skip temp controls
-                
             if control_name.startswith('hh_size_'):
                 categories.setdefault('household_size', []).append(control_name)
-            elif control_name.startswith('hh_inc_'):
+            elif control_name.startswith('hh_inc_') and geography != 'TAZ':
+                # For TAZ, already handled above
                 categories.setdefault('household_income', []).append(control_name)
             elif control_name.startswith('hh_wrks_'):
                 categories.setdefault('household_workers', []).append(control_name)
@@ -1169,10 +1243,12 @@ def get_control_categories_for_geography(geography):
                 categories.setdefault('household_counts', []).append(control_name)
             else:
                 categories.setdefault('other', []).append(control_name)
-    
+
     # Fall back to static configuration if nothing found or supplement missing categories
     if geography in CONTROL_CATEGORIES:
         for category, controls in CONTROL_CATEGORIES[geography].items():
+            if category == 'household_income' and geography == 'TAZ':
+                continue  # Already handled above
             if category not in categories:
                 categories[category] = controls
             else:

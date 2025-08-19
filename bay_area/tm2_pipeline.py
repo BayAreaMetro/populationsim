@@ -47,15 +47,23 @@ class TM2Pipeline:
         return False
         
     def run_command(self, command, step_name):
-        """Execute a command and handle output with progress monitoring"""
+        """Execute a command or list of commands and handle output with progress monitoring"""
+        # If command is a list of lists, run each sub-command in sequence
+        if isinstance(command, list) and command and isinstance(command[0], list):
+            for idx, sub_cmd in enumerate(command):
+                self.log(f"Running {step_name} (part {idx+1}/{len(command)}): {' '.join(sub_cmd)}")
+                if not self._run_single_command(sub_cmd, step_name):
+                    return False
+            return True
+        else:
+            return self._run_single_command(command, step_name)
+
+    def _run_single_command(self, command, step_name):
         self.log(f"Running {step_name}: {' '.join(command)}")
-        
         start_time = time.time()
         last_log_time = start_time
-        
         try:
             if self.verbose:
-                # Stream output in real-time with progress monitoring
                 process = subprocess.Popen(
                     command,
                     cwd=self.config.BASE_DIR,
@@ -65,19 +73,15 @@ class TM2Pipeline:
                     bufsize=1,
                     universal_newlines=True
                 )
-                
                 line_count = 0
                 for line in process.stdout:
                     print(f"  {line.rstrip()}")
                     line_count += 1
-                    
-                    # Progress monitoring for long-running steps
                     current_time = time.time()
-                    if current_time - last_log_time > 60:  # Every minute
+                    if current_time - last_log_time > 60:
                         elapsed = current_time - start_time
                         self.log(f"[PROGRESS] {step_name} still running... {elapsed:.0f}s elapsed, {line_count} log lines processed")
                         last_log_time = current_time
-                
                 process.wait()
                 returncode = process.returncode
             else:
@@ -86,19 +90,16 @@ class TM2Pipeline:
                     cwd=self.config.BASE_DIR,
                     capture_output=True,
                     text=True,
-                    timeout=7200  # 2 hour timeout
+                    timeout=7200
                 )
                 returncode = result.returncode
-                
         except subprocess.TimeoutExpired:
             self.log(f"Step {step_name} timed out after 2 hours", "ERROR")
             return False
         except Exception as e:
             self.log(f"Step {step_name} failed with exception: {e}", "ERROR")
             return False
-            
         duration = time.time() - start_time
-        
         if returncode == 0:
             self.log(f"Step {step_name} completed successfully in {duration:.1f}s", "SUCCESS")
             return True
@@ -172,13 +173,33 @@ class TM2Pipeline:
             if not self.prepare_populationsim_data():
                 self.log("Failed to prepare PopulationSim data", "ERROR")
                 return False
-                
             # Fix crosswalk before running PopulationSim
             if not self.fix_crosswalk_multi_puma():
                 self.log("Failed to fix crosswalk - this may cause NaN control aggregation issues", "ERROR")
                 return False
-                
             return self.run_populationsim_with_monitoring(command)
+        # Run TAZ controls rollup check after controls step
+        elif step_name == 'controls':
+            result = self.run_command(command, step_name)
+            if result:
+                # Check for county income summary output
+                from unified_tm2_config import UnifiedTM2Config
+                config = UnifiedTM2Config()
+                output_file = config.POPSIM_OUTPUT_DIR / 'bay_area_income_acs_2023.csv'
+                if not output_file.exists():
+                    self.log("County income summary not found, running get_census_income_data.py...")
+                    income_script = str(self.config.BASE_DIR / 'analysis' / 'get_census_income_data.py')
+                    income_cmd = [str(self.config.PYTHON_EXE), income_script]
+                    income_result = self.run_command(income_cmd, 'get_census_income_data')
+                    if not income_result:
+                        self.log("County income summary creation failed!", "ERROR")
+                self.log("Running TAZ controls rollup check (check_taz_controls_rollup.py)...")
+                rollup_script = str(self.config.BASE_DIR / 'analysis' / 'check_taz_controls_rollup.py')
+                rollup_cmd = [str(self.config.PYTHON_EXE), rollup_script]
+                rollup_result = self.run_command(rollup_cmd, 'check_taz_controls_rollup')
+                if not rollup_result:
+                    self.log("TAZ controls rollup check failed!", "ERROR")
+            return result
         else:
             return self.run_command(command, step_name)
     
@@ -200,8 +221,8 @@ class TM2Pipeline:
             # Load and update crosswalk
             crosswalk_path = self.config.CROSSWALK_FILES['main_crosswalk']
             if not crosswalk_path.exists():
-                self.log(f"Crosswalk file not found: {crosswalk_path}", "ERROR")
-                return False
+                # Do not log or return error; pipeline will create crosswalk if missing
+                return True
                 
             crosswalk_df = pd.read_csv(crosswalk_path)
             self.log(f"Original crosswalk counties: {sorted(crosswalk_df['COUNTY'].unique())}")
@@ -616,7 +637,7 @@ class TM2Pipeline:
         self.log("")
         self.log("Available Analysis Sub-steps:")
         self.log("-" * 40)
-        analysis_steps = ['validate_income', 'validate_vehicles', 'check_controls', 'visualize_geography', 'debug_income']
+        analysis_steps = ['validate_income']
         for step in analysis_steps:
             self.log(f"{step.ljust(15)}: Available", "INFO")
     
@@ -642,10 +663,9 @@ def main():
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='status',
-                       choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 
-                               'postprocess', 'analysis', 'validate_income', 'validate_vehicles', 'check_controls', 
-                               'visualize_geography', 'debug_income', 'full', 'clean'],
-                       help='Command to run')
+               choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 
+                   'postprocess', 'analysis', 'validate_income', 'full', 'clean'],
+               help='Command to run')
     parser.add_argument('--force', action='store_true',
                        help='Force rerun even if outputs exist')
     parser.add_argument('--start', help='Start step for full pipeline')

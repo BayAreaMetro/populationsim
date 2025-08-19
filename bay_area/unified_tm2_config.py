@@ -13,32 +13,21 @@ class UnifiedTM2Config:
     """Single configuration class that handles everything"""
     
     def __init__(self, year=2023, model_type="TM2"):
-        # Base paths
+        # Base paths and main directories
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        
-        # Python executable (full path to popsim environment)
-        # Use the current user's popsim environment
-        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
-        
-        # Validate Python executable exists
+        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
-        
-        # Main directories - POPULATIONSIM-COMPATIBLE STRUCTURE
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
         self.SCRIPTS_DIR = self.BASE_DIR / "scripts"
-        
-        # PopulationSim working directory (this becomes our main output structure)
         self.POPSIM_WORKING_DIR = self.OUTPUT_DIR / "populationsim_working_dir"
         self.POPSIM_DATA_DIR = self.POPSIM_WORKING_DIR / "data"
         self.POPSIM_CONFIG_DIR = self.POPSIM_WORKING_DIR / "configs"
         self.POPSIM_OUTPUT_DIR = self.POPSIM_WORKING_DIR / "output"
-        
-        # Legacy alias for pipeline compatibility - POINT TO POPSIM DATA DIR
+        self.ACS_2010BINS_FILE = self.POPSIM_OUTPUT_DIR / "bay_area_income_acs_2023_2010bins.csv"
         self.DATA_DIR = self.POPSIM_DATA_DIR
-        # Primary output directory alias for geographic rebuild functionality
         self.PRIMARY_OUTPUT_DIR = self.OUTPUT_DIR
         
         # Example/reference data directories (for template employment/land use data)
@@ -433,10 +422,16 @@ class UnifiedTM2Config:
         self.COMMANDS = {
             # Step 0: Crosswalk creation (MUST be first - seed generation needs it)
             'crosswalk': [
-                "python",
-                str(self.BASE_DIR / "create_tm2_crosswalk.py"),
-                "--output", str(self.CROSSWALK_FILES['popsim_crosswalk'])
-            ] + self.get_test_puma_args(),
+                [
+                    "python",
+                    str(self.BASE_DIR / "create_tm2_crosswalk.py"),
+                    "--output", str(self.CROSSWALK_FILES['popsim_crosswalk'])
+                ] + self.get_test_puma_args(),
+                [
+                    "python",
+                    str(self.BASE_DIR / "build_complete_crosswalk.py")
+                ]
+            ],
             
             # Step 0.5: Geographic rebuild (rebuild complete crosswalk from Census blocks)
             'geographic_rebuild': [],  # Handled specially in pipeline - no external command needed

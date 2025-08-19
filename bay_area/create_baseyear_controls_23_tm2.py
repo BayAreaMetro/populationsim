@@ -661,9 +661,45 @@ def process_control(
             col_max = census_table_df[col].max()
             print(f"[DEBUG][RAW] Column {col}: total={col_total:,.0f}, mean={col_mean:.1f}, max={col_max:.0f}")
 
-    # Step 2: Create control table
-    control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
-    
+
+    # Special handling for income controls: use config-driven, multi-variable aggregation from INCOME_BIN_MAPPING
+    # Dynamically generate income_bin_controls from INCOME_BIN_MAPPING for config-driven logic
+    from tm2_control_utils.config_census import INCOME_BIN_MAPPING
+    income_bin_controls = [b['control'] for b in INCOME_BIN_MAPPING]
+    if control_name in income_bin_controls:
+        # Find the bin definition for this control
+        bin_def = next((b for b in INCOME_BIN_MAPPING if b['control'] == control_name), None)
+        if bin_def is None:
+            raise ValueError(f"No INCOME_BIN_MAPPING entry found for control {control_name}")
+        acs_vars = bin_def.get('acs_vars', [])
+        if not acs_vars:
+            raise ValueError(f"No acs_vars defined for income bin {control_name} in INCOME_BIN_MAPPING")
+        logger.info(f"[INCOME] Building income control: {control_name}")
+        logger.info(f"[INCOME] Using ACS variables: {acs_vars}")
+        logger.info(f"[INCOME] Raw census_table_df shape: {census_table_df.shape}")
+        logger.info(f"[INCOME] Raw census_table_df columns: {list(census_table_df.columns)}")
+        logger.info(f"[INCOME] Sample census_table_df rows:\n{census_table_df[acs_vars + [census_table_df.columns[0]]].head(5)}")
+        # Log sum for each ACS variable
+        for v in acs_vars:
+            if v in census_table_df.columns:
+                logger.info(f"[INCOME] {v}: sum={census_table_df[v].sum():,.0f}")
+        control_table_df = census_table_df.copy()
+        # Sum all relevant ACS variables for this bin
+        control_table_df[control_name] = control_table_df[acs_vars].sum(axis=1)
+        logger.info(f"[INCOME] Created income control column '{control_name}' (sum={control_table_df[control_name].sum():,.0f})")
+        # Log top/bottom 5 TAZs for this income bin if TAZ column exists
+        taz_col = None
+        for col in ['TAZ', 'taz', 'taz_id']:
+            if col in control_table_df.columns:
+                taz_col = col
+                break
+        if taz_col:
+            logger.info(f"[INCOME] Top 5 {taz_col}s for {control_name}:\n{control_table_df[[taz_col, control_name]].sort_values(control_name, ascending=False).head(5)}")
+            logger.info(f"[INCOME] Bottom 5 {taz_col}s for {control_name}:\n{control_table_df[[taz_col, control_name]].sort_values(control_name, ascending=True).head(5)}")
+    else:
+        # Step 2: Create control table (default logic)
+        control_table_df = create_control_table(control_name, control_def[4], control_def[2], census_table_df)
+
     # CRITICAL DEBUGGING: Check control table creation for worker controls
     if 'wrk' in control_name.lower():
         print(f"[DEBUG][CREATE] ==> AFTER create_control_table FOR {control_name}")
@@ -2355,8 +2391,12 @@ def create_hhgq_integrated_files(logger):
             
         # Copy county controls file (no HHGQ integration needed at county level)
         if os.path.exists(county_input):
-            shutil.copy2(county_input, county_output)
-            logger.info(f"Copied county controls: {county_input} -> {county_output}")
+            # Only copy if source and destination are not the same file
+            if os.path.abspath(county_input) != os.path.abspath(county_output):
+                shutil.copy2(county_input, county_output)
+                logger.info(f"Copied county controls: {county_input} -> {county_output}")
+            else:
+                logger.info(f"Skipped copying county controls: source and destination are the same file ({county_input})")
         else:
             logger.warning(f"County input file not found: {county_input}")
             
