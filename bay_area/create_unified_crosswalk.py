@@ -107,19 +107,31 @@ else:
     maz_gdf['PUMA'] = maz_gdf[taz_col].map(taz_assignments)
 
     # --- Load County shapefile and assign COUNTY to MAZ using centroid spatial join ---
+    print(f"[INFO] Loading County shapefile: {COUNTY_SHAPEFILE}")
     county_gdf = gpd.read_file(COUNTY_SHAPEFILE)
+    print(f"[INFO] Loaded {len(county_gdf)} counties. CRS: {county_gdf.crs}")
     county_name_col = next((col for col in county_gdf.columns if col.upper() in ['NAME', 'COUNTY_NAME', 'COUNTYNAME']), None)
     county_fips_col = next((col for col in county_gdf.columns if col.upper() in ['FIPS', 'COUNTYFP', 'FIPSCODE', 'CNTY_FIPS', 'COUNTY_FIP']), None)
     if not county_name_col or not county_fips_col:
         raise ValueError(f"Could not identify county name and FIPS columns in county shapefile: {list(county_gdf.columns)}")
 
+    # Filter to Bay Area counties using FIPS codes
+    bay_area_fips = ['001', '013', '041', '055', '075', '081', '085', '095', '097']
+    county_gdf['FIPS_STR'] = county_gdf[county_fips_col].astype(str).str.zfill(3)
+    county_gdf = county_gdf[county_gdf['FIPS_STR'].isin(bay_area_fips)]
+    print(f"[INFO] Filtered to Bay Area: {len(county_gdf)} counties. Names: {sorted(county_gdf[county_name_col].tolist())}")
+
     # Reproject for spatial join
     target_crs = 'EPSG:3857'
-    print("[INFO] Reprojecting for county spatial join...")
+    print(f"[INFO] Reprojecting MAZ and County to {target_crs} for spatial join...")
+    print(f"[DEBUG] MAZ CRS before: {maz_gdf.crs}")
+    print(f"[DEBUG] County CRS before: {county_gdf.crs}")
     maz_projected = maz_gdf.to_crs(target_crs)
     maz_centroids = maz_projected.copy()
     maz_centroids['geometry'] = maz_centroids.geometry.centroid
     county_projected = county_gdf.to_crs(target_crs)
+    print(f"[DEBUG] MAZ CRS after: {maz_projected.crs}")
+    print(f"[DEBUG] County CRS after: {county_projected.crs}")
 
     print(f"[DEBUG] MAZ count before join: {len(maz_centroids)}; County count: {len(county_projected)}")
     print(f"[DEBUG] MAZ CRS: {maz_centroids.crs}; County CRS: {county_projected.crs}")
@@ -138,6 +150,28 @@ else:
         print(f"[DEBUG] MAZ columns: {list(maz_centroids.columns)}")
         print(f"[DEBUG] County columns: {list(county_projected.columns)}")
         raise RuntimeError("Spatial join failed: no MAZs assigned to counties.")
+
+    # Fallback: assign nearest county to unmatched MAZs
+    unmatched = maz_with_counties['COUNTY_FIPS'].isna()
+    if unmatched.any():
+        print(f"[WARN] {unmatched.sum()} MAZs not matched to a county. Assigning nearest county...")
+        from shapely.ops import nearest_points
+        for idx in maz_with_counties[unmatched].index:
+            maz_geom = maz_with_counties.at[idx, 'geometry']
+            # Find nearest county polygon
+            min_dist = float('inf')
+            nearest_name = None
+            nearest_fips = None
+            for _, county_row in county_projected.iterrows():
+                dist = maz_geom.distance(county_row.geometry)
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest_name = county_row[county_name_col]
+                    nearest_fips = county_row[county_fips_col]
+            maz_with_counties.at[idx, 'COUNTY_NAME'] = nearest_name
+            maz_with_counties.at[idx, 'COUNTY_FIPS'] = nearest_fips
+        print(f"[INFO] All MAZs now have a county assignment.")
+
     # Save temp file for future runs
     if str(TEMP_MAZ_FILE).endswith('.csv'):
         maz_with_counties.to_csv(TEMP_MAZ_FILE, index=False)
