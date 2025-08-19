@@ -17,8 +17,8 @@ class PostProcessAnalyzer:
         
         # Current PopulationSim output paths
         self.current_outputs = {
-            'households': self.base_dir / "output_2023/populationsim_working_dir/output/example/synthetic_households.csv",
-            'persons': self.base_dir / "output_2023/populationsim_working_dir/output/example/synthetic_persons.csv"
+            'households': self.base_dir / "output_2023/populationsim_working_dir/output/households_2023_tm2.csv",
+            'persons': self.base_dir / "output_2023/populationsim_working_dir/output/persons_2023_tm2.csv"
         }
         
         # Target model input paths  
@@ -95,9 +95,9 @@ class PostProcessAnalyzer:
         try:
             data['current_hh'] = pd.read_csv(self.current_outputs['households'], nrows=1000)
             data['current_per'] = pd.read_csv(self.current_outputs['persons'], nrows=1000)
-            print(f"✓ Loaded current outputs: {len(data['current_hh'])} households, {len(data['current_per'])} persons")
+            print(f"[OK] Loaded current outputs: {len(data['current_hh'])} households, {len(data['current_per'])} persons")
         except Exception as e:
-            print(f"✗ Error loading current outputs: {e}")
+            print(f"[X] Error loading current outputs: {e}")
             data['current_hh'] = pd.DataFrame()
             data['current_per'] = pd.DataFrame()
         
@@ -105,9 +105,9 @@ class PostProcessAnalyzer:
         try:
             data['target_hh'] = pd.read_csv(self.target_outputs['households'], nrows=1000)
             data['target_per'] = pd.read_csv(self.target_outputs['persons'], nrows=1000)
-            print(f"✓ Loaded target outputs: {len(data['target_hh'])} households, {len(data['target_per'])} persons")
+            print(f"[OK] Loaded target outputs: {len(data['target_hh'])} households, {len(data['target_per'])} persons")
         except Exception as e:
-            print(f"✗ Error loading target outputs: {e}")
+            print(f"[X] Error loading target outputs: {e}")
             data['target_hh'] = pd.DataFrame()
             data['target_per'] = pd.DataFrame()
             
@@ -118,74 +118,61 @@ class PostProcessAnalyzer:
         print("\n" + "="*80)
         print("SCHEMA ANALYSIS")
         print("="*80)
-        
+        print("="*80)
         # Household schema analysis
-        print("\n📋 HOUSEHOLD SCHEMA COMPARISON")
+        print("\n[SCHEMA] HOUSEHOLD SCHEMA COMPARISON")
         print("-" * 50)
-        
         if not data['current_hh'].empty:
             current_hh_cols = set(data['current_hh'].columns)
             target_hh_cols = set(data['target_hh'].columns) if not data['target_hh'].empty else set()
             required_hh_cols = set(self.tm2_household_schema.keys())
             mapped_hh_cols = set(self.current_tm2_household_mapping.keys())
-            
             print(f"Current PopulationSim columns: {len(current_hh_cols)}")
-            print(f"Target TM2 columns: {len(target_hh_cols)}")  
+            print(f"Target TM2 columns: {len(target_hh_cols)}")
             print(f"Required TM2 columns: {len(required_hh_cols)}")
             print(f"Mapped columns in postprocess_recode.py: {len(mapped_hh_cols)}")
-            
             # Check what's missing
             missing_source_cols = mapped_hh_cols - current_hh_cols
             missing_target_cols = required_hh_cols - target_hh_cols if target_hh_cols else set()
             unmapped_source_cols = current_hh_cols - mapped_hh_cols
-            
             if missing_source_cols:
-                print(f"\n❌ MISSING SOURCE COLUMNS (need in PopulationSim output):")
+                print(f"\n[X] MISSING SOURCE COLUMNS (need in PopulationSim output):")
                 for col in sorted(missing_source_cols):
                     print(f"   - {col}")
-                    
             if missing_target_cols:
-                print(f"\n❌ MISSING TARGET COLUMNS (not in target file):")
+                print(f"\n[X] MISSING TARGET COLUMNS (not in target file):")
                 for col in sorted(missing_target_cols):
                     print(f"   - {col}: {self.tm2_household_schema[col]}")
-            
             if unmapped_source_cols:
-                print(f"\n⚠️  UNMAPPED SOURCE COLUMNS (available but not used):")
+                print(f"\n[!] UNMAPPED SOURCE COLUMNS (available but not used):")
                 for col in sorted(unmapped_source_cols):
                     print(f"   - {col}")
-                    
         # Person schema analysis
-        print("\n👥 PERSON SCHEMA COMPARISON")
+        print("\n[SCHEMA] PERSON SCHEMA COMPARISON")
         print("-" * 50)
-        
         if not data['current_per'].empty:
             current_per_cols = set(data['current_per'].columns)
             target_per_cols = set(data['target_per'].columns) if not data['target_per'].empty else set()
             required_per_cols = set(self.tm2_person_schema.keys())
             mapped_per_cols = set(self.current_tm2_person_mapping.keys())
-            
             print(f"Current PopulationSim columns: {len(current_per_cols)}")
             print(f"Target TM2 columns: {len(target_per_cols)}")
             print(f"Required TM2 columns: {len(required_per_cols)}")
             print(f"Mapped columns in postprocess_recode.py: {len(mapped_per_cols)}")
-            
             # Check what's missing
             missing_source_cols = mapped_per_cols - current_per_cols
             missing_target_cols = required_per_cols - target_per_cols if target_per_cols else set()
             unmapped_source_cols = current_per_cols - mapped_per_cols
-            
             if missing_source_cols:
-                print(f"\n❌ MISSING SOURCE COLUMNS (need in PopulationSim output):")
+                print(f"\n[X] MISSING SOURCE COLUMNS (need in PopulationSim output):")
                 for col in sorted(missing_source_cols):
                     print(f"   - {col}")
-                    
             if missing_target_cols:
-                print(f"\n❌ MISSING TARGET COLUMNS (not in target file):")
+                print(f"\n[X] MISSING TARGET COLUMNS (not in target file):")
                 for col in sorted(missing_target_cols):
                     print(f"   - {col}: {self.tm2_person_schema[col]}")
-            
             if unmapped_source_cols:
-                print(f"\n⚠️  UNMAPPED SOURCE COLUMNS (available but not used):")
+                print(f"\n[!] UNMAPPED SOURCE COLUMNS (available but not used):")
                 for col in sorted(unmapped_source_cols):
                     print(f"   - {col}")
     
@@ -199,27 +186,27 @@ class PostProcessAnalyzer:
             # Check if hhgqtype exists and is populated
             if 'hhgqtype' in data['current_hh'].columns:
                 gq_counts = data['current_hh']['hhgqtype'].value_counts().sort_index()
-                print(f"\n🏠 GROUP QUARTERS TYPE DISTRIBUTION (hhgqtype):")
+                print(f"\nGROUP QUARTERS TYPE DISTRIBUTION (hhgqtype):")
                 gq_mapping = {0: "Household (not GQ)", 1: "College GQ", 2: "Military GQ", 3: "Other GQ"}
                 for gq_type, count in gq_counts.items():
                     gq_name = gq_mapping.get(gq_type, f"Unknown ({gq_type})")
                     pct = (count / len(data['current_hh'])) * 100
                     print(f"   {gq_type}: {gq_name} - {count:,} ({pct:.1f}%)")
             else:
-                print("❌ hhgqtype column missing from households")
+                print("[X] hhgqtype column missing from households")
                 
         if not data['current_per'].empty:
             # Check if hhgqtype exists in persons (should after our fix)
             if 'hhgqtype' in data['current_per'].columns:
                 gq_counts = data['current_per']['hhgqtype'].value_counts().sort_index()
-                print(f"\n👥 PERSON GROUP QUARTERS TYPE DISTRIBUTION:")
+                print(f"\nPERSON GROUP QUARTERS TYPE DISTRIBUTION:")
                 gq_mapping = {0: "Household (not GQ)", 1: "College GQ", 2: "Military GQ", 3: "Other GQ"}
                 for gq_type, count in gq_counts.items():
                     gq_name = gq_mapping.get(gq_type, f"Unknown ({gq_type})")
                     pct = (count / len(data['current_per'])) * 100
                     print(f"   {gq_type}: {gq_name} - {count:,} ({pct:.1f}%)")
             else:
-                print("❌ hhgqtype column missing from persons (this was the bug we found!)")
+                print("[X] hhgqtype column missing from persons (this was the bug we found!)")
     
     def analyze_data_quality(self, data):
         """Analyze data quality issues"""
@@ -229,7 +216,7 @@ class PostProcessAnalyzer:
         
         # Check households
         if not data['current_hh'].empty:
-            print("\n🏠 HOUSEHOLD DATA QUALITY:")
+            print("\nHOUSEHOLD DATA QUALITY:")
             
             # Check for missing values
             null_cols = data['current_hh'].isnull().sum()
@@ -240,16 +227,16 @@ class PostProcessAnalyzer:
                     pct = (count / len(data['current_hh'])) * 100
                     print(f"     - {col}: {count} ({pct:.1f}%)")
             else:
-                print("   ✓ No null values found")
+                print("   [OK] No null values found")
                 
             # Check ID uniqueness
             if 'unique_hh_id' in data['current_hh'].columns:
                 unique_ids = data['current_hh']['unique_hh_id'].nunique()
                 total_rows = len(data['current_hh'])
                 if unique_ids == total_rows:
-                    print(f"   ✓ Household IDs are unique ({unique_ids:,} unique)")
+                    print(f"   [OK] Household IDs are unique ({unique_ids:,} unique)")
                 else:
-                    print(f"   ❌ Household ID duplicates: {total_rows - unique_ids} duplicates")
+                    print(f"   [X] Household ID duplicates: {total_rows - unique_ids} duplicates")
             
             # Check geographic consistency
             if all(col in data['current_hh'].columns for col in ['TAZ', 'MAZ', 'COUNTY']):
@@ -259,7 +246,7 @@ class PostProcessAnalyzer:
         
         # Check persons
         if not data['current_per'].empty:
-            print("\n👥 PERSON DATA QUALITY:")
+            print("\nPERSON DATA QUALITY:")
             
             # Check for missing values
             null_cols = data['current_per'].isnull().sum()
@@ -270,7 +257,7 @@ class PostProcessAnalyzer:
                     pct = (count / len(data['current_per'])) * 100
                     print(f"     - {col}: {count} ({pct:.1f}%)")
             else:
-                print("   ✓ No null values found")
+                print("   [OK] No null values found")
                 
             # Check person_type distribution (our fix)
             if 'person_type' in data['current_per'].columns:
@@ -304,7 +291,7 @@ class PostProcessAnalyzer:
         
         # Check for TM2 vs TM1 usage
         if "'TM1'" in content and "'TM2'" in content:
-            print("✓ Script supports both TM1 and TM2 modes")
+            print("[OK] Script supports both TM1 and TM2 modes")
         elif "'TM2'" not in content:
             issues.append("Script may not support TM2 mode properly")
             
@@ -325,49 +312,45 @@ class PostProcessAnalyzer:
             
         # Check for county field mapping
         if 'MTCCountyID' in content and 'COUNTY' in content:
-            print("✓ Script maps county fields")
+            print("[OK] Script maps county fields")
         else:
             issues.append("County field mapping may be missing or incorrect")
             
         if issues:
-            print(f"\n❌ IDENTIFIED ISSUES:")
+            print(f"\n[X] IDENTIFIED ISSUES:")
             for i, issue in enumerate(issues, 1):
                 print(f"   {i}. {issue}")
                 
         if recommendations:
-            print(f"\n💡 RECOMMENDATIONS:")
+            print(f"\n[!] RECOMMENDATIONS:")
             for i, rec in enumerate(recommendations, 1):
                 print(f"   {i}. {rec}")
                 
         if not issues:
-            print("✓ No major issues identified in postprocess script")
+            print("[OK] No major issues identified in postprocess script")
     
     def generate_recommendations(self):
         """Generate specific recommendations for fixing postprocess_recode.py"""
         print("\n" + "="*80)
         print("RECOMMENDATIONS & ACTION ITEMS")
         print("="*80)
-        
-        print("\n🔧 IMMEDIATE FIXES NEEDED:")
+        print("\nIMMEDIATE FIXES NEEDED:")
         print("1. Add 'hhgqtype' to TM2 person column mapping")
-        print("2. Add 'person_type' to TM2 person column mapping") 
+        print("2. Add 'person_type' to TM2 person column mapping")
         print("3. Verify county field mapping (COUNTY -> MTCCountyID)")
         print("4. Clarify income field usage (2010 vs 2023)")
         print("5. Test with current group quarters data")
-        
-        print("\n📝 UPDATED TM2 MAPPINGS SHOULD BE:")
+        print("\nUPDATED TM2 MAPPINGS SHOULD BE:")
         print("\nHouseholds:")
         for source, target in self.current_tm2_household_mapping.items():
             print(f"   '{source}' -> '{target}'")
         print("   # Add any missing fields from PopulationSim output")
-            
         print("\nPersons:")
         for source, target in self.current_tm2_person_mapping.items():
             print(f"   '{source}' -> '{target}'")
         print("   'hhgqtype' -> 'hhgqtype'  # ADD THIS")
         print("   'person_type' -> 'person_type'  # ADD THIS")
-        
-        print("\n🧪 TESTING RECOMMENDATIONS:")
+        print("\nTESTING RECOMMENDATIONS:")
         print("1. Run postprocess_recode.py with current outputs")
         print("2. Compare output schemas with target requirements")
         print("3. Verify group quarters data flows through correctly")

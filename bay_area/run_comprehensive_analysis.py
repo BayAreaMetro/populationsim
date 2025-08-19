@@ -62,11 +62,12 @@ class ComprehensiveAnalysisRunner:
         logger.addHandler(file_handler)
         
     def log(self, message, level="INFO"):
-        """Unified logging"""
+        """Unified logging (ASCII only for Windows console)"""
         timestamp = time.strftime("%H:%M:%S")
-        log_msg = f"[{timestamp}] [{level}] {message}"
+        # Remove non-ASCII checkmarks/crosses
+        safe_message = message.replace("\u2713", "[OK]").replace("\u2717", "[X]").replace("\u274c", "[X]").replace("\u2705", "[OK]")
+        log_msg = f"[{timestamp}] [{level}] {safe_message}"
         print(log_msg)
-        
         # Also write to analysis log
         with open(self.analysis_log, 'a', encoding='utf-8') as f:
             f.write(log_msg + "\n")

@@ -294,7 +294,7 @@ def generate_optimized_summary(config):
         f.write('\n'.join(summary))
     
     logger.info(f"Full dataset analysis complete! Summary written to: {output_file}")
-    print(f"\n✓ Full dataset analysis complete! Summary written to: {output_file}")
+    print(f"\n[OK] Full dataset analysis complete! Summary written to: {output_file}")
 
 if __name__ == "__main__":
     config = UnifiedTM2Config()
