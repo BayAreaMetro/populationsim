@@ -341,17 +341,15 @@ class TM2Pipeline:
         """Fix crosswalk to resolve TAZs assigned to multiple PUMAs (root cause of NaN control aggregation)"""
         import pandas as pd
         import os
-        
+
         self.log("Fixing crosswalk: resolving TAZs with multiple PUMA assignments...")
-        
+
         try:
-            data_dir = self.config.DATA_DIR
-            crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2.csv")
-            
-            if not os.path.exists(crosswalk_file):
+            crosswalk_file = self.config.CROSSWALK_FILES['main_crosswalk']
+            if not crosswalk_file.exists():
                 self.log(f"Crosswalk file not found: {crosswalk_file}", "ERROR")
                 return False
-            
+
             # Load existing crosswalk
             crosswalk = pd.read_csv(crosswalk_file)
             self.log(f"Original crosswalk: {len(crosswalk):,} records")
@@ -395,11 +393,11 @@ class TM2Pipeline:
                 return False
             
             # Save the fixed crosswalk (backup original first)
-            backup_file = crosswalk_file + ".backup"
+            backup_file = str(crosswalk_file) + ".backup"
             if not os.path.exists(backup_file):
                 crosswalk.to_csv(backup_file, index=False)
                 self.log(f"Backed up original crosswalk to: {backup_file}")
-            
+
             fixed_crosswalk.to_csv(crosswalk_file, index=False)
             self.log(f"✓ Fixed crosswalk saved: {len(fixed_crosswalk):,} records")
             self.log(f"✓ All {fixed_crosswalk['TAZ'].nunique():,} TAZs now have unique PUMA assignments")
@@ -435,7 +433,7 @@ class TM2Pipeline:
             required_files = [
                 'seed_households.csv',
                 'seed_persons.csv', 
-                'geo_cross_walk_tm2.csv',
+                # 'geo_cross_walk_tm2.csv',
                 'maz_marginals.csv',
                 'taz_marginals.csv',
                 'county_marginals.csv'

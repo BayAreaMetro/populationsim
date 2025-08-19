@@ -142,7 +142,7 @@ NETWORK_CENSUS_API_KEY_FILE = r"M:\Data\Census\API\new_key\api-key.txt"
 BLOCKS_MAZ_TAZ_FILE = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\blocks_mazs_tazs_2.5.csv"  # Verified 2010 Census blocks with MAZ/TAZ mapping
 
 # Output file names
-GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
+GEO_CROSSWALK_TM2_FILE = None  # Removed old crosswalk reference
 MAZ_TAZ_ALL_GEOG_OUTPUT_FILE = "output_2023/populationsim_working_dir/data/mazs_tazs_all_geog.csv"  # Rebuilt complete geography file
 COUNTY_TARGETS_FILE = "county_targets_2023.csv"
 MAZ_MARGINALS_FILE = "maz_marginals.csv"

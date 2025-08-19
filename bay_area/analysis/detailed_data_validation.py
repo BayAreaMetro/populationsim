@@ -46,7 +46,8 @@ def main():
             maz_marginals_df = pd.read_csv(hh_gq_configs_dir / "maz_marginals_hhgq.csv")
             taz_marginals_df = pd.read_csv(hh_gq_configs_dir / "taz_marginals_hhgq.csv")
             county_marginals_df = pd.read_csv(hh_gq_configs_dir / "county_marginals.csv")
-            geo_crosswalk_df = pd.read_csv(hh_gq_data_dir / "geo_cross_walk_tm2.csv")
+            from unified_tm2_config import config
+            geo_crosswalk_df = pd.read_csv(config.CROSSWALK_FILES['main_crosswalk'])
             
             # Analyze each dataset with detailed distributions
             analyze_dataset_detailed(households_df, "SEED HOUSEHOLDS")

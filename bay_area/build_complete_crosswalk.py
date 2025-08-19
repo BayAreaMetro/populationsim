@@ -100,7 +100,8 @@ def build_complete_crosswalk():
     print("\n4. BUILDING COMPLETE CROSSWALK...")
     
     # Start with the original simplified crosswalk
-    original_crosswalk_file = "output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv"
+    from unified_tm2_config import config
+    original_crosswalk_file = config.CROSSWALK_FILES['main_crosswalk']
     if os.path.exists(original_crosswalk_file):
         crosswalk_df = pd.read_csv(original_crosswalk_file)
         print(f"   - Loaded original crosswalk: {len(crosswalk_df)} records")

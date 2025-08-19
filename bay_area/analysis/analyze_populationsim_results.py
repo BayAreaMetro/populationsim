@@ -73,7 +73,8 @@ class PopulationSimAnalyzer:
             logger.info(f"Loaded TAZ results: {len(self.taz_results)} zones")
             
             # Load geographic crosswalk
-            self.geo_crosswalk = pd.read_csv(self.data_dir / "geo_cross_walk_tm2.csv")
+            from unified_tm2_config import config
+            self.geo_crosswalk = pd.read_csv(config.CROSSWALK_FILES['main_crosswalk'])
             
         except Exception as e:
             logger.error(f"Error loading data: {e}")

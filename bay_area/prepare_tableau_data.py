@@ -424,7 +424,7 @@ class TableauDataPreparer:
         # Try both original and updated crosswalk files
         crosswalk_files = [
             'geo_cross_walk_tm2_updated.csv',
-            'geo_cross_walk_tm2.csv'
+            # 'geo_cross_walk_tm2.csv'
         ]
         
         crosswalk_file = None

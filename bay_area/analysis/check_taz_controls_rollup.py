@@ -34,7 +34,8 @@ def main():
     
     # Load geographic crosswalk
     print("Loading geographic crosswalk...")
-    geo_crosswalk = pd.read_csv('output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv')
+    from unified_tm2_config import config
+    geo_crosswalk = pd.read_csv(config.CROSSWALK_FILES['main_crosswalk'])
     
     # Create TAZ to county mapping
     taz_to_county = geo_crosswalk[['TAZ', 'COUNTY', 'county_name']].drop_duplicates()
