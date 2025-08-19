@@ -17,7 +17,7 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
+        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
@@ -235,7 +235,7 @@ class UnifiedTM2Config:
             'example_maz_density': "maz_data_withDensity.csv",
             
             # Crosswalk files
-            'geo_crosswalk_base': f"geo_cross_walk_{self.MODEL_TYPE.lower()}.csv",
+            'geo_crosswalk_base': "geo_cross_walk_unified.csv",
             
             # Group quarters files
             'maz_marginals_hhgq': "maz_marginals_hhgq.csv",
@@ -503,10 +503,7 @@ class UnifiedTM2Config:
                 str(self.ANALYSIS_FILES['visualization_scripts']['taz_puma_mapping'])
             ],
             
-            'debug_income': [
-                "python",
-                str(self.ANALYSIS_FILES['debug_scripts']['income_mismatch'])
-            ]
+            # 'debug_income' command removed: script no longer exists
         }
     
     # ============================================================

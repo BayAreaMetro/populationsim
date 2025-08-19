@@ -121,6 +121,8 @@ else:
     maz_centroids['geometry'] = maz_centroids.geometry.centroid
     county_projected = county_gdf.to_crs(target_crs)
 
+    print(f"[DEBUG] MAZ count before join: {len(maz_centroids)}; County count: {len(county_projected)}")
+    print(f"[DEBUG] MAZ CRS: {maz_centroids.crs}; County CRS: {county_projected.crs}")
     print("[INFO] Performing spatial join for MAZ-county assignment...")
     maz_with_counties = gpd.sjoin(
         maz_centroids[[maz_col, taz_col, 'PUMA', 'geometry']],
@@ -131,10 +133,18 @@ else:
 
     maz_with_counties = maz_with_counties.rename(columns={county_fips_col: 'COUNTY_FIPS', county_name_col: 'COUNTY_NAME'})
     print(f"[INFO] Spatial join complete. Assigned counties to {len(maz_with_counties)} MAZs.")
+    if len(maz_with_counties) == 0:
+        print("[FATAL] Spatial join produced zero rows! Not writing temp file. Check input shapefiles and CRS.")
+        print(f"[DEBUG] MAZ columns: {list(maz_centroids.columns)}")
+        print(f"[DEBUG] County columns: {list(county_projected.columns)}")
+        raise RuntimeError("Spatial join failed: no MAZs assigned to counties.")
     # Save temp file for future runs
-    maz_with_counties.to_file(TEMP_MAZ_FILE, driver='GeoJSON' if str(TEMP_MAZ_FILE).endswith('.geojson') else 'ESRI Shapefile' if str(TEMP_MAZ_FILE).endswith('.shp') else 'CSV')
     if str(TEMP_MAZ_FILE).endswith('.csv'):
         maz_with_counties.to_csv(TEMP_MAZ_FILE, index=False)
+    elif str(TEMP_MAZ_FILE).endswith('.geojson'):
+        maz_with_counties.to_file(TEMP_MAZ_FILE, driver='GeoJSON')
+    elif str(TEMP_MAZ_FILE).endswith('.shp'):
+        maz_with_counties.to_file(TEMP_MAZ_FILE, driver='ESRI Shapefile')
 
 # --- Merge block-level data with MAZ/TAZ/PUMA/COUNTY assignments ---
 blocks['MAZ'] = blocks['MAZ'].astype(str)
@@ -175,8 +185,11 @@ try:
     if unmatched.any():
         print(f"[ERROR] {unmatched.sum()} rows in blocks did not match any MAZ in maz_with_counties. Example MAZs: {crosswalk.loc[unmatched, 'MAZ'].unique()[:5]}")
     crosswalk.drop(columns=['_merge'], inplace=True)
-    # Ensure TAZ column is present and named correctly
-    if 'TAZ' not in crosswalk.columns:
+    # After merge, handle TAZ columns (from both dataframes)
+    if 'TAZ_y' in crosswalk.columns:
+        crosswalk['TAZ'] = crosswalk['TAZ_y']
+        crosswalk.drop(columns=[col for col in ['TAZ_x', 'TAZ_y'] if col in crosswalk.columns], inplace=True)
+    elif 'TAZ' not in crosswalk.columns:
         if taz_col in crosswalk.columns:
             crosswalk['TAZ'] = crosswalk[taz_col]
         else:
