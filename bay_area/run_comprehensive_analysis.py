@@ -202,14 +202,8 @@ class ComprehensiveAnalysisRunner:
         
         # Run in order of importance
         priority_order = [
-            'quick_analysis',
-            'populationsim_results', 
-            'performance',
-            'full_dataset',
-            'group_quarters',
-            'regional_income',
-            'remaining_bias',
-            'postprocessing_req'
+            'populationsim_results',
+            'remaining_bias'
         ]
         
         for script_key in priority_order:
@@ -229,9 +223,9 @@ class ComprehensiveAnalysisRunner:
         self.log("=" * 60)
         self.log("GENERATING COMPREHENSIVE SUMMARY")
         self.log("=" * 60)
-        
+
         summary_file = self.output_dir / "COMPREHENSIVE_ANALYSIS_SUMMARY.md"
-        
+
         summary_content = f"""# TM2 PopulationSim Comprehensive Analysis Summary
 
 Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}
@@ -244,7 +238,6 @@ This summary consolidates results from all analysis, validation, check, debug, a
 
 ### Key Files Generated:
 - Analysis Log: `{self.analysis_log.name}`
-- Performance Summary: `PERFORMANCE_SUMMARY.txt`
 - Validation Results: `validation_summary.txt`
 - Control Checks: `control_checks_summary.txt`
 - Interactive Charts: `populationsim_analysis_charts.html`
@@ -255,7 +248,7 @@ This summary consolidates results from all analysis, validation, check, debug, a
 2. **Check Scripts** - TAZ Controls Rollup, Census Vintage, PUMA Consistency  
 3. **Debug Scripts** - Income Mismatch Analysis, Geographic Aggregation
 4. **Visualization Scripts** - TAZ-PUMA Mapping, Corrected MAZ Charts
-5. **Main Analysis Scripts** - Results Analysis, Performance Metrics, Bias Assessment
+5. **Main Analysis Scripts** - Results Analysis, Bias Assessment
 
 ### Next Steps:
 
@@ -264,12 +257,12 @@ Check the analysis log for detailed execution information.
 
 For issues or questions, refer to the individual script outputs and logs.
 """
-        
+
         with open(summary_file, 'w') as f:
             f.write(summary_content)
-        
+
         self.log(f"✓ Comprehensive summary written to: {summary_file}")
-        
+
         return summary_file
     
     def run_all(self):

@@ -6,8 +6,9 @@ PopulationSim is a synthetic population generator that creates realistic househo
 
 ## Overall Process Flow
 
+
 ```
-PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls → PopulationSim → Synthetic Population
+PUMS Data → Unified Crosswalk → Seed Population → Marginal Controls → PopulationSim → Postprocessing → Analysis/Validation
 ```
 
 ### 1. Data Inputs
@@ -36,18 +37,44 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 - Adds inflation adjustment (2023 to 2010 dollars)
 - Adds unique identifiers and crosswalk fields
 
-### Step 2: Geographic Crosswalk Creation
-**Purpose**: Link geographic zones (MAZ-TAZ-PUMA-County) for population synthesis
-**Input**: 
-- TM2 zone definition files (`blocks_mazs_tazs.csv`, `mazs_tazs_all_geog.csv`)
-- County mapping configuration
-**Output**: `geo_cross_walk_tm2_updated.csv`
+
+### Step 2: Unified Geographic Crosswalk Creation
+**Purpose**: Integrate all zone relationships (MAZ, TAZ, PUMA, County) in a single, validated crosswalk
+**Input**:  
+- TM2 zone definition files
+- County mapping configuration  
+**Output**: `geo_cross_walk_tm2.csv` (or similar)
 
 **What happens**:
-- Creates MAZ-to-TAZ-to-PUMA-to-County relationships
-- Resolves conflicts (TAZs split across PUMAs)
-- Converts FIPS county codes to sequential 1-9 system
+- Runs `create_unified_crosswalk.py` to build a single, canonical crosswalk
+- Resolves TAZs split across PUMAs, ensures all codes are sequential (1-9)
 - Validates all geographic relationships
+### Step 6: Postprocessing
+**Purpose**: Format and recode synthetic outputs for downstream use  
+**Input**:  
+- PopulationSim outputs  
+**Output**:  
+- Final TM2-ready household and person files
+
+### Step 7: Analysis/Validation
+**Purpose**: Validate synthetic population against controls and Census  
+**Input**:  
+- Final outputs  
+- Control files  
+**Output**:  
+- Validation reports
+- Summary statistics
+
+---
+
+**Pipeline Order (as in `tm2_pipeline.py`):**
+1. `crosswalk` (now unified crosswalk)
+2. `geographic_rebuild` (if needed)
+3. `seed`
+4. `controls`
+5. `populationsim`
+6. `postprocess`
+7. `analysis`
 
 ### Step 3: Seed Population Generation  
 **Purpose**: Process PUMS data into PopulationSim-ready format

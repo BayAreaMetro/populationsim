@@ -17,7 +17,7 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
+        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
@@ -376,41 +376,27 @@ class UnifiedTM2Config:
             'performance_summary': self.OUTPUT_DIR / "PERFORMANCE_SUMMARY.txt",
             'analysis_results': self.OUTPUT_DIR / "README_ANALYSIS_RESULTS.md",
             'analysis_log': self.OUTPUT_DIR / "analysis_complete.log",
-            
+
             # Analysis scripts (organized by category)
             'scripts_dir': self.BASE_DIR / "analysis",
             'main_scripts': {
                 'populationsim_results': self.BASE_DIR / "analysis" / "analyze_populationsim_results.py",
-                'full_dataset': self.BASE_DIR / "analysis" / "analyze_full_dataset.py", 
-                'performance': self.BASE_DIR / "analysis" / "analyze_corrected_populationsim_performance.py",
-                'group_quarters': self.BASE_DIR / "analysis" / "analyze_gq_issue.py",
-                'postprocessing_req': self.BASE_DIR / "analysis" / "analyze_postprocessing_requirements.py",
-                'regional_income': self.BASE_DIR / "analysis" / "analyze_regional_income_distribution.py",
-                'remaining_bias': self.BASE_DIR / "analysis" / "analyze_remaining_bias.py",
-                'quick_analysis': self.BASE_DIR / "analysis" / "quick_corrected_analysis.py"
+                'remaining_bias': self.BASE_DIR / "analysis" / "analyze_remaining_bias.py"
             },
-            
+
             'validation_scripts': {
                 'income_vs_acs': self.BASE_DIR / "analysis" / "validate_income_vs_acs.py",
                 'vehicle_ownership': self.BASE_DIR / "analysis" / "validate_vehicle_ownership.py",
                 'data_validation': self.BASE_DIR / "analysis" / "data_validation.py",
                 'detailed_validation': self.BASE_DIR / "analysis" / "detailed_data_validation.py"
             },
-            
+
             'check_scripts': {
-                'taz_controls_rollup': self.BASE_DIR / "analysis" / "check_taz_controls_rollup.py",
-                'census_vintage': self.BASE_DIR / "analysis" / "check_census_vintage.py",
-                'puma_mismatch': self.BASE_DIR / "analysis" / "check_puma_mismatch.py"
+                'taz_controls_rollup': self.BASE_DIR / "analysis" / "check_taz_controls_rollup.py"
             },
-            
-            'debug_scripts': {
-                'income_mismatch': self.BASE_DIR / "analysis" / "debug_income_mismatch.py",
-                'geographic_aggregation': self.BASE_DIR / "analysis" / "debug_geographic_aggregation.py"
-            },
-            
+
             'visualization_scripts': {
-                'taz_puma_mapping': self.BASE_DIR / "analysis" / "visualize_taz_puma_mapping.py",
-                'corrected_maz_chart': self.BASE_DIR / "analysis" / "create_corrected_maz_chart.py"
+                'taz_puma_mapping': self.BASE_DIR / "analysis" / "visualize_taz_puma_mapping.py"
             }
         }
     
@@ -594,6 +580,7 @@ class UnifiedTM2Config:
         """Get paths to all workflow scripts"""
         return {
             'crosswalk': self.BASE_DIR / "create_tm2_crosswalk.py",
+            'unified_crosswalk': self.BASE_DIR / "create_unified_crosswalk.py",
             'seed': self.BASE_DIR / "create_seed_population_tm2_refactored.py",
             'controls': self.BASE_DIR / "create_baseyear_controls_23_tm2.py",
             'hhgq': self.BASE_DIR / "add_hhgq_combined_controls.py",
