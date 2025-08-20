@@ -165,11 +165,12 @@ class UnifiedTM2Config:
             'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls",
             # Shapefiles for geographic processing
             'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
+            'taz_shapefile': 'C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tazs_TM2_2_5.shp',
             'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
             'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp"),
             # Geographic crosswalk sources
             'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv"),
-            'maz_taz_county_puma_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/mazs_tazs_county_tract_PUMA_2.5.csv")
+            'maz_taz_county_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/mazs_tazs_county_tract_PUMA_2.5.csv")
         }
         
         # ============================================================
