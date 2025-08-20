@@ -110,13 +110,13 @@ class TM2Pipeline:
                 if not output_file.exists():
                     self.log("County income summary not found, running get_census_income_data.py...")
                     income_script = str(self.config.BASE_DIR / 'analysis' / 'get_census_income_data.py')
-                    income_cmd = [str(self.config.PYTHON_EXE), income_script]
+                    income_cmd = ["python", income_script]
                     income_result = self.run_command(income_cmd, 'get_census_income_data')
                     if not income_result:
                         self.log("County income summary creation failed!", "ERROR")
                 self.log("Running TAZ controls rollup check (check_taz_controls_rollup.py)...")
                 rollup_script = str(self.config.BASE_DIR / 'analysis' / 'check_taz_controls_rollup.py')
-                rollup_cmd = [str(self.config.PYTHON_EXE), rollup_script]
+                rollup_cmd = ["python", rollup_script]
                 rollup_result = self.run_command(rollup_cmd, 'check_taz_controls_rollup')
                 if not rollup_result:
                     self.log("TAZ controls rollup check failed!", "ERROR")
@@ -196,13 +196,13 @@ class TM2Pipeline:
                 if not output_file.exists():
                     self.log("County income summary not found, running get_census_income_data.py...")
                     income_script = str(self.config.BASE_DIR / 'analysis' / 'get_census_income_data.py')
-                    income_cmd = [str(self.config.PYTHON_EXE), income_script]
+                    income_cmd = ["python", income_script]
                     income_result = self.run_command(income_cmd, 'get_census_income_data')
                     if not income_result:
                         self.log("County income summary creation failed!", "ERROR")
                 self.log("Running TAZ controls rollup check (check_taz_controls_rollup.py)...")
                 rollup_script = str(self.config.BASE_DIR / 'analysis' / 'check_taz_controls_rollup.py')
-                rollup_cmd = [str(self.config.PYTHON_EXE), rollup_script]
+                rollup_cmd = ["python", rollup_script]
                 rollup_result = self.run_command(rollup_cmd, 'check_taz_controls_rollup')
                 if not rollup_result:
                     self.log("TAZ controls rollup check failed!", "ERROR")

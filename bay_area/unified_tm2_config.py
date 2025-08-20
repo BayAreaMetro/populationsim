@@ -17,9 +17,6 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
-        if not self.PYTHON_EXE.exists():
-            raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
         self.SCRIPTS_DIR = self.BASE_DIR / "scripts"
         self.POPSIM_WORKING_DIR = self.OUTPUT_DIR / "populationsim_working_dir"
@@ -170,8 +167,9 @@ class UnifiedTM2Config:
             'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
             'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
             'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp"),
-            # Geographic crosswalk source
-            'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv")
+            # Geographic crosswalk sources
+            'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv"),
+            'maz_taz_county_puma_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/mazs_tazs_county_tract_PUMA_2.5.csv")
         }
         
         # ============================================================
