@@ -18,7 +18,7 @@ set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\sensitivity_test\PBA50Plus_sen
 :: Note: This is equivalent to PBA50Plus_Final_Blueprint_v65 but it includes interim year output
 set BAUS_RUNNUM=PBA50Plus_sensitivity_V3A
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=FBP_20250722
+set OUTPUT_SUFFIX=FBP_20250819
 
 :: assume argument is year
 set YEARS=%1
