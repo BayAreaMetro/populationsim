@@ -92,13 +92,14 @@ def verify_input_files():
     """Verify that all required input files are accessible."""
     logger = logging.getLogger()
     
-    from tm2_control_utils.config_census import MAZ_TAZ_DEF_FILE, MAZ_TAZ_ALL_GEOG_FILE, CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
-    
+
+    from tm2_control_utils.config_census import MAZ_TAZ_DEF_FILE, CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER, GEO_CROSSWALK_TM2_PATH
+
     logger.info("Checking file accessibility")
-    
+
     required_files = [
         ("MAZ/TAZ definitions", MAZ_TAZ_DEF_FILE),
-        ("MAZ/TAZ all geography", MAZ_TAZ_ALL_GEOG_FILE),
+        ("Unified crosswalk", GEO_CROSSWALK_TM2_PATH),
         ("Census API key", CENSUS_API_KEY_FILE),
     ]
     
@@ -124,137 +125,6 @@ def verify_input_files():
     
     logger.info("All required files are accessible")
     return True
-
-
-def copy_network_data_to_local():
-    """
-    Copy essential data files from network (M:) drive to local storage for offline work.
-    Creates local_data directory structure and copies required files.
-    """
-    logger = logging.getLogger(__name__)
-    
-    # Define the files to copy
-    files_to_copy = [
-        (NETWORK_MAZ_TAZ_DEF_FILE, LOCAL_MAZ_TAZ_DEF_FILE),
-        (NETWORK_MAZ_TAZ_ALL_GEOG_FILE, LOCAL_MAZ_TAZ_ALL_GEOG_FILE),
-        (NETWORK_CENSUS_API_KEY_FILE, LOCAL_CENSUS_API_KEY_FILE),
-    ]
-    
-    # Create local directories
-    for _, local_path in files_to_copy:
-        local_dir = Path(local_path).parent
-        local_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created directory: {local_dir}")
-    
-    # Create local cache directory
-    Path(LOCAL_CACHE_FOLDER).mkdir(parents=True, exist_ok=True)
-    logger.info(f"Created directory: {LOCAL_CACHE_FOLDER}")
-    
-    # Copy files
-    copied_files = []
-    for network_path, local_path in files_to_copy:
-        try:
-            if os.path.exists(network_path):
-                shutil.copy2(network_path, local_path)
-                logger.info(f"Copied: {network_path} -> {local_path}")
-                copied_files.append(local_path)
-            else:
-                logger.warning(f"Network file not found: {network_path}")
-        except Exception as e:
-            logger.error(f"Failed to copy {network_path}: {e}")
-    
-    # Copy census cache files if they exist
-    if os.path.exists(NETWORK_CACHE_FOLDER):
-        try:
-            cache_files = []
-            for file in os.listdir(NETWORK_CACHE_FOLDER):
-                if file.endswith('.csv'):
-                    src = os.path.join(NETWORK_CACHE_FOLDER, file)
-                    dst = os.path.join(LOCAL_CACHE_FOLDER, file)
-                    shutil.copy2(src, dst)
-                    cache_files.append(file)
-            logger.info(f"Copied {len(cache_files)} census cache files to {LOCAL_CACHE_FOLDER}")
-        except Exception as e:
-            logger.error(f"Failed to copy census cache files: {e}")
-    else:
-        logger.warning(f"Network cache folder not found: {NETWORK_CACHE_FOLDER}")
-    
-    logger.info(f"Successfully copied {len(copied_files)} files to local storage")
-    return copied_files
-
-
-def configure_file_paths(use_local=False):
-    """
-    Configure file paths based on whether to use local or network storage.
-    Updates the global config variables.
-    """
-    global MAZ_TAZ_DEF_FILE, MAZ_TAZ_ALL_GEOG_FILE
-    global CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
-    
-    if use_local:
-        MAZ_TAZ_DEF_FILE = LOCAL_MAZ_TAZ_DEF_FILE
-        MAZ_TAZ_ALL_GEOG_FILE = LOCAL_MAZ_TAZ_ALL_GEOG_FILE
-        CENSUS_API_KEY_FILE = LOCAL_CENSUS_API_KEY_FILE
-        
-        # Check for input_2023 cache directory first, then fall back to local_data cache
-        if os.path.exists(INPUT_2023_CACHE_FOLDER):
-            LOCAL_CACHE_FOLDER = INPUT_2023_CACHE_FOLDER
-            print(f"Using input_2023 cache directory: {INPUT_2023_CACHE_FOLDER}")
-        else:
-            LOCAL_CACHE_FOLDER = LOCAL_CACHE_FOLDER  # Use local_data cache
-            print(f"Using local_data cache directory: {LOCAL_CACHE_FOLDER}")
-    else:
-        MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE
-        MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE
-        CENSUS_API_KEY_FILE = NETWORK_CENSUS_API_KEY_FILE
-        
-        # For network mode, check for input_2023 cache first as fallback
-        if os.path.exists(INPUT_2023_CACHE_FOLDER):
-            LOCAL_CACHE_FOLDER = INPUT_2023_CACHE_FOLDER
-            print(f"Using input_2023 cache directory as fallback: {INPUT_2023_CACHE_FOLDER}")
-        else:
-            LOCAL_CACHE_FOLDER = NETWORK_CACHE_FOLDER
-
-
-def check_file_accessibility_with_mode(use_local=False):
-    """
-    Check if all required files are accessible for the specified mode.
-    Returns True if all required files exist, False otherwise.
-    """
-    logger = logging.getLogger(__name__)
-    mode_str = "LOCAL" if use_local else "NETWORK"
-    logger.info(f"Checking file accessibility in {mode_str} mode")
-    
-    # Check for input_2023 cache directory first
-    if os.path.exists(INPUT_2023_CACHE_FOLDER):
-        logger.info(f"Detected input_2023 cache directory: {INPUT_2023_CACHE_FOLDER}")
-    
-    # Configure paths based on mode
-    configure_file_paths(use_local)
-    
-    required_files = [
-        ("MAZ/TAZ definitions", MAZ_TAZ_DEF_FILE),
-        ("MAZ/TAZ all geography", MAZ_TAZ_ALL_GEOG_FILE),
-        ("Census API key", CENSUS_API_KEY_FILE),
-        ("census cache directory", LOCAL_CACHE_FOLDER),
-    ]
-    
-    all_accessible = True
-    for desc, filepath in required_files:
-        if os.path.exists(filepath):
-            logger.info(f"Found {desc}: {filepath}")
-        else:
-            logger.error(f"Missing {desc}: {filepath}")
-            all_accessible = False
-    
-    if all_accessible:
-        logger.info("All required files are accessible")
-    else:
-        logger.error("Some required files are missing")
-        if not use_local:
-            logger.info("Try using --copy-data to copy network files to local storage, then --use-local")
-        
-    return all_accessible
 
 
 def show_control_categories():
@@ -726,10 +596,7 @@ def process_control(
             temp_controls, maz_taz_def_df, control_def[3]
         )
 
-    # Step 3: Interpolate if needed
-    if CENSUS_GEOG_YEAR != CENSUS_EST_YEAR:
-        logger.info(f"GEOGRAPHIC INTERPOLATION REQUIRED: {CENSUS_EST_YEAR} -> {CENSUS_GEOG_YEAR}")
-        logger.info(f"Source geography: {control_def[3]}")
+
         
         # CRITICAL DEBUGGING: Track geographic interpolation effects for worker controls
         if 'wrk' in control_name.lower():
@@ -1043,7 +910,7 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
         county_targets_file = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_TARGETS_FILE)
         if os.path.exists(county_targets_file):
             county_targets_df = pd.read_csv(county_targets_file)
-        else:
+            # (Removed call to deprecated configure_file_paths)
             logger.error(f"County targets file not found: {county_targets_file}")
             return False
         
@@ -2592,11 +2459,6 @@ def main():
     #         logger.error("Cannot access required local files. Run with --copy-data first.")
     #         return 1
     # else:
-    logger.info("Using NETWORK data mode - reading from M: drive")
-    configure_file_paths(use_local=False)
-    if not check_file_accessibility_with_mode(use_local=False):
-            logger.error("Cannot access required network files. Try --copy-data then --use-local.")
-            return 1
 
 
     logger.info("Preparing geography lookups")

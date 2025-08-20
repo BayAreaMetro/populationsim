@@ -1,15 +1,13 @@
-#!/usr/bin/env python3
-"""
-TM2 Pipeline - Single workflow script for the entire Bay Area population synthesis
-NO MORE MULTIPLE WORKFLOWS! This is the one and only pipeline script.
-Uses UnifiedTM2Config for single source of truth.
-"""
-
 import subprocess
 import sys
 import time
 from pathlib import Path
 from unified_tm2_config import UnifiedTM2Config
+
+
+#!/usr/bin/env python3
+
+
 
 class TM2Pipeline:
     """Complete TM2 population synthesis pipeline with single source of truth"""
@@ -26,6 +24,33 @@ class TM2Pipeline:
         """Unified logging"""
         timestamp = time.strftime("%H:%M:%S")
         print(f"[{timestamp}] [{level}] {message}")
+
+    def run_command(self, command, step_name):
+        """Run a shell command for a pipeline step, with logging and error handling."""
+        import subprocess
+        import shlex
+        if not command:
+            self.log(f"No command specified for step: {step_name}", "ERROR")
+            return False
+        if isinstance(command, str):
+            command_list = shlex.split(command)
+        else:
+            command_list = command
+        self.log(f"Running command for step '{step_name}': {' '.join(map(str, command_list))}")
+        try:
+            result = subprocess.run(command_list, check=False, capture_output=True, text=True)
+            self.log(f"[STDOUT] {result.stdout.strip()}")
+            if result.stderr:
+                self.log(f"[STDERR] {result.stderr.strip()}", "WARN")
+            if result.returncode == 0:
+                self.log(f"Step '{step_name}' completed successfully.", "SUCCESS")
+                return True
+            else:
+                self.log(f"Step '{step_name}' failed with exit code {result.returncode}.", "ERROR")
+                return False
+        except Exception as e:
+            self.log(f"Exception running step '{step_name}': {e}", "ERROR")
+            return False
         
     def check_step_completion(self, step_name):
         """Check if step has been completed successfully"""
@@ -46,79 +71,63 @@ class TM2Pipeline:
                 self.log(f"  {status} {f.name}", "STATUS")
         return False
         
-    def run_command(self, command, step_name):
-        """Execute a command or list of commands and handle output with progress monitoring"""
-        # If command is a list of lists, run each sub-command in sequence
-        if isinstance(command, list) and command and isinstance(command[0], list):
-            for idx, sub_cmd in enumerate(command):
-                self.log(f"Running {step_name} (part {idx+1}/{len(command)}): {' '.join(sub_cmd)}")
-                if not self._run_single_command(sub_cmd, step_name):
+        # Special handling for PUMS download
+        if step_name == 'pums':
+            # Skip if files already exist and not forced
+            if not force and self.check_pums_files_exist():
+                self.log("Skipping PUMS download (files already exist, use --force to redownload)")
+                return True
+            # Skip if in offline mode
+            if self.offline_mode:
+                self.log("Skipping PUMS download (offline mode enabled)", "WARN")
+                if not self.check_pums_files_exist():
+                    self.log("ERROR: PUMS files not found and offline mode enabled", "ERROR")
                     return False
-            return True
-        else:
-            return self._run_single_command(command, step_name)
+                return True
+            self.log("Downloading PUMS data...")
+            return self.run_command(command, step_name)
 
-    def _run_single_command(self, command, step_name):
-        self.log(f"Running {step_name}: {' '.join(command)}")
-        start_time = time.time()
-        last_log_time = start_time
-        try:
-            if self.verbose:
-                process = subprocess.Popen(
-                    command,
-                    cwd=self.config.BASE_DIR,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,
-                    universal_newlines=True
-                )
-                line_count = 0
-                for line in process.stdout:
-                    print(f"  {line.rstrip()}")
-                    line_count += 1
-                    current_time = time.time()
-                    if current_time - last_log_time > 60:
-                        elapsed = current_time - start_time
-                        self.log(f"[PROGRESS] {step_name} still running... {elapsed:.0f}s elapsed, {line_count} log lines processed")
-                        last_log_time = current_time
-                process.wait()
-                returncode = process.returncode
-            else:
-                result = subprocess.run(
-                    command,
-                    cwd=self.config.BASE_DIR,
-                    capture_output=True,
-                    text=True,
-                    timeout=7200
-                )
-                returncode = result.returncode
-        except subprocess.TimeoutExpired:
-            self.log(f"Step {step_name} timed out after 2 hours", "ERROR")
-            return False
-        except Exception as e:
-            self.log(f"Step {step_name} failed with exception: {e}", "ERROR")
-            return False
-        duration = time.time() - start_time
-        if returncode == 0:
-            self.log(f"Step {step_name} completed successfully in {duration:.1f}s", "SUCCESS")
-            return True
+        # Special handling for PopulationSim with log monitoring
+        if step_name == 'populationsim':
+            # Prepare PopulationSim data directory first
+            if not self.prepare_populationsim_data():
+                self.log("Failed to prepare PopulationSim data", "ERROR")
+                return False
+            # Fix crosswalk before running PopulationSim
+            if not self.fix_crosswalk_multi_puma():
+                self.log("Failed to fix crosswalk - this may cause NaN control aggregation issues", "ERROR")
+                return False
+            return self.run_populationsim_with_monitoring(command)
+
+        # Run TAZ controls rollup check after controls step
+        if step_name == 'controls':
+            result = self.run_command(command, step_name)
+            if result:
+                # Check for county income summary output
+                from unified_tm2_config import UnifiedTM2Config
+                config = UnifiedTM2Config()
+                output_file = config.POPSIM_OUTPUT_DIR / 'bay_area_income_acs_2023.csv'
+                if not output_file.exists():
+                    self.log("County income summary not found, running get_census_income_data.py...")
+                    income_script = str(self.config.BASE_DIR / 'analysis' / 'get_census_income_data.py')
+                    income_cmd = [str(self.config.PYTHON_EXE), income_script]
+                    income_result = self.run_command(income_cmd, 'get_census_income_data')
+                    if not income_result:
+                        self.log("County income summary creation failed!", "ERROR")
+                self.log("Running TAZ controls rollup check (check_taz_controls_rollup.py)...")
+                rollup_script = str(self.config.BASE_DIR / 'analysis' / 'check_taz_controls_rollup.py')
+                rollup_cmd = [str(self.config.PYTHON_EXE), rollup_script]
+                rollup_result = self.run_command(rollup_cmd, 'check_taz_controls_rollup')
+                if not rollup_result:
+                    self.log("TAZ controls rollup check failed!", "ERROR")
+            return result
+
+        # Default: run the command for this step
+        if command:
+            return self.run_command(command, step_name)
         else:
-            self.log(f"Step {step_name} failed with code {returncode} after {duration:.1f}s", "ERROR")
+            self.log(f"Unknown step: {step_name}", "ERROR")
             return False
-    
-    def check_pums_files_exist(self):
-        """Check if PUMS files exist (check both current and cached locations)"""
-        # Check current location first
-        households_current = self.config.PUMS_FILES['households_current']
-        persons_current = self.config.PUMS_FILES['persons_current']
-        
-        if households_current.exists() and persons_current.exists():
-            self.log(f"Found PUMS files in current location: {households_current.parent}")
-            return True
-            
-        # Check cached location
-        households_cached = self.config.PUMS_FILES['households_cached']
         persons_cached = self.config.PUMS_FILES['persons_cached']
         
         if households_cached.exists() and persons_cached.exists():
@@ -142,9 +151,8 @@ class TM2Pipeline:
         # Get command for this step
         command = self.config.get_command(step_name)
         
-        # Check for special steps that are handled internally (not via external commands)
-        special_steps = ['geographic_rebuild']
-        if not command and step_name not in special_steps:
+
+        if not command:
             self.log(f"Unknown step: {step_name}", "ERROR")
             return False
         
@@ -164,8 +172,7 @@ class TM2Pipeline:
             self.log("Downloading PUMS data...")
         
         # Special handling for geographic rebuild
-        elif step_name == 'geographic_rebuild':
-            return self.run_geographic_rebuild()
+
         
         # Special handling for PopulationSim with log monitoring
         elif step_name == 'populationsim':
@@ -307,35 +314,7 @@ class TM2Pipeline:
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
-    def run_geographic_rebuild(self):
-        """Rebuild complete geographic crosswalk from 2010 Census blocks"""
-        try:
-            from tm2_control_utils.config_census import rebuild_maz_taz_all_geog_file
-            
-            self.log("Rebuilding complete geographic crosswalk from 2010 Census blocks...")
-            
-            # Use unified config paths
-            blocks_file = self.config.TM2PY_UTILS_BLOCKS_FILE
-            output_dir = self.config.PRIMARY_OUTPUT_DIR
-            
-            self.log(f"Source blocks file: {blocks_file}")
-            self.log(f"Output directory: {output_dir}")
-            
-            # Call the rebuild function - pass None for output_path to use default
-            success = rebuild_maz_taz_all_geog_file(blocks_file, None)
-            
-            if success:
-                self.log("✓ Successfully rebuilt complete geographic crosswalk", "SUCCESS")
-                return True
-            else:
-                self.log("Failed to rebuild geographic crosswalk", "ERROR")
-                return False
-                
-        except Exception as e:
-            self.log(f"Error rebuilding geographic crosswalk: {e}", "ERROR")
-            import traceback
-            self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
-            return False
+
     
     def fix_crosswalk_multi_puma(self):
         """Fix crosswalk to resolve TAZs assigned to multiple PUMAs (root cause of NaN control aggregation)"""
@@ -579,15 +558,9 @@ class TM2Pipeline:
     
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
-        
-        # Default pipeline includes geographic rebuild before controls
-        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
-        
-        # If start_step is explicitly 'pums', include it
+        steps = ['crosswalk', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
         if start_step == 'pums':
-            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
-        
-        # Determine step range
+            steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
         if start_step:
             try:
                 start_idx = steps.index(start_step)
@@ -595,7 +568,6 @@ class TM2Pipeline:
             except ValueError:
                 self.log(f"Invalid start step: {start_step}", "ERROR")
                 return False
-                
         if end_step:
             try:
                 end_idx = steps.index(end_step) + 1
@@ -603,16 +575,12 @@ class TM2Pipeline:
             except ValueError:
                 self.log(f"Invalid end step: {end_step}", "ERROR")
                 return False
-        
         self.log(f"Running pipeline steps: {' → '.join(steps)}")
-        
-        # Run each step
         overall_start = time.time()
         for step in steps:
             if not self.run_step(step, force):
                 self.log(f"Pipeline failed at step: {step}", "ERROR")
                 return False
-                
         overall_duration = time.time() - overall_start
         self.log(f"{'='*60}")
         self.log(f"PIPELINE COMPLETED SUCCESSFULLY in {overall_duration:.1f}s", "SUCCESS")
@@ -623,14 +591,12 @@ class TM2Pipeline:
         """Show status of all pipeline steps"""
         self.log("Pipeline Status Check")
         self.log("-" * 40)
-        
-        steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
+        steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
         for step in steps:
             if self.check_step_completion(step):
                 self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
             else:
                 self.log(f"{step.ljust(15)}: ✗ INCOMPLETE", "STATUS")
-        
         # Show available analysis sub-steps
         self.log("")
         self.log("Available Analysis Sub-steps:")
@@ -661,7 +627,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='status',
-               choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 
+               choices=['status', 'pums', 'crosswalk', 'seed', 'controls', 'populationsim', 
                    'postprocess', 'analysis', 'validate_income', 'full', 'clean'],
                help='Command to run')
     parser.add_argument('--force', action='store_true',

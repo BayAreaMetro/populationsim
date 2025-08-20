@@ -35,13 +35,12 @@ OUTPUT_CROSSWALK.parent.mkdir(parents=True, exist_ok=True)
 # Load block-level crosswalk
 blocks = pd.read_csv(BLOCKS_FILE, dtype=str)
 
-# Standardize column names
+# Standardize column names (ignore any PUMA column from block file)
 blocks.rename(columns={
     'GEOID10': 'GEOID_block',
     'maz': 'MAZ',
     'taz': 'TAZ',
-    'county': 'COUNTY',
-    'puma': 'PUMA'
+    'county': 'COUNTY'
 }, inplace=True)
 
 # Derive block group and tract from block GEOID
@@ -68,7 +67,11 @@ if not puma_col:
 TEMP_MAZ_FILE = Path("maz_taz_puma_county_temp.csv")
 if TEMP_MAZ_FILE.exists():
     print(f"[INFO] Temp file {TEMP_MAZ_FILE} found. Loading instead of recomputing spatial joins...")
-    maz_with_counties = gpd.read_file(TEMP_MAZ_FILE)
+    if str(TEMP_MAZ_FILE).endswith('.csv'):
+        import pandas as pd
+        maz_with_counties = pd.read_csv(TEMP_MAZ_FILE)
+    else:
+        maz_with_counties = gpd.read_file(TEMP_MAZ_FILE)
 else:
     import time
     taz_groups = maz_gdf.groupby(taz_col)
@@ -102,7 +105,14 @@ else:
                     max_area = area
                     best_puma = puma_id
             taz_assignments[taz_id] = best_puma if best_puma else intersecting_pumas[0][1]
+
     print(f"[INFO] Finished TAZ-PUMA assignment in {time.time() - start_time:.1f}s.")
+
+    # Write TAZ-PUMA assignments to CSV for diagnostics
+    import pandas as pd
+    taz_assignments_df = pd.DataFrame(list(taz_assignments.items()), columns=[taz_col, 'PUMA'])
+    taz_assignments_df.to_csv('taz_puma_assignments_diagnostic.csv', index=False)
+    print(f"[INFO] Wrote TAZ-PUMA assignments to taz_puma_assignments_diagnostic.csv ({len(taz_assignments_df)} rows)")
 
     maz_gdf['PUMA'] = maz_gdf[taz_col].map(taz_assignments)
 
@@ -181,65 +191,87 @@ else:
         maz_with_counties.to_file(TEMP_MAZ_FILE, driver='ESRI Shapefile')
 
 # --- Merge block-level data with MAZ/TAZ/PUMA/COUNTY assignments ---
-blocks['MAZ'] = blocks['MAZ'].astype(str)
-maz_with_counties['MAZ'] = maz_with_counties[maz_col].astype(str)
+
+# Ensure TAZ columns are string for join
+blocks['TAZ'] = blocks['TAZ'].astype(str)
 maz_with_counties['TAZ'] = maz_with_counties[taz_col].astype(str)
 
-# Extensive error catching and diagnostics for merge
-try:
-    print("[INFO] Preparing to merge block-level and MAZ/TAZ/PUMA/COUNTY assignments...")
-    print(f"[INFO] Columns in blocks DataFrame: {list(blocks.columns)}")
-    print(f"[INFO] Columns in maz_with_counties DataFrame: {list(maz_with_counties.columns)}")
-    # Check for required columns before merge
-    for col in ['MAZ']:
-        if col not in blocks.columns:
-            raise KeyError(f"Column '{col}' missing from blocks DataFrame. Columns: {list(blocks.columns)}")
-        if col not in maz_with_counties.columns:
-            raise KeyError(f"Column '{col}' missing from maz_with_counties DataFrame. Columns: {list(maz_with_counties.columns)}")
-    # Check for duplicate MAZs in either input
-    if blocks['MAZ'].duplicated().any():
-        print(f"[WARN] Duplicate MAZ values found in blocks DataFrame.")
-    if maz_with_counties['MAZ'].duplicated().any():
-        print(f"[WARN] Duplicate MAZ values found in maz_with_counties DataFrame.")
-    # Print row counts before merge
-    print(f"[DEBUG] blocks rows: {len(blocks)}, maz_with_counties rows: {len(maz_with_counties)}")
-    # Perform merge
-    merge_cols = ['MAZ', 'TAZ', 'PUMA', 'COUNTY_FIPS', 'COUNTY_NAME'] if 'TAZ' in maz_with_counties.columns else ['MAZ', taz_col, 'PUMA', 'COUNTY_FIPS', 'COUNTY_NAME']
-    print(f"[INFO] Merging on column 'MAZ' with columns: {merge_cols}")
-    crosswalk = pd.merge(
-        blocks,
-        maz_with_counties[merge_cols],
-        on='MAZ',
-        how='left',
-        indicator=True
-    )
-    # Print diagnostics after merge
-    print(f"[DEBUG] crosswalk rows after merge: {len(crosswalk)}")
-    unmatched = crosswalk['_merge'] == 'left_only'
-    if unmatched.any():
-        print(f"[ERROR] {unmatched.sum()} rows in blocks did not match any MAZ in maz_with_counties. Example MAZs: {crosswalk.loc[unmatched, 'MAZ'].unique()[:5]}")
-    crosswalk.drop(columns=['_merge'], inplace=True)
-    # After merge, handle TAZ columns (from both dataframes)
-    if 'TAZ_y' in crosswalk.columns:
-        crosswalk['TAZ'] = crosswalk['TAZ_y']
-        crosswalk.drop(columns=[col for col in ['TAZ_x', 'TAZ_y'] if col in crosswalk.columns], inplace=True)
-    elif 'TAZ' not in crosswalk.columns:
-        if taz_col in crosswalk.columns:
-            crosswalk['TAZ'] = crosswalk[taz_col]
-        else:
-            raise KeyError(f"Neither 'TAZ' nor '{taz_col}' found in crosswalk columns after merge. Columns: {list(crosswalk.columns)}")
-    print(f"[INFO] Merge complete. Final crosswalk columns: {list(crosswalk.columns)}")
-except Exception as e:
-    print(f"[FATAL] Error during merge: {e}")
-    print(f"[DEBUG] blocks columns: {list(blocks.columns)}")
-    print(f"[DEBUG] maz_with_counties columns: {list(maz_with_counties.columns)}")
-    raise
+# Diagnostics: print unique PUMAs in maz_with_counties before merge
+print(f"[DIAG] Unique PUMAs in maz_with_counties before merge: {sorted(maz_with_counties['PUMA'].unique())}")
+
+# Merge block-level data with MAZ/TAZ/PUMA/COUNTY assignments (join on TAZ only)
+print("[INFO] Preparing to merge block-level and MAZ/TAZ/PUMA/COUNTY assignments (block-level join)...")
+print(f"[INFO] Columns in blocks DataFrame: {list(blocks.columns)}")
+print(f"[INFO] Columns in maz_with_counties DataFrame: {list(maz_with_counties.columns)}")
+# Print row counts before merge
+print(f"[DEBUG] blocks rows: {len(blocks)}, maz_with_counties rows: {len(maz_with_counties)}")
+# Perform left merge: one row per block, join on TAZ
+merge_cols = ['TAZ', 'PUMA', 'COUNTY_FIPS', 'COUNTY_NAME']
+print(f"[INFO] Merging blocks (left) with MAZ/TAZ/PUMA/COUNTY assignments on 'TAZ' with columns: {merge_cols}")
+crosswalk = pd.merge(
+    blocks,
+    maz_with_counties[merge_cols].drop_duplicates(),
+    on='TAZ',
+    how='left',
+    indicator=True
+)
+# Print diagnostics after merge
+print(f"[DEBUG] crosswalk rows after merge: {len(crosswalk)} (should match number of blocks)")
+unmatched = crosswalk['_merge'] == 'left_only'
+if unmatched.any():
+    print(f"[ERROR] {unmatched.sum()} rows in blocks did not match any TAZ in maz_with_counties. Example TAZs: {crosswalk.loc[unmatched, 'TAZ'].unique()[:5]}")
+crosswalk.drop(columns=['_merge'], inplace=True)
+print(f"[INFO] Merge complete. Final crosswalk columns: {list(crosswalk.columns)}")
+
+# Diagnostics: print unique PUMAs in final crosswalk
+print(f"[DIAG] Unique PUMAs in final crosswalk: {sorted(crosswalk['PUMA'].dropna().unique())}")
 
 # --- Finalize columns and output ---
-needed_cols = [
-    'GEOID_block', 'GEOID_block_group', 'GEOID_tract',
-    'MAZ', 'TAZ', 'COUNTY_FIPS', 'COUNTY_NAME', 'PUMA'
-]
+
+# Output columns and enforce types for PopulationSim controls
+
+# Rename columns for output as requested
+crosswalk = crosswalk.rename(columns={
+    'COUNTY_FIPS': 'COUNTY',
+    'COUNTY_NAME': 'county_name'
+})
+
+# Output columns in requested order
+needed_cols = ['MAZ', 'TAZ', 'COUNTY', 'county_name', 'PUMA']
 crosswalk = crosswalk[needed_cols].drop_duplicates()
+
+# Enforce correct types
+crosswalk['GEOID_block'] = crosswalk['GEOID_block'].astype(str)
+crosswalk['GEOID_block_group'] = crosswalk['GEOID_block_group'].astype(str)
+crosswalk['GEOID_tract'] = crosswalk['GEOID_tract'].astype(str)
+crosswalk['MAZ'] = pd.to_numeric(crosswalk['MAZ'], errors='coerce').astype('Int64')
+crosswalk['TAZ'] = pd.to_numeric(crosswalk['TAZ'], errors='coerce').astype('Int64')
+crosswalk['COUNTY_FIPS'] = pd.to_numeric(crosswalk['COUNTY_FIPS'], errors='coerce').astype('Int64')
+crosswalk['COUNTY_NAME'] = crosswalk['COUNTY_NAME'].astype(str)
+crosswalk['PUMA'] = pd.to_numeric(crosswalk['PUMA'], errors='coerce').astype('Int64')
+
+# Diagnostics for missing or zero PUMA
+missing_puma = crosswalk['PUMA'].isna().sum()
+zero_puma = (crosswalk['PUMA'] == 0).sum()
+if missing_puma > 0:
+    print(f"[WARNING] {missing_puma} rows have missing (null) PUMA values. These will be dropped from the output crosswalk.")
+if zero_puma > 0:
+    print(f"[WARNING] {zero_puma} rows have PUMA=0. These will be dropped from the output crosswalk.")
+
+# Drop rows with missing or zero PUMA
+crosswalk = crosswalk[~crosswalk['PUMA'].isna()]
+crosswalk = crosswalk[crosswalk['PUMA'] != 0]
+
+# Convert Int64 columns to int for output (optional: if controls require strict int)
+for col in ['MAZ', 'TAZ', 'COUNTY_FIPS', 'PUMA']:
+    crosswalk[col] = crosswalk[col].astype(int)
+
 crosswalk.to_csv(OUTPUT_CROSSWALK, index=False)
 print(f"Wrote unified crosswalk: {OUTPUT_CROSSWALK} ({len(crosswalk)} rows)")
+
+# --- Summary: number of TAZs and MAZs by PUMA ID ---
+maz_summary = crosswalk.groupby('PUMA')['MAZ'].nunique().reset_index(name='num_mazs')
+taz_summary = crosswalk.groupby('PUMA')['TAZ'].nunique().reset_index(name='num_tazs')
+summary = pd.merge(maz_summary, taz_summary, on='PUMA', how='outer').sort_values('PUMA')
+print("\nSummary: Number of TAZs and MAZs by PUMA ID")
+print(summary.to_string(index=False))

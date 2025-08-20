@@ -178,13 +178,7 @@ class UnifiedTM2Config:
         # GIS AND REFERENCE FILES
         # ============================================================
         self.GIS_FILES = {
-            # Network locations (preferred)
-            'maz_taz_def_network': self.EXTERNAL_PATHS['network_gis'] / "blocks_mazs_tazs.csv",
-            'maz_taz_all_geog_network': self.EXTERNAL_PATHS['network_gis'] / "mazs_tazs_all_geog.csv",
-            # Local fallbacks
-            'maz_taz_def_local': self.EXTERNAL_PATHS['local_gis'] / "blocks_mazs_tazs.csv",
-            'maz_taz_all_geog_local': self.EXTERNAL_PATHS['local_gis'] / "mazs_tazs_all_geog.csv",
-            # Census API key locations
+            # Only unified crosswalk is used; legacy crosswalks removed
             'census_api_key_network': self.EXTERNAL_PATHS['network_census_api'] / "api-key.txt",
             'census_api_key_local': self.EXTERNAL_PATHS['local_census'] / "api-key.txt"
         }
@@ -406,16 +400,15 @@ class UnifiedTM2Config:
         self.COMMANDS = {
             # Step 0: Crosswalk creation (MUST be first - seed generation needs it)
             'crosswalk': [
-                [
-                    "python",
-                    str(self.BASE_DIR / "create_tm2_crosswalk.py"),
-                    "--output", str(self.CROSSWALK_FILES['main_crosswalk'])
-                ] + self.get_test_puma_args(),
-                [
-                    "python",
-                    str(self.BASE_DIR / "build_complete_crosswalk.py")
-                ]
-            ],
+                "python",
+                str(self.BASE_DIR / "create_unified_crosswalk.py"),
+                "--output", str(self.CROSSWALK_FILES['main_crosswalk'])
+            ] + self.get_test_puma_args(),
+            # [
+            #     "python",
+            #     str(self.BASE_DIR / "build_complete_crosswalk.py")
+            # ]
+            # ],
             
             # Step 0.5: Geographic rebuild (rebuild complete crosswalk from Census blocks)
             'geographic_rebuild': [],  # Handled specially in pipeline - no external command needed
@@ -598,10 +591,6 @@ class UnifiedTM2Config:
             paths['maz_taz_def'] = self.GIS_FILES['maz_taz_def_local']
         
         # MAZ/TAZ all geography file  
-        if self.GIS_FILES['maz_taz_all_geog_network'].exists():
-            paths['maz_taz_all_geog'] = self.GIS_FILES['maz_taz_all_geog_network']
-        else:
-            paths['maz_taz_all_geog'] = self.GIS_FILES['maz_taz_all_geog_local']
         
         return paths
     
@@ -807,7 +796,7 @@ class UnifiedTM2Config:
                 self.PUMS_FILES['persons_current']
             ],
             'crosswalk': [self.CROSSWALK_FILES['main_crosswalk']],
-            'geographic_rebuild': [self.POPSIM_DATA_DIR / "mazs_tazs_all_geog.csv"],
+
             'seed': [self.SEED_FILES['households'], self.SEED_FILES['persons']],
             'controls': [
                 self.CONTROL_FILES['maz_marginals_main'], 
