@@ -60,45 +60,30 @@ print(f"[SPATIAL] Loading TAZ shapefile: {taz_shp}", flush=True)
 taz_gdf = gpd.read_file(taz_shp)
 print(f"[SPATIAL] Loading PUMA shapefile: {puma_shp}", flush=True)
 puma_gdf = gpd.read_file(puma_shp)
+taz_crs = taz_gdf.crs
+if puma_gdf.crs != taz_crs:
+    print(f"[SPATIAL] Reprojecting PUMA from {puma_gdf.crs} to {taz_crs}", flush=True)
+    puma_gdf = puma_gdf.to_crs(taz_crs)
 taz_id_col = next((c for c in taz_gdf.columns if c.lower() == 'taz'), taz_gdf.columns[0])
 puma_id_col = next((c for c in puma_gdf.columns if c.lower().startswith('puma')), puma_gdf.columns[0])
 taz_gdf[taz_id_col] = taz_gdf[taz_id_col].astype(str)
 puma_gdf[puma_id_col] = puma_gdf[puma_id_col].astype(str)
 taz_groups = taz_gdf.groupby(taz_id_col)
 taz_assignments = {}
-total_taz = len(taz_groups)
-print(f"[INFO] Starting TAZ-PUMA assignment for {total_taz} TAZs...", flush=True)
-start_time = time.time()
-for i, (taz_id, taz_group) in enumerate(taz_groups, 1):
-    if i % 25 == 0 or i == 1 or i == total_taz:
-        elapsed = time.time() - start_time
-        print(f"  Processing TAZ {i}/{total_taz} (ID: {taz_id}) - Elapsed: {elapsed:.1f}s", flush=True)
-    taz_geom = taz_group.geometry.unary_union
-    intersecting_pumas = []
-    for idx, puma_row in puma_gdf.iterrows():
-        if taz_geom.intersects(puma_row.geometry):
-            intersecting_pumas.append((idx, puma_row[puma_id_col], puma_row.geometry))
-    if len(intersecting_pumas) == 0:
-        distances = [(idx, taz_geom.distance(puma_row.geometry), puma_row[puma_id_col]) for idx, puma_row in puma_gdf.iterrows()]
-        nearest_idx, _, nearest_puma = min(distances, key=lambda x: x[1])
-        taz_assignments[taz_id] = nearest_puma
-    elif len(intersecting_pumas) == 1:
-        _, puma_id, _ = intersecting_pumas[0]
-        taz_assignments[taz_id] = puma_id
-    else:
-        max_area = 0
-        best_puma = None
-        for _, puma_id, puma_geom in intersecting_pumas:
-            intersection = taz_geom.intersection(puma_geom)
-            area = intersection.area
-            if area > max_area:
-                max_area = area
-                best_puma = puma_id
-        taz_assignments[taz_id] = best_puma if best_puma else intersecting_pumas[0][1]
-print(f"[INFO] Finished TAZ-PUMA assignment in {time.time() - start_time:.1f}s.", flush=True)
-taz_puma_df = pd.DataFrame(list(taz_assignments.items()), columns=['TAZ', 'PUMA'])
-taz_puma_df['TAZ'] = taz_puma_df['TAZ'].astype(str)
-taz_puma_df['PUMA'] = taz_puma_df['PUMA'].astype(str)
+
+# --- Fast vectorized TAZ→PUMA assignment using overlay ---
+print("[SPATIAL] Computing TAZ-PUMA intersections (vectorized)...", flush=True)
+overlays = gpd.overlay(
+    taz_gdf[[taz_id_col, 'geometry']],
+    puma_gdf[[puma_id_col, 'geometry']],
+    how='intersection'
+)
+overlays['overlap_area'] = overlays.geometry.area
+idx = overlays.groupby(taz_id_col)['overlap_area'].idxmax()
+taz_puma_df = overlays.loc[idx, [taz_id_col, puma_id_col]].copy()
+taz_puma_df[taz_id_col] = taz_puma_df[taz_id_col].astype(str)
+taz_puma_df[puma_id_col] = taz_puma_df[puma_id_col].astype(str)
+taz_puma_df = taz_puma_df.rename(columns={taz_id_col: 'TAZ', puma_id_col: 'PUMA'})
 
 # 3. Join maz_taz_county_df to taz_puma_df (left join on TAZ)
 maz_taz_county_puma_df = maz_taz_county_df.merge(taz_puma_df, on='TAZ', how='left')
@@ -148,94 +133,19 @@ for col in output_columns:
 crosswalk_out = crosswalk[output_columns].copy()
 
 # 7. Write to output
+
+# Remove rows with TAZ == 0 or NaN
+before = len(crosswalk_out)
+crosswalk_out = crosswalk_out[~crosswalk_out['TAZ'].isna()]
+crosswalk_out = crosswalk_out[crosswalk_out['TAZ'] != '0']
+after = len(crosswalk_out)
+removed = before - after
+if removed > 0:
+    print(f"[CLEANUP] Removed {removed} rows with TAZ=0 or NaN", flush=True)
+
 crosswalk_out.to_csv(OUTPUT_CROSSWALK, index=False)
 print(f"[INFO] Wrote unified crosswalk to {OUTPUT_CROSSWALK} ({len(crosswalk_out)} rows)", flush=True)
 
 
 
 
-# --- Two-step process: Use or create temp MAZ-TAZ-PUMA-COUNTY file ---
-import geopandas as gpd
-from pathlib import Path
-TEMP_MAZ_FILE = Path("maz_taz_puma_county_temp.csv")
-taz_shp = config.EXTERNAL_PATHS['taz_shapefile']
-puma_shp = config.EXTERNAL_PATHS['puma_shapefile']
-
-if TEMP_MAZ_FILE.exists():
-    print(f"[INFO] Temp file {TEMP_MAZ_FILE} found. Loading instead of recomputing spatial joins...", flush=True)
-    if str(TEMP_MAZ_FILE).endswith('.csv'):
-        import pandas as pd
-        taz_puma_df = pd.read_csv(TEMP_MAZ_FILE, dtype=str)
-    else:
-        taz_puma_df = gpd.read_file(TEMP_MAZ_FILE)
-    # Ensure TAZ column is uppercase for merge
-    if 'taz' in taz_puma_df.columns and 'TAZ' not in taz_puma_df.columns:
-        taz_puma_df = taz_puma_df.rename(columns={'taz': 'TAZ'})
-else:
-    import time
-    print(f"[SPATIAL] Loading TAZ shapefile: {taz_shp}", flush=True)
-    taz_gdf = gpd.read_file(taz_shp)
-    print(f"[SPATIAL] Loading PUMA shapefile: {puma_shp}", flush=True)
-    puma_gdf = gpd.read_file(puma_shp)
-    taz_col = 'TAZ' if 'TAZ' in taz_gdf.columns else taz_gdf.columns[0]
-    puma_col = 'PUMA20' if 'PUMA20' in puma_gdf.columns else (
-        'PUMACE20' if 'PUMACE20' in puma_gdf.columns else puma_gdf.columns[0])
-    taz_gdf[taz_col] = taz_gdf[taz_col].astype(str)
-    puma_gdf[puma_col] = puma_gdf[puma_col].astype(str)
-    taz_groups = taz_gdf.groupby(taz_col)
-    taz_assignments = {}
-    total_taz = len(taz_groups)
-    print(f"[INFO] Starting TAZ-PUMA assignment for {total_taz} TAZs...", flush=True)
-    start_time = time.time()
-    for i, (taz_id, taz_group) in enumerate(taz_groups, 1):
-        if i % 25 == 0 or i == 1 or i == total_taz:
-            elapsed = time.time() - start_time
-            print(f"  Processing TAZ {i}/{total_taz} (ID: {taz_id}) - Elapsed: {elapsed:.1f}s", flush=True)
-        taz_geom = taz_group.geometry.unary_union
-        intersecting_pumas = []
-        for idx, puma_row in puma_gdf.iterrows():
-            if taz_geom.intersects(puma_row.geometry):
-                intersecting_pumas.append((idx, puma_row[puma_col], puma_row.geometry))
-        if len(intersecting_pumas) == 0:
-            distances = [(idx, taz_geom.distance(puma_row.geometry), puma_row[puma_col]) for idx, puma_row in puma_gdf.iterrows()]
-            nearest_idx, _, nearest_puma = min(distances, key=lambda x: x[1])
-            taz_assignments[taz_id] = nearest_puma
-        elif len(intersecting_pumas) == 1:
-            _, puma_id, _ = intersecting_pumas[0]
-            taz_assignments[taz_id] = puma_id
-        else:
-            max_area = 0
-            best_puma = None
-            for _, puma_id, puma_geom in intersecting_pumas:
-                intersection = taz_geom.intersection(puma_geom)
-                area = intersection.area
-                if area > max_area:
-                    max_area = area
-                    best_puma = puma_id
-            taz_assignments[taz_id] = best_puma if best_puma else intersecting_pumas[0][1]
-    print(f"[INFO] Finished TAZ-PUMA assignment in {time.time() - start_time:.1f}s.", flush=True)
-    taz_puma_df = pd.DataFrame(list(taz_assignments.items()), columns=['TAZ', 'PUMA'])
-    # If TAZ column is lower case, rename to upper for consistency
-    if 'taz' in taz_puma_df.columns and 'TAZ' not in taz_puma_df.columns:
-        taz_puma_df = taz_puma_df.rename(columns={'taz': 'TAZ'})
-    taz_puma_df.to_csv(TEMP_MAZ_FILE, index=False)
-    print(f"[INFO] Saved TAZ-PUMA mapping to {TEMP_MAZ_FILE}", flush=True)
-
-
-# (Removed all legacy maz_taz_county_puma_file logic; only config-driven files and new county file logic are used.)
-
-
-
-
-# (Removed all legacy maz_with_counties and MAZ_TAZ_COUNTY_PUMA_FILE logic. Only config-driven county file logic is used.)
-
-
-
-
-# --- Load authoritative MAZ/TAZ/COUNTY/PUMA file ---
-
-# (Removed reference to needed_cols, which is now undefined. Use only config-driven logic above.)
-crosswalk.to_csv(OUTPUT_CROSSWALK, index=False)
-crosswalk.to_csv(OUTPUT_CROSSWALK, index=False)
-
-# (Removed all legacy maz_with_counties and MAZ_TAZ_COUNTY_PUMA_FILE logic. Only config-driven county file logic is used.)
