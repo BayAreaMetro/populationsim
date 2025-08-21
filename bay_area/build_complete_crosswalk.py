@@ -35,34 +35,17 @@ def build_complete_crosswalk():
     
     maz_taz_def_df = None
     
-    # Try the network location first (full geography file)
+    # Always rebuild the full geography file before loading
+    print(f"   - Rebuilding full geography file: {MAZ_TAZ_ALL_GEOG_FILE}")
+    rebuild_maz_taz_all_geog_file()
     if os.path.exists(MAZ_TAZ_ALL_GEOG_FILE):
         print(f"   - Loading full geography file: {MAZ_TAZ_ALL_GEOG_FILE}")
         maz_taz_def_df = pd.read_csv(MAZ_TAZ_ALL_GEOG_FILE)
         print(f"   - Loaded {len(maz_taz_def_df)} records")
         print(f"   - Columns: {list(maz_taz_def_df.columns)}")
     else:
-        # Fall back to the basic file and build block GEOIDs
-        print(f"   - Full geography file not found, using basic file: {MAZ_TAZ_DEF_FILE}")
-        if os.path.exists(MAZ_TAZ_DEF_FILE):
-            maz_taz_def_df = pd.read_csv(MAZ_TAZ_DEF_FILE)
-            print(f"   - Loaded {len(maz_taz_def_df)} records")
-            print(f"   - Original columns: {list(maz_taz_def_df.columns)}")
-            
-            # Convert to standard format
-            maz_taz_def_df.rename(columns={"maz": "MAZ", "taz": "TAZ"}, inplace=True)
-            
-            # Create block GEOID from GEOID10 if available
-            if 'GEOID10' in maz_taz_def_df.columns:
-                maz_taz_def_df["GEOID_block"] = "0" + maz_taz_def_df["GEOID10"].astype(str)
-                print(f"   - Created GEOID_block from GEOID10")
-            else:
-                print("   ERROR: No GEOID10 column found to create block GEOIDs!")
-                return
-                
-        else:
-            print(f"   ERROR: Neither full nor basic MAZ/TAZ definition file found!")
-            return
+        print(f"   ERROR: Could not rebuild or find {MAZ_TAZ_ALL_GEOG_FILE}!")
+        return
     
     # Step 2: Create aggregate geography columns if not present
     print("\n2. CREATING AGGREGATE GEOGRAPHY COLUMNS...")

@@ -14,3 +14,15 @@ MainProcess,expand_households,4.0,0.1
 MainProcess,summarize,4224.9,70.4
 MainProcess,write_tables,8.1,0.1
 MainProcess,write_synthetic_population,127.2,2.1
+MainProcess,input_pre_processor,11.9,0.2
+MainProcess,setup_data_structures,6.4,0.1
+MainProcess,initial_seed_balancing,215.9,3.6
+MainProcess,meta_control_factoring,0.2,0.0
+MainProcess,final_seed_balancing,261.1,4.4
+MainProcess,integerize_final_seed_weights,14.0,0.2
+MainProcess,sub_balancing.geography=TAZ,9998.5,166.6
+MainProcess,sub_balancing.geography=MAZ,10331.9,172.2
+MainProcess,expand_households,1.7,0.0
+MainProcess,summarize,2926.8,48.8
+MainProcess,write_tables,5.7,0.1
+MainProcess,write_synthetic_population,90.5,1.5

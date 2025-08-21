@@ -92,16 +92,14 @@ def verify_input_files():
     """Verify that all required input files are accessible."""
     logger = logging.getLogger()
     
-    from tm2_control_utils.config_census import MAZ_TAZ_DEF_FILE, MAZ_TAZ_ALL_GEOG_FILE, CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
-    
-    logger.info("Checking file accessibility")
-    
+    from tm2_control_utils.config_census import unified_config
+    logger.info("Checking file accessibility (unified config)")
+
     required_files = [
-        ("MAZ/TAZ definitions", MAZ_TAZ_DEF_FILE),
-        ("MAZ/TAZ all geography", MAZ_TAZ_ALL_GEOG_FILE),
-        ("Census API key", CENSUS_API_KEY_FILE),
+        ("Regular crosswalk", str(unified_config.CROSSWALK_FILES['popsim_crosswalk'])),
+        ("Enhanced crosswalk", str(unified_config.CROSSWALK_FILES['enhanced_crosswalk'])),
     ]
-    
+
     missing_files = []
     for desc, filepath in required_files:
         if not os.path.exists(filepath):
@@ -109,19 +107,11 @@ def verify_input_files():
             logger.error(f"Missing {desc}: {filepath}")
         else:
             logger.info(f"Found {desc}: {filepath}")
-    
-    # Check cache directory
-    if not os.path.exists(LOCAL_CACHE_FOLDER):
-        missing_files.append(("Census cache directory", LOCAL_CACHE_FOLDER))
-        logger.error(f"Missing census cache directory: {LOCAL_CACHE_FOLDER}")
-    else:
-        logger.info(f"Found census cache directory: {LOCAL_CACHE_FOLDER}")
-    
+
     if missing_files:
-        logger.error(f"Missing {len(missing_files)} required files/directories")
-        logger.error("Make sure you're connected to the MTC network or files are available locally")
+        logger.error(f"Missing {len(missing_files)} required files")
         return False
-    
+
     logger.info("All required files are accessible")
     return True
 
@@ -185,76 +175,11 @@ def copy_network_data_to_local():
 
 def configure_file_paths(use_local=False):
     """
-    Configure file paths based on whether to use local or network storage.
-    Updates the global config variables.
+    Deprecated: All file paths are now managed by the unified config. This function is obsolete and does nothing.
     """
-    global MAZ_TAZ_DEF_FILE, MAZ_TAZ_ALL_GEOG_FILE
-    global CENSUS_API_KEY_FILE, LOCAL_CACHE_FOLDER
-    
-    if use_local:
-        MAZ_TAZ_DEF_FILE = LOCAL_MAZ_TAZ_DEF_FILE
-        MAZ_TAZ_ALL_GEOG_FILE = LOCAL_MAZ_TAZ_ALL_GEOG_FILE
-        CENSUS_API_KEY_FILE = LOCAL_CENSUS_API_KEY_FILE
-        
-        # Check for input_2023 cache directory first, then fall back to local_data cache
-        if os.path.exists(INPUT_2023_CACHE_FOLDER):
-            LOCAL_CACHE_FOLDER = INPUT_2023_CACHE_FOLDER
-            print(f"Using input_2023 cache directory: {INPUT_2023_CACHE_FOLDER}")
-        else:
-            LOCAL_CACHE_FOLDER = LOCAL_CACHE_FOLDER  # Use local_data cache
-            print(f"Using local_data cache directory: {LOCAL_CACHE_FOLDER}")
-    else:
-        MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE
-        MAZ_TAZ_ALL_GEOG_FILE = NETWORK_MAZ_TAZ_ALL_GEOG_FILE
-        CENSUS_API_KEY_FILE = NETWORK_CENSUS_API_KEY_FILE
-        
-        # For network mode, check for input_2023 cache first as fallback
-        if os.path.exists(INPUT_2023_CACHE_FOLDER):
-            LOCAL_CACHE_FOLDER = INPUT_2023_CACHE_FOLDER
-            print(f"Using input_2023 cache directory as fallback: {INPUT_2023_CACHE_FOLDER}")
-        else:
-            LOCAL_CACHE_FOLDER = NETWORK_CACHE_FOLDER
+    pass
 
 
-def check_file_accessibility_with_mode(use_local=False):
-    """
-    Check if all required files are accessible for the specified mode.
-    Returns True if all required files exist, False otherwise.
-    """
-    logger = logging.getLogger(__name__)
-    mode_str = "LOCAL" if use_local else "NETWORK"
-    logger.info(f"Checking file accessibility in {mode_str} mode")
-    
-    # Check for input_2023 cache directory first
-    if os.path.exists(INPUT_2023_CACHE_FOLDER):
-        logger.info(f"Detected input_2023 cache directory: {INPUT_2023_CACHE_FOLDER}")
-    
-    # Configure paths based on mode
-    configure_file_paths(use_local)
-    
-    required_files = [
-        ("MAZ/TAZ definitions", MAZ_TAZ_DEF_FILE),
-        ("MAZ/TAZ all geography", MAZ_TAZ_ALL_GEOG_FILE),
-        ("Census API key", CENSUS_API_KEY_FILE),
-        ("census cache directory", LOCAL_CACHE_FOLDER),
-    ]
-    
-    all_accessible = True
-    for desc, filepath in required_files:
-        if os.path.exists(filepath):
-            logger.info(f"Found {desc}: {filepath}")
-        else:
-            logger.error(f"Missing {desc}: {filepath}")
-            all_accessible = False
-    
-    if all_accessible:
-        logger.info("All required files are accessible")
-    else:
-        logger.error("Some required files are missing")
-        if not use_local:
-            logger.info("Try using --copy-data to copy network files to local storage, then --use-local")
-        
-    return all_accessible
 
 
 def show_control_categories():
@@ -313,10 +238,10 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
         control_df = control_df.reset_index()
     
     # Get county mapping from the crosswalk file (same approach as the validation function)
-    from tm2_control_utils.config_census import GEO_CROSSWALK_TM2_PATH
+    from tm2_control_utils.config_census import unified_config
     import os
     
-    geo_crosswalk_file = GEO_CROSSWALK_TM2_PATH
+    geo_crosswalk_file = str(unified_config.CROSSWALK_FILES['enhanced_crosswalk'])
     if not os.path.exists(geo_crosswalk_file):
         logger.error(f"Crosswalk file not found: {geo_crosswalk_file}")
         return control_df

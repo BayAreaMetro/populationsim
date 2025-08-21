@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# TODO: Some of the paths listed below are legacy fallbacks and are not required.
+# We need to clean up this config to only include the required files and paths.
 """
 Unified TM2 PopulationSim Configuration
 Single source of truth for ALL paths, commands, and workflow logic
@@ -17,7 +19,7 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
+        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
@@ -31,9 +33,11 @@ class UnifiedTM2Config:
         self.PRIMARY_OUTPUT_DIR = self.OUTPUT_DIR
         
         # Example/reference data directories (for template employment/land use data)
+        # LEGACY: Only used for reference/testing, not required for production
         self.EXAMPLE_CONTROLS_DIR = self.BASE_DIR / "example_controls_2015"
-        
+            
         # Test PUMA setting (for single PUMA testing)
+        # LEGACY: Only used for debugging or fast test runs
         # Set to specific PUMA for fast testing, or None for full synthesis
         self.TEST_PUMA = None  # Disabled - run full synthesis to test GQ fixes
         
@@ -154,18 +158,16 @@ class UnifiedTM2Config:
             'populationsim_update': Path("c:/GitHub/populationsim_update/bay_area"),
             # Census data cache
             'census_cache': self.BASE_DIR / "data_cache" / "census",
-            # Network locations (M: drive) - with fallbacks
-            'network_gis': Path("M:/Data/GIS layers/TM2_maz_taz_v2.2"),
+            'network_gis': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
             'network_census_cache': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls"),
             'network_census_api': Path("M:/Data/Census/API/new_key"),
-            # PUMS data locations (both current and cached)
             'pums_current': Path("M:/Data/Census/PUMS_2023_5Year_Crosswalked"),
             'pums_cached': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23"),
-            # Local fallback paths
-            'local_data': self.BASE_DIR / "local_data",
-            'local_gis': self.BASE_DIR / "local_data" / "gis", 
-            'local_census': self.BASE_DIR / "local_data" / "census",
-            'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls",
+            # LEGACY: Local fallback paths - not required for config-driven runs
+            #'local_data': self.BASE_DIR / "local_data",
+            #'local_gis': self.BASE_DIR / "local_data" / "gis", 
+            #'local_census': self.BASE_DIR / "local_data" / "census",
+            #'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls",
             # Shapefiles for geographic processing
             'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
             'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
@@ -173,31 +175,7 @@ class UnifiedTM2Config:
             # Geographic crosswalk source
             'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv")
         }
-        
-        # ============================================================
-        # GIS AND REFERENCE FILES
-        # ============================================================
-        self.GIS_FILES = {
-            # Network locations (preferred)
-            'maz_taz_def_network': self.EXTERNAL_PATHS['network_gis'] / "blocks_mazs_tazs.csv",
-            'maz_taz_all_geog_network': self.EXTERNAL_PATHS['network_gis'] / "mazs_tazs_all_geog.csv",
-            # Local fallbacks
-            'maz_taz_def_local': self.EXTERNAL_PATHS['local_gis'] / "blocks_mazs_tazs.csv",
-            'maz_taz_all_geog_local': self.EXTERNAL_PATHS['local_gis'] / "mazs_tazs_all_geog.csv",
-            # Census API key locations
-            'census_api_key_network': self.EXTERNAL_PATHS['network_census_api'] / "api-key.txt",
-            'census_api_key_local': self.EXTERNAL_PATHS['local_census'] / "api-key.txt"
-        }
-        
-        # ============================================================
-        # CACHE DIRECTORIES (with fallback logic)
-        # ============================================================
-        self.CACHE_DIRS = {
-            'network_cache': self.EXTERNAL_PATHS['network_census_cache'],
-            'local_cache': self.EXTERNAL_PATHS['local_census'] / "cache",
-            'input_2023_cache': self.EXTERNAL_PATHS['input_2023_cache']
-        }
-        
+
         # ============================================================
         # SHAPEFILE PATHS
         # ============================================================
@@ -280,8 +258,10 @@ class UnifiedTM2Config:
         self.CROSSWALK_FILES = {
             # Primary crosswalk (PopulationSim expects this in data directory)
             'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
-            # PopulationSim needs this specific filename
+            # PopulationSim default crosswalk (regular)
             'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
+            # Enhanced crosswalk (for controls step)
+            'enhanced_crosswalk': self.POPSIM_DATA_DIR / 'geo_cross_walk_tm2_enhanced.csv',
         }
         
         # ============================================================
@@ -385,29 +365,18 @@ class UnifiedTM2Config:
                 'populationsim_results': self.BASE_DIR / "analysis" / "analyze_populationsim_results.py",
                 'full_dataset': self.BASE_DIR / "analysis" / "analyze_full_dataset.py", 
                 'performance': self.BASE_DIR / "analysis" / "analyze_corrected_populationsim_performance.py",
-                'group_quarters': self.BASE_DIR / "analysis" / "analyze_gq_issue.py",
-                'postprocessing_req': self.BASE_DIR / "analysis" / "analyze_postprocessing_requirements.py",
                 'regional_income': self.BASE_DIR / "analysis" / "analyze_regional_income_distribution.py",
-                'remaining_bias': self.BASE_DIR / "analysis" / "analyze_remaining_bias.py",
                 'quick_analysis': self.BASE_DIR / "analysis" / "quick_corrected_analysis.py"
             },
             
             'validation_scripts': {
                 'income_vs_acs': self.BASE_DIR / "analysis" / "validate_income_vs_acs.py",
-                'vehicle_ownership': self.BASE_DIR / "analysis" / "validate_vehicle_ownership.py",
                 'data_validation': self.BASE_DIR / "analysis" / "data_validation.py",
-                'detailed_validation': self.BASE_DIR / "analysis" / "detailed_data_validation.py"
             },
             
             'check_scripts': {
                 'taz_controls_rollup': self.BASE_DIR / "analysis" / "check_taz_controls_rollup.py",
-                'census_vintage': self.BASE_DIR / "analysis" / "check_census_vintage.py",
-                'puma_mismatch': self.BASE_DIR / "analysis" / "check_puma_mismatch.py"
-            },
-            
-            'debug_scripts': {
-                'income_mismatch': self.BASE_DIR / "analysis" / "debug_income_mismatch.py",
-                'geographic_aggregation': self.BASE_DIR / "analysis" / "debug_geographic_aggregation.py"
+                
             },
             
             'visualization_scripts': {

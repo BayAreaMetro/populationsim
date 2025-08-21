@@ -6,16 +6,16 @@
 
 ### Key Metrics
 - **Target Non-GQ Households**: 3,031,766
-- **Synthetic Regular Households**: 3,063,009.0
-- **Net Difference**: 31,243.0 (1.031%)
-- **R-squared**: 0.890949
+- **Synthetic Regular Households**: 3,063,020.0
+- **Net Difference**: 31,254.0 (1.031%)
+- **R-squared**: 0.890961
 
 ### MAZ Performance Distribution
-- **Perfect Matches**: 33,542 MAZs (84.7%)
+- **Perfect Matches**: 33,543 MAZs (84.7%)
 - **Total MAZs**: 39,586
 
 ### Group Quarters Handling
-- **GQ Households Created**: 147,447
+- **GQ Households Created**: 147,436
 - **Previous Issue**: These were incorrectly included in household performance metrics
 
 ## Key Discovery
