@@ -1,3 +1,0 @@
-process_name,model_name,seconds,minutes
-MainProcess,input_pre_processor,15.0,0.3
-MainProcess,setup_data_structures,11.9,0.2

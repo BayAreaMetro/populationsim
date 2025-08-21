@@ -19,7 +19,7 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
+        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
