@@ -2021,13 +2021,18 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         # Use unified configuration's FIPS-to-sequential mapping
         from unified_tm2_config import config
         fips_to_sequential = config.get_fips_to_sequential_mapping()
-        
+
+        # Log the type and contents of out_df['COUNTY'] before applying conversion
+        logger.info(f"[DEBUG] out_df['COUNTY'] type: {type(out_df['COUNTY'])}")
+        logger.info(f"[DEBUG] out_df['COUNTY'] head: {out_df['COUNTY'].head()}")
+
         def convert_fips_to_sequential(fips_code):
             if pd.isna(fips_code):
                 return fips_code
-            fips_int = int(fips_code) % 100 if fips_code > 100 else int(fips_code)
+            fips_int = int(fips_code)
+            fips_int = fips_int % 100 if fips_int > 100 else fips_int
             return fips_to_sequential.get(fips_int, fips_int)
-        
+
         out_df['COUNTY'] = out_df['COUNTY'].apply(convert_fips_to_sequential)
         logger.info(f"Converted COUNTY values: {sorted(out_df['COUNTY'].unique())}")
         
