@@ -2517,11 +2517,9 @@ def main():
     #         logger.error("Cannot access required local files. Run with --copy-data first.")
     #         return 1
     # else:
+
     logger.info("Using NETWORK data mode - reading from M: drive")
     configure_file_paths(use_local=False)
-    if not check_file_accessibility_with_mode(use_local=False):
-            logger.error("Cannot access required network files. Try --copy-data then --use-local.")
-            return 1
 
 
     logger.info("Preparing geography lookups")

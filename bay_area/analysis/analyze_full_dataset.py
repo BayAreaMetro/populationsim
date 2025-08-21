@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 #!/usr/bin/env python3
 """
 Optimized Full Dataset Analysis for PopulationSim TM2 Output
@@ -11,6 +14,7 @@ import logging
 from collections import defaultdict
 import gc
 from unified_tm2_config import UnifiedTM2Config
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -264,6 +268,32 @@ def generate_optimized_summary(config):
             gq_label = gq_labels.get(int(gq_code), f'GQ Type {gq_code}')
             summary.append(f"- {gq_label}: {count:,} ({pct:.1f}%)")
         summary.append("")
+    
+    # === HOUSEHOLD INCOME SUMMARY ===
+    # Only summarize income if already in 2010 dollars
+    income_2010 = None
+    income_col = None
+    income_candidates = ['hh_income_2010', 'HHINCADJ']
+    for col in income_candidates:
+        if col in hh_stats:
+            income_col = col
+            break
+    if income_col is not None:
+        income_2010 = []
+        for chunk in pd.read_csv(households_file, chunksize=50000, usecols=[income_col]):
+            vals = pd.to_numeric(chunk[income_col], errors='coerce').dropna()
+            income_2010.append(vals)
+        income_2010 = pd.concat(income_2010)
+        if len(income_2010) > 0:
+            summary.append('### Household Income Distribution (2010$)')
+            summary.append(f"- Mean: ${income_2010.mean():,.0f}")
+            summary.append(f"- Median: ${income_2010.median():,.0f}")
+            summary.append(f"- Min: ${income_2010.min():,.0f}")
+            summary.append(f"- Max: ${income_2010.max():,.0f}")
+            for pct in [10, 25, 50, 75, 90]:
+                val = income_2010.quantile(pct/100)
+                summary.append(f"- {pct}th percentile: ${val:,.0f}")
+            summary.append("")
     
     # === SUMMARY STATISTICS ===
     summary.append("## Key Summary Statistics")

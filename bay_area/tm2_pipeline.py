@@ -583,7 +583,7 @@ class TM2Pipeline:
         """Run the complete pipeline or a subset"""
         
         # Default pipeline includes geographic rebuild before controls
-        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess'
+        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess']
         
         # If start_step is explicitly 'pums', include it
         if start_step == 'pums':

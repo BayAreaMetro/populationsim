@@ -356,7 +356,7 @@ class HouseholdProcessor:
         return df
 
     def _create_income_fields(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create income fields in both 2010 and 2023 dollars from HINCP using proper ADJINC adjustment"""
+        """Create income fields in both 2023 and 2010 dollars from HINCP using proper ADJINC adjustment"""
         if 'HINCP' not in df.columns:
             logger.warning("HINCP column not found - cannot create income fields")
             return df
@@ -366,21 +366,14 @@ class HouseholdProcessor:
             logger.error("HINCP values are in survey year dollars and must be adjusted with ADJINC")
             return df
         
-        # Step 1: Apply ADJINC to get income in 2021 dollars (PUMS standard reference year)
-        # ADJINC is provided as integer with 6 implied decimal places
-        # Formula: (ADJINC / 1,000,000) * HINCP = 2021 dollars
-        logger.info("   Applying ADJINC factor to convert survey year income to 2021 dollars...")
+        # Step 1: Apply ADJINC to get income in 2023 dollars
+        logger.info("   Applying ADJINC factor to convert survey year income to 2023 dollars...")
         
         valid_mask = (df['HINCP'] > 0) & (df['ADJINC'] > 0)
-        df['hh_income_2021'] = 0.0
-        df.loc[valid_mask, 'hh_income_2021'] = (df.loc[valid_mask, 'ADJINC'] / 1_000_000) * df.loc[valid_mask, 'HINCP']
+        df['hh_income_2023'] = 0.0
+        df.loc[valid_mask, 'hh_income_2023'] = (df.loc[valid_mask, 'ADJINC'] / 1_000_000) * df.loc[valid_mask, 'HINCP']
         
-        # Step 2: Convert 2021 dollars to 2023 dollars for reference
-        # CPI 2021 ≈ 270.970, CPI 2023 ≈ 310.0
-        cpi_2021_to_2023 = 310.0 / 270.970
-        df['hh_income_2023'] = df['hh_income_2021'] * cpi_2021_to_2023
-        
-        # Step 3: Convert 2023 dollars to 2010 dollars for PopulationSim controls  
+        # Step 2: Convert 2023 dollars to 2010 dollars for PopulationSim controls  
         # Note: 2023 ACS data requires 2023→2010 conversion, not 2021→2010
         # CPI 2023 ≈ 310.0, CPI 2010 = 218.056  
         cpi_2023_to_2010 = 218.056 / 310.0
@@ -393,12 +386,11 @@ class HouseholdProcessor:
             adjinc_factors = (df.loc[valid_mask, 'ADJINC'] / 1_000_000).describe()
             logger.info(f"   ADJINC factors: min={adjinc_factors['min']:.6f}, max={adjinc_factors['max']:.6f}, mean={adjinc_factors['mean']:.6f}")
             
-            median_2021 = df.loc[valid_mask, 'hh_income_2021'].median()
             median_2023 = df.loc[valid_mask, 'hh_income_2023'].median()
             median_2010 = df.loc[valid_mask, 'hh_income_2010'].median()
             
             logger.info(f"   Created income fields for {valid_income_count:,} households")
-            logger.info(f"   Median income: 2021=${median_2021:,.0f} → 2023=${median_2023:,.0f} → 2010=${median_2010:,.0f}")
+            logger.info(f"   Median income: 2023=${median_2023:,.0f} → 2010=${median_2010:,.0f}")
             logger.info(f"   CPI conversion: 2023→2010 factor = {cpi_2023_to_2010:.4f}")
             
             # Validate against expected Bay Area medians (rough check)

@@ -362,7 +362,6 @@ class UnifiedTM2Config:
             # Analysis scripts (organized by category)
             'scripts_dir': self.BASE_DIR / "analysis",
             'main_scripts': {
-                'populationsim_results': self.BASE_DIR / "analysis" / "analyze_populationsim_results.py",
                 'full_dataset': self.BASE_DIR / "analysis" / "analyze_full_dataset.py", 
                 'performance': self.BASE_DIR / "analysis" / "analyze_corrected_populationsim_performance.py",
                 'regional_income': self.BASE_DIR / "analysis" / "analyze_regional_income_distribution.py",
@@ -473,25 +472,11 @@ class UnifiedTM2Config:
                 str(self.ANALYSIS_FILES['validation_scripts']['income_vs_acs'])
             ],
             
-            'validate_vehicles': [
-                "python",
-                str(self.ANALYSIS_FILES['validation_scripts']['vehicle_ownership'])
-            ],
-            
             'check_controls': [
                 "python",
                 str(self.ANALYSIS_FILES['check_scripts']['taz_controls_rollup'])
-            ],
-            
-            'visualize_geography': [
-                "python",
-                str(self.ANALYSIS_FILES['visualization_scripts']['taz_puma_mapping'])
-            ],
-            
-            'debug_income': [
-                "python",
-                str(self.ANALYSIS_FILES['debug_scripts']['income_mismatch'])
             ]
+
         }
     
     # ============================================================

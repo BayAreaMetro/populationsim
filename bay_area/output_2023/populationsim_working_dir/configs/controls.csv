@@ -8,14 +8,6 @@ hh_size_1,TAZ,households,100000,hh_size_1_gq,households.NP == 1
 hh_size_2,TAZ,households,100000,hh_size_2,households.NP == 2
 hh_size_3,TAZ,households,100000,hh_size_3,households.NP == 3
 hh_size_4_plus,TAZ,households,100000,hh_size_4_plus,households.NP >= 4
-hhinc_0_14,TAZ,households,1000000,hhinc_0_14,(households.hhgqtype==0) & (households.hh_income_2010 >= 0) & (households.hh_income_2010 <= 13999)
-hhinc_14_30,TAZ,households,1000000,hhinc_14_30,(households.hhgqtype==0) & (households.hh_income_2010 >= 14000) & (households.hh_income_2010 <= 29999)
-hhinc_45_60,TAZ,households,1000000,hhinc_45_60,(households.hhgqtype==0) & (households.hh_income_2010 >= 45000) & (households.hh_income_2010 <= 59999)
-hhinc_60_75,TAZ,households,1000000,hhinc_60_75,(households.hhgqtype==0) & (households.hh_income_2010 >= 60000) & (households.hh_income_2010 <= 74999)
-hhinc_75_100,TAZ,households,1000000,hhinc_75_100,(households.hhgqtype==0) & (households.hh_income_2010 >= 75000) & (households.hh_income_2010 <= 99999)
-hhinc_125_150,TAZ,households,1000000,hhinc_125_150,(households.hhgqtype==0) & (households.hh_income_2010 >= 125000) & (households.hh_income_2010 <= 149999)
-hhinc_150_200,TAZ,households,1000000,hhinc_150_200,(households.hhgqtype==0) & (households.hh_income_2010 >= 150000) & (households.hh_income_2010 <= 199999)
-hhinc_200_plus,TAZ,households,1000000,hhinc_200_plus,(households.hhgqtype==0) & (households.hh_income_2010 >= 200000)
 hh_wrks_0,TAZ,households,10000,hh_wrks_0,(households.hhgqtype==0) & (households.hh_workers_from_esr == 0)
 hh_wrks_1,TAZ,households,10000,hh_wrks_1,(households.hhgqtype==0) & (households.hh_workers_from_esr == 1)
 hh_wrks_2,TAZ,households,10000,hh_wrks_2,(households.hhgqtype==0) & (households.hh_workers_from_esr == 2)
@@ -31,3 +23,11 @@ pers_occ_professional,COUNTY,persons,10000,pers_occ_professional,(persons.occupa
 pers_occ_services,COUNTY,persons,10000,pers_occ_services,(persons.occupation == 3) & (persons.employed == 1)
 pers_occ_retail,COUNTY,persons,10000,pers_occ_retail,(persons.occupation == 4) & (persons.employed == 1)
 pers_occ_manual_military,COUNTY,persons,10000,pers_occ_manual_military,(persons.occupation == 5) & (persons.employed == 1)
+inc_lt_20k,TAZ,households,1000000,inc_lt_20k,(households.hhgqtype==0) & (households.hh_income_2023 >= 0) & (households.hh_income_2023 <= 19999)
+inc_20k_45k,TAZ,households,1000000,inc_20k_45k,(households.hhgqtype==0) & (households.hh_income_2023 >= 20000) & (households.hh_income_2023 <= 44999)
+inc_45k_60k,TAZ,households,1000000,inc_45k_60k,(households.hhgqtype==0) & (households.hh_income_2023 >= 45000) & (households.hh_income_2023 <= 59999)
+inc_60k_75k,TAZ,households,1000000,inc_60k_75k,(households.hhgqtype==0) & (households.hh_income_2023 >= 60000) & (households.hh_income_2023 <= 74999)
+inc_75k_100k,TAZ,households,1000000,inc_75k_100k,(households.hhgqtype==0) & (households.hh_income_2023 >= 75000) & (households.hh_income_2023 <= 99999)
+inc_100k_150k,TAZ,households,1000000,inc_100k_150k,(households.hhgqtype==0) & (households.hh_income_2023 >= 100000) & (households.hh_income_2023 <= 149999)
+inc_150k_200k,TAZ,households,1000000,inc_150k_200k,(households.hhgqtype==0) & (households.hh_income_2023 >= 150000) & (households.hh_income_2023 <= 199999)
+inc_200k_plus,TAZ,households,1000000,inc_200k_plus,(households.hhgqtype==0) & (households.hh_income_2023 >= 200000)
