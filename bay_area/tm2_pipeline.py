@@ -582,12 +582,12 @@ class TM2Pipeline:
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
         
-        # Default pipeline includes geographic rebuild before controls
-        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess']
-        
+        # Default pipeline steps, synced with config
+        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
+
         # If start_step is explicitly 'pums', include it
         if start_step == 'pums':
-            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess']
+            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
         
         # Determine step range
         if start_step:
@@ -632,14 +632,6 @@ class TM2Pipeline:
                 self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
             else:
                 self.log(f"{step.ljust(15)}: ✗ INCOMPLETE", "STATUS")
-        
-        # Show available analysis sub-steps
-        self.log("")
-        self.log("Available Analysis Sub-steps:")
-        self.log("-" * 40)
-        analysis_steps = ['validate_income']
-        for step in analysis_steps:
-            self.log(f"{step.ljust(15)}: Available", "INFO")
     
     def clean(self, step_name=None):
         """Clean outputs for a specific step or all steps"""

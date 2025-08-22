@@ -1,90 +1,80 @@
 # PopulationSim TM2 Full Dataset Analysis
-Generated on: 2025-08-21 09:50:54
+Generated on: 2025-08-22 13:18:33
 *Based on complete datasets - all 3.2M households and 7.8M persons*
 
 ## Complete Household Analysis
-**Total Households:** 3,210,456
-
-### Vehicle Ownership Distribution (Complete Dataset)
-- 0 vehicles: 470,744 (14.7%)
-- 1 vehicle: 985,465 (30.7%)
-- 2 vehicles: 1,082,210 (33.7%)
-- 3 vehicles: 431,657 (13.4%)
-- 4 vehicles: 158,405 (4.9%)
-- 5 vehicles: 55,123 (1.7%)
-- 6 vehicles: 26,852 (0.8%)
+**Total Households:** 3,209,702
 
 ### Household Size Distribution
-- 1 person: 881,634 (27.5%)
-- 2 persons: 1,035,177 (32.2%)
-- 3 persons: 530,212 (16.5%)
-- 4 persons: 621,196 (19.3%)
-- 5 persons: 94,584 (2.9%)
-- 6 persons: 24,952 (0.8%)
-- 7 persons: 12,075 (0.4%)
-- 8 persons: 5,105 (0.2%)
-- 9 persons: 3,041 (0.1%)
-- 10 persons: 2,029 (0.1%)
+- 1 person: 877,268 (27.3%)
+- 2 persons: 1,032,795 (32.2%)
+- 3 persons: 531,250 (16.6%)
+- 4 persons: 641,505 (20.0%)
+- 5 persons: 89,965 (2.8%)
+- 6 persons: 21,924 (0.7%)
+- 7 persons: 7,444 (0.2%)
+- 8 persons: 3,614 (0.1%)
+- 9 persons: 2,165 (0.1%)
+- 10 persons: 1,360 (0.0%)
 
 ### Geographic Distribution by County
-- San Francisco: 446,474 (13.9%)
-- San Mateo: 297,702 (9.3%)
-- Santa Clara: 743,624 (23.2%)
-- Alameda: 700,989 (21.8%)
-- Contra Costa: 443,338 (13.8%)
-- Solano: 178,666 (5.6%)
-- Napa: 61,225 (1.9%)
-- Sonoma: 218,009 (6.8%)
-- Marin: 120,429 (3.8%)
+- San Francisco: 446,400 (13.9%)
+- San Mateo: 297,710 (9.3%)
+- Santa Clara: 743,553 (23.2%)
+- Alameda: 700,736 (21.8%)
+- Contra Costa: 443,323 (13.8%)
+- Solano: 177,920 (5.5%)
+- Napa: 61,284 (1.9%)
+- Sonoma: 217,983 (6.8%)
+- Marin: 120,793 (3.8%)
 
 ## Complete Person Analysis
-**Total Persons:** 7,828,341
+**Total Persons:** 7,803,036
 
 ### Age Distribution (Complete Dataset)
-- 0-4: 380,248 (4.9%)
-- 5-17: 1,167,415 (14.9%)
-- 18-24: 541,019 (6.9%)
-- 25-34: 1,251,578 (16.0%)
-- 35-44: 1,203,773 (15.4%)
-- 45-54: 1,054,198 (13.5%)
-- 55-64: 935,039 (11.9%)
-- 65-74: 744,286 (9.5%)
-- 75+: 550,785 (7.0%)
+- 0-4: 373,097 (4.8%)
+- 5-17: 1,170,513 (15.0%)
+- 18-24: 552,816 (7.1%)
+- 25-34: 1,238,360 (15.9%)
+- 35-44: 1,212,904 (15.5%)
+- 45-54: 1,051,213 (13.5%)
+- 55-64: 914,393 (11.7%)
+- 65-74: 743,262 (9.5%)
+- 75+: 546,478 (7.0%)
 
 ### Gender Distribution
-- Male: 3,928,374 (50.2%)
-- Female: 3,899,967 (49.8%)
+- Male: 3,903,150 (50.0%)
+- Female: 3,899,886 (50.0%)
 
 ### Employment Status
-- Not Employed: 3,644,120 (46.6%)
-- Employed: 4,184,221 (53.4%)
+- Not Employed: 3,626,956 (46.5%)
+- Employed: 4,176,080 (53.5%)
 
 ### Group Quarters Distribution (Complete Dataset)
-- Regular Households: 7,680,905 (98.1%)
-- University GQ: 37,695 (0.5%)
-- Military GQ: 139 (0.0%)
-- Other GQ: 109,602 (1.4%)
+- Regular Households: 7,674,944 (98.4%)
+- University GQ: 20,217 (0.3%)
+- Military GQ: 135 (0.0%)
+- Other GQ: 107,740 (1.4%)
 
 ### Household Income Distribution (2010$)
-- Mean: $160,294
-- Median: $101,264
+- Mean: $123,740
+- Median: $88,925
 - Min: $0
-- Max: $1,962,469
-- 10th percentile: $10,994
-- 25th percentile: $53,020
-- 50th percentile: $101,264
-- 75th percentile: $220,146
-- 90th percentile: $347,834
+- Max: $1,715,388
+- 10th percentile: $11,023
+- 25th percentile: $40,082
+- 50th percentile: $88,925
+- 75th percentile: $163,076
+- 90th percentile: $267,194
 
 ## Key Summary Statistics
 
-**Average Household Income:** $160,294
-**Average Vehicles per Household:** 1.72
-**Average Household Size:** 2.44 persons
-**Average Age:** 40.1 years
+**Average Household Income:** $123,740
+**Average Household Size:** 2.43 persons
+**Average Age:** 40.0 years
 
 ---
 *This analysis processed the complete datasets:*
-*- 3,210,456 households analyzed in full*
-*- 7,828,341 persons analyzed in full*
+*- 3,209,702 households analyzed in full*
+*- 7,803,036 persons analyzed in full*
 *- All statistics represent the complete synthetic population*

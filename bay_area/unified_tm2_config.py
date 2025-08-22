@@ -12,6 +12,14 @@ import os
 import sys
 
 class UnifiedTM2Config:
+    @property
+    def SUMMARY_REPORT_FILE(self):
+        """Standard summary report file path in output_2023 directory."""
+        return self.OUTPUT_DIR / "validation_summary.txt"
+
+    def get_summary_file_path(self, name="validation_summary.txt"):
+        """Get a summary file path in the output_2023 directory (optionally override filename)."""
+        return self.OUTPUT_DIR / name
     """Single configuration class that handles everything"""
     
     def __init__(self, year=2023, model_type="TM2"):
@@ -19,7 +27,8 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
+        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
+        
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
@@ -369,13 +378,12 @@ class UnifiedTM2Config:
             },
             
             'validation_scripts': {
-                'income_vs_acs': self.BASE_DIR / "analysis" / "validate_income_vs_acs.py",
                 'data_validation': self.BASE_DIR / "analysis" / "data_validation.py",
             },
             
             'check_scripts': {
-                'taz_controls_rollup': self.BASE_DIR / "analysis" / "check_taz_controls_rollup.py",
-                
+                # 'taz_controls_rollup': self.BASE_DIR / "analysis" / "check_taz_controls_rollup.py",
+                # (Removed as requested)
             },
             
             'visualization_scripts': {
@@ -464,18 +472,8 @@ class UnifiedTM2Config:
                 str(self.BASE_DIR / "run_comprehensive_analysis.py"),
                 "--output_dir", str(self.OUTPUT_DIR),
                 "--year", str(self.YEAR)
-            ],
-            
-            # Individual analysis components (can be run separately)
-            'validate_income': [
-                "python", 
-                str(self.ANALYSIS_FILES['validation_scripts']['income_vs_acs'])
-            ],
-            
-            'check_controls': [
-                "python",
-                str(self.ANALYSIS_FILES['check_scripts']['taz_controls_rollup'])
             ]
+            
 
         }
     

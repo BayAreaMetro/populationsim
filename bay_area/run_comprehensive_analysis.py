@@ -153,22 +153,20 @@ class ComprehensiveAnalysisRunner:
         return all(results.values())
     
     def run_debug_scripts(self):
-        """Run all debug scripts"""
+        """Run all debug scripts (if any are defined in config)"""
         self.log("=" * 60)
         self.log("RUNNING DEBUG SCRIPTS")
         self.log("=" * 60)
-        
-        debug_scripts = self.config.ANALYSIS_FILES['debug_scripts']
         results = {}
-        
+        debug_scripts = self.config.ANALYSIS_FILES.get('debug_scripts', {})
+        if not debug_scripts:
+            self.log("No debug scripts defined in config. Skipping debug step.")
+            return all(results.values())
         for script_name, script_path in debug_scripts.items():
             results[script_name] = self.run_script(script_path, f"debug_{script_name}")
-        
-        # Summary
         successful = sum(results.values())
         total = len(results)
         self.log(f"Debug Summary: {successful}/{total} scripts completed successfully")
-        
         return all(results.values())
     
     def run_visualization_scripts(self):
@@ -178,49 +176,51 @@ class ComprehensiveAnalysisRunner:
         self.log("=" * 60)
         
         viz_scripts = self.config.ANALYSIS_FILES['visualization_scripts']
-        results = {}
-        
-        for script_name, script_path in viz_scripts.items():
-            results[script_name] = self.run_script(script_path, f"visualize_{script_name}", timeout=600)  # Longer timeout for viz
-        
-        # Summary
-        successful = sum(results.values())
-        total = len(results)
-        self.log(f"Visualization Summary: {successful}/{total} scripts completed successfully")
-        
-        return all(results.values())
-    
-    def run_main_analysis_scripts(self):
-        """Run main analysis scripts"""
-        self.log("=" * 60)
-        self.log("RUNNING MAIN ANALYSIS SCRIPTS")
-        self.log("=" * 60)
-        
-        main_scripts = self.config.ANALYSIS_FILES['main_scripts']
-        results = {}
-        
-        # Run in order of importance
-        priority_order = [
-            'quick_analysis',
-            'populationsim_results', 
-            'performance',
-            'full_dataset',
-            'group_quarters',
-            'regional_income',
-            'remaining_bias',
-            'postprocessing_req'
-        ]
-        
-        for script_key in priority_order:
-            if script_key in main_scripts:
-                script_path = main_scripts[script_key]
-                results[script_key] = self.run_script(script_path, f"analyze_{script_key}", timeout=900)  # 15 min timeout
-        
-        # Summary
-        successful = sum(results.values())
-        total = len(results)
-        self.log(f"Main Analysis Summary: {successful}/{total} scripts completed successfully")
-        
+        def run_all(self):
+            """Run only the analysis scripts/categories present in ANALYSIS_FILES in config"""
+            self.log("=" * 80)
+            self.log("COMPREHENSIVE TM2 POPULATIONSIM ANALYSIS")
+            self.log("=" * 80)
+            self.log(f"Starting comprehensive analysis for {self.year}")
+            self.log(f"Output directory: {self.output_dir}")
+
+            start_time = time.time()
+            step_results = {}
+
+            # Only run categories present in config
+            if 'validation_scripts' in self.config.ANALYSIS_FILES:
+                step_results['validation'] = self.run_validation_scripts()
+            if 'check_scripts' in self.config.ANALYSIS_FILES:
+                step_results['checks'] = self.run_check_scripts()
+            if 'debug_scripts' in self.config.ANALYSIS_FILES:
+                step_results['debug'] = self.run_debug_scripts()
+            if 'visualization_scripts' in self.config.ANALYSIS_FILES:
+                step_results['visualization'] = self.run_visualization_scripts()
+            if 'main_scripts' in self.config.ANALYSIS_FILES:
+                step_results['analysis'] = self.run_main_analysis_scripts()
+
+            # Generate summary
+            summary_file = self.generate_comprehensive_summary()
+
+            # Final summary
+            total_time = time.time() - start_time
+            successful_steps = sum(step_results.values())
+            total_steps = len(step_results)
+
+            self.log("=" * 80)
+            self.log("COMPREHENSIVE ANALYSIS COMPLETE")
+            self.log("=" * 80)
+            self.log(f"Total time: {total_time:.1f} seconds")
+            self.log(f"Successful steps: {successful_steps}/{total_steps}")
+            self.log(f"Summary file: {summary_file}")
+            self.log(f"Analysis log: {self.analysis_log}")
+
+            if successful_steps == total_steps:
+                self.log("SUCCESS: ALL ANALYSIS COMPLETED SUCCESSFULLY", "SUCCESS")
+                return True
+            else:
+                self.log(f"ERROR: {total_steps - successful_steps} steps failed", "ERROR")
+                return False
         return all(results.values())
     
     def generate_comprehensive_summary(self):
@@ -286,8 +286,8 @@ For issues or questions, refer to the individual script outputs and logs.
         
         # Run each category
         step_results['validation'] = self.run_validation_scripts()
-        step_results['checks'] = self.run_check_scripts()
-        step_results['debug'] = self.run_debug_scripts()
+       #step_results['checks'] = self.run_check_scripts()
+       #step_results['debug'] = self.run_debug_scripts()
         step_results['visualization'] = self.run_visualization_scripts()
         step_results['analysis'] = self.run_main_analysis_scripts()
         

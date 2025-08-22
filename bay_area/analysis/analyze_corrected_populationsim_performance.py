@@ -273,10 +273,11 @@ Previous "over-allocation" was measurement artifact.
              bbox=dict(boxstyle="round", facecolor='lightblue', alpha=0.3))
     
     plt.tight_layout()
-    plt.savefig('corrected_populationsim_performance.png', dpi=300, bbox_inches='tight')
+    from pathlib import Path
+    output_path = Path('output_2023') / 'corrected_populationsim_performance.png'
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.show()
-    
-    print("Corrected performance visualization saved as 'corrected_populationsim_performance.png'")
+    print(f"Corrected performance visualization saved as '{output_path}'")
 
 def analyze_gq_allocation(synthetic_hh, maz_controls):
     """Analyze Group Quarters allocation separately"""

@@ -153,23 +153,13 @@ def generate_optimized_summary(config):
     
     # === HOUSEHOLD ANALYSIS ===
     logger.info("Analyzing full household dataset...")
-    hh_columns = ['MAZ', 'TAZ', 'MTCCountyID', 'NP', 'VEH', 'HHINCADJ', 'TYPE']
+
+    hh_columns = ['MAZ', 'TAZ', 'MTCCountyID', 'NP', 'HHINCADJ', 'TYPE']
     hh_stats, hh_total = analyzer.analyze_full_dataset(households_file, hh_columns)
-    
+
     summary.append("## Complete Household Analysis")
     summary.append(f"**Total Households:** {hh_total:,}")
     summary.append("")
-    
-    # Vehicle ownership distribution
-    if 'VEH' in hh_stats and 'top_values' in hh_stats['VEH']:
-        summary.append("### Vehicle Ownership Distribution (Complete Dataset)")
-        veh_counts = hh_stats['VEH']['top_values']
-        for veh_num in sorted(veh_counts.keys()):
-            count = veh_counts[veh_num]
-            pct = (count / hh_total) * 100
-            veh_label = f"{int(veh_num)} vehicles" if veh_num != 1 else "1 vehicle"
-            summary.append(f"- {veh_label}: {count:,} ({pct:.1f}%)")
-        summary.append("")
     
     # Household size distribution  
     if 'NP' in hh_stats and 'top_values' in hh_stats['NP']:
@@ -271,17 +261,11 @@ def generate_optimized_summary(config):
     
     # === HOUSEHOLD INCOME SUMMARY ===
     # Only summarize income if already in 2010 dollars
-    income_2010 = None
-    income_col = None
-    income_candidates = ['hh_income_2010', 'HHINCADJ']
-    for col in income_candidates:
-        if col in hh_stats:
-            income_col = col
-            break
-    if income_col is not None:
+    # Only use HHINCADJ for income analysis
+    if 'HHINCADJ' in hh_stats:
         income_2010 = []
-        for chunk in pd.read_csv(households_file, chunksize=50000, usecols=[income_col]):
-            vals = pd.to_numeric(chunk[income_col], errors='coerce').dropna()
+        for chunk in pd.read_csv(households_file, chunksize=50000, usecols=['HHINCADJ']):
+            vals = pd.to_numeric(chunk['HHINCADJ'], errors='coerce').dropna()
             income_2010.append(vals)
         income_2010 = pd.concat(income_2010)
         if len(income_2010) > 0:
@@ -302,8 +286,7 @@ def generate_optimized_summary(config):
     if 'HHINCADJ' in hh_stats:
         summary.append(f"**Average Household Income:** ${hh_stats['HHINCADJ']['mean']:,.0f}")
     
-    if 'VEH' in hh_stats:
-        summary.append(f"**Average Vehicles per Household:** {hh_stats['VEH']['mean']:.2f}")
+
     
     if 'NP' in hh_stats:
         summary.append(f"**Average Household Size:** {hh_stats['NP']['mean']:.2f} persons")
