@@ -563,6 +563,11 @@ class PersonProcessor:
         return df
 
 class SeedPopulationCreator:
+    @staticmethod
+    def _count_nan_inf(df, col):
+        nan_count = df[col].isna().sum() if col in df.columns else 0
+        inf_count = np.isinf(df[col]).sum() if col in df.columns else 0
+        return nan_count, inf_count
     """Main class for creating seed population"""
     
     def __init__(self, config: Optional[SeedPopulationConfig] = None):
@@ -795,6 +800,31 @@ class SeedPopulationCreator:
             
             linking_time = datetime.now() - linking_start
             logger.info(f"[SUCCESS] Linked persons to households using SERIALNO -> unique_hh_id lookup in {linking_time}")
+
+            # --- Data quality: log and filter NaN/inf in HINCP, ADJINC, VEH ---
+
+            logger.info("[SUMMARY] Checking for NaN/inf in HINCP, ADJINC, VEH before filtering...")
+            for col in ["HINCP", "ADJINC", "VEH"]:
+                hh_nan, hh_inf = self._count_nan_inf(household_df, col)
+                logger.info(f"  Households: {col}: {hh_nan} NaN, {hh_inf} inf")
+            for col in ["HINCP", "ADJINC", "VEH"]:
+                if col in person_df.columns:
+                    p_nan, p_inf = self._count_nan_inf(person_df, col)
+                    logger.info(f"  Persons: {col}: {p_nan} NaN, {p_inf} inf")
+
+            # Remove households and persons where HINCP, ADJINC, or VEH are NaN or infinite
+            invalid_mask = (
+                household_df['HINCP'].isna() | household_df['ADJINC'].isna() |
+                np.isinf(household_df['HINCP']) | np.isinf(household_df['ADJINC'])
+            )
+            if 'VEH' in household_df.columns:
+                invalid_mask = invalid_mask | household_df['VEH'].isna() | np.isinf(household_df['VEH'])
+            invalid_hh_ids = set(household_df.loc[invalid_mask, 'unique_hh_id'])
+            n_invalid = len(invalid_hh_ids)
+            if n_invalid > 0:
+                logger.warning(f"Dropping {n_invalid} households (and their persons) due to NaN or infinite HINCP, ADJINC, or VEH")
+            household_df = household_df[~household_df['unique_hh_id'].isin(invalid_hh_ids)].copy()
+            person_df = person_df[~person_df['unique_hh_id'].isin(invalid_hh_ids)].copy()
             
             # Check for orphaned persons (persons without matching households)
             orphaned_persons = person_df['unique_hh_id'].isna().sum()

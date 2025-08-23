@@ -231,7 +231,7 @@ class TM2Pipeline:
         self.log("Converting county codes to sequential 1-9 numbering (matching working 2015 version)...")
         
         try:
-            data_dir = self.config.DATA_DIR
+            data_dir = self.config.POPSIM_DATA_DIR
             
             # Get the FIPS-to-sequential mapping from config
             fips_to_sequential = self.config.get_fips_to_sequential_mapping()
@@ -365,7 +365,7 @@ class TM2Pipeline:
         self.log("Fixing crosswalk: resolving TAZs with multiple PUMA assignments...")
         
         try:
-            data_dir = self.config.DATA_DIR
+            data_dir = self.config.POPSIM_DATA_DIR
             crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2.csv")
             
             if not os.path.exists(crosswalk_file):
@@ -642,18 +642,20 @@ class TM2Pipeline:
         self.log(f"PIPELINE COMPLETED SUCCESSFULLY in {overall_duration:.1f}s", "SUCCESS")
 
     def run_analysis_scripts(self):
-        """Run all analysis/summary scripts as defined in config.ANALYSIS_FILES"""
+        """Run all analysis/summary scripts as defined in config.ANALYSIS_FILES, but skip missing or empty files."""
         analysis_files = self.config.ANALYSIS_FILES
         script_categories = ['main_scripts', 'validation_scripts', 'visualization_scripts']
         for category in script_categories:
             scripts = analysis_files.get(category, {})
             for script_name, script_path in scripts.items():
-                if script_path.exists():
+                if script_path.exists() and script_path.stat().st_size > 0:
                     self.log(f"Running analysis script: {script_name} ({script_path})")
                     script_cmd = [str(self.config.PYTHON_EXE), str(script_path)]
                     script_result = self.run_command(script_cmd, script_name)
                     if not script_result:
                         self.log(f"Script failed: {script_name}", "ERROR")
+                elif script_path.exists() and script_path.stat().st_size == 0:
+                    self.log(f"Script is empty, skipping: {script_name} ({script_path})", "WARN")
                 else:
                     self.log(f"Script not found, skipping: {script_name} ({script_path})", "WARN")
         self.log(f"{'='*60}")
