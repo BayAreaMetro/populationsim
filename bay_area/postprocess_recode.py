@@ -236,15 +236,17 @@ if __name__ == '__main__':
             else:
                 persons_df['unique_per_id'] = persons_df.index + 1
         
-        # Add WKW field if it doesn't exist (weeks worked per year)
-        if 'WKW' not in persons_df.columns:
-            # Create a reasonable default - people who are employed work ~50 weeks
-            persons_df['WKW'] = 0  # Default to 0 for non-workers
-            persons_df.loc[persons_df['employed'] == 1, 'WKW'] = 50  # Full-time workers
-            persons_df.loc[persons_df['ESR'] == 2, 'WKW'] = 30  # Armed forces
-            persons_df.loc[persons_df['ESR'] == 4, 'WKW'] = 25  # Part-time workers
-        
-        logging.info(f"Added unique_per_id and WKW fields for TM2 compatibility")
+    # Add WKW field if it doesn't exist (weeks worked per year)
+    if 'WKW' not in persons_df.columns:
+      # Assign -9 for N/A (persons <16 or not worked)
+      persons_df['WKW'] = -9
+      # For employed persons, assign weeks worked based on available info or default to 1 (50–52 weeks)
+      # If you have actual weeks worked, use that; otherwise, use ESR or EMPLOYED as proxy
+      # 1=50–52 weeks, 2=48–49, 3=40–47, 4=27–39, 5=14–26, 6=13 or less
+      # For now, assign 1 for all employed (full-time), can refine if more info is available
+      persons_df.loc[persons_df['employed'] == 1, 'WKW'] = 1
+      # Optionally, refine for part-time or other ESR codes if you have more detail
+    logging.info(f"Added unique_per_id and WKW fields for TM2 compatibility (WKW recoded to 1–6 codes)")
   
     # (c) Fills NaN values with -9
     households_df.fillna(value=-9, inplace=True)
