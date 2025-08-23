@@ -437,8 +437,13 @@ class UnifiedTM2Config:
                 str(self.BASE_DIR / "run_comprehensive_analysis.py"),
                 "--output_dir", str(self.OUTPUT_DIR),
                 "--year", str(self.YEAR)
+            ],
+
+            # Step 9: Old vs New Synthetic Population Comparison
+            'compare_synthetic_populations': [
+                "python",
+                str(self.BASE_DIR / "compare_synthetic_populations.py")
             ]
-            
 
         }
     
