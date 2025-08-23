@@ -173,9 +173,8 @@ class DataCleaner:
     
     @staticmethod
     def clean_numeric_columns(df: pd.DataFrame, description: str = "data") -> pd.DataFrame:
-        """Clean all numeric columns of NaN and infinite values"""
-        logger.info(f"Cleaning numeric columns in {description}...")
-        
+        """Log NaN and infinite values in numeric columns, but do not fill or replace them."""
+        logger.info(f"Checking numeric columns in {description} for NaN/inf...")
         nan_summary = []
         for col in df.columns:
             if df[col].dtype in ['float64', 'float32', 'int64', 'int32']:
@@ -183,31 +182,23 @@ class DataCleaner:
                 inf_count = np.isinf(df[col]).sum()
                 if nan_count > 0 or inf_count > 0:
                     nan_summary.append(f"{col}: {nan_count} NaN, {inf_count} inf")
-                df[col] = df[col].fillna(0)
-                df[col] = df[col].replace([np.inf, -np.inf], 0)
-        
         if nan_summary:
-            logger.info(f"Cleaned {description} fields: {nan_summary}")
+            logger.info(f"NaN/inf found in {description} fields: {nan_summary}")
         else:
             logger.info(f"No NaN/inf values found in {description} numeric fields")
-        
         return df
     
     @staticmethod
     def convert_to_integers(df: pd.DataFrame, fields: List[str], description: str = "data") -> pd.DataFrame:
-        """Convert specified fields to integers safely"""
+        """Convert specified fields to integers safely (will error if NaN/inf present)."""
         logger.info(f"Converting {description} fields to integer types for PopulationSim compatibility...")
-        
         for field in fields:
             if field in df.columns:
                 try:
-                    df[field] = df[field].fillna(0)
-                    df[field] = df[field].replace([np.inf, -np.inf], 0)
                     df[field] = df[field].astype(int)
                     logger.debug(f"Converted {field} to int64")
                 except Exception as e:
                     logger.warning(f"Could not convert {field} to integer: {e}")
-        
         return df
 
 class HouseholdProcessor:
@@ -442,7 +433,17 @@ class PersonProcessor:
         df = self._create_person_type(df)
         if 'person_type' in df.columns:
             person_type_counts = df['person_type'].value_counts().sort_index()
-            type_names = {1: 'Preschool', 2: 'School-age', 3: 'Working-age', 4: 'Senior'}
+            # Updated type names to match harmonized logic (legacy TM1 codes)
+            type_names = {
+                1: 'Full-time worker',
+                2: 'Part-time worker',
+                3: 'College student',
+                4: 'Non-working adult',
+                5: 'Retired/senior',
+                6: 'Driving-age student',
+                7: 'Non-driving-age student',
+                8: 'Pre-school child'
+            }
             for ptype, count in person_type_counts.items():
                 type_name = type_names.get(ptype, f'Type {ptype}')
                 logger.info(f"     {type_name}: {count:,} ({count/len(df)*100:.1f}%)")
@@ -519,30 +520,37 @@ class PersonProcessor:
         return df
     
     def _create_student_status(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create student status categories"""
-        df['student_status'] = 1  # Default to not student
-        df.loc[(df['SCHG'].notna()) & (df['AGEP'] < 16), 'student_status'] = 2
-        df.loc[(df['SCHG'].notna()) & (df['AGEP'] >= 16), 'student_status'] = 3
+        """Harmonized: Create student status categories using SCHG codes (legacy logic)."""
+        # 1 = pre-school through grade 12 student (SCHG 1-14)
+        # 2 = university/professional school student (SCHG 15 or 16)
+        # 3 = non-student (default)
+        df['student_status'] = 3
+        df.loc[(df['SCHG'] >= 1) & (df['SCHG'] <= 14), 'student_status'] = 1
+        df.loc[(df['SCHG'] == 15) | (df['SCHG'] == 16), 'student_status'] = 2
         return df
     
     def _create_person_type(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create person type categories based on employment status"""
-        # Map employment status to person type as per TM1 convention
-        # 1 = full-time worker, 2 = part-time worker, 3 = college student, 4 = non-working adult
-        df['person_type'] = 4  # Default to non-working adult
-        
-        # Map from employ_status if it exists
+        """Ported logic from the old script for person_type coding."""
+        # Start with default values
+        df['person_type'] = 5  # non-working senior
+        # If AGEP < 65, set to non-working adult
+        df.loc[df['AGEP'] < 65, 'person_type'] = 4
+        # If employ_status == 2, set to part-time worker
         if 'employ_status' in df.columns:
-            df.loc[df['employ_status'] == 1, 'person_type'] = 1  # Full-time worker
-            df.loc[df['employ_status'] == 2, 'person_type'] = 2  # Part-time worker  
-            df.loc[df['employ_status'] == 4, 'person_type'] = 3  # Student (under 16, map to college student category)
-            # employ_status == 3 (not in labor force) stays as person_type = 4
-        else:
-            # Fallback to age-based if employ_status doesn't exist
-            df.loc[df['AGEP'] < 18, 'person_type'] = 3   # Students
-            df.loc[(df['AGEP'] >= 18) & (df['AGEP'] < 65), 'person_type'] = 1  # Working age -> full-time
-            df.loc[df['AGEP'] >= 65, 'person_type'] = 4  # Seniors -> non-working
-            
+            df.loc[df['employ_status'] == 2, 'person_type'] = 2
+        # If student_status == 1, set to driving-age student
+        if 'student_status' in df.columns:
+            df.loc[df['student_status'] == 1, 'person_type'] = 6
+            # If student_status == 2 or (AGEP >= 20 and student_status == 1), set to college student
+            df.loc[(df['student_status'] == 2) | ((df['AGEP'] >= 20) & (df['student_status'] == 1)), 'person_type'] = 3
+        # If employ_status == 1, set to full-time worker
+        if 'employ_status' in df.columns:
+            df.loc[df['employ_status'] == 1, 'person_type'] = 1
+        # If AGEP <= 15, set to non-driving under 16
+        df.loc[df['AGEP'] <= 15, 'person_type'] = 7
+        # If AGEP < 6 and student_status == 3, set to pre-school
+        if 'student_status' in df.columns:
+            df.loc[(df['AGEP'] < 6) & (df['student_status'] == 3), 'person_type'] = 8
         return df
     
     def _create_occupation_categories(self, df: pd.DataFrame) -> pd.DataFrame:

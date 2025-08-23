@@ -1,3 +1,8 @@
 process_name,model_name,seconds,minutes
 MainProcess,input_pre_processor,10.3,0.2
 MainProcess,setup_data_structures,5.5,0.1
+MainProcess,initial_seed_balancing,208.2,3.5
+MainProcess,meta_control_factoring,0.1,0.0
+MainProcess,final_seed_balancing,351.1,5.9
+MainProcess,integerize_final_seed_weights,19.6,0.3
+MainProcess,sub_balancing.geography=TAZ,15749.7,262.5
