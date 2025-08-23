@@ -134,10 +134,11 @@ class TM2Pipeline:
         self.log(f"STEP {step_name.upper()}")
         self.log(f"{'='*60}")
         
-        # Check if already completed
-        if not force and self.check_step_completion(step_name):
-            self.log(f"Skipping {step_name} (already completed, use --force to rerun)")
-            return True
+        # Skip completion check for 'analysis' step
+        if step_name != 'analysis':
+            if not force and self.check_step_completion(step_name):
+                self.log(f"Skipping {step_name} (already completed, use --force to rerun)")
+                return True
         
         # Get command for this step
         command = self.config.get_command(step_name)
@@ -199,6 +200,25 @@ class TM2Pipeline:
                 rollup_result = self.run_command(rollup_cmd, 'check_taz_controls_rollup')
                 if not rollup_result:
                     self.log("TAZ controls rollup check failed!", "ERROR")
+            return result
+        # Special handling for analysis: run all scripts in ANALYSIS_FILES
+        elif step_name == 'analysis':
+            # Run the main analysis command first
+            result = self.run_command(command, step_name)
+            # Now run all scripts in main_scripts, validation_scripts, visualization_scripts
+            analysis_files = self.config.ANALYSIS_FILES
+            script_categories = ['main_scripts', 'validation_scripts', 'visualization_scripts']
+            for category in script_categories:
+                scripts = analysis_files.get(category, {})
+                for script_name, script_path in scripts.items():
+                    if script_path.exists():
+                        self.log(f"Running analysis script: {script_name} ({script_path})")
+                        script_cmd = [str(self.config.PYTHON_EXE), str(script_path)]
+                        script_result = self.run_command(script_cmd, script_name)
+                        if not script_result:
+                            self.log(f"Script failed: {script_name}", "ERROR")
+                    else:
+                        self.log(f"Script not found, skipping: {script_name} ({script_path})", "WARN")
             return result
         else:
             return self.run_command(command, step_name)
@@ -581,14 +601,13 @@ class TM2Pipeline:
     
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
-        
         # Default pipeline steps, synced with config
-        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
+        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess']
 
         # If start_step is explicitly 'pums', include it
         if start_step == 'pums':
-            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
-        
+            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess']
+
         # Determine step range
         if start_step:
             try:
@@ -597,7 +616,7 @@ class TM2Pipeline:
             except ValueError:
                 self.log(f"Invalid start step: {start_step}", "ERROR")
                 return False
-                
+
         if end_step:
             try:
                 end_idx = steps.index(end_step) + 1
@@ -605,19 +624,38 @@ class TM2Pipeline:
             except ValueError:
                 self.log(f"Invalid end step: {end_step}", "ERROR")
                 return False
-        
+
         self.log(f"Running pipeline steps: {' → '.join(steps)}")
-        
+
         # Run each step
         overall_start = time.time()
         for step in steps:
             if not self.run_step(step, force):
                 self.log(f"Pipeline failed at step: {step}", "ERROR")
                 return False
-                
+
+        # After all main steps, run analysis/summary scripts directly
+        self.run_analysis_scripts()
+
         overall_duration = time.time() - overall_start
         self.log(f"{'='*60}")
         self.log(f"PIPELINE COMPLETED SUCCESSFULLY in {overall_duration:.1f}s", "SUCCESS")
+
+    def run_analysis_scripts(self):
+        """Run all analysis/summary scripts as defined in config.ANALYSIS_FILES"""
+        analysis_files = self.config.ANALYSIS_FILES
+        script_categories = ['main_scripts', 'validation_scripts', 'visualization_scripts']
+        for category in script_categories:
+            scripts = analysis_files.get(category, {})
+            for script_name, script_path in scripts.items():
+                if script_path.exists():
+                    self.log(f"Running analysis script: {script_name} ({script_path})")
+                    script_cmd = [str(self.config.PYTHON_EXE), str(script_path)]
+                    script_result = self.run_command(script_cmd, script_name)
+                    if not script_result:
+                        self.log(f"Script failed: {script_name}", "ERROR")
+                else:
+                    self.log(f"Script not found, skipping: {script_name} ({script_path})", "WARN")
         self.log(f"{'='*60}")
         return True
     
