@@ -18,33 +18,52 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'tm2_control_utils'))
 
+
 import pandas as pd
 import numpy as np
 import logging
 from pathlib import Path
-from tm2_control_utils.config_census import *
+from tm2_control_utils.config_census import rebuild_maz_taz_all_geog_file
 from tm2_control_utils.geog_utils import add_aggregate_geography_colums
+# Import unified config
+from unified_tm2_config import UnifiedTM2Config
 
 def build_complete_crosswalk():
     """Build complete geographic crosswalk with block group mappings."""
-    
     print("=== BUILDING COMPLETE GEOGRAPHIC CROSSWALK ===")
-    
+
+    # Use unified config to get canonical blocks file
+    unified_config = UnifiedTM2Config()
+    blocks_file = str(unified_config.TM2PY_UTILS_BLOCKS_FILE)
+    print(f"[DEBUG] unified_config.BASE_DIR: {unified_config.BASE_DIR}")
+    print(f"[DEBUG] unified_config.POPSIM_DATA_DIR: {unified_config.POPSIM_DATA_DIR}")
+    print(f"[DEBUG] unified_config.MAZ_TAZ_ALL_GEOG_FILE: {unified_config.MAZ_TAZ_ALL_GEOG_FILE}")
+
     # Step 1: Try to load the full MAZ/TAZ definitions with block-level data
     print("\n1. LOADING MAZ/TAZ DEFINITIONS...")
-    
+
     maz_taz_def_df = None
-    
+
     # Always rebuild the full geography file before loading
-    print(f"   - Rebuilding full geography file: {MAZ_TAZ_ALL_GEOG_FILE}")
-    rebuild_maz_taz_all_geog_file()
-    if os.path.exists(MAZ_TAZ_ALL_GEOG_FILE):
-        print(f"   - Loading full geography file: {MAZ_TAZ_ALL_GEOG_FILE}")
-        maz_taz_def_df = pd.read_csv(MAZ_TAZ_ALL_GEOG_FILE)
-        print(f"   - Loaded {len(maz_taz_def_df)} records")
-        print(f"   - Columns: {list(maz_taz_def_df.columns)}")
+    geog_file = unified_config.MAZ_TAZ_ALL_GEOG_FILE
+    print(f"   - Rebuilding full geography file: {geog_file}")
+    rebuild_maz_taz_all_geog_file(blocks_file_path=blocks_file, output_path=str(geog_file))
+    print(f"   [DEBUG] Current working directory: {os.getcwd()}")
+    abs_geog_file = geog_file.resolve() if hasattr(geog_file, 'resolve') else os.path.abspath(geog_file)
+    print(f"   [DEBUG] Directory for MAZ_TAZ_ALL_GEOG_FILE: {abs_geog_file.parent if hasattr(abs_geog_file, 'parent') else os.path.dirname(abs_geog_file)}")
+    print(f"   [DEBUG] Absolute path to MAZ_TAZ_ALL_GEOG_FILE: {abs_geog_file}")
+    print(f"   [DEBUG] os.path.exists(abs_geog_file): {os.path.exists(abs_geog_file)}")
+    if os.path.exists(abs_geog_file):
+        print(f"   - Loading full geography file: {abs_geog_file}")
+        try:
+            maz_taz_def_df = pd.read_csv(abs_geog_file)
+            print(f"   - Loaded {len(maz_taz_def_df)} records")
+            print(f"   - Columns: {list(maz_taz_def_df.columns)}")
+        except Exception as e:
+            print(f"   ERROR: Exception while loading {abs_geog_file}: {e}")
+            return
     else:
-        print(f"   ERROR: Could not rebuild or find {MAZ_TAZ_ALL_GEOG_FILE}!")
+        print(f"   ERROR: Could not rebuild or find {abs_geog_file}!")
         return
     
     # Step 2: Create aggregate geography columns if not present

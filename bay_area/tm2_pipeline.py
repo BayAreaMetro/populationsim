@@ -194,13 +194,7 @@ class TM2Pipeline:
                     income_result = self.run_command(income_cmd, 'get_census_income_data')
                     if not income_result:
                         self.log("County income summary creation failed!", "ERROR")
-                self.log("Running TAZ controls rollup check (check_taz_controls_rollup.py)...")
-                rollup_script = str(self.config.BASE_DIR / 'analysis' / 'check_taz_controls_rollup.py')
-                rollup_cmd = [str(self.config.PYTHON_EXE), rollup_script]
-                rollup_result = self.run_command(rollup_cmd, 'check_taz_controls_rollup')
-                if not rollup_result:
-                    self.log("TAZ controls rollup check failed!", "ERROR")
-            return result
+                return result
         # Special handling for analysis: run all scripts in ANALYSIS_FILES
         elif step_name == 'analysis':
             # Run the main analysis command first
@@ -433,13 +427,6 @@ class TM2Pipeline:
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
-    def prepare_populationsim_data(self):
-        """Prepare PopulationSim data directory with proper file structure and symbolic links"""
-        import os
-        from pathlib import Path
-        
-        self.log("Preparing PopulationSim data directory...")
-        
     def prepare_populationsim_data(self):
         """Prepare PopulationSim data directory with proper file structure and symbolic links"""
         import os

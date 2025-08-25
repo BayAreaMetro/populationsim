@@ -13,13 +13,9 @@ import sys
 
 class UnifiedTM2Config:
     @property
-    def SUMMARY_REPORT_FILE(self):
-        """Standard summary report file path in output_2023 directory."""
-        return self.OUTPUT_DIR / "validation_summary.txt"
-
-    def get_summary_file_path(self, name="validation_summary.txt"):
-        """Get a summary file path in the output_2023 directory (optionally override filename)."""
-        return self.OUTPUT_DIR / name
+    def MAZ_TAZ_ALL_GEOG_FILE(self):
+        """Canonical path to the block-level MAZ/TAZ all geography file (one row per block)."""
+        return self.POPSIM_DATA_DIR / "mazs_tazs_all_geog.csv"
     """Single configuration class that handles everything"""
     
     def __init__(self, year=2023, model_type="TM2"):
@@ -27,8 +23,10 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
+        # Python executable (robust fallback)
         self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
-
+        if not self.PYTHON_EXE.exists():
+            self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
         if not self.PYTHON_EXE.exists():
             raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
@@ -38,92 +36,79 @@ class UnifiedTM2Config:
         self.POPSIM_CONFIG_DIR = self.POPSIM_WORKING_DIR / "configs"
         self.POPSIM_OUTPUT_DIR = self.POPSIM_WORKING_DIR / "output"
         self.ACS_2010BINS_FILE = self.POPSIM_OUTPUT_DIR / "bay_area_income_acs_2023_2010bins.csv"
-
-        # Ensure all templates and paths are set up before defining COMMANDS
+        self.DATA_DIR = self.POPSIM_DATA_DIR
+        self.EXAMPLE_CONTROLS_DIR = self.BASE_DIR / "example_controls_2015"
+        self.TEST_PUMA = None
+        self.BAY_AREA_COUNTIES = {
+            1: {'name': 'San Francisco', 'fips_int': 75, 'fips_str': '075'},
+            2: {'name': 'San Mateo', 'fips_int': 81, 'fips_str': '081'},
+            3: {'name': 'Santa Clara', 'fips_int': 85, 'fips_str': '085'},
+            4: {'name': 'Alameda', 'fips_int': 1, 'fips_str': '001'},
+            5: {'name': 'Contra Costa', 'fips_int': 13, 'fips_str': '013'},
+            6: {'name': 'Solano', 'fips_int': 95, 'fips_str': '095'},
+            7: {'name': 'Napa', 'fips_int': 55, 'fips_str': '055'},
+            8: {'name': 'Sonoma', 'fips_int': 97, 'fips_str': '097'},
+            9: {'name': 'Marin', 'fips_int': 41, 'fips_str': '041'}
+        }
+        self.BAY_AREA_PUMAS = []
+        self.PROCESSING_PARAMS = {
+            'chunk_size': 50000,
+            'random_seed': 42,
+            'census_api_timeout': 300,
+            'max_retries': 3
+        }
+        self.PUMA_RESOLUTION = {
+            'enabled': True,
+            'method': 'majority_rule',
+            'min_threshold_pct': 1.0,
+            'verbose_logging': True,
+            'manual_overrides': {
+                5500: 7,
+                7513: 1
+            }
+        }
         self._setup_file_templates()
         self._setup_external_paths()
         self._setup_file_paths()
-
-        # Set TEST_PUMA before any use in get_test_puma_args
-        self.TEST_PUMA = None
-
-        self.COMMANDS = {
-            # Step 0: Crosswalk creation (MUST be first - seed generation needs it)
-            'crosswalk': [
-                [
-                    "python",
-                    str(self.BASE_DIR / "create_tm2_crosswalk.py"),
-                    "--output", str(self.CROSSWALK_FILES['popsim_crosswalk'])
-                ] + self.get_test_puma_args(),
-                [
-                    "python",
-                    str(self.BASE_DIR / "build_complete_crosswalk.py")
-                ]
-            ],
-            # Step 0.5: Geographic rebuild (rebuild complete crosswalk from Census blocks)
-            'geographic_rebuild': [],  # Handled specially in pipeline - no external command needed
-            # Step 1: PUMS data download (depends on crosswalk for PUMA filtering)
-            'pums': [
-                "python",
-                str(self.BASE_DIR / "download_2023_5year_pums.py")
-            ],
-            # Step 2: Seed generation (depends on crosswalk and PUMS data)
-            'seed': [
-                "python",
-                str(self.BASE_DIR / "create_seed_population_tm2_refactored.py"),
-                "--year", str(self.YEAR),
-                "--model_type", self.MODEL_TYPE
-            ] + self.get_test_puma_args(),
-            # Step 3: Control generation
-            'controls': [
-                "python",
-                str(self.BASE_DIR / "create_baseyear_controls_23_tm2.py")
-            ] + self.get_test_puma_args(),
-            # Step 4: Group quarters integration
-            'hhgq': [
-                "python",
-                str(self.BASE_DIR / "add_hhgq_combined_controls.py"), 
-                "--model_type", self.MODEL_TYPE,
-                "--input_dir", str(self.OUTPUT_DIR),
-                "--output_dir", str(self.POPSIM_DATA_DIR)
-            ] + self.get_test_puma_args(),
-            # Step 5: PopulationSim synthesis
-            'populationsim': [
-                "python",
-                str(self.BASE_DIR / "run_populationsim_synthesis.py"),
-                "--working_dir", str(self.POPSIM_WORKING_DIR),
-                "--output", str(self.POPSIM_OUTPUT_DIR)
-            ] + self.get_test_puma_args(),
-            # Step 6: Post-processing
-            'postprocess': [
-                "python",
-                str(self.BASE_DIR / "postprocess_recode.py"),
-                "--model_type", self.MODEL_TYPE,
-                "--directory", str(self.POPSIM_OUTPUT_DIR),
-                "--year", str(self.YEAR)
-            ] + self.get_test_puma_args(),
-            # Step 7: Tableau preparation
-            'tableau': [
-                "python",
-                str(self.TABLEAU_FILES['script']),
-                "--output_dir", str(self.TABLEAU_FILES['output_dir']),
-                "--year", str(self.YEAR)
-            ] + self.get_test_puma_args(),
-            # Step 8: (analysis step removed; tm2_pipeline runs analysis scripts directly)
-        }
-
-        # ============================================================
-        # PROCESSING PARAMETERS
+        self.BAY_AREA_PUMAS = self._load_pumas_from_crosswalk()
+        self._create_directories()
+        self._setup_commands()
         self.FORCE_FLAGS = {
             'CROSSWALK': os.getenv('FORCE_CROSSWALK', 'True').lower() == 'true',
             'SEED': os.getenv('FORCE_SEED', 'True').lower() == 'true',
             'CONTROLS': os.getenv('FORCE_CONTROLS', 'True').lower() == 'true',
             'HHGQ': os.getenv('FORCE_HHGQ', 'True').lower() == 'true',
-            'POPSIM': os.getenv('FORCE_POPSIM', 'True').lower() == 'true',  # Default to True
+            'POPSIM': os.getenv('FORCE_POPSIM', 'True').lower() == 'true',
             'POSTPROCESS': os.getenv('FORCE_POSTPROCESS', 'True').lower() == 'true',
             'TABLEAU': os.getenv('FORCE_TABLEAU', 'True').lower() == 'true'
         }
-
+    
+    def _load_pumas_from_crosswalk(self):
+        """Load Bay Area PUMAs from crosswalk file instead of hardcoding"""
+        try:
+            import pandas as pd
+            
+            # Use single, definitive crosswalk location
+            crosswalk_path = self.CROSSWALK_FILES['popsim_crosswalk']
+            
+            if crosswalk_path.exists():
+                crosswalk_df = pd.read_csv(crosswalk_path)
+                if 'PUMA' in crosswalk_df.columns:
+                    pumas = sorted(crosswalk_df['PUMA'].dropna().unique())
+                    print(f"[CONFIG] Loaded {len(pumas)} PUMAs from crosswalk: {crosswalk_path}")
+                    return pumas
+                else:
+                    print(f"[CONFIG] WARNING: PUMA column not found in crosswalk: {crosswalk_path}")
+                    return []
+            else:
+                print(f"[CONFIG] WARNING: Crosswalk file not found: {crosswalk_path}")
+                print(f"[CONFIG] Generate crosswalk first before running pipeline")
+                return []
+            
+        except Exception as e:
+            print(f"[CONFIG] ERROR loading PUMAs from crosswalk: {e}")
+            return []
+    
     def _setup_external_paths(self):
         """Setup external system paths"""
         self.EXTERNAL_PATHS = {
@@ -210,6 +195,74 @@ class UnifiedTM2Config:
             'validation_workbook': "validation.twb"
         }
     
+    def _setup_file_paths(self):
+        """Define ALL file paths in the system - no more confusion!"""
+        self.CROSSWALK_FILES = {
+            'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
+            'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
+            'enhanced_crosswalk': self.POPSIM_DATA_DIR / 'geo_cross_walk_tm2_enhanced.csv',
+        }
+        self.SEED_FILES = {
+            'households_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['households_raw'],
+            'persons_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['persons_raw'],
+            'households': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_households'],
+            'persons': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_persons']
+        }
+        self.PUMS_FILES = {
+            'households_current': self.EXTERNAL_PATHS['pums_current'] / self.FILE_TEMPLATES['pums_households'],
+            'persons_current': self.EXTERNAL_PATHS['pums_current'] / self.FILE_TEMPLATES['pums_persons'],
+            'households_cached': self.EXTERNAL_PATHS['pums_cached'] / self.FILE_TEMPLATES['pums_households'],
+            'persons_cached': self.EXTERNAL_PATHS['pums_cached'] / self.FILE_TEMPLATES['pums_persons']
+        }
+        # Only use the correct, current control files (remove legacy/unused)
+        self.CONTROL_FILES = {
+            'maz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals_hhgq'],
+            'taz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals_hhgq'],
+            'county_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['county_marginals'],
+            'maz_data_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data'],
+            'maz_data_density_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data_density']
+        }
+        self.HHGQ_FILES = {
+            'maz_marginals_hhgq': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals_hhgq'],
+            'taz_marginals_hhgq': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals_hhgq'],
+            'taz_summaries_hhgq': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_summaries_hhgq']
+        }
+        self.POPSIM_CONFIG_FILES = {
+            'settings': self.POPSIM_CONFIG_DIR / self.FILE_TEMPLATES['settings_yaml'],
+            'logging': self.POPSIM_CONFIG_DIR / self.FILE_TEMPLATES['logging_yaml'],
+            'controls': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['controls_csv']
+        }
+        self.POPSIM_OUTPUT_FILES = {
+            'synthetic_households': self.POPSIM_OUTPUT_DIR / self.FILE_TEMPLATES['synthetic_households'],
+            'synthetic_persons': self.POPSIM_OUTPUT_DIR / self.FILE_TEMPLATES['synthetic_persons'],
+            'summary_melt': self.POPSIM_OUTPUT_DIR / self.FILE_TEMPLATES['summary_melt']
+        }
+        self.POSTPROCESS_FILES = {
+            'validation_workbook_src': self.BASE_DIR / self.FILE_TEMPLATES['validation_workbook'],
+            'validation_workbook_dst': self.OUTPUT_DIR / self.FILE_TEMPLATES['validation_workbook']
+        }
+        self.TABLEAU_FILES = {
+            'output_dir': self.OUTPUT_DIR / "tableau",
+            'script': self.BASE_DIR / "prepare_tableau_data.py"
+        }
+        self.ANALYSIS_FILES = {
+            # Main analysis outputs
+            'full_analysis': self.OUTPUT_DIR / "FULL_DATASET_ANALYSIS.md",
+            'performance_summary': self.OUTPUT_DIR / "PERFORMANCE_SUMMARY.txt",
+            'analysis_results': self.OUTPUT_DIR / "README_ANALYSIS_RESULTS.md",
+            'analysis_log': self.OUTPUT_DIR / "analysis_complete.log",
+            # Analysis scripts (organized by category)
+            'scripts_dir': self.BASE_DIR / "analysis",
+            'main_scripts': {
+                'performance_summary': self.BASE_DIR / "analysis" / "analyze_corrected_populationsim_performance.py",
+                'full_dataset': self.BASE_DIR / "analysis" / "analyze_full_dataset.py",
+                'compare_controls_vs_results_by_taz': self.BASE_DIR / "analysis" / "compare_controls_vs_results_by_taz.py"
+            },
+            'validation_scripts': {},
+            'check_scripts': {},
+            'visualization_scripts': {}
+        }
+    
     def _create_directories(self):
         """Create all necessary directories"""
         dirs_to_create = [
@@ -221,145 +274,96 @@ class UnifiedTM2Config:
             self.OUTPUT_DIR / "tableau",
             self.EXTERNAL_PATHS['census_cache']
         ]
-        
         for dir_path in dirs_to_create:
             dir_path.mkdir(parents=True, exist_ok=True)
     
-    def _setup_file_paths(self):
-        """Define ALL file paths in the system - no more confusion!"""
-        
-        # ============================================================
-        # STEP 0: CROSSWALK FILES
-        # ============================================================
-        self.CROSSWALK_FILES = {
-            # Primary crosswalk (PopulationSim expects this in data directory)
-            'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
-            # PopulationSim default crosswalk (regular)
-            'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
-            # Enhanced crosswalk (for controls step)
-            'enhanced_crosswalk': self.POPSIM_DATA_DIR / 'geo_cross_walk_tm2_enhanced.csv',
+    def __init__(self, year=2023, model_type="TM2"):
+        # Base paths and main directories
+        self.BASE_DIR = Path(__file__).parent.absolute()
+        self.YEAR = year
+        self.MODEL_TYPE = model_type
+        # Use the more robust python exe path from new config, fallback to legacy if not found
+        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
+        if not self.PYTHON_EXE.exists():
+            self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
+        if not self.PYTHON_EXE.exists():
+            raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
+        self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
+        self.SCRIPTS_DIR = self.BASE_DIR / "scripts"
+        self.POPSIM_WORKING_DIR = self.OUTPUT_DIR / "populationsim_working_dir"
+        self.POPSIM_DATA_DIR = self.POPSIM_WORKING_DIR / "data"
+        self.POPSIM_CONFIG_DIR = self.POPSIM_WORKING_DIR / "configs"
+        self.POPSIM_OUTPUT_DIR = self.POPSIM_WORKING_DIR / "output"
+        self.ACS_2010BINS_FILE = self.POPSIM_OUTPUT_DIR / "bay_area_income_acs_2023_2010bins.csv"
+        self.DATA_DIR = self.POPSIM_DATA_DIR
+        self.PRIMARY_OUTPUT_DIR = self.OUTPUT_DIR
+        self.EXAMPLE_CONTROLS_DIR = self.BASE_DIR / "example_controls_2015"
+        # Set TEST_PUMA before any use in get_test_puma_args
+        self.TEST_PUMA = None
+        # Bay Area county definitions (sequential ID to FIPS and name)
+        self.BAY_AREA_COUNTIES = {
+            1: {'name': 'San Francisco', 'fips_int': 75, 'fips_str': '075'},
+            2: {'name': 'San Mateo', 'fips_int': 81, 'fips_str': '081'},
+            3: {'name': 'Santa Clara', 'fips_int': 85, 'fips_str': '085'},
+            4: {'name': 'Alameda', 'fips_int': 1, 'fips_str': '001'},
+            5: {'name': 'Contra Costa', 'fips_int': 13, 'fips_str': '013'},
+            6: {'name': 'Solano', 'fips_int': 95, 'fips_str': '095'},
+            7: {'name': 'Napa', 'fips_int': 55, 'fips_str': '055'},
+            8: {'name': 'Sonoma', 'fips_int': 97, 'fips_str': '097'},
+            9: {'name': 'Marin', 'fips_int': 41, 'fips_str': '041'}
         }
-        
-        # ============================================================
-        # STEP 1: SEED POPULATION FILES - PopulationSim expects these in data directory
-        # ============================================================
-        self.SEED_FILES = {
-            # Raw downloaded files (temporary processing in data directory)
-            'households_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['households_raw'],
-            'persons_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['persons_raw'],
-            # Final seed files (PopulationSim data directory) - used directly by PopulationSim
-            'households': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_households'], 
-            'persons': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['seed_persons']
+        # Bay Area PUMAs (will be loaded from crosswalk after file paths are set up)
+        self.BAY_AREA_PUMAS = []
+        # Processing parameters
+        self.PROCESSING_PARAMS = {
+            'chunk_size': 50000,
+            'random_seed': 42,
+            'census_api_timeout': 300,
+            'max_retries': 3
         }
-        
-        # ============================================================
-        # STEP 1B: PUMS DATA FILES (Raw Census downloads)
-        # ============================================================
-        self.PUMS_FILES = {
-            # Primary locations (current pipeline use from M: drive)
-            'households_current': self.EXTERNAL_PATHS['pums_current'] / self.FILE_TEMPLATES['pums_households'],
-            'persons_current': self.EXTERNAL_PATHS['pums_current'] / self.FILE_TEMPLATES['pums_persons'],
-            # Cached backup locations (for long-term storage)
-            'households_cached': self.EXTERNAL_PATHS['pums_cached'] / self.FILE_TEMPLATES['pums_households'],
-            'persons_cached': self.EXTERNAL_PATHS['pums_cached'] / self.FILE_TEMPLATES['pums_persons']
-        }
-        
-        # ============================================================
-        # STEP 2: CONTROL FILES - PopulationSim expects these in data directory  
-        # ============================================================
-        self.CONTROL_FILES = {
-            # Generated control files (PopulationSim data directory)
-            'maz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals'],
-            'taz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals'], 
-            'county_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['county_marginals'],
-            'maz_data_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data'],  # Keep convenience copies in main output
-            'maz_data_density_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data_density'],
-            
-            # PopulationSim files (same location now)
-            'maz_marginals_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals'],
-            'taz_marginals_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals'],
-            'county_marginals_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['county_marginals'],
-            'maz_data_popsim': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_data_density']  # PopulationSim uses the density version
-        }
-        
-        # ============================================================
-        # STEP 3: GROUP QUARTERS FILES
-        # ============================================================
-        self.HHGQ_FILES = {
-            # Group quarters integrated files (what PopulationSim needs)
-            'maz_marginals_hhgq': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals_hhgq'],
-            'taz_marginals_hhgq': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals_hhgq'],
-            'taz_summaries_hhgq': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_summaries_hhgq']  # For TM1
-        }
-        
-        # ============================================================
-        # STEP 4: POPULATIONSIM CONFIGURATION
-        # ============================================================
-        self.POPSIM_CONFIG_FILES = {
-            'settings': self.POPSIM_CONFIG_DIR / self.FILE_TEMPLATES['settings_yaml'],
-            'logging': self.POPSIM_CONFIG_DIR / self.FILE_TEMPLATES['logging_yaml'], 
-            'controls': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['controls_csv']
-        }
-        
-        # ============================================================
-        # STEP 4: POPULATIONSIM OUTPUT FILES
-        # ============================================================
-        self.POPSIM_OUTPUT_FILES = {
-            'synthetic_households': self.POPSIM_OUTPUT_DIR / self.FILE_TEMPLATES['synthetic_households'],
-            'synthetic_persons': self.POPSIM_OUTPUT_DIR / self.FILE_TEMPLATES['synthetic_persons'],
-            'summary_melt': self.POPSIM_OUTPUT_DIR / self.FILE_TEMPLATES['summary_melt']
-        }
-        
-        # ============================================================
-        # STEP 5: POST-PROCESSING FILES
-        # ============================================================
-        self.POSTPROCESS_FILES = {
-            'validation_workbook_src': self.BASE_DIR / self.FILE_TEMPLATES['validation_workbook'],
-            'validation_workbook_dst': self.OUTPUT_DIR / self.FILE_TEMPLATES['validation_workbook']
-        }
-        
-        # ============================================================
-        # STEP 6: TABLEAU FILES
-        # ============================================================
-        self.TABLEAU_FILES = {
-            'output_dir': self.OUTPUT_DIR / "tableau",
-            'script': self.BASE_DIR / "prepare_tableau_data.py"
-        }
-        
-        # ============================================================
-        # STEP 7: COMPREHENSIVE ANALYSIS FILES
-        # ============================================================
-        self.ANALYSIS_FILES = {
-            # Main analysis outputs
-            'full_analysis': self.OUTPUT_DIR / "FULL_DATASET_ANALYSIS.md",
-
-
-            # Analysis scripts (organized by category)
-            'scripts_dir': self.BASE_DIR / "analysis",
-            'main_scripts': {
-                'performance_summary': self.BASE_DIR / "analysis" / "analyze_corrected_populationsim_performance.py",
-                'full_dataset': self.BASE_DIR / "analysis" / "analyze_full_dataset.py",
-                'compare_controls_vs_results_by_taz': self.BASE_DIR / "analysis" / "compare_controls_vs_results_by_taz.py"
-            },
-
-            'validation_scripts': {
-                # 'data_validation': self.BASE_DIR / "analysis" / "data_validation.py"
-            },
-
-            'check_scripts': {
-                # 'taz_controls_rollup': self.BASE_DIR / "analysis" / "check_taz_controls_rollup.py",
-                # (Removed as requested)
-            },
-
-            'visualization_scripts': {
-                #'taz_puma_mapping': self.BASE_DIR / "analysis" / "visualize_taz_puma_mapping.py",
-              
+        # Robust PUMA_RESOLUTION with manual_overrides and verbose_logging
+        self.PUMA_RESOLUTION = {
+            'enabled': True,
+            'method': 'majority_rule',
+            'min_threshold_pct': 1.0,
+            'verbose_logging': True,
+            'manual_overrides': {
+                5500: 7,
+                7513: 1
             }
         }
+        # Setup templates, external paths, and file paths
+        self._setup_file_templates()
+        self._setup_external_paths()
+        self._setup_file_paths()
+        # Now load PUMAs from crosswalk (after file paths are set up)
+        self.BAY_AREA_PUMAS = self._load_pumas_from_crosswalk()
+        # Ensure directories exist
+        self._create_directories()
+        # Define ALL commands in one place (AFTER helper methods are available)
+        self._setup_commands()
+        # Force flags for workflow control
+        self.FORCE_FLAGS = {
+            'CROSSWALK': os.getenv('FORCE_CROSSWALK', 'True').lower() == 'true',
+            'SEED': os.getenv('FORCE_SEED', 'True').lower() == 'true',
+            'CONTROLS': os.getenv('FORCE_CONTROLS', 'True').lower() == 'true',
+            'HHGQ': os.getenv('FORCE_HHGQ', 'True').lower() == 'true',
+            'POPSIM': os.getenv('FORCE_POPSIM', 'True').lower() == 'true',
+            'POSTPROCESS': os.getenv('FORCE_POSTPROCESS', 'True').lower() == 'true',
+            'TABLEAU': os.getenv('FORCE_TABLEAU', 'True').lower() == 'true'
+        }
+
+    @property
+    def SUMMARY_REPORT_FILE(self):
+        """Standard summary report file path in output_2023 directory."""
+        return self.OUTPUT_DIR / "validation_summary.txt"
+
+    def get_summary_file_path(self, name="validation_summary.txt"):
+        """Get a summary file path in the output_2023 directory (optionally override filename)."""
+        return self.OUTPUT_DIR / name
     
     def _setup_commands(self):
-        """Define ALL commands in the system"""
-        
+        """Define ALL commands in the system, including new comparison/analysis step"""
         self.COMMANDS = {
             # Step 0: Crosswalk creation (MUST be first - seed generation needs it)
             'crosswalk': [
@@ -373,16 +377,13 @@ class UnifiedTM2Config:
                     str(self.BASE_DIR / "build_complete_crosswalk.py")
                 ]
             ],
-            
             # Step 0.5: Geographic rebuild (rebuild complete crosswalk from Census blocks)
             'geographic_rebuild': [],  # Handled specially in pipeline - no external command needed
-            
             # Step 1: PUMS data download (depends on crosswalk for PUMA filtering)
             'pums': [
                 "python",
                 str(self.BASE_DIR / "download_2023_5year_pums.py")
             ],
-            
             # Step 2: Seed generation (depends on crosswalk and PUMS data)
             'seed': [
                 "python",
@@ -390,22 +391,19 @@ class UnifiedTM2Config:
                 "--year", str(self.YEAR),
                 "--model_type", self.MODEL_TYPE
             ] + self.get_test_puma_args(),
-            
             # Step 3: Control generation
             'controls': [
                 "python",
                 str(self.BASE_DIR / "create_baseyear_controls_23_tm2.py")
             ] + self.get_test_puma_args(),
-            
             # Step 4: Group quarters integration
             'hhgq': [
                 "python",
-                str(self.BASE_DIR / "add_hhgq_combined_controls.py"), 
+                str(self.BASE_DIR / "add_hhgq_combined_controls.py"),
                 "--model_type", self.MODEL_TYPE,
                 "--input_dir", str(self.OUTPUT_DIR),
                 "--output_dir", str(self.POPSIM_DATA_DIR)
             ] + self.get_test_puma_args(),
-            
             # Step 5: PopulationSim synthesis
             'populationsim': [
                 "python",
@@ -413,7 +411,6 @@ class UnifiedTM2Config:
                 "--working_dir", str(self.POPSIM_WORKING_DIR),
                 "--output", str(self.POPSIM_OUTPUT_DIR)
             ] + self.get_test_puma_args(),
-            
             # Step 6: Post-processing
             'postprocess': [
                 "python",
@@ -422,7 +419,6 @@ class UnifiedTM2Config:
                 "--directory", str(self.POPSIM_OUTPUT_DIR),
                 "--year", str(self.YEAR)
             ] + self.get_test_puma_args(),
-            
             # Step 7: Tableau preparation
             'tableau': [
                 "python",
@@ -430,7 +426,6 @@ class UnifiedTM2Config:
                 "--output_dir", str(self.TABLEAU_FILES['output_dir']),
                 "--year", str(self.YEAR)
             ] + self.get_test_puma_args(),
-            
             # Step 8: Comprehensive Analysis and Validation
             'analysis': [
                 "python",
@@ -438,13 +433,11 @@ class UnifiedTM2Config:
                 "--output_dir", str(self.OUTPUT_DIR),
                 "--year", str(self.YEAR)
             ],
-
-            # Step 9: Old vs New Synthetic Population Comparison
+            # Step 9: Old vs New Synthetic Population Comparison (NEW FEATURE)
             'compare_synthetic_populations': [
                 "python",
                 str(self.BASE_DIR / "compare_synthetic_populations.py")
             ]
-
         }
     
     # ============================================================
@@ -644,17 +637,13 @@ class UnifiedTM2Config:
             self._sync_all_popsim_files()
     
     def _sync_control_files(self):
-        """Copy control files from output_2023 to PopulationSim data directory"""
+        """Copy control files from output_2023 to PopulationSim data directory (streamlined for current files)"""
         import shutil
-        
         mappings = [
-            (self.CONTROL_FILES['maz_marginals_main'], self.CONTROL_FILES['maz_marginals_popsim']),
-            (self.CONTROL_FILES['taz_marginals_main'], self.CONTROL_FILES['taz_marginals_popsim']),
-            (self.CONTROL_FILES['county_marginals_main'], self.CONTROL_FILES['county_marginals_popsim']),
-            (self.CONTROL_FILES['maz_data_density_main'], self.CONTROL_FILES['maz_data_popsim']),
-            (self.CROSSWALK_FILES['main_crosswalk'], self.CROSSWALK_FILES['popsim_crosswalk'])
+            (self.CONTROL_FILES['maz_marginals_main'], self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals_hhgq']),
+            (self.CONTROL_FILES['taz_marginals_main'], self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals_hhgq']),
+            (self.CONTROL_FILES['county_marginals_main'], self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['county_marginals'])
         ]
-        
         for src, dst in mappings:
             if src.exists():
                 shutil.copy2(src, dst)
@@ -663,13 +652,6 @@ class UnifiedTM2Config:
                 print(f"Using existing: {dst.name} (source {src.name} not found)")
             else:
                 print(f"WARNING: Missing source file: {src}")
-                
-        # Special handling for files that are already in working dir
-        if not self.CONTROL_FILES['maz_data_density_main'].exists():
-            if self.CONTROL_FILES['maz_data_popsim'].exists():
-                print(f"Using existing: {self.CONTROL_FILES['maz_data_popsim'].name}")
-            else:
-                print(f"WARNING: Missing maz_data_withDensity.csv in both locations")
     
     def _sync_all_popsim_files(self):
         """Sync all files needed for PopulationSim"""
@@ -740,18 +722,18 @@ class UnifiedTM2Config:
                 continue
     
     def get_step_files(self, step_name):
-        """Get the files that should exist after a step completes"""
+        """Get the files that should exist after a step completes (aligned to current outputs)"""
         step_files = {
             'pums': [
-                self.PUMS_FILES['households_current'],
+                self.PUMS_FILES['households_current'], 
                 self.PUMS_FILES['persons_current']
             ],
             'crosswalk': [self.CROSSWALK_FILES['main_crosswalk']],
             'geographic_rebuild': [self.POPSIM_DATA_DIR / "mazs_tazs_all_geog.csv"],
             'seed': [self.SEED_FILES['households'], self.SEED_FILES['persons']],
             'controls': [
-                self.CONTROL_FILES['maz_marginals_main'],
-                self.CONTROL_FILES['taz_marginals_main'],
+                self.CONTROL_FILES['maz_marginals_main'], 
+                self.CONTROL_FILES['taz_marginals_main'], 
                 self.CONTROL_FILES['county_marginals_main']
             ],
             'populationsim': [
@@ -760,29 +742,19 @@ class UnifiedTM2Config:
             ],
             'postprocess': [
                 self.POPSIM_OUTPUT_DIR / "summary_melt.csv",
-                self.POPSIM_OUTPUT_DIR / f"households_{self.YEAR}_tm2.csv",
+                self.POPSIM_OUTPUT_DIR / f"households_{self.YEAR}_tm2.csv", 
                 self.POPSIM_OUTPUT_DIR / f"persons_{self.YEAR}_tm2.csv"
             ],
             'analysis': [
-                # Main analysis outputs (if they exist)
-                self.ANALYSIS_FILES.get('full_analysis'),
-                # All main_scripts
-                *self.ANALYSIS_FILES.get('main_scripts', {}).values(),
-                # All validation_scripts
-                *self.ANALYSIS_FILES.get('validation_scripts', {}).values(),
-                # All check_scripts
-                *self.ANALYSIS_FILES.get('check_scripts', {}).values(),
-                # All visualization_scripts
-                *self.ANALYSIS_FILES.get('visualization_scripts', {}).values(),
-                # Standard summary and chart outputs
+                self.ANALYSIS_FILES['performance_summary'],
+                self.ANALYSIS_FILES['analysis_results'],
+                self.ANALYSIS_FILES['analysis_log'],
                 self.OUTPUT_DIR / "validation_summary.txt",
                 self.OUTPUT_DIR / "control_checks_summary.txt",
                 self.OUTPUT_DIR / "populationsim_analysis_charts.html"
             ]
         }
-        # Remove any None values (e.g., if check_scripts is empty)
-        files = step_files.get(step_name, [])
-        return [f for f in files if f is not None]
+        return step_files.get(step_name, [])
     
     # ============================================================
     # COUNTY LOOKUP HELPER METHODS

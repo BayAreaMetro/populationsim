@@ -820,19 +820,8 @@ class SeedPopulationCreator:
                     p_nan, p_inf = self._count_nan_inf(person_df, col)
                     logger.info(f"  Persons: {col}: {p_nan} NaN, {p_inf} inf")
 
-            # Remove households and persons where HINCP, ADJINC, or VEH are NaN or infinite
-            invalid_mask = (
-                household_df['HINCP'].isna() | household_df['ADJINC'].isna() |
-                np.isinf(household_df['HINCP']) | np.isinf(household_df['ADJINC'])
-            )
-            if 'VEH' in household_df.columns:
-                invalid_mask = invalid_mask | household_df['VEH'].isna() | np.isinf(household_df['VEH'])
-            invalid_hh_ids = set(household_df.loc[invalid_mask, 'unique_hh_id'])
-            n_invalid = len(invalid_hh_ids)
-            if n_invalid > 0:
-                logger.warning(f"Dropping {n_invalid} households (and their persons) due to NaN or infinite HINCP, ADJINC, or VEH")
-            household_df = household_df[~household_df['unique_hh_id'].isin(invalid_hh_ids)].copy()
-            person_df = person_df[~person_df['unique_hh_id'].isin(invalid_hh_ids)].copy()
+            # (REMOVED) Dropping households/persons with missing or infinite HINCP, ADJINC, or VEH
+            # If you want to filter or impute, do it here, but do not drop for missing income/veh
             
             # Check for orphaned persons (persons without matching households)
             orphaned_persons = person_df['unique_hh_id'].isna().sum()

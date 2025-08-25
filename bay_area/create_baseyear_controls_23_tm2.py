@@ -79,7 +79,7 @@ import pandas as pd
 import traceback
 
 from tm2_control_utils.config_census import *
-from tm2_control_utils import config
+from tm2_control_utils import config_census as config
 from tm2_control_utils.config_census import (get_bay_area_county_codes, get_county_name_mapping, 
                                     get_control_categories_for_geography, get_controls_in_category,
                                     get_all_expected_controls_for_geography, get_missing_controls_for_geography)
@@ -340,7 +340,7 @@ def get_county_targets(cf, logger, use_offline_fallback=True):
     
     Returns a dictionary with county FIPS codes as keys and target DataFrames as values.
     """
-    from tm2_control_utils import config
+    # Removed: from tm2_control_utils import config (no such module)
     from tm2_control_utils.config_census import COUNTY_TARGETS_FILE, ACS_EST_YEAR, CONTROLS, PRIMARY_OUTPUT_DIR
     
     # Check for county targets cache file in primary output directory

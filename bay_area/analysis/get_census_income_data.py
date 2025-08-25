@@ -47,14 +47,14 @@ def get_bay_area_income_from_census():
         'in': f'state:{state_fips}'
     }
 
-    print(f"🌐 Downloading ACS {acs_year} {acs_table} for Bay Area counties...")
+    print(f"Downloading ACS {acs_year} {acs_table} for Bay Area counties...")
     try:
         response = requests.get(base_url, params=params)
         response.raise_for_status()
         data = response.json()
-        print(f"✅ Downloaded data for {len(data)-1} counties.")
+        print(f"Downloaded data for {len(data)-1} counties.")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         return
 
     # Parse data

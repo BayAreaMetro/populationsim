@@ -3,22 +3,22 @@ POPULATIONSIM DATA VALIDATION REPORT
 ================================================================================
 
 DATA SUMMARY:
-  Households: 139,704
-  Persons: 358,679
+  Households: 155,540
+  Persons: 374,515
   Expected PUMAs: 62
   Actual PUMAs: 62
 
 VALIDATION STATUS: FAIL
 
 HOUSEHOLD SUMMARY:
-  Total: 139,704
-  Avg Size: 2.57
-  Types: {0: 139704}
+  Total: 155,540
+  Avg Size: 2.41
+  Types: {0: 139704, 1: 10081, 2: 78, 3: 5677}
 
 PERSON SUMMARY:
-  Total: 358,679
-  Avg Age: 42.3
-  Under 18: 67,463
-  Working Age: 219,941
-  Seniors: 71,275
+  Total: 374,515
+  Avg Age: 42.4
+  Under 18: 68,080
+  Working Age: 230,721
+  Seniors: 75,714
 ================================================================================

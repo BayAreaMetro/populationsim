@@ -322,7 +322,7 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
     if duplicate_blocks > 0:
         print(f"   - WARNING: {duplicate_blocks} duplicate block GEOIDs found!")
     else:
-        print(f"   - ✅ All block GEOIDs are unique")
+        print(f"   - All block GEOIDs are unique")
         
     duplicate_bg = result_df[['GEOID_block group', 'TAZ']].duplicated().sum()
     if duplicate_bg > 0:
