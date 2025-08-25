@@ -39,6 +39,38 @@ from cpi_conversion import convert_2023_to_2010_dollars
 from analysis.pums_downloader import PUMSDownloader
 from analysis.data_validation import PopulationSimValidator, DataQualityReporter
 
+# Harmonize key person variables to match legacy coding
+def harmonize_person_variables(df):
+    # ESR: recode missing to 0, as in old code
+    if 'ESR' in df.columns:
+        df.loc[pd.isnull(df.ESR), 'ESR'] = 0
+        df['ESR'] = df['ESR'].astype(np.uint8)
+    # EMPLOYED: 1 if ESR in [1,2,4,5], else 0
+    if 'ESR' in df.columns:
+        df['employed'] = 0
+        df.loc[df.ESR.isin([1,2,4,5]), 'employed'] = 1
+    # OCCP: set 0 to 999
+    if 'OCCP' in df.columns:
+        df.loc[df.OCCP == 0, 'OCCP'] = 999
+    # WKW, WKHP, employ_status: replicate old logic
+    if {'WKW', 'WKHP', 'ESR', 'employed'}.issubset(df.columns):
+        df['employ_status'] = 999
+        df.loc[df.employed == 1, 'employ_status'] = 2  # part-time worker
+        df.loc[(df.employed == 1) & (df.WKW.isin([1,2,3,4])) & (df.WKHP >= 35), 'employ_status'] = 1  # full-time worker
+        df.loc[df.ESR == 0, 'employ_status'] = 4  # student under 16
+        df.loc[df.ESR.isin([6,3]), 'employ_status'] = 3  # not in labor force
+    # SCHG: set student_status as in old code
+    if 'SCHG' in df.columns:
+        df['student_status'] = 3
+        df.loc[(df.SCHG >= 1) & (df.SCHG <= 14), 'student_status'] = 1  # pre-school through grade 12
+        df.loc[df.SCHG.isin([15,16]), 'student_status'] = 2  # university/professional
+    # SCHL: (add any harmonization if needed, based on old code)
+    # person_type: replicate old logic if needed
+    if 'AGEP' in df.columns:
+        df['person_type'] = 5  # non-working senior
+        df.loc[df.AGEP < 65, 'person_type'] = 4  # non-working adult
+    return df
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -357,16 +389,17 @@ class HouseholdProcessor:
             logger.error("HINCP values are in survey year dollars and must be adjusted with ADJINC")
             return df
         
-        # Step 1: Apply ADJINC to get income in 2023 dollars
+         # Step 1: Apply ADJINC to get income in 2023 dollars
         logger.info("   Applying ADJINC factor to convert survey year income to 2023 dollars...")
-        
-        valid_mask = (df['HINCP'] > 0) & (df['ADJINC'] > 0)
+        # Allow negative incomes (old pipeline behavior)
+        valid_mask = df['HINCP'].notnull() & df['ADJINC'].notnull()
         df['hh_income_2023'] = 0.0
         df.loc[valid_mask, 'hh_income_2023'] = (df.loc[valid_mask, 'ADJINC'] / 1_000_000) * df.loc[valid_mask, 'HINCP']
         
         # Step 2: Convert 2023 dollars to 2010 dollars for PopulationSim controls  
         # Note: 2023 ACS data requires 2023→2010 conversion, not 2021→2010
-        # CPI 2023 ≈ 310.0, CPI 2010 = 218.056  
+        # CPI 2023 ≈ 310.0, CPI 2010 = 218.056
+        # TO DO - put this magic number in the configuration  
         cpi_2023_to_2010 = 218.056 / 310.0
         df['hh_income_2010'] = df['hh_income_2023'] * cpi_2023_to_2010
         
@@ -896,6 +929,8 @@ class SeedPopulationCreator:
             
             logger.info("[PERSON] Finalizing person data...")
             person_df = self._finalize_person_data(person_df)
+            # Harmonize key variables for compatibility with legacy outputs
+            person_df = harmonize_person_variables(person_df)
             
             # Step 4: Save final seed files directly to PopulationSim data directory
             logger.info("-" * 50)
