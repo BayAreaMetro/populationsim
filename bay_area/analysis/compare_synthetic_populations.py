@@ -9,7 +9,7 @@ from pathlib import Path
 
 # File locations
 old_dir = Path(r"C:/GitHub/populationsim/bay_area/example_2015_outputs/hh_persons_model")
-new_dir = Path(r"output_2023")
+new_dir = Path(r"C:/GitHub/populationsim/bay_area/output_2023/populationsim_working_dir/output")
 
 files = [
     ("households.csv", "households_{year}_tm2.csv", "households_comparison_summary.txt"),
@@ -43,6 +43,10 @@ def compare_files(old_file, new_file, out_file, key_col="HHINCADJ"):
         # Only compare columns present in both
         common_cols = sorted(old_cols & new_cols)
         for col in common_cols:
+            # Skip columns that are likely ID columns or are MAZ/TAZ columns
+            col_lower = col.lower()
+            if 'id' in col_lower or col_lower == 'maz' or col_lower == 'taz':
+                continue
             f.write(f"=== {col} ===\n")
             if col.upper() == key_col.upper():
                 # Numeric summary
@@ -63,11 +67,16 @@ def compare_files(old_file, new_file, out_file, key_col="HHINCADJ"):
             else:
                 old_counts = old_df[col].value_counts(dropna=False).sort_index()
                 new_counts = new_df[col].value_counts(dropna=False).sort_index()
-                all_vals = sorted(set(old_counts.index) | set(new_counts.index))
+                # Convert all value keys to strings for safe sorting and lookup
+                old_counts_str = old_counts.copy()
+                old_counts_str.index = old_counts_str.index.map(str)
+                new_counts_str = new_counts.copy()
+                new_counts_str.index = new_counts_str.index.map(str)
+                all_vals = sorted(set(old_counts_str.index) | set(new_counts_str.index))
                 f.write("  Value           Old      New      Diff     %Diff\n")
                 for val in all_vals:
-                    o = old_counts.get(val, 0)
-                    n = new_counts.get(val, 0)
+                    o = old_counts_str.get(val, 0)
+                    n = new_counts_str.get(val, 0)
                     diff = n - o
                     pct = (diff / o * 100) if o != 0 else float('nan')
                     f.write(f"  {str(val):<15} {o:8} {n:8} {diff:8} {pct:8.2f}\n")
