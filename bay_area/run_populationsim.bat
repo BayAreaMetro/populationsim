@@ -13,12 +13,12 @@ set MODELTYPE=TM1
 :: for a forecast, copies marginals from         "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv"
 :: for past/current year, copies marginals from  "%TMPATH%\!YEAR!""
 set TMPATH=X:\travel-model-one-master\utilities\taz-data-baseyears
-set URBANSIMPATH=M:\Application\Model One\RTP2025\lowVMT_stress_test
+set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\sensitivity_test\PBA50Plus_sensitivity_V3A_NPv1
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
 :: Note: This is equivalent to PBA50Plus_Final_Blueprint_v65 but it includes interim year output
-set BAUS_RUNNUM=PBA50Plus_lowVMTStress_v1
+set BAUS_RUNNUM=PBA50Plus_sensitivity_V3A_NPv1
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=FBP_20250821
+set OUTPUT_SUFFIX=FBP_20250826
 
 :: assume argument is year
 set YEARS=%1
@@ -69,13 +69,13 @@ for %%Y in (!YEARS!) do (
     )
     if !FORECAST!==1 (
       rem copy "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"
-      copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_taz1_summary_!YEAR!.csv"     hh_gq\data\taz_summaries.csv
-      copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv" hh_gq\data\county_marginals.csv
+      copy /y "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_taz1_summary_!YEAR!.csv"     hh_gq\data\taz_summaries.csv
+      copy /y "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv" hh_gq\data\county_marginals.csv
 
       rem Verify that the file copy MUST succeed or we'll run populationsim with the wrong input
-      fc /b "%URBANSIMPATH%\%BAUS_RUNNUM%_taz1_summary_!YEAR!.csv"       hh_gq\data\taz_summaries.csv > nul
+      fc /b "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_taz1_summary_!YEAR!.csv"       hh_gq\data\taz_summaries.csv > nul
       if errorlevel 1 goto error
-      fc /b  "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"  hh_gq\data\county_marginals.csv > nul
+      fc /b  "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"  hh_gq\data\county_marginals.csv > nul
       if errorlevel 1 goto error
     )
   )
