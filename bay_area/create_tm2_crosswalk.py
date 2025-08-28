@@ -19,14 +19,13 @@ DATA SOURCES:
   Downloaded and placed in: C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/
 """
 
-import pandas as pd
+
+import argparse
 import geopandas as gpd
 import numpy as np
-from pathlib import Path
+import pandas as pd
 import sys
-import argparse
-
-# Import unified config for county mappings
+from pathlib import Path
 from unified_tm2_config import config
 
 def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=True):

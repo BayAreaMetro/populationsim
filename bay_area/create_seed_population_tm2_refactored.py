@@ -17,20 +17,21 @@ Key ID Columns:
   Used for household-person linkage in PopulationSim
 """
 
-import pandas as pd
+
+import logging
 import numpy as np
 import os
-import zipfile
+import pandas as pd
 import requests
-from urllib3.exceptions import InsecureRequestWarning
-import warnings
 import shutil
-from pathlib import Path
-from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional
-import logging
 import time
+import warnings
+import zipfile
+from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional
+from urllib3.exceptions import InsecureRequestWarning
 
 warnings.filterwarnings('ignore', category=InsecureRequestWarning)
 

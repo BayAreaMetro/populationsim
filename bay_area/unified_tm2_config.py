@@ -7,6 +7,12 @@ Single source of truth for ALL paths, commands, and workflow logic
 Eliminates ALL hardcoded values across the entire codebase!
 """
 
+import os
+import sys
+import shutil
+import pandas as pd
+from pathlib import Path
+
 from pathlib import Path
 import os
 import sys
@@ -23,12 +29,7 @@ class UnifiedTM2Config:
         self.BASE_DIR = Path(__file__).parent.absolute()
         self.YEAR = year
         self.MODEL_TYPE = model_type
-        # Python executable (robust fallback)
-        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
-        if not self.PYTHON_EXE.exists():
-            self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
-        if not self.PYTHON_EXE.exists():
-            raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
+    # Python executable reference removed; use sys.executable in scripts
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
         self.SCRIPTS_DIR = self.BASE_DIR / "scripts"
         self.POPSIM_WORKING_DIR = self.OUTPUT_DIR / "populationsim_working_dir"
@@ -86,11 +87,8 @@ class UnifiedTM2Config:
     def _load_pumas_from_crosswalk(self):
         """Load Bay Area PUMAs from crosswalk file instead of hardcoding"""
         try:
-            import pandas as pd
-            
             # Use single, definitive crosswalk location
             crosswalk_path = self.CROSSWALK_FILES['popsim_crosswalk']
-            
             if crosswalk_path.exists():
                 crosswalk_df = pd.read_csv(crosswalk_path)
                 if 'PUMA' in crosswalk_df.columns:
@@ -104,7 +102,6 @@ class UnifiedTM2Config:
                 print(f"[CONFIG] WARNING: Crosswalk file not found: {crosswalk_path}")
                 print(f"[CONFIG] Generate crosswalk first before running pipeline")
                 return []
-            
         except Exception as e:
             print(f"[CONFIG] ERROR loading PUMAs from crosswalk: {e}")
             return []
@@ -283,11 +280,7 @@ class UnifiedTM2Config:
         self.YEAR = year
         self.MODEL_TYPE = model_type
         # Use the more robust python exe path from new config, fallback to legacy if not found
-        self.PYTHON_EXE = Path(r"C:\Users\schildress\AppData\Local\anaconda3\envs\popsim\python.exe")
-        if not self.PYTHON_EXE.exists():
-            self.PYTHON_EXE = Path(r"C:\Users\MTCPB\AppData\Local\anaconda3\envs\popsim_working\python.exe")
-        if not self.PYTHON_EXE.exists():
-            raise FileNotFoundError(f"PopulationSim Python environment not found at: {self.PYTHON_EXE}")
+    # Python executable reference removed; use sys.executable in scripts
         self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
         self.SCRIPTS_DIR = self.BASE_DIR / "scripts"
         self.POPSIM_WORKING_DIR = self.OUTPUT_DIR / "populationsim_working_dir"
@@ -629,7 +622,7 @@ class UnifiedTM2Config:
     
     def sync_files_for_step(self, step_number):
         """Intelligently sync files needed for a specific step"""
-        import shutil
+    # shutil already imported at top
         
         if step_number == 3:  # Group quarters step needs control files
             self._sync_control_files()
@@ -638,7 +631,7 @@ class UnifiedTM2Config:
     
     def _sync_control_files(self):
         """Copy control files from output_2023 to PopulationSim data directory (streamlined for current files)"""
-        import shutil
+    # shutil already imported at top
         mappings = [
             (self.CONTROL_FILES['maz_marginals_main'], self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals_hhgq']),
             (self.CONTROL_FILES['taz_marginals_main'], self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals_hhgq']),
@@ -655,7 +648,7 @@ class UnifiedTM2Config:
     
     def _sync_all_popsim_files(self):
         """Sync all files needed for PopulationSim"""
-        import shutil
+    # shutil already imported at top
         
         # First sync control files
         self._sync_control_files()

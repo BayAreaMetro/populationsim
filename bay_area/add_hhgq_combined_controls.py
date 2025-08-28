@@ -13,8 +13,11 @@ For TM2:
 
 """
 
-import argparse, pathlib, sys
-import numpy, pandas
+import argparse
+import numpy
+import pandas
+import pathlib
+import sys
 
 if __name__ == '__main__':
     pandas.options.display.width    = 180

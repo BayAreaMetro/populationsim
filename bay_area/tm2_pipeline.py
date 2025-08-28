@@ -1,18 +1,37 @@
-#!/usr/bin/env python3
 """
 TM2 Pipeline - Single workflow script for the entire Bay Area population synthesis
-NO MORE MULTIPLE WORKFLOWS! This is the one and only pipeline script.
 Uses UnifiedTM2Config for single source of truth.
 """
 
+
+#!/usr/bin/env python3
+"""
+TM2 Pipeline - Single workflow script for the entire Bay Area population synthesis
+Uses UnifiedTM2Config for single source of truth.
+"""
+
+import argparse
+import os
+import shutil
 import subprocess
 import sys
+import threading
 import time
+import traceback
 from pathlib import Path
+
+import pandas as pd
+
 from unified_tm2_config import UnifiedTM2Config
+
+try:
+    from tm2_control_utils.config_census import rebuild_maz_taz_all_geog_file
+except ImportError:
+    rebuild_maz_taz_all_geog_file = None
 
 class TM2Pipeline:
     """Complete TM2 population synthesis pipeline with single source of truth"""
+    
     
     def __init__(self, offline_mode=False, verbose=True):
         self.config = UnifiedTM2Config()
@@ -22,11 +41,13 @@ class TM2Pipeline:
         self.fast_mode = False
         self.timeout = 7200  # Default 2 hour timeout
         
+    
     def log(self, message, level="INFO"):
         """Unified logging"""
         timestamp = time.strftime("%H:%M:%S")
         print(f"[{timestamp}] [{level}] {message}")
         
+    
     def check_step_completion(self, step_name):
         """Check if step has been completed successfully"""
         step_files = self.config.get_step_files(step_name)
@@ -46,6 +67,7 @@ class TM2Pipeline:
                 self.log(f"  {status} {f.name}", "STATUS")
         return False
         
+    
     def run_command(self, command, step_name):
         """Execute a command or list of commands and handle output with progress monitoring"""
         # If command is a list of lists, run each sub-command in sequence
@@ -58,6 +80,7 @@ class TM2Pipeline:
         else:
             return self._run_single_command(command, step_name)
 
+    
     def _run_single_command(self, command, step_name):
         self.log(f"Running {step_name}: {' '.join(command)}")
         start_time = time.time()
@@ -107,6 +130,7 @@ class TM2Pipeline:
             self.log(f"Step {step_name} failed with code {returncode} after {duration:.1f}s", "ERROR")
             return False
     
+    
     def check_pums_files_exist(self):
         """Check if PUMS files exist (check both current and cached locations)"""
         # Check current location first
@@ -127,6 +151,7 @@ class TM2Pipeline:
             
         return False
 
+    
     def run_step(self, step_name, force=False):
         """Run a specific pipeline step"""
         
@@ -184,13 +209,13 @@ class TM2Pipeline:
             result = self.run_command(command, step_name)
             if result:
                 # Check for county income summary output
-                from unified_tm2_config import UnifiedTM2Config
+                # UnifiedTM2Config already imported at top
                 config = UnifiedTM2Config()
                 output_file = config.POPSIM_OUTPUT_DIR / 'bay_area_income_acs_2023.csv'
                 if not output_file.exists():
                     self.log("County income summary not found, running get_census_income_data.py...")
                     income_script = str(self.config.BASE_DIR / 'analysis' / 'get_census_income_data.py')
-                    income_cmd = [str(self.config.PYTHON_EXE), income_script]
+                    income_cmd = [sys.executable, income_script]
                     income_result = self.run_command(income_cmd, 'get_census_income_data')
                     if not income_result:
                         self.log("County income summary creation failed!", "ERROR")
@@ -207,7 +232,7 @@ class TM2Pipeline:
                 for script_name, script_path in scripts.items():
                     if script_path.exists():
                         self.log(f"Running analysis script: {script_name} ({script_path})")
-                        script_cmd = [str(self.config.PYTHON_EXE), str(script_path)]
+                        script_cmd = [sys.executable, str(script_path)]
                         script_result = self.run_command(script_cmd, script_name)
                         if not script_result:
                             self.log(f"Script failed: {script_name}", "ERROR")
@@ -217,10 +242,10 @@ class TM2Pipeline:
         else:
             return self.run_command(command, step_name)
     
+    
     def fix_county_codes(self):
         """Fix county codes to use sequential 1-9 numbering expected by PopulationSim"""
-        import pandas as pd
-        import os
+    # pandas and os already imported at top
         
         self.log("Converting county codes to sequential 1-9 numbering (matching working 2015 version)...")
         
@@ -317,14 +342,15 @@ class TM2Pipeline:
             
         except Exception as e:
             self.log(f"Error fixing county codes: {e}", "ERROR")
-            import traceback
+            # traceback already imported at top
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
+    
     
     def run_geographic_rebuild(self):
         """Rebuild complete geographic crosswalk from 2010 Census blocks"""
         try:
-            from tm2_control_utils.config_census import rebuild_maz_taz_all_geog_file
+            # rebuild_maz_taz_all_geog_file imported at top
             
             self.log("Rebuilding complete geographic crosswalk from 2010 Census blocks...")
             
@@ -347,14 +373,14 @@ class TM2Pipeline:
                 
         except Exception as e:
             self.log(f"Error rebuilding geographic crosswalk: {e}", "ERROR")
-            import traceback
+            # traceback already imported at top
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
+    
     def fix_crosswalk_multi_puma(self):
         """Fix crosswalk to resolve TAZs assigned to multiple PUMAs (root cause of NaN control aggregation)"""
-        import pandas as pd
-        import os
+    # pandas and os already imported at top
         
         self.log("Fixing crosswalk: resolving TAZs with multiple PUMA assignments...")
         
@@ -423,14 +449,14 @@ class TM2Pipeline:
             
         except Exception as e:
             self.log(f"Error fixing crosswalk: {e}", "ERROR")
-            import traceback
+            # traceback already imported at top
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
+    
     def prepare_populationsim_data(self):
         """Prepare PopulationSim data directory with proper file structure and symbolic links"""
-        import os
-        from pathlib import Path
+
         
         self.log("Preparing PopulationSim data directory...")
         
@@ -467,7 +493,7 @@ class TM2Pipeline:
                             self.log(f"✓ Linked: {filename}")
                         except OSError:
                             # Fallback to copy if symlink fails
-                            import shutil
+                            # shutil already imported at top
                             shutil.copy2(source_file, target_file)
                             self.log(f"✓ Copied: {filename} (symlink failed)")
                     else:
@@ -482,15 +508,14 @@ class TM2Pipeline:
             
         except Exception as e:
             self.log(f"Error preparing PopulationSim data: {e}", "ERROR")
-            import traceback
+            # traceback already imported at top
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
 
+    
     def run_populationsim_with_monitoring(self, command):
         """Run PopulationSim with enhanced progress monitoring"""
-        import threading
-        import time
-        from pathlib import Path
+    # threading, time, and Path already imported at top
         
         self.log("Starting PopulationSim with enhanced monitoring...")
         
@@ -586,6 +611,7 @@ class TM2Pipeline:
             self.log(f"PopulationSim failed with code {returncode} after {duration:.1f}s", "ERROR")
             return False
     
+    
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
         # Default pipeline steps, synced with config
@@ -628,6 +654,7 @@ class TM2Pipeline:
         self.log(f"{'='*60}")
         self.log(f"PIPELINE COMPLETED SUCCESSFULLY in {overall_duration:.1f}s", "SUCCESS")
 
+    
     def run_analysis_scripts(self):
         """Run all analysis/summary scripts as defined in config.ANALYSIS_FILES, but skip missing or empty files."""
         analysis_files = self.config.ANALYSIS_FILES
@@ -637,7 +664,7 @@ class TM2Pipeline:
             for script_name, script_path in scripts.items():
                 if script_path.exists() and script_path.stat().st_size > 0:
                     self.log(f"Running analysis script: {script_name} ({script_path})")
-                    script_cmd = [str(self.config.PYTHON_EXE), str(script_path)]
+                    script_cmd = [sys.executable, str(script_path)]
                     script_result = self.run_command(script_cmd, script_name)
                     if not script_result:
                         self.log(f"Script failed: {script_name}", "ERROR")
@@ -647,6 +674,7 @@ class TM2Pipeline:
                     self.log(f"Script not found, skipping: {script_name} ({script_path})", "WARN")
         self.log(f"{'='*60}")
         return True
+    
     
     def status(self):
         """Show status of all pipeline steps"""
@@ -659,6 +687,7 @@ class TM2Pipeline:
                 self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
             else:
                 self.log(f"{step.ljust(15)}: ✗ INCOMPLETE", "STATUS")
+    
     
     def clean(self, step_name=None):
         """Clean outputs for a specific step or all steps"""
@@ -676,9 +705,10 @@ class TM2Pipeline:
                         self.log(f"Removed: {f.name}")
                 self.log(f"Cleaned step: {step}")
 
+    
 def main():
     """Main CLI interface"""
-    import argparse
+    # argparse already imported at top
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='status',

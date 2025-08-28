@@ -1,6 +1,7 @@
+
+import pandas as pd
 import re
 from pathlib import Path
-import pandas as pd
 
 # List of variables to check
 variables = ['ESR', 'OCCP', 'SCHG', 'SCHL', 'WKW']

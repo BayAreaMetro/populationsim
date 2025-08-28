@@ -4,6 +4,9 @@ CPI Conversion Module for PopulationSim TM2
 Converts income values between different base years using Consumer Price Index
 """
 
+import numpy as np
+import pandas as pd
+
 def convert_2023_to_2010_dollars(income_2023):
     """
     Convert 2023 dollar amounts to 2010 dollars using CPI
