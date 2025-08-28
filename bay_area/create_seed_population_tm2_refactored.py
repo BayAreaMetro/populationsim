@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
 TODO: There are soooooo many magic numbers in this script. We should essentially have a seed_pop_config file for these. It's a mess.
+Try using enums approach. PUMS enums vs Tm2 enums
+
+Review group quarters handling throughout the pipeline.
 """
 """
 Create PUMS seed population for Bay Area PopulationSim TM2
@@ -18,6 +21,10 @@ Key ID Columns:
 - unique_hh_id: Household identifier for PopulationSim
   Format: YEAR_STATE_PUMA_SERIALNO (e.g., "2023_6_06001_0000001")
   Used for household-person linkage in PopulationSim
+
+The TM2 codes can be found here: https://bayareametro.github.io/travel-model-two/transit-ccr/input/#synthetic-population
+
+
 """
 
 
@@ -344,6 +351,7 @@ class HouseholdProcessor:
     def _split_institutional_gq(self, df: pd.DataFrame, mask: pd.Series, count: int) -> pd.DataFrame:
         """Split institutional GQ into military vs other based on control targets"""
         # Control targets: military=1,684, other=122,467 (ratio ~1.4% military)
+        # TO DO: We need to figure out how to split group quarters vs other institutional types
         military_target, other_target = 1684, 122467
         military_ratio = military_target / (military_target + other_target)
         
@@ -423,9 +431,9 @@ class HouseholdProcessor:
             
             # Validate against expected Bay Area medians (rough check)
             if median_2010 < 70000:
-                logger.warning(f"   ⚠️  2010$ median (${median_2010:,.0f}) seems low for Bay Area")
+                logger.warning(f"     2010$ median (${median_2010:,.0f}) seems low for Bay Area")
             elif median_2010 > 100000:
-                logger.warning(f"   ⚠️  2010$ median (${median_2010:,.0f}) seems high for Bay Area")
+                logger.warning(f"   2010$ median (${median_2010:,.0f}) seems high for Bay Area")
             else:
                 logger.info(f"   ✓ 2010$ median (${median_2010:,.0f}) appears reasonable for Bay Area")
         else:
@@ -523,6 +531,7 @@ class PersonProcessor:
         return df
         
         # Create person type
+        # TODO: What is this? Do they happen somewhere else?
         df = self._create_person_type(df)
         
         # Create occupation categories
@@ -938,7 +947,7 @@ class SeedPopulationCreator:
             
             # Step 4: Save final seed files directly to PopulationSim data directory
             logger.info("-" * 50)
-            logger.info("💾 SAVING FINAL SEED FILES")
+            logger.info(" SAVING FINAL SEED FILES")
             logger.info("-" * 50)
             self._save_seed_files(household_df, person_df, h_final, p_final)
             

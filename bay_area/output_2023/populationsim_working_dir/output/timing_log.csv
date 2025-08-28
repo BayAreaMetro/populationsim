@@ -1,0 +1,15 @@
+process_name,model_name,seconds,minutes
+MainProcess,input_pre_processor,11.5,0.2
+MainProcess,setup_data_structures,5.9,0.1
+MainProcess,initial_seed_balancing,224.6,3.7
+MainProcess,meta_control_factoring,0.2,0.0
+MainProcess,final_seed_balancing,294.9,4.9
+MainProcess,integerize_final_seed_weights,20.6,0.3
+MainProcess,input_pre_processor,13.9,0.2
+MainProcess,setup_data_structures,10.4,0.2
+MainProcess,input_pre_processor,12.3,0.2
+MainProcess,setup_data_structures,7.2,0.1
+MainProcess,initial_seed_balancing,237.2,4.0
+MainProcess,meta_control_factoring,0.2,0.0
+MainProcess,final_seed_balancing,274.4,4.6
+MainProcess,integerize_final_seed_weights,13.1,0.2
