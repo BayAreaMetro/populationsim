@@ -34,30 +34,29 @@ C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe tm2_p
 
 All file paths are centralized in `unified_tm2_config.py`. Here are the key sections you may need to modify:
 
-#### 1. Python Executable Path
-**Location**: `unified_tm2_config.py` lines 25-35
-```python
-# Python executable (full path to popsim environment)
-python_exe_env = os.getenv('POPSIM_PYTHON_EXE')
-if python_exe_env:
-    self.PYTHON_EXE = Path(python_exe_env)
-else:
-    # Default to current user's anaconda environment
-    self.PYTHON_EXE = Path(f"C:/Users/{os.getenv('USERNAME')}/AppData/Local/anaconda3/envs/popsim/python.exe")
-```
-**What to change**: Replace with your actual Python executable path if different.
 
-#### 2. External Data Paths
+#### 1. External Data Paths
 **Location**: `unified_tm2_config.py` lines 85-100
 ```python
 self.EXTERNAL_PATHS = {
+    # TM2PY utilities (for shapefiles and outputs)
     'tm2py_shapefiles': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles"),
     'tm2py_utils': Path("C:/GitHub/tm2py-utils/tm2py_utils"),
-    'network_gis': Path("M:/Data/GIS layers/TM2_maz_taz_v2.2"),
+    # Original populationsim_update path (used in some scripts)
+    'populationsim_update': Path("c:/GitHub/populationsim_update/bay_area"),
+    # Census data cache
+    'census_cache': self.BASE_DIR / "data_cache" / "census",
+    'network_gis': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
     'network_census_cache': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls"),
     'network_census_api': Path("M:/Data/Census/API/new_key"),
     'pums_current': Path("M:/Data/Census/PUMS_2023_5Year_Crosswalked"),
     'pums_cached': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23"),
+    # Shapefiles for geographic processing
+    'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
+    'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
+    'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp"),
+    # Geographic crosswalk source
+    'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv")
 }
 ```
 **What to change**: 
@@ -65,7 +64,7 @@ self.EXTERNAL_PATHS = {
 - Replace `M:/Data/` paths with your network data locations
 - If no M: drive access, the pipeline will use local fallback paths automatically
 
-#### 3. GIS Reference Files
+#### 2. GIS Reference Files
 **Location**: `unified_tm2_config.py` lines 110-120
 ```python
 self.GIS_FILES = {
@@ -79,7 +78,7 @@ self.GIS_FILES = {
 ```
 **What to change**: Usually automatic fallback works, but verify your GIS files are available.
 
-#### 4. Census API Key
+#### 3. Census API Key
 **Location**: `unified_tm2_config.py` lines 115-125
 ```python
 'census_api_key_network': self.EXTERNAL_PATHS['network_census_api'] / "api-key.txt",

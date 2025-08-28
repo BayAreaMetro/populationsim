@@ -40,6 +40,7 @@ class UnifiedTM2Config:
         self.DATA_DIR = self.POPSIM_DATA_DIR
         self.EXAMPLE_CONTROLS_DIR = self.BASE_DIR / "example_controls_2015"
         self.TEST_PUMA = None
+    # TODO: Consolidate BAY_AREA_COUNTIES with tm2_control_utils/config_census.py:BAY_AREA_COUNTY_FIPS
         self.BAY_AREA_COUNTIES = {
             1: {'name': 'San Francisco', 'fips_int': 75, 'fips_str': '075'},
             2: {'name': 'San Mateo', 'fips_int': 81, 'fips_str': '081'},
@@ -83,7 +84,12 @@ class UnifiedTM2Config:
             'POSTPROCESS': os.getenv('FORCE_POSTPROCESS', 'True').lower() == 'true',
             'TABLEAU': os.getenv('FORCE_TABLEAU', 'True').lower() == 'true'
         }
-    
+
+        # CPI conversion factors (BLS CPI-U annual averages)
+        # TODO: If more years are needed, expand to a dict or table
+        self.CPI_2010 = 218.056
+        self.CPI_2023 = 310.0  # Approximate 2023 CPI
+        
     def _load_pumas_from_crosswalk(self):
         """Load Bay Area PUMAs from crosswalk file instead of hardcoding"""
         try:
@@ -294,6 +300,7 @@ class UnifiedTM2Config:
         # Set TEST_PUMA before any use in get_test_puma_args
         self.TEST_PUMA = None
         # Bay Area county definitions (sequential ID to FIPS and name)
+        # TODO: Consolidate BAY_AREA_COUNTIES with tm2_control_utils/config_census.py:BAY_AREA_COUNTY_FIPS
         self.BAY_AREA_COUNTIES = {
             1: {'name': 'San Francisco', 'fips_int': 75, 'fips_str': '075'},
             2: {'name': 'San Mateo', 'fips_int': 81, 'fips_str': '081'},
@@ -875,7 +882,7 @@ class UnifiedTM2Config:
     def get_puma_to_county_mapping(self):
         """
         Get PUMA to county (1-9) mapping for Bay Area
-        Based on geographic knowledge of which PUMAs are in which counties
+        TODO: Consolidate this mapping with BAY_AREA_COUNTIES and avoid hardcoding. Should be generated from a single source of truth for counties and PUMAs.
         """
         puma_to_county = {
             # San Francisco County (1) - PUMAs 7501-7511

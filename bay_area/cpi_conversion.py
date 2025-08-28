@@ -4,8 +4,10 @@ CPI Conversion Module for PopulationSim TM2
 Converts income values between different base years using Consumer Price Index
 """
 
+
 import numpy as np
 import pandas as pd
+from unified_tm2_config import UnifiedTM2Config
 
 def convert_2023_to_2010_dollars(income_2023):
     """
@@ -25,8 +27,8 @@ def convert_2023_to_2010_dollars(income_2023):
     # Based on Bureau of Labor Statistics Consumer Price Index
     # CPI-U 2010 annual average: 218.056
     # CPI-U 2023 estimated: ~310 (approximate)
-    cpi_2010 = 218.056
-    cpi_2023 = 310.0  # Approximate 2023 CPI
+    cpi_2010 = getattr(UnifiedTM2Config, 'CPI_2010', 218.056)
+    cpi_2023 = getattr(UnifiedTM2Config, 'CPI_2023', 310.0)
     
     conversion_factor = cpi_2010 / cpi_2023
     
@@ -67,10 +69,9 @@ def convert_2010_to_2023_dollars(income_2010):
     float or array-like
         Income values converted to 2023 dollars
     """
-    # CPI conversion factor from 2010 to 2023
-    cpi_2010 = 218.056
-    cpi_2023 = 310.0  # Approximate 2023 CPI
-    
+    # Use CPI values from unified config
+    cpi_2010 = getattr(UnifiedTM2Config, 'CPI_2010', 218.056)
+    cpi_2023 = getattr(UnifiedTM2Config, 'CPI_2023', 310.0)
     conversion_factor = cpi_2023 / cpi_2010
     
     try:

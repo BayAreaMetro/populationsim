@@ -198,8 +198,8 @@ FIPS Codes → Sequential IDs
 #### Income Inflation
 ```
 2023 ACS Dollars → 2010 Model Dollars
-CPI Adjustment Factor: 0.7969
-Example: $100,000 (2023) → $79,690 (2010)
+CPI Adjustment Factor: 0.703 (based on CPI 2010 = 218.056, CPI 2023 = 310.0)
+Example: $100,000 (2023) → $70,300 (2010)
 ```
 
 #### Group Quarters Handling

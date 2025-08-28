@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+TODO: There are soooooo many magic numbers in this script. We should essentially have a seed_pop_config file for these. It's a mess.
+"""
+"""
 Create PUMS seed population for Bay Area PopulationSim TM2
 
 Refactored version with improved modularity, error handling, and maintainability.

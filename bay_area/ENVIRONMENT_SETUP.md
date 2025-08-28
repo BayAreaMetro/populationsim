@@ -20,11 +20,14 @@ git checkout tm2
 # Create working environment (use minimal, not export)
 conda env create -f bay_area/environment_minimal.yml
 
+# Activate environment
+conda activate popsim_working
+
 # Verify environment (PopulationSim installs automatically)
 conda list -n popsim_working
 
-# Test with direct Python path (conda activate unreliable in PowerShell)
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe --version
+# Check Python version (should be 3.8.20)
+python --version
 ```
 
 ### 3. Verify Installation
@@ -32,12 +35,9 @@ C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe --ver
 cd bay_area
 
 # Test PopulationSim import
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe -c "import populationsim; print('PopulationSim path:', populationsim.__file__)"
+python -c "import populationsim; print('PopulationSim path:', populationsim.__file__)"
 
 # Run environment verification
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim_working\python.exe setup_environment.py
-```
-cd bay_area
 python setup_environment.py
 ```
 
@@ -87,15 +87,14 @@ This script will:
 ### Common Issues
 
 1. **"Python was not found"**
-   - Solution: Make sure conda environment is activated
-   - Use: `conda activate popsim_working`
+   - Solution: Make sure conda environment is activated (`conda activate popsim_working`)
 
 2. **"conda: command not found"**
-   - Solution: Restart terminal or run conda init
+   - Solution: Restart terminal or run `conda init`
    - Alternative: Use full path to conda executable
 
 3. **Package version conflicts**
-   - Solution: Always use `environment_export.yml` 
+   - Solution: Always use `environment_minimal.yml` 
    - Never mix pip requirements.txt with conda environment
 
 4. **PopulationSim import errors**
@@ -119,12 +118,15 @@ print("Environment setup successful!")
 
 ## Path Dependencies
 
-The pipeline uses these paths with automatic fallbacks:
+The pipeline uses these paths with automatic fallbacks (see HOW_TO_RUN.md for details):
 
 ### External Dependencies (Optional)
-- `M:/Data/GIS layers/TM2_maz_taz_v2.2/` - MAZ/TAZ definitions
+- `C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles` - TM2 shapefiles
+- `C:/GitHub/tm2py-utils/tm2py_utils` - TM2 utilities
 - `M:/Data/Census/NewCachedTablesForPopulationSimControls/` - Census cache
-- `C:/GitHub/tm2py-utils/` - TM2 utilities
+- `M:/Data/Census/API/new_key` - Census API key
+- `M:/Data/Census/PUMS_2023_5Year_Crosswalked` - PUMS current
+- `M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23` - PUMS cached
 
 ### Local Fallbacks (Included)
 - `bay_area/local_data/gis/` - Local GIS files

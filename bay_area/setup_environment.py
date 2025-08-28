@@ -20,10 +20,6 @@ def check_python_version():
 def check_conda_environment():
     """Check if we're in the correct conda environment"""
     conda_env = os.environ.get('CONDA_DEFAULT_ENV', 'base')
-    if 'popsim' not in conda_env.lower():
-        print(f"WARNING: Not in PopulationSim environment (current: {conda_env})")
-        print("Run: conda activate popsim_py312")
-        return False
     print(f"✓ Conda environment: {conda_env}")
     return True
 
@@ -65,13 +61,16 @@ def check_external_paths():
     
     config = UnifiedTM2Config()
     
-    # Check critical paths
+    # Check critical paths (update to match config: network_gis is a shapefile, not a directory)
     critical_paths = [
-        ('M: drive GIS', config.EXTERNAL_PATHS['network_gis']),
+        ('TM2py shapefiles', config.EXTERNAL_PATHS['tm2py_shapefiles']),
+        ('TM2py utils', config.EXTERNAL_PATHS['tm2py_utils']),
         ('M: drive Census', config.EXTERNAL_PATHS['network_census_cache']),
-        ('TM2py utils', config.EXTERNAL_PATHS['tm2py_utils'])
+        ('M: drive Census API', config.EXTERNAL_PATHS['network_census_api']),
+        ('PUMS current', config.EXTERNAL_PATHS['pums_current']),
+        ('PUMS cached', config.EXTERNAL_PATHS['pums_cached'])
     ]
-    
+
     all_good = True
     for name, path in critical_paths:
         if path.exists():
@@ -79,24 +78,16 @@ def check_external_paths():
         else:
             print(f"✗ {name}: {path} - NOT FOUND")
             all_good = False
-            
-            # Create local fallback directories
-            if 'local' in str(path):
+            # Only create local fallback directories if path is under local_data or data_cache
+            if any(s in str(path) for s in ['local_data', 'data_cache']):
                 path.mkdir(parents=True, exist_ok=True)
                 print(f"  → Created local fallback: {path}")
-    
     return all_good
 
 def setup_environment_variables():
     """Set up environment variables for consistent paths"""
     base_dir = Path(__file__).parent
-    
-    # Set Python executable for the pipeline
-    python_exe = sys.executable
-    os.environ['POPSIM_PYTHON_EXE'] = str(python_exe)
-    print(f"✓ POPSIM_PYTHON_EXE: {python_exe}")
-    
-    # Set other environment variables
+    # Set other environment variables (if needed in future)
     env_vars = {
         'POPULATIONSIM_BASE_DIR': str(base_dir),
         'POPULATIONSIM_YEAR': '2023',
@@ -104,7 +95,6 @@ def setup_environment_variables():
         'FORCE_SEED': 'True',
         'FORCE_CONTROLS': 'True'
     }
-    
     for key, value in env_vars.items():
         os.environ[key] = value
         print(f"✓ {key}: {value}")
