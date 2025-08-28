@@ -1,10 +1,22 @@
-"""
-TM2 Pipeline - Single workflow script for the entire Bay Area population synthesis
-Uses UnifiedTM2Config for single source of truth.
-"""
-
 
 #!/usr/bin/env python3
+
+"""
+USAGE:
+    python tm2_pipeline.py [command] [--force]
+
+If run with no arguments, the default action is to run the full pipeline:
+    python tm2_pipeline.py
+
+Available commands:
+    full         Run the entire pipeline (default)
+    status       Show status of all pipeline steps
+    clean        Remove all output files for a fresh start
+    pums, crosswalk, geographic_rebuild, seed, controls, populationsim, postprocess, analysis, validate_income
+                 Run individual pipeline steps
+
+Use --force to rerun steps even if outputs exist.
+"""
 """
 TM2 Pipeline - Single workflow script for the entire Bay Area population synthesis
 Uses UnifiedTM2Config for single source of truth.
@@ -29,25 +41,23 @@ try:
 except ImportError:
     rebuild_maz_taz_all_geog_file = None
 
+
 class TM2Pipeline:
     """Complete TM2 population synthesis pipeline with single source of truth"""
     
-    
-    def __init__(self, offline_mode=False, verbose=True):
+
+    def __init__(self, verbose=True):
         self.config = UnifiedTM2Config()
         self.config.ensure_directories()
         self.verbose = verbose
-        self.offline_mode = offline_mode
-        self.fast_mode = False
-        self.timeout = 7200  # Default 2 hour timeout
         
-    
+
     def log(self, message, level="INFO"):
         """Unified logging"""
         timestamp = time.strftime("%H:%M:%S")
         print(f"[{timestamp}] [{level}] {message}")
         
-    
+
     def check_step_completion(self, step_name):
         """Check if step has been completed successfully"""
         step_files = self.config.get_step_files(step_name)
@@ -61,13 +71,16 @@ class TM2Pipeline:
                 self.log(f"  ✓ {f.name}", "FOUND")
             return True
         elif existing:
-            self.log(f"Step {step_name} partially completed ({len(existing)}/{len(step_files)} files):")
+            self.log(
+                f"Step {step_name} partially completed "
+                f"({len(existing)}/{len(step_files)} files):"
+            )
             for f in step_files:
                 status = "✓" if f.exists() else "✗"
                 self.log(f"  {status} {f.name}", "STATUS")
         return False
         
-    
+
     def run_command(self, command, step_name):
         """Execute a command or list of commands and handle output with progress monitoring"""
         # If command is a list of lists, run each sub-command in sequence
@@ -80,7 +93,7 @@ class TM2Pipeline:
         else:
             return self._run_single_command(command, step_name)
 
-    
+
     def _run_single_command(self, command, step_name):
         self.log(f"Running {step_name}: {' '.join(command)}")
         start_time = time.time()
@@ -103,7 +116,10 @@ class TM2Pipeline:
                     current_time = time.time()
                     if current_time - last_log_time > 60:
                         elapsed = current_time - start_time
-                        self.log(f"[PROGRESS] {step_name} still running... {elapsed:.0f}s elapsed, {line_count} log lines processed")
+                        self.log(
+                            f"[PROGRESS] {step_name} still running... {elapsed:.0f}s elapsed, "
+                            f"{line_count} log lines processed"
+                        )
                         last_log_time = current_time
                 process.wait()
                 returncode = process.returncode
@@ -130,7 +146,7 @@ class TM2Pipeline:
             self.log(f"Step {step_name} failed with code {returncode} after {duration:.1f}s", "ERROR")
             return False
     
-    
+
     def check_pums_files_exist(self):
         """Check if PUMS files exist (check both current and cached locations)"""
         # Check current location first
@@ -151,7 +167,7 @@ class TM2Pipeline:
             
         return False
 
-    
+
     def run_step(self, step_name, force=False):
         """Run a specific pipeline step"""
         
@@ -181,12 +197,7 @@ class TM2Pipeline:
                 self.log("Skipping PUMS download (files already exist, use --force to redownload)")
                 return True
             # Skip if in offline mode
-            if self.offline_mode:
-                self.log("Skipping PUMS download (offline mode enabled)", "WARN")
-                if not self.check_pums_files_exist():
-                    self.log("ERROR: PUMS files not found and offline mode enabled", "ERROR")
-                    return False
-                return True
+            # offline_mode removed
             self.log("Downloading PUMS data...")
         
         # Special handling for geographic rebuild
@@ -201,7 +212,10 @@ class TM2Pipeline:
                 return False
             # Fix crosswalk before running PopulationSim
             if not self.fix_crosswalk_multi_puma():
-                self.log("Failed to fix crosswalk - this may cause NaN control aggregation issues", "ERROR")
+                self.log(
+                    "Failed to fix crosswalk - this may cause NaN control aggregation issues",
+                    "ERROR"
+                )
                 return False
             return self.run_populationsim_with_monitoring(command)
         # Run TAZ controls rollup check after controls step
@@ -213,7 +227,9 @@ class TM2Pipeline:
                 config = UnifiedTM2Config()
                 output_file = config.POPSIM_OUTPUT_DIR / 'bay_area_income_acs_2023.csv'
                 if not output_file.exists():
-                    self.log("County income summary not found, running get_census_income_data.py...")
+                    self.log(
+                        "County income summary not found, running get_census_income_data.py..."
+                    )
                     income_script = str(self.config.BASE_DIR / 'analysis' / 'get_census_income_data.py')
                     income_cmd = [sys.executable, income_script]
                     income_result = self.run_command(income_cmd, 'get_census_income_data')
@@ -237,12 +253,15 @@ class TM2Pipeline:
                         if not script_result:
                             self.log(f"Script failed: {script_name}", "ERROR")
                     else:
-                        self.log(f"Script not found, skipping: {script_name} ({script_path})", "WARN")
+                        self.log(
+                            f"Script not found, skipping: {script_name} ({script_path})",
+                            "WARN"
+                        )
             return result
         else:
             return self.run_command(command, step_name)
     
-    
+
     def fix_county_codes(self):
         """Fix county codes to use sequential 1-9 numbering expected by PopulationSim"""
     # pandas and os already imported at top
@@ -346,7 +365,7 @@ class TM2Pipeline:
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
-    
+
     def run_geographic_rebuild(self):
         """Rebuild complete geographic crosswalk from 2010 Census blocks"""
         try:
@@ -377,7 +396,7 @@ class TM2Pipeline:
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
-    
+
     def fix_crosswalk_multi_puma(self):
         """Fix crosswalk to resolve TAZs assigned to multiple PUMAs (root cause of NaN control aggregation)"""
     # pandas and os already imported at top
@@ -453,7 +472,7 @@ class TM2Pipeline:
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
-    
+
     def prepare_populationsim_data(self):
         """Prepare PopulationSim data directory with proper file structure and symbolic links"""
 
@@ -497,7 +516,11 @@ class TM2Pipeline:
                             shutil.copy2(source_file, target_file)
                             self.log(f"✓ Copied: {filename} (symlink failed)")
                     else:
-                        self.log(f"ERROR: Required file not found: {filename} (checked both {target_file} and {source_file})", "ERROR")
+                        self.log(
+                            f"ERROR: Required file not found: {filename} "
+                            f"(checked both {target_file} and {source_file})",
+                            "ERROR"
+                        )
                         return False
             
             if all_files_present:
@@ -512,7 +535,7 @@ class TM2Pipeline:
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False
 
-    
+
     def run_populationsim_with_monitoring(self, command):
         """Run PopulationSim with enhanced progress monitoring"""
     # threading, time, and Path already imported at top
@@ -528,10 +551,7 @@ class TM2Pipeline:
         
         # DISABLED: Fast mode settings were causing data corruption (NaN values)
         # Using regular settings.yaml for all runs to ensure data integrity
-        if hasattr(self, 'fast_mode') and self.fast_mode:
-            self.log("[WARNING] Fast mode disabled - fast settings were causing NaN control values")
-            self.log("[INFO] Using regular settings.yaml to ensure data integrity")
-            # Don't modify the command - use regular settings
+    # fast_mode removed
         
         # Log file path
         log_file = self.config.OUTPUT_DIR / "populationsim.log"
@@ -569,7 +589,9 @@ class TM2Pipeline:
                         silent_time = time.time() - last_activity
                         
                     if silent_time > 120 and not warning_sent:  # Silent for more than 2 minutes
-                        self.log(f"[MONITOR] PopulationSim silent for {silent_time:.0f}s - checking progress...")
+                        self.log(
+                            f"[MONITOR] PopulationSim silent for {silent_time:.0f}s - checking progress..."
+                        )
                         try:
                             # Show last few lines of log
                             with open(log_file, 'r') as f:
@@ -583,14 +605,17 @@ class TM2Pipeline:
                             
                     if silent_time > 600:  # Silent for more than 10 minutes
                         if not warning_sent:
-                            self.log(f"[WARNING] PopulationSim has been silent for {silent_time:.0f}s - may be in integerization step", "WARN")
-                            self.log(f"[INFO] Integerization can take 10-30 minutes for large datasets", "INFO")
+                            self.log(
+                                f"[WARNING] PopulationSim has been silent for {silent_time:.0f}s - may be in integerization step",
+                                "WARN"
+                            )
+                            self.log(
+                                f"[INFO] Integerization can take 10-30 minutes for large datasets",
+                                "INFO"
+                            )
                             warning_sent = True
                             
-                    if silent_time > self.timeout:  # Timeout reached
-                        self.log(f"[TIMEOUT] PopulationSim has been silent for {silent_time:.0f}s - terminating", "ERROR")
-                        process.terminate()
-                        return
+                    # Timeout logic removed
         
         # Start monitoring thread
         monitor_thread = threading.Thread(target=monitor_progress, daemon=True)
@@ -611,7 +636,7 @@ class TM2Pipeline:
             self.log(f"PopulationSim failed with code {returncode} after {duration:.1f}s", "ERROR")
             return False
     
-    
+
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
         # Default pipeline steps, synced with config
@@ -654,7 +679,7 @@ class TM2Pipeline:
         self.log(f"{'='*60}")
         self.log(f"PIPELINE COMPLETED SUCCESSFULLY in {overall_duration:.1f}s", "SUCCESS")
 
-    
+
     def run_analysis_scripts(self):
         """Run all analysis/summary scripts as defined in config.ANALYSIS_FILES, but skip missing or empty files."""
         analysis_files = self.config.ANALYSIS_FILES
@@ -675,7 +700,7 @@ class TM2Pipeline:
         self.log(f"{'='*60}")
         return True
     
-    
+
     def status(self):
         """Show status of all pipeline steps"""
         self.log("Pipeline Status Check")
@@ -688,7 +713,7 @@ class TM2Pipeline:
             else:
                 self.log(f"{step.ljust(15)}: ✗ INCOMPLETE", "STATUS")
     
-    
+
     def clean(self, step_name=None):
         """Clean outputs for a specific step or all steps"""
         if step_name:
@@ -706,44 +731,29 @@ class TM2Pipeline:
                 self.log(f"Cleaned step: {step}")
 
     
+
 def main():
     """Main CLI interface"""
     # argparse already imported at top
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
-    parser.add_argument('command', nargs='?', default='status',
-               choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 
-                   'postprocess', 'analysis', 'validate_income', 'full', 'clean'],
-               help='Command to run')
+    parser.add_argument('command', nargs='?', default='full',
+                       choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim',
+                                'postprocess', 'analysis', 'validate_income', 'full', 'clean'],
+                       help='Command to run')
     parser.add_argument('--force', action='store_true',
                        help='Force rerun even if outputs exist')
-    parser.add_argument('--start', help='Start step for full pipeline')
-    parser.add_argument('--end', help='End step for full pipeline')
-    parser.add_argument('--offline', action='store_true',
-                       help='Run in offline mode (no external data downloads)')
-    parser.add_argument('--quiet', action='store_true',
-                       help='Reduce output verbosity')
-    parser.add_argument('--fast', action='store_true',
-                       help='Use fast mode settings (relaxed tolerances)')
-    parser.add_argument('--timeout', type=int, default=7200,
-                       help='Timeout in seconds for PopulationSim (default: 7200 = 2 hours)')
-    
+
     args = parser.parse_args()
-    
+
     # Create pipeline
-    pipeline = TM2Pipeline(offline_mode=args.offline, verbose=not args.quiet)
-    
-    # Set fast mode if requested
-    if args.fast:
-        pipeline.fast_mode = True
-        pipeline.timeout = args.timeout
-        pipeline.log("Fast mode enabled - using relaxed tolerances for speed")
-    
+    pipeline = TM2Pipeline()
+
     # Execute command
     if args.command == 'status':
         pipeline.status()
     elif args.command == 'full':
-        success = pipeline.run_full_pipeline(args.start, args.end, args.force)
+        success = pipeline.run_full_pipeline()
         sys.exit(0 if success else 1)
     elif args.command == 'clean':
         step = getattr(args, 'step', None)
