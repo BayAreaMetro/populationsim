@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+TO DO: Add more summaries. Remove unused code and summaries.
 Comprehensive Analysis Runner for TM2 PopulationSim
 ====================================================
 
@@ -208,29 +209,6 @@ class ComprehensiveAnalysisRunner:
         return all(results.values())
 
     
-    def generate_comprehensive_summary(self):
-        """Generate a comprehensive summary of all analysis results"""
-    self.log("=" * 60)
-    self.log("GENERATING COMPREHENSIVE SUMMARY")
-    self.log("=" * 60)
-    summary_file = self.config.SUMMARY_REPORT_FILE
-    summary_content = f"""# TM2 PopulationSim Comprehensive Analysis Summary
-
-Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}
-Year: {self.year}
-Output Directory: {self.output_dir}
-
-## Analysis Pipeline Overview
-
-This summary consolidates results from all analysis, validation, check, debug, and visualization scripts.
-
-For details, review individual analysis outputs in the `{self.output_dir}` directory and check the analysis log for execution information.
-"""
-    with open(summary_file, 'w') as f:
-        f.write(summary_content)
-    self.log(f"✓ Comprehensive summary written to: {summary_file}")
-    return summary_file
-    
     def run_all(self):
         """Run all analysis scripts in proper order"""
         self.log("=" * 80)
@@ -246,12 +224,11 @@ For details, review individual analysis outputs in the `{self.output_dir}` direc
         
         # Run each category
         step_results['validation'] = self.run_validation_scripts()
-       #step_results['checks'] = self.run_check_scripts()
-       #step_results['debug'] = self.run_debug_scripts()
-    step_results['all_analysis'] = self.run_all_analysis_scripts()
+        #step_results['checks'] = self.run_check_scripts()
+        #step_results['debug'] = self.run_debug_scripts()
+        step_results['all_analysis'] = self.run_all_analysis_scripts()
         
-        # Generate summary
-        summary_file = self.generate_comprehensive_summary()
+
         
         # Final summary
         total_time = time.time() - start_time

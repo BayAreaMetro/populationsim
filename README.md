@@ -15,7 +15,14 @@ This repository generates synthetic population and land use inputs for the Bay A
 3. **Review outputs:**  
    See [bay_area/docs/FILE_FLOW.md](bay_area/docs/FILE_FLOW.md) for details on output files and their locations.
 
-## Documentation
+## Pipeline Step Documentation
+
+- [Crosswalk Step (Geographic Crosswalk Creation)](bay_area/docs/CROSSWALK_STEP.md)
+- [Control Generation Step](bay_area/docs/CONTROL_GENERATION_STEP.md)
+- [Seed Population Creation Step](bay_area/docs/SEED_POPULATION_STEP.md)
+- [Population Synthesis Step](bay_area/docs/POPULATION_SYNTHESIS.md)
+
+## Full Documentation
 
 Full documentation is in the [`bay_area/docs/`](bay_area/docs/) folder:
 
@@ -32,13 +39,12 @@ For questions or issues, please open an issue or consult the documentation.
 
 *See the [`bay_area/docs/`](bay_area/docs/) folder for full details on configuration, usage, and troubleshooting.*
 
-
+---
 
 PopulationSim
 =============
 
 [![Build Status](https://travis-ci.org/activitysim/populationsim.svg?branch=master)](https://travis-ci.org/ActivitySim/populationsim) [![Coverage Status](https://coveralls.io/repos/ActivitySim/populationsim/badge.png?branch=master)](https://coveralls.io/r/ActivitySim/populationsim?branch=master)<a href="https://medium.com/zephyrfoundation/populationsim-the-synthetic-commons-670e17383048"><img src="https://github.com/ZephyrTransport/zephyr-website/blob/gh-pages/img/badging/project_pages/populationsim/PopulationSim.png" width="72.6" height="19.8"></a>
-
 
 PopulationSim is an open platform for population synthesis.  It emerged
 from Oregon DOT's desire to build a shared, open, platform that could be

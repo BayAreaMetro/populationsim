@@ -13,3 +13,9 @@ MainProcess,initial_seed_balancing,237.2,4.0
 MainProcess,meta_control_factoring,0.2,0.0
 MainProcess,final_seed_balancing,274.4,4.6
 MainProcess,integerize_final_seed_weights,13.1,0.2
+MainProcess,sub_balancing.geography=TAZ,17130.4,285.5
+MainProcess,sub_balancing.geography=MAZ,20983.9,349.7
+MainProcess,expand_households,2.7,0.0
+MainProcess,summarize,4430.8,73.8
+MainProcess,write_tables,10.5,0.2
+MainProcess,write_synthetic_population,163.6,2.7

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-DEFINITIVE TM2 Crosswalk Creator
+
+TO DO: Move to tm2py_utils instead.
+
 Single script to create area-based MAZ-TAZ-PUMA-COUNTY crosswalk for PopulationSim TM2
 
 This is the ONE AND ONLY crosswalk script for the TM2 pipeline.
