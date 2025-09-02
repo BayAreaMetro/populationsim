@@ -45,6 +45,8 @@ HOUSING_COLUMNS = {
       ("unique_hh_id",        "HHID"),          # Fixed: use unique_hh_id from PopulationSim
       ("TAZ",                 "TAZ"),
       ("MAZ",                 "MAZ"),
+      ("TAZ_ORIGINAL",        "TAZ_ORIGINAL"),  # Original TAZ before remapping
+      ("MAZ_ORIGINAL",        "MAZ_ORIGINAL"),  # Original MAZ before remapping
       ("COUNTY",              "MTCCountyID"),   # Maps to county 1-9
       ("hh_income_2010",      "HHINCADJ"),     # 2010 dollars as required by TM2
       ("hh_workers_from_esr", "NWRKRS_ESR"),
@@ -217,6 +219,74 @@ if __name__ == '__main__':
         )
         logging.info("Added COUNTY field via crosswalk join - {} households now have COUNTY field".format(
             households_df['COUNTY'].notna().sum()))
+        
+        # Geographic remapping: Add MAZ_ORIGINAL and TAZ_ORIGINAL columns
+        logging.info("-- Performing geographic remapping for TM2 --")
+        
+        # Read the MAZ ID lookup table
+        maz_id_file = config.CONTROL_FILES['maz_id_file']
+        logging.info(f"Reading MAZ ID lookup from: {maz_id_file}")
+        
+        try:
+            maz_lookup_df = pandas.read_csv(maz_id_file)
+            logging.info("Read MAZ lookup table with {:,} rows".format(len(maz_lookup_df)))
+            
+            # Check required columns exist
+            required_cols = ['MAZ', 'TAZ', 'MAZ_ORIGINAL', 'TAZ_ORIGINAL']
+            missing_cols = [col for col in required_cols if col not in maz_lookup_df.columns]
+            if missing_cols:
+                logging.warning(f"Missing columns in MAZ lookup: {missing_cols}")
+                logging.info("Available columns: {}".format(list(maz_lookup_df.columns)))
+            else:
+                # Preserve original values before remapping
+                households_df['MAZ_ORIGINAL'] = households_df['MAZ'] 
+                households_df['TAZ_ORIGINAL'] = households_df['TAZ']
+                
+                # Get unique MAZ values in households that we need to look up
+                # The households MAZ values are actually the ORIGINAL MAZ values
+                household_maz_original_values = set(households_df['MAZ'].unique())
+                lookup_maz_original_values = set(maz_lookup_df['MAZ_ORIGINAL'].unique())
+                
+                # Check for MAZ values that don't exist in lookup
+                missing_maz_values = household_maz_original_values - lookup_maz_original_values
+                if missing_maz_values:
+                    logging.warning("MAZ_ORIGINAL values in households that don't exist in lookup table:")
+                    for maz_val in sorted(missing_maz_values):
+                        print(f"  Missing MAZ_ORIGINAL: {maz_val}")
+                    logging.warning(f"Total missing MAZ_ORIGINAL values: {len(missing_maz_values)}")
+                
+                # Perform the lookup: join households.MAZ with lookup.MAZ_ORIGINAL to get new MAZ
+                maz_remap = maz_lookup_df[['MAZ', 'MAZ_ORIGINAL']].drop_duplicates()
+                households_df = households_df.merge(
+                    maz_remap.rename(columns={'MAZ': 'MAZ_NEW'}),
+                    left_on='MAZ',
+                    right_on='MAZ_ORIGINAL',
+                    how='left'
+                )
+                
+                # Update MAZ with new sequential values where available
+                households_df.loc[households_df['MAZ_NEW'].notna(), 'MAZ'] = households_df.loc[households_df['MAZ_NEW'].notna(), 'MAZ_NEW']
+                households_df.drop(['MAZ_NEW', 'MAZ_ORIGINAL_y'], axis=1, inplace=True, errors='ignore')
+                
+                # Perform the lookup for TAZ: join households.TAZ with lookup.TAZ_ORIGINAL to get new TAZ
+                taz_remap = maz_lookup_df[['TAZ', 'TAZ_ORIGINAL']].drop_duplicates()
+                households_df = households_df.merge(
+                    taz_remap.rename(columns={'TAZ': 'TAZ_NEW'}),
+                    left_on='TAZ',
+                    right_on='TAZ_ORIGINAL',
+                    how='left'
+                )
+                
+                # Update TAZ with new sequential values where available
+                households_df.loc[households_df['TAZ_NEW'].notna(), 'TAZ'] = households_df.loc[households_df['TAZ_NEW'].notna(), 'TAZ_NEW']
+                households_df.drop(['TAZ_NEW', 'TAZ_ORIGINAL_y'], axis=1, inplace=True, errors='ignore')
+                
+                logging.info("Geographic remapping completed")
+                logging.info("Households now have remapped MAZ/TAZ values with original values preserved in MAZ_ORIGINAL/TAZ_ORIGINAL")
+                
+        except Exception as e:
+            logging.error(f"Error during geographic remapping: {e}")
+            logging.warning("Continuing without geographic remapping")
     
     persons_file = pathlib.Path(args.directory) / "synthetic_persons.csv"
     persons_df = pandas.read_csv(persons_file)
@@ -246,6 +316,18 @@ if __name__ == '__main__':
     # (c) Fills NaN values with -9
     households_df.fillna(value=-9, inplace=True)
     persons_df.fillna(value=-9, inplace=True)
+
+    # Ensure MAZ_ORIGINAL and TAZ_ORIGINAL columns exist for TM2 (fill with current values if missing)
+    if args.model_type == 'TM2':
+        if 'MAZ_ORIGINAL' not in households_df.columns:
+            households_df['MAZ_ORIGINAL'] = households_df['MAZ']
+            logging.info("Added MAZ_ORIGINAL column (using current MAZ values)")
+        if 'TAZ_ORIGINAL' not in households_df.columns:
+            households_df['TAZ_ORIGINAL'] = households_df['TAZ']
+            logging.info("Added TAZ_ORIGINAL column (using current TAZ values)")
+        
+        logging.debug("Columns available for subsetting: {}".format(list(households_df.columns)))
+        logging.debug("Columns needed for TM2: {}".format(list(HOUSING_COLUMNS[args.model_type].keys())))
 
     # (d) subset & rename household columns according to HOUSING_COLUMNS
     households_df = households_df[HOUSING_COLUMNS[args.model_type].keys()].rename(columns=HOUSING_COLUMNS[args.model_type])

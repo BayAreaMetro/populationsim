@@ -199,6 +199,7 @@ class UnifiedTM2Config:
             # TM2PY utilities (for shapefiles and outputs)
             'tm2py_shapefiles': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles"),
             'tm2py_utils': Path("C:/GitHub/tm2py-utils/tm2py_utils"),
+            'tm2py_crosswalks': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/crosswalks"),
             # Original populationsim_update path (used in some scripts)
             'populationsim_update': Path("c:/GitHub/populationsim_update/bay_area"),
             # Census data cache
@@ -218,7 +219,9 @@ class UnifiedTM2Config:
             'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
             'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp"),
             # Geographic crosswalk source
-            'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv")
+            'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv"),
+            # MAZ ID lookup file
+            'maz_id_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/crosswalks/maz_id_lookups.csv")
         }
 
         # ============================================================
@@ -304,7 +307,7 @@ class UnifiedTM2Config:
             'taz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals_hhgq'],
             'county_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['county_marginals'],
             'maz_data_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data'],
-            'maz_data_density_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data_density']
+            'maz_id_file': self.EXTERNAL_PATHS['maz_id_file']  # Use tm2py-utils location
         }
         self.HHGQ_FILES = {
             'maz_marginals_hhgq': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals_hhgq'],
