@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 # User-editable: source and destination directories
-SOURCE_DIR = Path('output_2023')  # or wherever the files are generated
+SOURCE_DIR = Path('output_2023') / 'populationsim_working_dir' / 'data'  # Land use files are in the data subdirectory
 DEST_DIR = Path(r'C:\Box\Modeling and Surveys\Development\Travel Model Two Conversion\Model Inputs\2023-tm22-dev-test\landuse')
 
 # Files to copy

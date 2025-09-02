@@ -239,6 +239,7 @@ if __name__ == '__main__':
                 logging.info("Available columns: {}".format(list(maz_lookup_df.columns)))
             else:
                 # Preserve original values before remapping
+                # MAZ_ORIGINAL and TAZ_ORIGINAL will store the longer original IDs
                 households_df['MAZ_ORIGINAL'] = households_df['MAZ'] 
                 households_df['TAZ_ORIGINAL'] = households_df['TAZ']
                 
