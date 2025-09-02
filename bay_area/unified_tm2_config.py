@@ -24,71 +24,143 @@ class UnifiedTM2Config:
         return self.POPSIM_DATA_DIR / "mazs_tazs_all_geog.csv"
     """Single configuration class that handles everything"""
     
-    def __init__(self, year=2023, model_type="TM2"):
-        # Base paths and main directories
-        self.BASE_DIR = Path(__file__).parent.absolute()
-        self.YEAR = year
-        self.MODEL_TYPE = model_type
-    # Python executable reference removed; use sys.executable in scripts
-        self.OUTPUT_DIR = self.BASE_DIR / f"output_{self.YEAR}"
-        self.SCRIPTS_DIR = self.BASE_DIR / "scripts"
-        self.POPSIM_WORKING_DIR = self.OUTPUT_DIR / "populationsim_working_dir"
-        self.POPSIM_DATA_DIR = self.POPSIM_WORKING_DIR / "data"
-        self.POPSIM_CONFIG_DIR = self.POPSIM_WORKING_DIR / "configs"
-        self.POPSIM_OUTPUT_DIR = self.POPSIM_WORKING_DIR / "output"
-        self.ACS_2010BINS_FILE = self.POPSIM_OUTPUT_DIR / "bay_area_income_acs_2023_2010bins.csv"
-        self.DATA_DIR = self.POPSIM_DATA_DIR
-        self.EXAMPLE_CONTROLS_DIR = self.BASE_DIR / "example_controls_2015"
-        self.TEST_PUMA = None
-    # TODO: Consolidate BAY_AREA_COUNTIES with tm2_control_utils/config_census.py:BAY_AREA_COUNTY_FIPS
-        self.BAY_AREA_COUNTIES = {
-            1: {'name': 'San Francisco', 'fips_int': 75, 'fips_str': '075'},
-            2: {'name': 'San Mateo', 'fips_int': 81, 'fips_str': '081'},
-            3: {'name': 'Santa Clara', 'fips_int': 85, 'fips_str': '085'},
-            4: {'name': 'Alameda', 'fips_int': 1, 'fips_str': '001'},
-            5: {'name': 'Contra Costa', 'fips_int': 13, 'fips_str': '013'},
-            6: {'name': 'Solano', 'fips_int': 95, 'fips_str': '095'},
-            7: {'name': 'Napa', 'fips_int': 55, 'fips_str': '055'},
-            8: {'name': 'Sonoma', 'fips_int': 97, 'fips_str': '097'},
-            9: {'name': 'Marin', 'fips_int': 41, 'fips_str': '041'}
-        }
-        self.BAY_AREA_PUMAS = []
-        self.PROCESSING_PARAMS = {
-            'chunk_size': 50000,
-            'random_seed': 42,
-            'census_api_timeout': 300,
-            'max_retries': 3
-        }
-        self.PUMA_RESOLUTION = {
-            'enabled': True,
-            'method': 'majority_rule',
-            'min_threshold_pct': 1.0,
-            'verbose_logging': True,
-            'manual_overrides': {
-                5500: 7,
-                7513: 1
+    def _setup_value_labels(self):
+        """Setup value labels for all TM2 variables"""
+        self.VALUE_LABELS = {
+            'SEX': {
+                1: 'Male',
+                2: 'Female'
+            },
+            'SCHL': {
+                -9: 'N/A (less than 3 years old)',
+                1: 'No schooling completed',
+                2: 'Nursery school, preschool',
+                3: 'Kindergarten',
+                4: 'Grade 1',
+                5: 'Grade 2',
+                6: 'Grade 3',
+                7: 'Grade 4',
+                8: 'Grade 5',
+                9: 'Grade 6',
+                10: 'Grade 7',
+                11: 'Grade 8',
+                12: 'Grade 9',
+                13: 'Grade 10',
+                14: 'Grade 11',
+                15: '12th grade - no diploma',
+                16: 'Regular high school diploma',
+                17: 'GED or alternative credential',
+                18: 'Some college, but less than 1 year',
+                19: '1 or more years of college credit, no degree',
+                20: "Associate's degree",
+                21: "Bachelor's degree",
+                22: "Master's degree",
+                23: 'Professional degree beyond a bachelor\'s degree',
+                24: 'Doctoral degree'
+            },
+            'OCCP': {
+                -999: 'N/A (under 16/not in labor force)',
+                999: 'N/A (under 16/not in labor force)',
+                1: 'Management',
+                2: 'Professional', 
+                3: 'Services',
+                4: 'Retail',
+                5: 'Manual',
+                6: 'Military'
+            },
+            'WKW': {
+                -9: 'N/A (under 16/did not work)',
+                1: '50 to 52 weeks',
+                2: '48 to 49 weeks',
+                3: '40 to 47 weeks',
+                4: '27 to 39 weeks',
+                5: '14 to 26 weeks',
+                6: '13 weeks or less'
+            },
+            'EMPLOYED': {
+                0: 'Unemployed',
+                1: 'Employed'
+            },
+            'ESR': {
+                0: 'N/A (under 16)',
+                1: 'Civilian employed, at work',
+                2: 'Civilian employed, with job but not at work',
+                3: 'Unemployed',
+                4: 'Armed forces, at work',
+                5: 'Armed forces, with job but not at work', 
+                6: 'Not in labor force'
+            },
+            'SCHG': {
+                -9: 'N/A (not attending school)',
+                1: 'Nursery school/preschool',
+                2: 'Kindergarten',
+                3: 'Grade 1 to grade 4',
+                4: 'Grade 5 to grade 8',
+                5: 'Grade 9 to grade 12',
+                6: 'College undergraduate',
+                7: 'Graduate or professional school'
+            },
+            'HHT': {
+                1: 'Married-couple family household',
+                2: 'Other family household, Male householder, no wife present',
+                3: 'Other family household, Female householder, no husband present',
+                4: 'Nonfamily household, Male householder, Living alone',
+                5: 'Nonfamily household, Male householder, Not living alone',
+                6: 'Nonfamily household, Female householder, Living alone',
+                7: 'Nonfamily household, Female householder, Not living alone',
+                -9: 'N/A (group quarters)'
+            },
+            'BLD': {
+                1: 'Mobile home or trailer',
+                2: 'One-family house detached',
+                3: 'One-family house attached',
+                4: '2 Apartments',
+                5: '3-4 Apartments',
+                6: '5-9 Apartments',
+                7: '10-19 Apartments',
+                8: '20-49 Apartments',
+                9: '50 or more apartments',
+                10: 'Boat, RV, van, etc.',
+                -9: 'N/A (group quarters)'
+            },
+            'TYPE': {
+                1: 'Housing unit',
+                2: 'Institutional group quarters',
+                3: 'Noninstitutional group quarters'
+            },
+            'MTCCountyID': {
+                1: 'San Francisco',
+                2: 'San Mateo', 
+                3: 'Santa Clara',
+                4: 'Alameda',
+                5: 'Contra Costa',
+                6: 'Solano',
+                7: 'Napa',
+                8: 'Sonoma',
+                9: 'Marin'
+            },
+            'TEN': {
+                1: 'Owned with mortgage or loan',
+                2: 'Owned free and clear',
+                3: 'Rented',
+                4: 'Occupied without payment of rent',
+                -9: 'N/A (group quarters)'
+            },
+            'VEH': {
+                0: 'No vehicles',
+                1: '1 vehicle',
+                2: '2 vehicles', 
+                3: '3 vehicles',
+                4: '4 vehicles',
+                5: '5 vehicles',
+                6: '6+ vehicles',
+                -9: 'N/A (group quarters)'
+            },
+            'hhgqtype': {
+                1: 'Household',
+                2: 'Group quarters'
             }
         }
-        self._setup_file_templates()
-        self._setup_external_paths()
-        self._setup_file_paths()
-        self.BAY_AREA_PUMAS = self._load_pumas_from_crosswalk()
-        self._create_directories()
-        self._setup_commands()
-        self.FORCE_FLAGS = {
-            'CROSSWALK': os.getenv('FORCE_CROSSWALK', 'True').lower() == 'true',
-            'SEED': os.getenv('FORCE_SEED', 'True').lower() == 'true',
-            'CONTROLS': os.getenv('FORCE_CONTROLS', 'True').lower() == 'true',
-            'HHGQ': os.getenv('FORCE_HHGQ', 'True').lower() == 'true',
-            'POPSIM': os.getenv('FORCE_POPSIM', 'True').lower() == 'true',
-            'POSTPROCESS': os.getenv('FORCE_POSTPROCESS', 'True').lower() == 'true',
-            'TABLEAU': os.getenv('FORCE_TABLEAU', 'True').lower() == 'true'
-        }
-
-        # CPI conversion factors (BLS CPI-U annual averages)
-        # TODO: If more years are needed, expand to a dict or table
-        self.CPI_2010 = 218.056
-        self.CPI_2023 = 310.0  # Approximate 2023 CPI
         
     def _load_pumas_from_crosswalk(self):
         """Load Bay Area PUMAs from crosswalk file instead of hardcoding"""
@@ -342,6 +414,7 @@ class UnifiedTM2Config:
         self._create_directories()
         # Define ALL commands in one place (AFTER helper methods are available)
         self._setup_commands()
+        self._setup_value_labels()  # Add this line
         # Force flags for workflow control
         self.FORCE_FLAGS = {
             'CROSSWALK': os.getenv('FORCE_CROSSWALK', 'True').lower() == 'true',
@@ -433,7 +506,14 @@ class UnifiedTM2Config:
                 "--output_dir", str(self.OUTPUT_DIR),
                 "--year", str(self.YEAR)
             ],
-            # Step 9: Old vs New Synthetic Population Comparison (NEW FEATURE)
+            # Step 9: Synthetic Population Summary Analysis
+            'summary_analysis': [
+                "python",
+                str(self.BASE_DIR / "analysis" / "analyze_syn_pop_model.py"),
+                "--year", str(self.YEAR),
+                "--model_type", self.MODEL_TYPE
+            ],
+            # Step 10: Old vs New Synthetic Population Comparison (NEW FEATURE)
             'compare_synthetic_populations': [
                 "python",
                 str(self.BASE_DIR / "compare_synthetic_populations.py")
@@ -744,6 +824,9 @@ class UnifiedTM2Config:
                 self.POPSIM_OUTPUT_DIR / "summary_melt.csv",
                 self.POPSIM_OUTPUT_DIR / f"households_{self.YEAR}_tm2.csv", 
                 self.POPSIM_OUTPUT_DIR / f"persons_{self.YEAR}_tm2.csv"
+            ],
+            'summary_analysis': [
+                self.OUTPUT_DIR / f"synthetic_population_analysis_{self.YEAR}.html"
             ],
             'analysis': [
                 self.ANALYSIS_FILES['performance_summary'],

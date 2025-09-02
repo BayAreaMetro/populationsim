@@ -12,7 +12,7 @@ Available commands:
     full         Run the entire pipeline (default)
     status       Show status of all pipeline steps
     clean        Remove all output files for a fresh start
-    pums, crosswalk, geographic_rebuild, seed, controls, populationsim, postprocess, analysis, validate_income
+    pums, crosswalk, geographic_rebuild, seed, controls, populationsim, postprocess, summary_analysis, analysis, validate_income
                  Run individual pipeline steps
 
 Use --force to rerun steps even if outputs exist.
@@ -640,11 +640,11 @@ class TM2Pipeline:
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
         # Default pipeline steps, synced with config
-        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess']
+        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'summary_analysis']
 
         # If start_step is explicitly 'pums', include it
         if start_step == 'pums':
-            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess']
+            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'summary_analysis']
 
         # Determine step range
         if start_step:
@@ -739,7 +739,7 @@ def main():
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='full',
                        choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim',
-                                'postprocess', 'analysis', 'validate_income', 'full', 'clean'],
+                                'postprocess', 'summary_analysis', 'analysis', 'validate_income', 'full', 'clean'],
                        help='Command to run')
     parser.add_argument('--force', action='store_true',
                        help='Force rerun even if outputs exist')

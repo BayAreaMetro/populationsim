@@ -225,16 +225,11 @@ if __name__ == '__main__':
     logging.debug("persons_df.dtypes:\n{}".format(persons_df.dtypes))
   
     # (b) Add PERID to persons
-    persons_df["PERID"] = persons_df.index + 1 # start from 1
-    
-    # Add missing TM2 fields if needed
-    if args.model_type == 'TM2':
-        # Add unique_per_id field if it doesn't exist
-        if 'unique_per_id' not in persons_df.columns:
-            if 'SERIALNO' in persons_df.columns and 'SPORDER' in persons_df.columns:
-                persons_df['unique_per_id'] = persons_df['SERIALNO'].astype(str) + '_' + persons_df['SPORDER'].astype(str)
-            else:
-                persons_df['unique_per_id'] = persons_df.index + 1
+    if args.model_type == 'TM1':
+        persons_df["PERID"] = persons_df.index + 1 # start from 1
+    elif args.model_type == 'TM2':
+        # For TM2, create sequential unique_per_id (which will be renamed to PERID later)
+        persons_df['unique_per_id'] = persons_df.index + 1  # start from 1
         
     # Add WKW field if it doesn't exist (weeks worked per year)
     if 'WKW' not in persons_df.columns:
