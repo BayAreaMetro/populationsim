@@ -92,13 +92,22 @@ class UnifiedTM2Config:
             },
             'SCHG': {
                 -9: 'N/A (not attending school)',
-                1: 'Nursery school/preschool',
+                1: 'Nursery school, preschool',
                 2: 'Kindergarten',
-                3: 'Grade 1 to grade 4',
-                4: 'Grade 5 to grade 8',
-                5: 'Grade 9 to grade 12',
-                6: 'College undergraduate',
-                7: 'Graduate or professional school'
+                3: 'Grade 1',
+                4: 'Grade 2', 
+                5: 'Grade 3',
+                6: 'Grade 4',
+                7: 'Grade 5',
+                8: 'Grade 6',
+                9: 'Grade 7',
+                10: 'Grade 8',
+                11: 'Grade 9',
+                12: 'Grade 10',
+                13: 'Grade 11',
+                14: 'Grade 12',
+                15: 'College undergraduate years',
+                16: 'Graduate or professional school'
             },
             'HHT': {
                 1: 'Married-couple family household',
