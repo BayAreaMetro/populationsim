@@ -6,7 +6,7 @@ Inputs:
 (1) [args.directory]/final_summary_[TAZ|COUNTY_N].csv
 (2) [args.directory]/synthetic_households.csv
 (3) [args.directory]/synthetic_persons.csv
-(4) hh_gq/data/geo_cross_walk_tm1.csv
+(4) hh_gq/data/geo_cross_walk_tm2.csv
 
 Outputs:
 (1) [args.directory]/summary_melt.csv
@@ -238,49 +238,46 @@ if __name__ == '__main__':
                 logging.warning(f"Missing columns in MAZ lookup: {missing_cols}")
                 logging.info("Available columns: {}".format(list(maz_lookup_df.columns)))
             else:
-                # Preserve original values before remapping
-                # MAZ_ORIGINAL and TAZ_ORIGINAL will store the longer original IDs
-                households_df['MAZ_ORIGINAL'] = households_df['MAZ'] 
-                households_df['TAZ_ORIGINAL'] = households_df['TAZ']
+                # STEP 1: Store the current TAZ/MAZ values as _ORIGINAL (these are the old IDs)
+                households_df['TAZ_ORIGINAL'] = households_df['TAZ']  # Store old TAZ (e.g., 2080)
+                households_df['MAZ_ORIGINAL'] = households_df['MAZ']  # Store old MAZ (e.g., 19399)
                 
-                # Get unique MAZ values in households that we need to look up
-                # The households MAZ values are actually the ORIGINAL MAZ values
-                household_maz_original_values = set(households_df['MAZ'].unique())
+                # STEP 2: Check which original MAZ values don't exist in lookup table
+                household_maz_original_values = set(households_df['MAZ_ORIGINAL'].unique())
                 lookup_maz_original_values = set(maz_lookup_df['MAZ_ORIGINAL'].unique())
                 
-                # Check for MAZ values that don't exist in lookup
                 missing_maz_values = household_maz_original_values - lookup_maz_original_values
                 if missing_maz_values:
-                    logging.warning("MAZ_ORIGINAL values in households that don't exist in lookup table:")
+                    logging.warning("MAZ values from households that don't exist in lookup table:")
                     for maz_val in sorted(missing_maz_values):
-                        print(f"  Missing MAZ_ORIGINAL: {maz_val}")
-                    logging.warning(f"Total missing MAZ_ORIGINAL values: {len(missing_maz_values)}")
+                        print(f"  Missing MAZ: {maz_val}")
+                    logging.warning(f"Total missing MAZ values: {len(missing_maz_values)}")
                 
-                # Perform the lookup: join households.MAZ with lookup.MAZ_ORIGINAL to get new MAZ
+                # STEP 3: Join households.MAZ_ORIGINAL with lookup.MAZ_ORIGINAL to get new sequential MAZ
                 maz_remap = maz_lookup_df[['MAZ', 'MAZ_ORIGINAL']].drop_duplicates()
                 households_df = households_df.merge(
-                    maz_remap.rename(columns={'MAZ': 'MAZ_NEW'}),
-                    left_on='MAZ',
-                    right_on='MAZ_ORIGINAL',
-                    how='left'
+                    maz_remap[['MAZ', 'MAZ_ORIGINAL']],
+                    on='MAZ_ORIGINAL',  # Join on the original MAZ values
+                    how='left',
+                    suffixes=('', '_lookup')
                 )
                 
-                # Update MAZ with new sequential values where available
-                households_df.loc[households_df['MAZ_NEW'].notna(), 'MAZ'] = households_df.loc[households_df['MAZ_NEW'].notna(), 'MAZ_NEW']
-                households_df.drop(['MAZ_NEW', 'MAZ_ORIGINAL_y'], axis=1, inplace=True, errors='ignore')
+                # STEP 4: Replace the old MAZ with the new sequential MAZ where available
+                households_df['MAZ'] = households_df['MAZ_lookup'].fillna(households_df['MAZ'])
+                households_df.drop('MAZ_lookup', axis=1, inplace=True)
                 
-                # Perform the lookup for TAZ: join households.TAZ with lookup.TAZ_ORIGINAL to get new TAZ
+                # STEP 5: Do the same for TAZ - join households.TAZ_ORIGINAL with lookup.TAZ_ORIGINAL
                 taz_remap = maz_lookup_df[['TAZ', 'TAZ_ORIGINAL']].drop_duplicates()
                 households_df = households_df.merge(
-                    taz_remap.rename(columns={'TAZ': 'TAZ_NEW'}),
-                    left_on='TAZ',
-                    right_on='TAZ_ORIGINAL',
-                    how='left'
+                    taz_remap[['TAZ', 'TAZ_ORIGINAL']],
+                    on='TAZ_ORIGINAL',  # Join on the original TAZ values
+                    how='left',
+                    suffixes=('', '_lookup')
                 )
                 
-                # Update TAZ with new sequential values where available
-                households_df.loc[households_df['TAZ_NEW'].notna(), 'TAZ'] = households_df.loc[households_df['TAZ_NEW'].notna(), 'TAZ_NEW']
-                households_df.drop(['TAZ_NEW', 'TAZ_ORIGINAL_y'], axis=1, inplace=True, errors='ignore')
+                # STEP 6: Replace the old TAZ with the new sequential TAZ where available
+                households_df['TAZ'] = households_df['TAZ_lookup'].fillna(households_df['TAZ'])
+                households_df.drop('TAZ_lookup', axis=1, inplace=True)
                 
                 logging.info("Geographic remapping completed")
                 logging.info("Households now have remapped MAZ/TAZ values with original values preserved in MAZ_ORIGINAL/TAZ_ORIGINAL")

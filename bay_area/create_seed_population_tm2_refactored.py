@@ -24,7 +24,8 @@ Key ID Columns:
 
 The TM2 codes can be found here: https://bayareametro.github.io/travel-model-two/transit-ccr/input/#synthetic-population
 
-
+TO DO: Convert hardcoded values to enums derived from the PUMS codebook. So that if PUMS code change, we can update in one place.
+Is there a library for that?
 """
 
 
