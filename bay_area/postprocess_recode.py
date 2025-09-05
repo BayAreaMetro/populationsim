@@ -298,18 +298,112 @@ if __name__ == '__main__':
     elif args.model_type == 'TM2':
         # For TM2, create sequential unique_per_id (which will be renamed to PERID later)
         persons_df['unique_per_id'] = persons_df.index + 1  # start from 1
+        logging.info(f"Added unique_per_id field for TM2 compatibility")
         
     # Add WKW field if it doesn't exist (weeks worked per year)
     if 'WKW' not in persons_df.columns:
-      # Assign -9 for N/A (persons <16 or not worked)
-      persons_df['WKW'] = -9
-      # For employed persons, assign weeks worked based on available info or default to 1 (50–52 weeks)
-      # If you have actual weeks worked, use that; otherwise, use ESR or EMPLOYED as proxy
-      # 1=50–52 weeks, 2=48–49, 3=40–47, 4=27–39, 5=14–26, 6=13 or less
-      # For now, assign 1 for all employed (full-time), can refine if more info is available
-      persons_df.loc[persons_df['employed'] == 1, 'WKW'] = 1
-      # Optionally, refine for part-time or other ESR codes if you have more detail
-    logging.info(f"Added unique_per_id and WKW fields for TM2 compatibility (WKW recoded to 1–6 codes)")
+        # Assign -9 for N/A (persons <16 or not worked)
+        persons_df['WKW'] = -9
+        # For employed persons, assign weeks worked based on available info or default to 1 (50–52 weeks)
+        # If you have actual weeks worked, use that; otherwise, use ESR or EMPLOYED as proxy
+        # 1=50–52 weeks, 2=48–49, 3=40–47, 4=27–39, 5=14–26, 6=13 or less
+        # For now, assign 1 for all employed (full-time), can refine if more info is available
+        persons_df.loc[persons_df['employed'] == 1, 'WKW'] = 1
+        # Optionally, refine for part-time or other ESR codes if you have more detail
+        logging.info(f"Added WKW field for TM2 compatibility (assigned based on employment status)")
+    else:
+        logging.info(f"WKW field already exists - preserving original PUMS coding (1-6 values)")
+        # Ensure missing values are filled with -9 instead of NaN
+        persons_df['WKW'] = persons_df['WKW'].fillna(-9)
+
+    # Handle education field mapping for 2023 PUMS compatibility with 2015 format
+    if args.model_type == 'TM2':
+        logging.info("Mapping education fields (SCHL/SCHG) to match 2015 format...")
+        
+        # Handle SCHL (Educational attainment) - Educational logic mapping  
+        # 2023 PUMS: 0="N/A", 1=No school, 2=Preschool, 3=Kindergarten, 4-9=Elementary, 10-14=Middle/High School,
+        #            15=12th no diploma, 16=HS diploma, 17=GED, 18-19=Some college, 20=Associate, 21=Bachelor, 22=Master, 23=Professional, 24=Doctorate
+        # 2015: -9="N/A", 1-16 progressive education levels
+        if 'SCHL' in persons_df.columns:
+            original_schl_max = persons_df['SCHL'].max()
+            
+            # Create mapping based on educational logic and 2015 age patterns
+            schl_mapping = {
+                0: -9,   # N/A
+                1: 1,    # No schooling completed
+                2: 2,    # Preschool  
+                3: 3,    # Kindergarten
+                4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9,           # Elementary grades → preserve as elementary levels
+                10: 10, 11: 11, 12: 12, 13: 13, 14: 14,       # Middle/High school grades → map to middle levels  
+                15: 9,   # 12th grade no diploma → map to major "some high school" category (SCHL 9)
+                16: 13,  # HS diploma → map to major completion category (SCHL 13 had most records)
+                17: 13,  # GED → also map to HS completion (SCHL 13)
+                18: 11, 19: 11,  # Some college → map to SCHL 11 (had many records, median age 33)
+                20: 14,  # Associate degree → map to SCHL 14
+                21: 15,  # Bachelor degree → map to SCHL 15  
+                22: 16,  # Master degree → map to SCHL 16
+                23: 16,  # Professional degree → also map to SCHL 16
+                24: 16   # Doctorate → also map to SCHL 16
+            }
+            
+            # Apply mapping
+            for old_val, new_val in schl_mapping.items():
+                persons_df.loc[persons_df['SCHL'] == old_val, 'SCHL'] = new_val
+                
+            logging.info(f"SCHL: Applied educational logic mapping (original max: {original_schl_max})")
+            logging.info("SCHL mapping: 0→-9, 1-14→preserve/group, 15→9, 16-17→13, 18-19→11, 20→14, 21→15, 22-24→16")
+        
+        # Handle SCHG (Grade level attending) - Educational logic mapping
+        # 2023 PUMS: 0="N/A", 1=Preschool, 2=Kindergarten, 3-8=Elementary, 9-12=Middle, 13-14=High School, 15=College, 16=Grad
+        # 2015: -9="N/A", 1-2=Preschool/Kindergarten, 3=Elementary, 4=Middle, 5=High School, 6=College, 7=Graduate
+        if 'SCHG' in persons_df.columns:
+            original_schg_max = persons_df['SCHG'].max()
+            
+            # Create mapping dictionary for clarity
+            schg_mapping = {
+                0: -9,   # N/A
+                1: 1,    # Preschool
+                2: 2,    # Kindergarten  
+                3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3,    # Elementary (Grades 1-6)
+                9: 4, 10: 4, 11: 4, 12: 4,              # Middle School (Grades 7-10) 
+                13: 5, 14: 5,                           # High School (Grades 11-12)
+                15: 6,                                   # College undergraduate
+                16: 7                                    # Graduate/Professional
+            }
+            
+            # Apply mapping
+            for old_val, new_val in schg_mapping.items():
+                persons_df.loc[persons_df['SCHG'] == old_val, 'SCHG'] = new_val
+                
+            logging.info(f"SCHG: Applied educational logic mapping (original max: {original_schg_max})")
+            logging.info("SCHG mapping: 0→-9, 1→1, 2→2, 3-8→3, 9-12→4, 13-14→5, 15→6, 16→7")
+        
+        # Handle WKW (Weeks worked) - Convert WKWN (raw weeks) to WKW (categorical)
+        # WKWN: 1-52 weeks worked (raw), NaN for non-workers
+        # WKW: -9="N/A", 1="1-13 weeks", 2="14-26 weeks", 3="27-39 weeks", 4="40-47 weeks", 5="48-49 weeks", 6="50-52 weeks"
+        if 'WKWN' in persons_df.columns:
+            # Add WKW column if it doesn't exist
+            if 'WKW' not in persons_df.columns:
+                persons_df['WKW'] = -9  # Default to "not applicable"
+            
+            # Map WKWN values to WKW categories
+            persons_df.loc[persons_df['WKWN'].isna(), 'WKW'] = -9          # Non-workers
+            persons_df.loc[(persons_df['WKWN'] >= 1) & (persons_df['WKWN'] <= 13), 'WKW'] = 1    # 1-13 weeks
+            persons_df.loc[(persons_df['WKWN'] >= 14) & (persons_df['WKWN'] <= 26), 'WKW'] = 2   # 14-26 weeks
+            persons_df.loc[(persons_df['WKWN'] >= 27) & (persons_df['WKWN'] <= 39), 'WKW'] = 3   # 27-39 weeks  
+            persons_df.loc[(persons_df['WKWN'] >= 40) & (persons_df['WKWN'] <= 47), 'WKW'] = 4   # 40-47 weeks
+            persons_df.loc[(persons_df['WKWN'] >= 48) & (persons_df['WKWN'] <= 49), 'WKW'] = 5   # 48-49 weeks
+            persons_df.loc[(persons_df['WKWN'] >= 50) & (persons_df['WKWN'] <= 52), 'WKW'] = 6   # 50-52 weeks
+            
+            # Convert to integer type to match 2015 format
+            persons_df['WKW'] = persons_df['WKW'].astype('int64')
+            
+            logging.info("WKW: Converted WKWN (raw weeks) to WKW (categorical)")
+            logging.info("WKW mapping: NaN→-9, 1-13→1, 14-26→2, 27-39→3, 40-47→4, 48-49→5, 50-52→6")
+            
+            # Log the distribution for verification
+            wkw_counts = persons_df['WKW'].value_counts().sort_index()
+            logging.info(f"WKW value distribution: {dict(wkw_counts)}")
   
     # (c) Fills NaN values with -9
     households_df.fillna(value=-9, inplace=True)

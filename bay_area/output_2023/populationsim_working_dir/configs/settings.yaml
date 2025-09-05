@@ -204,7 +204,7 @@ output_synthetic_population:
       - SCHL                 # Educational attainment
       - SEX                  # Sex
       - WKHP                 # Usual hours worked per week past 12 months
-      - WKW                  # Weeks worked during past 12 months
+      - WKWN                 # Weeks worked during past 12 months (raw weeks)
       - ESR                  # Employment status recode
       - HISP                 # Recoded detailed Hispanic origin
       - NAICSP               # NAICS 2017 Industry code
