@@ -301,16 +301,11 @@ if __name__ == '__main__':
         logging.info(f"Added unique_per_id field for TM2 compatibility")
         
     # Add WKW field if it doesn't exist (weeks worked per year)
+    # Note: WKW will be properly set later from WKWN mapping, this is just a placeholder
     if 'WKW' not in persons_df.columns:
-        # Assign -9 for N/A (persons <16 or not worked)
-        persons_df['WKW'] = -9
-        # For employed persons, assign weeks worked based on available info or default to 1 (50–52 weeks)
-        # If you have actual weeks worked, use that; otherwise, use ESR or EMPLOYED as proxy
-        # 1=50–52 weeks, 2=48–49, 3=40–47, 4=27–39, 5=14–26, 6=13 or less
-        # For now, assign 1 for all employed (full-time), can refine if more info is available
-        persons_df.loc[persons_df['employed'] == 1, 'WKW'] = 1
-        # Optionally, refine for part-time or other ESR codes if you have more detail
-        logging.info(f"Added WKW field for TM2 compatibility (assigned based on employment status)")
+        # Initialize WKW column - will be overwritten by WKWN mapping below
+        persons_df['WKW'] = -9  # Default to "not applicable" 
+        logging.info(f"Added placeholder WKW field for TM2 compatibility (will be set from WKWN mapping)")
     else:
         logging.info(f"WKW field already exists - preserving original PUMS coding (1-6 values)")
         # Ensure missing values are filled with -9 instead of NaN
@@ -386,20 +381,27 @@ if __name__ == '__main__':
             if 'WKW' not in persons_df.columns:
                 persons_df['WKW'] = -9  # Default to "not applicable"
             
-            # Map WKWN values to WKW categories
+            # Map WKWN values to WKW categories (CORRECTED MAPPING)
+            # WKW coding: 1=50-52 weeks, 2=48-49 weeks, 3=40-47 weeks, 4=27-39 weeks, 5=14-26 weeks, 6=13 weeks or less
             persons_df.loc[persons_df['WKWN'].isna(), 'WKW'] = -9          # Non-workers
-            persons_df.loc[(persons_df['WKWN'] >= 1) & (persons_df['WKWN'] <= 13), 'WKW'] = 1    # 1-13 weeks
-            persons_df.loc[(persons_df['WKWN'] >= 14) & (persons_df['WKWN'] <= 26), 'WKW'] = 2   # 14-26 weeks
-            persons_df.loc[(persons_df['WKWN'] >= 27) & (persons_df['WKWN'] <= 39), 'WKW'] = 3   # 27-39 weeks  
-            persons_df.loc[(persons_df['WKWN'] >= 40) & (persons_df['WKWN'] <= 47), 'WKW'] = 4   # 40-47 weeks
-            persons_df.loc[(persons_df['WKWN'] >= 48) & (persons_df['WKWN'] <= 49), 'WKW'] = 5   # 48-49 weeks
-            persons_df.loc[(persons_df['WKWN'] >= 50) & (persons_df['WKWN'] <= 52), 'WKW'] = 6   # 50-52 weeks
+            persons_df.loc[(persons_df['WKWN'] >= 1) & (persons_df['WKWN'] <= 13), 'WKW'] = 6    # 1-13 weeks → WKW 6
+            persons_df.loc[(persons_df['WKWN'] >= 14) & (persons_df['WKWN'] <= 26), 'WKW'] = 5   # 14-26 weeks → WKW 5
+            persons_df.loc[(persons_df['WKWN'] >= 27) & (persons_df['WKWN'] <= 39), 'WKW'] = 4   # 27-39 weeks → WKW 4
+            persons_df.loc[(persons_df['WKWN'] >= 40) & (persons_df['WKWN'] <= 47), 'WKW'] = 3   # 40-47 weeks → WKW 3
+            persons_df.loc[(persons_df['WKWN'] >= 48) & (persons_df['WKWN'] <= 49), 'WKW'] = 2   # 48-49 weeks → WKW 2
+            persons_df.loc[(persons_df['WKWN'] >= 50) & (persons_df['WKWN'] <= 52), 'WKW'] = 1   # 50-52 weeks → WKW 1
+            
+            # Set WKW=-9 for people under 16 years old (per PUMS documentation)
+            if 'AGEP' in persons_df.columns:
+                persons_df.loc[persons_df['AGEP'] < 16, 'WKW'] = -9
+                under_16_count = (persons_df['AGEP'] < 16).sum()
+                logging.info(f"Set WKW=-9 for {under_16_count:,} people under 16 years old")
             
             # Convert to integer type to match 2015 format
             persons_df['WKW'] = persons_df['WKW'].astype('int64')
             
             logging.info("WKW: Converted WKWN (raw weeks) to WKW (categorical)")
-            logging.info("WKW mapping: NaN→-9, 1-13→1, 14-26→2, 27-39→3, 40-47→4, 48-49→5, 50-52→6")
+            logging.info("WKW mapping: NaN→-9, 1-13→6, 14-26→5, 27-39→4, 40-47→3, 48-49→2, 50-52→1")
             
             # Log the distribution for verification
             wkw_counts = persons_df['WKW'].value_counts().sort_index()

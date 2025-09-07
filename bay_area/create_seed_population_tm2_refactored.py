@@ -603,12 +603,14 @@ class PersonProcessor:
     def _create_occupation_categories(self, df: pd.DataFrame) -> pd.DataFrame:
         """Create occupation categories from OCCP codes"""
         df['occupation'] = 0  # Default to not applicable
-        df.loc[(df['OCCP'] >= 10) & (df['OCCP'] <= 950), 'occupation'] = 1    # Management
-        df.loc[(df['OCCP'] >= 1005) & (df['OCCP'] <= 3540), 'occupation'] = 2  # Professional
-        df.loc[(df['OCCP'] >= 3601) & (df['OCCP'] <= 4650), 'occupation'] = 3  # Services
-        df.loc[(df['OCCP'] >= 4700) & (df['OCCP'] <= 5940), 'occupation'] = 4  # Sales/Office
-        df.loc[(df['OCCP'] >= 6005) & (df['OCCP'] <= 9750), 'occupation'] = 5  # Manual
-        df.loc[(df['OCCP'] >= 9800) & (df['OCCP'] <= 9830), 'occupation'] = 5  # Military -> Manual
+        df.loc[(df['OCCP'] >= 10) & (df['OCCP'] < 1000), 'occupation'] = 1     # Management (covers 10-999)
+        df.loc[(df['OCCP'] >= 1000) & (df['OCCP'] < 3600), 'occupation'] = 2   # Professional (covers 1000-3599)
+        df.loc[(df['OCCP'] >= 3600) & (df['OCCP'] < 4700), 'occupation'] = 3   # Services (covers 3600-4699)
+        df.loc[(df['OCCP'] >= 4700) & (df['OCCP'] <= 6000), 'occupation'] = 4  # Sales/Office (covers 4700-6000)
+        df.loc[(df['OCCP'] >= 6000) & (df['OCCP'] < 9900), 'occupation'] = 5   # Manual/Military (covers 6000-9899)
+        # Special cases that should remain as occupation = 0 (not applicable)
+        df.loc[df['OCCP'] == 999, 'occupation'] = 0   # N/A
+        df.loc[df['OCCP'] == 9920, 'occupation'] = 0  # Unemployed with no work experience
         return df
     
     def _map_group_quarters_type(self, df: pd.DataFrame, household_df: pd.DataFrame) -> pd.DataFrame:

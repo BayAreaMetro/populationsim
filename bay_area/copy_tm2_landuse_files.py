@@ -60,9 +60,9 @@ if __name__ == '__main__':
 
     popsyn_readme = (
         'This directory contains postprocessed synthetic population files (households.csv, persons.csv) copied from the PopulationSim pipeline output.\n'
-        'Source: output_2023 directory in the Bay Area PopulationSim repo, files were renamed from households_postprocessed.csv and persons_postprocessed.csv.\n'
+        'Source: output_2023 directory in the Bay Area PopulationSim repo, files were renamed from households_2023_tm2.csv and persons_2023_tm2.csv.\n'
         'Copied and managed by: copy_tm2_landuse_files.py\n'
-        'Date: August 26, 2025\n'
+        'Date: September 6, 2025\n'
     )
     with open(POPSYN_DEST_DIR / "readme_file_source.txt", "w", encoding="utf-8") as f:
         f.write(popsyn_readme)
