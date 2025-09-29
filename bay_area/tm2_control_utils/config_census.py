@@ -424,8 +424,12 @@ CONTROLS[ACS_EST_YEAR]['TAZ'].update(collections.OrderedDict([
                                [collections.OrderedDict([('pers_min',2),('pers_max',2)])])),
     ('hh_size_3',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
                                [collections.OrderedDict([('pers_min',3),('pers_max',3)])])),
-    ('hh_size_4_plus',        ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
-                               [collections.OrderedDict([('pers_min',4),('pers_max',NPER_MAX)])])),
+    ('hh_size_4',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+                               [collections.OrderedDict([('pers_min',4),('pers_max',4)])])),
+    ('hh_size_5',             ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+                               [collections.OrderedDict([('pers_min',5),('pers_max',5)])])),
+    ('hh_size_6_plus',        ('acs5', ACS_EST_YEAR,    'B11016',       'block group',
+                               [collections.OrderedDict([('pers_min',6),('pers_max',NPER_MAX)])])),
 ]))
 
 
@@ -560,7 +564,7 @@ CONTROLS[ACS_EST_YEAR]['COUNTY_TARGETS'] = collections.OrderedDict([
 HIERARCHICAL_CONSISTENCY = collections.OrderedDict([
     # Household totals: TAZ household size categories must sum to MAZ household total
     ('num_hh', [
-        'hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus'
+        'hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4', 'hh_size_5', 'hh_size_6_plus'
     ]),
     
     # Population totals: TAZ population categories must sum to MAZ population total
@@ -1177,7 +1181,7 @@ CONTROL_CATEGORIES = {
         'household_workers': ['hh_wrks_0', 'hh_wrks_1', 'hh_wrks_2', 'hh_wrks_3_plus'],
         'person_age': ['pers_age_00_19', 'pers_age_20_34', 'pers_age_35_64', 'pers_age_65_plus'],
         'household_children': ['hh_kids_no', 'hh_kids_yes'],
-        'household_size': ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4_plus'],
+        'household_size': ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4', 'hh_size_5', 'hh_size_6_plus'],
     },
     'COUNTY': {
         'person_occupation': ['pers_occ_management', 'pers_occ_professional', 'pers_occ_services', 

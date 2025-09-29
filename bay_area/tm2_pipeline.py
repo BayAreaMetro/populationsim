@@ -753,7 +753,7 @@ def main():
     if args.command == 'status':
         pipeline.status()
     elif args.command == 'full':
-        success = pipeline.run_full_pipeline()
+        success = pipeline.run_full_pipeline(force=args.force)
         sys.exit(0 if success else 1)
     elif args.command == 'clean':
         step = getattr(args, 'step', None)
