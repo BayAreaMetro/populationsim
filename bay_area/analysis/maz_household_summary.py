@@ -5,8 +5,7 @@ Quick summary of household counts by MAZ (both new and original IDs)
 import pandas as pd
 
 # Read the households file
-# Read the households file
-df = pd.read_csv(r'output_2023\populationsim_working_dir\output\households.csv')
+df = pd.read_csv(r'output_2023\populationsim_working_dir\output\households_2023_tm2.csv')
 
 print('=== HOUSEHOLD COUNT BY MAZ (NEW AND ORIGINAL) ===')
 print(f'Total households: {len(df):,}')

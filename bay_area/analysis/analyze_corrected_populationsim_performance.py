@@ -6,13 +6,13 @@ Corrected PopulationSim Performance Analysis
 This script provides the corrected performance analysis of PopulationSim TM2 Bay Area synthesis,
 comparing like-with-like: MAZ non-GQ household targets vs synthetic regular households.
 
-Key Findings from Previous Analysis:
-- MAZ num_hh field represents NON-GQ household targets: 3,031,770
-- Synthetic regular households (hhgqtype=0): 3,008,738 (-0.76% under-allocation)
-- Synthetic GQ households (hhgqtype>0): 201,168 (properly allocated)
-- Total synthetic households: 3,209,906
+Key Analysis Approach:
+- MAZ num_hh field represents NON-GQ household targets
+- Synthetic regular households (hhgqtype=0) compared against these targets
+- Synthetic GQ households (hhgqtype>0) tracked separately
+- Performance metrics calculated dynamically from actual results
 
-The apparent "over-allocation" was actually excellent performance with proper GQ allocation.
+The script generates dynamic performance assessments based on actual allocation rates.
 """
 
 import pandas as pd
@@ -243,6 +243,21 @@ def create_corrected_visualizations(comparison):
     mape = comparison['abs_pct_error'].mean()
     rmse = np.sqrt((comparison['difference'] ** 2).mean())
     
+    # Dynamic performance assessment
+    if abs(overall_pct_error) < 1.0:
+        performance_assessment = "EXCELLENT"
+    elif abs(overall_pct_error) < 5.0:
+        performance_assessment = "GOOD"
+    else:
+        performance_assessment = "NEEDS IMPROVEMENT"
+    
+    if overall_pct_error > 0:
+        allocation_direction = "Over-allocation observed."
+    elif overall_pct_error < 0:
+        allocation_direction = "Under-allocation observed."
+    else:
+        allocation_direction = "Perfect allocation achieved."
+
     summary_text = f"""
 CORRECTED PopulationSim Performance Summary
 (Regular Households vs Non-GQ Targets)
@@ -263,9 +278,9 @@ Error Metrics:
 • RMSE: {rmse:.2f} households
 • R²: {r_squared:.6f}
 
-CONCLUSION: PopulationSim shows EXCELLENT performance
-with only -0.76% under-allocation of regular households.
-Previous "over-allocation" was measurement artifact.
+CONCLUSION: PopulationSim shows {performance_assessment} performance
+with {overall_pct_error:.2f}% allocation of regular households.
+{allocation_direction}
     """
     
     ax6.text(0.1, 0.9, summary_text, transform=ax6.transAxes, fontsize=10,
@@ -319,15 +334,13 @@ def create_comparison_summary():
     
     print("\nOLD (INCORRECT) APPROACH:")
     print("• Compared MAZ num_hh (non-GQ targets) vs ALL synthetic households")
-    print("• Result: Apparent 178,136 household 'over-allocation' (+5.88%)")
-    print("• Conclusion: Concerning systematic bias")
-    print("• Problem: Mixing household types in comparison")
+    print("• Result: Systematic bias due to mixing household types")
+    print("• Problem: Including GQ households in regular household comparisons")
     
     print("\nNEW (CORRECTED) APPROACH:")
     print("• Compare MAZ num_hh (non-GQ targets) vs synthetic regular households only")
-    print("• Result: Only -23,032 household under-allocation (-0.76%)")
-    print("• Conclusion: Excellent PopulationSim performance")
-    print("• Additional: 201,168 GQ households properly allocated separately")
+    print("• Result: Proper like-with-like comparison")
+    print("• Additional: GQ households tracked and allocated separately")
     
     print("\nKEY INSIGHT:")
     print("PopulationSim treats GQ as household units for synthesis purposes,")
@@ -335,8 +348,8 @@ def create_comparison_summary():
     print("included in regular household performance metrics.")
     
     print("\nFINAL ASSESSMENT:")
-    print("PopulationSim TM2 Bay Area synthesis shows EXCELLENT performance")
-    print("with 90%+ perfect MAZ matches and only -0.76% overall under-allocation.")
+    print("PopulationSim TM2 Bay Area synthesis performance will be calculated dynamically")
+    print("based on actual results from the current run.")
 
 def main():
     """Main analysis function"""
