@@ -32,7 +32,7 @@ MAX_GAMMA: 1.0e-6                          # Tightened from 1.0e-4 (closer to de
 
 # Geographic Settings
 # ------------------------------------------------------------------
-geographies: [COUNTY, PUMA, TAZ, MAZ]
+geographies: [COUNTY, PUMA, TAZ_NODE, MAZ_NODE]
 seed_geography: PUMA
 
 
@@ -79,10 +79,10 @@ input_table_list:
   - tablename: geo_cross_walk
     filename : geo_cross_walk_tm2.csv
     # created by create_tm2_crosswalk.py (linked from geo_cross_walk_tm2_updated.csv)
-  - tablename: MAZ_control_data
+  - tablename: MAZ_NODE_control_data
     filename : maz_marginals_hhgq.csv
     # created by create_baseyear_controls_23_tm2.py with HHGQ integration
-  - tablename: TAZ_control_data
+  - tablename: TAZ_NODE_control_data
     filename : taz_marginals_hhgq.csv
     # created by create_baseyear_controls_23_tm2.py and processed with HHGQ integration
   - tablename: COUNTY_control_data

@@ -114,10 +114,20 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 2. **Multi-level convergence**: Ensures consistency across MAZ/TAZ/County
 3. **Constraint handling**: Respects geographic and demographic relationships
 
-### Group Quarters Handling
-1. **Separate processing**: GQ population handled independently
-2. **Institutional split**: University vs. other institutional
-3. **MAZ assignment**: Based on special GQ controls
+### Group Quarters Handling (Updated October 2025)
+
+**Important Policy Change**: Military group quarters (gq_military) has been re-enabled for TM2.
+
+1. **Separate processing**: GQ population handled independently from regular households
+2. **Selective institutional inclusion**: 
+   - ✅ **INCLUDED**: Military barracks and base housing
+   - ✅ **INCLUDED**: University/college housing (dorms, student housing)  
+   - ✅ **INCLUDED**: Other non-institutional group quarters
+   - ❌ **EXCLUDED**: Nursing homes, prisons, mental health institutions
+3. **MAZ assignment**: Based on special GQ controls at block level
+4. **Travel behavior**: Military personnel included in travel demand modeling
+
+**Rationale**: Military personnel participate in regular travel patterns (commuting, shopping, etc.) unlike institutional populations in nursing homes or prisons who have limited mobility.
 
 ## Data Quality Measures
 

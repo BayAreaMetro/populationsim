@@ -361,14 +361,15 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     # Total population from 2020 Census PL 94-171 - essential for hierarchical control consistency, scaled to 2023 ACS
     ('total_pop',             ('pl',   CENSUS_EST_YEAR, 'P1_001N',      'block',
                                [], 'county_scale')),
-    # MODIFIED FOR TM2: Group quarters - NON-INSTITUTIONAL ONLY (excludes military and other institutional GQ)
-    # gq_pop will be calculated as gq_university + gq_other (non-institutional types only)
+    # MODIFIED FOR TM2: Group quarters - includes military, excludes other institutional GQ (nursing homes, prisons)
+    # gq_pop will be calculated as gq_university + gq_military + gq_other
     ('gq_pop_total_census',   ('pl',   CENSUS_EST_YEAR, 'P5_001N',      'block',
                                [])),  # Keep total for calculation, but will be replaced
-    # Non-institutional group quarters by type from 2020 Census PL 94-171
-    # REMOVED: gq_military (P5_009N) - institutional GQ, excluded from tm2 synthetic population
+    # Group quarters by type from 2020 Census PL 94-171 (includes military, excludes other institutional)
     ('gq_university',         ('pl',   CENSUS_EST_YEAR, 'P5_008N',      'block',
                                [])),
+    ('gq_military',           ('pl',   CENSUS_EST_YEAR, 'P5_009N',      'block',
+                               [])),  # RE-ADDED: Military GQ included in TM2 controls
 ])
 
 # ----------------------------------------
@@ -1179,7 +1180,7 @@ GEOGRAPHY_ID_COLUMNS = {
 CONTROL_CATEGORIES = {
     'MAZ': {
         'household_counts': ['num_hh'],
-        'group_quarters': ['gq_pop', 'gq_university', 'gq_other'],  # REMOVED gq_military (institutional GQ)
+        'group_quarters': ['gq_pop', 'gq_university', 'gq_military', 'gq_other'],  # RE-ADDED gq_military
     },
     'TAZ': {
         'household_income': ['hhinc_0_14', 'hhinc_14_30', 'hhinc_30_60', 'hhinc_60_100', 'hhinc_100_175', 'hhinc_175_plus'],

@@ -214,9 +214,10 @@ def disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights
     # Step 2: Aggregate from block group level to TAZ level
     print(f"[DEBUG][TRACT2BG] ==> Starting block group to TAZ aggregation")
     
-    # Get block group to TAZ mapping from maz_taz_def_df
-    if 'GEOID_block group' not in maz_taz_def_df.columns or 'TAZ' not in maz_taz_def_df.columns:
-        logger.error("Missing block group to TAZ mapping columns in maz_taz_def_df")
+    # Get block group to TAZ mapping from maz_taz_def_df - handle both TAZ and TAZ_NODE naming
+    taz_col = 'TAZ_NODE' if 'TAZ_NODE' in maz_taz_def_df.columns else 'TAZ'
+    if 'GEOID_block group' not in maz_taz_def_df.columns or taz_col not in maz_taz_def_df.columns:
+        logger.error(f"Missing block group to TAZ mapping columns in maz_taz_def_df (looking for '{taz_col}')")
         print(f"[DEBUG][TRACT2BG] maz_taz_def_df columns: {list(maz_taz_def_df.columns)}")
         raise ValueError("Cannot aggregate to TAZ level - missing geographic mapping")
     
@@ -228,8 +229,12 @@ def disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights
     
     # Get the mapping and ensure consistent data types - USE MAZ-BASED APPORTIONMENT
     # Since block groups can span multiple TAZs, we need to apportion based on MAZ counts
-    bg_taz_mapping = maz_taz_def_df[['GEOID_block group', 'TAZ', 'MAZ']].copy()
+    bg_taz_mapping = maz_taz_def_df[['GEOID_block group', taz_col, 'MAZ']].copy()
     bg_taz_mapping['GEOID_block group'] = bg_taz_mapping['GEOID_block group'].astype(str)
+    
+    # Rename TAZ column to standard 'TAZ' for processing
+    if taz_col == 'TAZ_NODE':
+        bg_taz_mapping = bg_taz_mapping.rename(columns={'TAZ_NODE': 'TAZ'})
     
     print(f"[DEBUG][TRACT2BG] Total MAZ-TAZ-BG records: {len(bg_taz_mapping)}")
     
@@ -1305,8 +1310,23 @@ def integerize_control(out_df, crosswalk_df, control_name):
     # stochastic rounding
     out_df["control_stoch_round"] = stochastic_round(out_df[control_name])
 
+    # Handle column name mismatch between out_df and crosswalk_df for TM2 compatibility
+    # Determine the MAZ column name in both dataframes
+    maz_col_out = 'MAZ' if 'MAZ' in out_df.columns else 'MAZ_NODE'
+    maz_col_crosswalk = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
+    
+    # If column names don't match, temporarily rename for the merge
+    crosswalk_for_merge = crosswalk_df.copy()
+    if maz_col_out != maz_col_crosswalk:
+        crosswalk_for_merge = crosswalk_for_merge.rename(columns={maz_col_crosswalk: maz_col_out})
+    
+    # Also handle TAZ column naming
+    taz_col_crosswalk = 'TAZ_NODE' if 'TAZ_NODE' in crosswalk_df.columns else 'TAZ'
+    if taz_col_crosswalk == 'TAZ_NODE':
+        crosswalk_for_merge = crosswalk_for_merge.rename(columns={'TAZ_NODE': 'TAZ'})
+
     # see how they look at the TAZ and county level
-    out_df = pd.merge(left=out_df, right=crosswalk_df, how="left")
+    out_df = pd.merge(left=out_df, right=crosswalk_for_merge, on=maz_col_out, how="left")
 
     # this is being exacting... maybe not necessary
 
@@ -1332,7 +1352,7 @@ def integerize_control(out_df, crosswalk_df, control_name):
 
         # add or remove a household if needed from a MAZ
         out_df = pd.merge(left=out_df, right=out_df_by_taz[["TAZ","control_adjust","control_taz"]], how="left")
-        out_df_by_taz_grouped = out_df[["MAZ","TAZ",control_name,"control_stoch_round","control_adjust","control_taz"]].groupby("TAZ")
+        out_df_by_taz_grouped = out_df[[maz_col_out,"TAZ",control_name,"control_stoch_round","control_adjust","control_taz"]].groupby("TAZ")
         for taz in tazdict_to_adjust.keys():
             adjustment = tazdict_to_adjust[taz]["control_adjust"]  # e.g. -2
             sample_n   = int(abs(adjustment)) # e.g. 2
@@ -1343,8 +1363,8 @@ def integerize_control(out_df, crosswalk_df, control_name):
                 sample = out_df_by_taz_grouped.get_group(taz).sample(n=sample_n, weights="control_stoch_round")
 
                 # actually make the change in the out_df.  iterate rather than join since there are so few
-                for maz in sample["MAZ"].tolist():
-                    out_df.loc[ out_df["MAZ"] == maz, "control_stoch_round"] += change_by
+                for maz in sample[maz_col_out].tolist():
+                    out_df.loc[ out_df[maz_col_out] == maz, "control_stoch_round"] += change_by
 
             except ValueError as e:
                 # this could fail if the weights are all zero
@@ -1357,7 +1377,7 @@ def integerize_control(out_df, crosswalk_df, control_name):
     # go back to original cols
     out_df = out_df[out_df_cols]
     # and index
-    out_df.set_index("MAZ", inplace=True)
+    out_df.set_index(maz_col_out, inplace=True)
 
 
     return out_df

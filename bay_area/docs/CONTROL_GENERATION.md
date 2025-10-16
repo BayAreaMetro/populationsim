@@ -12,6 +12,33 @@ This step generates the baseyear control files required for the Bay Area Populat
   - Validates and harmonizes controls for internal consistency.
   - Outputs all required marginal and summary files for PopulationSim and TM2.
 
+## Group Quarters Processing (Updated October 2025)
+
+**Important Change**: Military group quarters (gq_military) has been re-enabled for TM2 while maintaining exclusion of other institutional types.
+
+### Background
+Originally, all institutional group quarters were excluded from TM2, including military housing. This was reconsidered because military personnel participate in regular travel patterns unlike residents of nursing homes or prisons.
+
+### Current Group Quarters Policy
+- **✅ INCLUDED**: Military barracks and base housing (Census P5_009N)
+- **✅ INCLUDED**: University/college housing (dorms, student housing)
+- **✅ INCLUDED**: Other non-institutional group quarters (group homes, worker dormitories, religious quarters)
+- **❌ EXCLUDED**: Nursing homes and long-term care facilities
+- **❌ EXCLUDED**: Correctional institutions and prisons
+- **❌ EXCLUDED**: Mental health institutions
+- **❌ EXCLUDED**: Other institutional care facilities
+
+### Final Group Quarters Structure
+```
+gq_pop = gq_university + gq_military + gq_other
+```
+
+Where:
+- `gq_university`: University/college housing population
+- `gq_military`: Military barracks/quarters population (**re-enabled**)
+- `gq_other`: Other non-institutional group quarters
+- `gq_pop`: Total modeled group quarters population
+
 ## Inputs
 
 - ACS 2023 5-year and 1-year estimates (tract, block group, county)

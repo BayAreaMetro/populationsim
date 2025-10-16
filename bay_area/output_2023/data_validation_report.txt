@@ -3,17 +3,20 @@ POPULATIONSIM DATA VALIDATION REPORT
 ================================================================================
 
 DATA SUMMARY:
-  Households: 155,540
+  Households: 149,785
   Persons: 374,515
   Expected PUMAs: 62
   Actual PUMAs: 62
 
 VALIDATION STATUS: FAIL
 
+ERRORS (1):
+  - 5755 persons without matching households
+
 HOUSEHOLD SUMMARY:
-  Total: 155,540
-  Avg Size: 2.41
-  Types: {0: 139704, 1: 10081, 2: 78, 3: 5677}
+  Total: 149,785
+  Avg Size: 2.46
+  Types: {0: 139704, 3: 10081}
 
 PERSON SUMMARY:
   Total: 374,515

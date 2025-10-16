@@ -4,6 +4,26 @@ create_baseyear_controls_23_tm2.py
 This script creates baseyear control files for the MTC Bay Area populationsim model using 
 ACS 2023 data with simplified controls to reflect current Census data availability.
 
+IMPORTANT NOTE ON GROUP QUARTERS PROCESSING:
+This script has been modified to include military group quarters (gq_military) while 
+excluding other institutional group quarters (nursing homes, prisons, etc.) from the 
+TM2 synthetic population model. This selective inclusion ensures military personnel 
+are properly modeled for travel demand while maintaining the exclusion of institutional 
+populations that don't participate in typical travel patterns.
+
+Military GQ Processing:
+- Includes military barracks and base housing (Census P5_009N variable)
+- Military personnel are modeled as part of the synthetic population
+- Final controls include separate gq_military component for validation
+
+Excluded Institutional GQ:
+- Nursing homes and long-term care facilities
+- Correctional institutions and prisons  
+- Mental health institutions
+- Other institutional care facilities
+
+Final GQ relationship: gq_pop = gq_university + gq_military + gq_other (non-institutional)
+
 """
 
 
@@ -987,10 +1007,18 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
         logger.info(f"Loaded county summary: {len(county_summary_df)} counties")
         logger.info(f"Loaded crosswalk: {len(crosswalk_df)} MAZ zones")
         logger.info(f"Loaded county targets: {len(county_targets_df)} targets")
+        
+        # Validate that MAZ data has required columns
+        if 'num_hh' not in maz_df.columns or 'total_pop' not in maz_df.columns:
+            logger.error("MAZ data missing required num_hh or total_pop columns")
+            logger.error(f"Available MAZ columns: {list(maz_df.columns)}")
+            return False
 
         # Merge MAZ data with county information from crosswalk
-        county_crosswalk = crosswalk_df[['MAZ', 'county_name', 'COUNTY']].drop_duplicates()
-        maz_with_county = maz_df.merge(county_crosswalk, on='MAZ', how='left')
+        # Handle both old (MAZ) and new (MAZ_NODE) column naming
+        maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
+        county_crosswalk = crosswalk_df[[maz_col, 'county_name', 'COUNTY']].drop_duplicates()
+        maz_with_county = maz_df.merge(county_crosswalk, left_on='MAZ', right_on=maz_col, how='left')
         
         # Convert COUNTY codes to 3-digit FIPS strings to match targets
         maz_with_county['county_fips'] = maz_with_county['COUNTY'].apply(lambda x: f'{x:03d}' if pd.notna(x) else None)
@@ -1083,7 +1111,18 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
             logger.info(f"Estimated num_hh: min={maz_with_county['num_hh'].min()}, max={maz_with_county['num_hh'].max()}, sum={maz_with_county['num_hh'].sum():,.0f}")
         
         # Write updated MAZ marginals file
-        output_columns = ['MAZ', 'num_hh', 'total_pop', 'gq_pop', 'gq_university', 'gq_other']  # REMOVED gq_military (institutional GQ)
+        # Use MAZ_NODE naming to match crosswalk and PopulationSim expectations
+        if 'MAZ_NODE' in maz_with_county.columns:
+            maz_output_col = 'MAZ_NODE'
+        elif 'MAZ' in maz_with_county.columns:
+            # Rename MAZ column to MAZ_NODE for consistency with new naming convention
+            maz_with_county = maz_with_county.rename(columns={'MAZ': 'MAZ_NODE'})
+            maz_output_col = 'MAZ_NODE'
+            logger.info("Renamed MAZ column to MAZ_NODE for consistency with crosswalk")
+        else:
+            raise ValueError("Neither MAZ nor MAZ_NODE column found in MAZ data")
+        
+        output_columns = [maz_output_col, 'num_hh', 'total_pop', 'gq_pop', 'gq_university', 'gq_military', 'gq_other']  # RE-ADDED gq_military
         maz_with_county[output_columns].to_csv(maz_marginals_file, index=False)
         
         logger.info(f"Updated MAZ marginals file: {maz_marginals_file}")
@@ -1312,6 +1351,11 @@ def harmonize_taz_household_controls(taz_marginals_file, logger, target_geograph
         # Drop temporary column
         df = df.drop('target_total', axis=1)
         
+        # Rename TAZ column to match new convention if needed
+        if 'TAZ' in df.columns and 'TAZ_NODE' not in df.columns:
+            df = df.rename(columns={'TAZ': 'TAZ_NODE'})
+            logger.info("Renamed TAZ column to TAZ_NODE for consistency with new naming convention")
+        
         # Save harmonized file
         df.to_csv(taz_marginals_file, index=False)
         
@@ -1524,7 +1568,10 @@ def summarize_maz_households_by_taz(logger):
         logger.info(f"Loaded {len(crosswalk_df):,} crosswalk records")
         
         # Merge MAZ households with crosswalk to get TAZ mapping
-        maz_taz = maz_df.merge(crosswalk_df[['MAZ', 'TAZ']], on='MAZ', how='left')
+        # Handle both old (MAZ, TAZ) and new (MAZ_NODE, TAZ_NODE) column naming
+        maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
+        taz_col = 'TAZ_NODE' if 'TAZ_NODE' in crosswalk_df.columns else 'TAZ'
+        maz_taz = maz_df.merge(crosswalk_df[[maz_col, taz_col]], left_on='MAZ', right_on=maz_col, how='left')
         
         # Check for missing TAZ mappings
         missing_taz = maz_taz['TAZ'].isna().sum()
@@ -1534,14 +1581,17 @@ def summarize_maz_households_by_taz(logger):
         
         # Sum MAZ households by TAZ
         logger.info("Summarizing MAZ households by TAZ")
-        taz_hh_from_maz = maz_taz.groupby('TAZ')['num_hh'].sum().reset_index()
+        # Use the TAZ column from the merged result (could be TAZ or TAZ_NODE)
+        taz_groupby_col = taz_col if taz_col in maz_taz.columns else 'TAZ'
+        taz_hh_from_maz = maz_taz.groupby(taz_groupby_col)['num_hh'].sum().reset_index()
         taz_hh_from_maz.rename(columns={'num_hh': 'hh_from_maz'}, inplace=True)
         
         logger.info(f"Summarized to {len(taz_hh_from_maz):,} TAZ zones")
         logger.info(f"Total households from MAZ: {taz_hh_from_maz['hh_from_maz'].sum():,.0f}")
         
         # Merge with existing TAZ marginals
-        taz_updated = taz_df.merge(taz_hh_from_maz, on='TAZ', how='left')
+        # TAZ marginals file should still use 'TAZ' column name for now
+        taz_updated = taz_df.merge(taz_hh_from_maz, left_on='TAZ', right_on=taz_groupby_col, how='left')
         
         # Fill missing values with 0 (TAZs with no MAZs)
         taz_updated['hh_from_maz'] = taz_updated['hh_from_maz'].fillna(0)
@@ -1564,6 +1614,12 @@ def summarize_maz_households_by_taz(logger):
         
         # Write updated TAZ marginals file
         logger.info(f"Writing updated TAZ marginals with hh_from_maz column")
+        
+        # Rename TAZ column to match new convention if needed
+        if 'TAZ' in taz_updated.columns and 'TAZ_NODE' not in taz_updated.columns:
+            taz_updated = taz_updated.rename(columns={'TAZ': 'TAZ_NODE'})
+            logger.info("Renamed TAZ column to TAZ_NODE for consistency with new naming convention")
+        
         taz_updated.to_csv(taz_marginals_file, index=False)
         
         # Validation summary
@@ -2064,29 +2120,56 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         # This extra rounding step prevents floating-point precision issues in PopulationSim
         out_df[col] = numpy.round(out_df[col].fillna(0)).astype(int)
 
-    # MODIFIED FOR TM2: Handle non-institutional group quarters only (excludes military/institutional GQ)
+    # MODIFIED FOR TM2: Handle group quarters including military (excludes other institutional GQ)
+    # 
+    # CHANGE LOG - Military GQ Re-enablement:
+    # - Date: October 2025
+    # - Issue: gq_military was originally excluded from TM2 as "institutional GQ"
+    # - Resolution: Re-enabled gq_military while maintaining exclusion of other institutional types
+    # - Rationale: Military personnel participate in travel patterns unlike nursing home/prison populations
+    # - Implementation: Updated config_census.py to include P5_009N variable processing
+    # 
+    # Group Quarters Processing Documentation:
+    # - gq_pop: Total modeled group quarters population (university + military + other)
+    # - gq_university: University/college housing (explicitly tracked from Census)
+    # - gq_military: Military barracks/quarters (explicitly tracked from Census) *** RE-ENABLED ***
+    # - gq_other: Other non-institutional group quarters (calculated as gq_pop - gq_university - gq_military)
+    #   
+    #   gq_other includes:
+    #   * Group homes
+    #   * Residential treatment facilities
+    #   * Worker dormitories  
+    #   * Religious group quarters
+    #   * Other communal living arrangements that are non-institutional
+    #   
+    #   gq_other excludes (not modeled in TM2):
+    #   * Nursing homes
+    #   * Prisons/correctional facilities
+    #   * Mental health institutions
+    #   * Other institutional care facilities
+    #
+    # Final relationship: gq_pop = gq_university + gq_military + gq_other
     if control_geo == 'MAZ':
-        # Check if we have the raw total and need to calculate non-institutional GQ only
-        if 'gq_pop_total_census' in out_df.columns and 'gq_university' in out_df.columns:
-            logger.info("Calculating non-institutional GQ controls (excluding military and institutional types)")
+        # Check if we have the raw total and need to calculate modeled GQ components
+        if 'gq_pop_total_census' in out_df.columns and 'gq_university' in out_df.columns and 'gq_military' in out_df.columns:
+            logger.info("Calculating modeled GQ controls (excluding institutional types)")
             
-            # For tm2, we need to estimate non-institutional GQ from the total
-            # University housing is explicitly tracked, other non-institutional GQ estimated
-            # Military and institutional GQ are excluded entirely
+            # For tm2, we now include military but exclude other institutional GQ
+            # University and military housing are explicitly tracked, other non-institutional GQ estimated
+            # Institutional GQ (nursing homes, prisons, etc.) are excluded entirely
             
-            # Calculate gq_other as total minus university, but cap to ensure non-negative
-            # Assumes remaining non-institutional GQ are about 80-90% of total (rough estimate)
             university_gq = out_df['gq_university'].fillna(0)
+            military_gq = out_df['gq_military'].fillna(0)
             total_census_gq = out_df['gq_pop_total_census'].fillna(0)
             
-            # Estimate other non-institutional GQ (assumes military is ~10% of total GQ)
+            # Estimate other non-institutional GQ (assumes institutional is ~10% of total GQ)
             # This is a conservative estimate to avoid including institutional types
-            estimated_military_institutional = total_census_gq * 0.15  # Conservative estimate
-            available_for_other = total_census_gq - university_gq - estimated_military_institutional
+            estimated_institutional_only = total_census_gq * 0.10  # Conservative estimate for nursing homes, prisons, etc.
+            available_for_other = total_census_gq - university_gq - military_gq - estimated_institutional_only
             out_df['gq_other'] = numpy.maximum(0, available_for_other)
             
-            # Final gq_pop is only non-institutional: university + other
-            out_df['gq_pop'] = university_gq + out_df['gq_other']
+            # Final gq_pop includes: university + military + other non-institutional
+            out_df['gq_pop'] = university_gq + military_gq + out_df['gq_other']
             
             # Remove the census total column (not needed in final output)
             out_df = out_df.drop(columns=['gq_pop_total_census'])
@@ -2094,20 +2177,22 @@ def write_outputs(control_geo, out_df, crosswalk_df):
             # Update control_cols
             control_cols = [col for col in out_df.columns if col != control_geo and col != 'county_name']
             
-            # Log summary of NON-INSTITUTIONAL group quarters breakdown
+            # Log summary of MODELED group quarters breakdown
             total_gq = out_df['gq_pop'].sum()
             university_gq_sum = out_df['gq_university'].sum()
+            military_gq_sum = out_df['gq_military'].sum()
             other_gq_sum = out_df['gq_other'].sum()
             
-            logger.info(f"NON-INSTITUTIONAL Group Quarters Breakdown (excludes military/institutional):")
-            logger.info(f"  Total Non-Institutional GQ: {total_gq:,.0f}")
+            logger.info(f"MODELED Group Quarters Breakdown (excludes institutional):")
+            logger.info(f"  Total Modeled GQ: {total_gq:,.0f}")
             logger.info(f"  University: {university_gq_sum:,.0f} ({university_gq_sum/total_gq*100:.1f}%)")
+            logger.info(f"  Military: {military_gq_sum:,.0f} ({military_gq_sum/total_gq*100:.1f}%)")
             logger.info(f"  Other Non-Institutional: {other_gq_sum:,.0f} ({other_gq_sum/total_gq*100:.1f}%)")
-            logger.info(f"  [EXCLUDED] Military/Institutional GQ: estimated ~{(total_census_gq.sum() - total_gq):,.0f}")
+            logger.info(f"  [EXCLUDED] Institutional GQ: estimated ~{(total_census_gq.sum() - total_gq):,.0f}")
             
             # Validate GQ component consistency
-            logger.info("Validating non-institutional GQ component consistency...")
-            gq_total_check = out_df['gq_university'] + out_df['gq_other']
+            logger.info("Validating modeled GQ component consistency...")
+            gq_total_check = out_df['gq_university'] + out_df['gq_military'] + out_df['gq_other']
             gq_mismatch = abs(out_df['gq_pop'] - gq_total_check) > 0.1
             
             if gq_mismatch.sum() > 0:
@@ -2115,13 +2200,15 @@ def write_outputs(control_geo, out_df, crosswalk_df):
                 out_df.loc[gq_mismatch, 'gq_pop'] = gq_total_check.loc[gq_mismatch]
                 logger.info(f"Fixed GQ component consistency for {gq_mismatch.sum()} MAZs")
             else:
-                logger.info("All MAZ non-institutional GQ components are consistent with totals")
+                logger.info("All MAZ modeled GQ components are consistent with totals")
         
-        elif 'gq_pop' in out_df.columns and 'gq_university' in out_df.columns:
+        elif 'gq_pop' in out_df.columns and 'gq_university' in out_df.columns and 'gq_military' in out_df.columns:
             # Standard case where gq_pop is already calculated correctly
-            out_df['gq_other'] = numpy.maximum(0, out_df['gq_pop'] - out_df['gq_university'])
+            # Calculate gq_other as the remainder: other non-institutional GQ = total - university - military
+            out_df['gq_other'] = numpy.maximum(0, out_df['gq_pop'] - out_df['gq_university'] - out_df['gq_military'])
             control_cols = [col for col in out_df.columns if col != control_geo and col != 'county_name']
-            logger.info("Standard GQ processing: gq_other calculated from gq_pop - gq_university")
+            logger.info("Standard GQ processing: gq_other calculated from gq_pop - gq_university - gq_military")
+            logger.info(f"gq_other represents non-institutional group quarters excluding university and military housing")
 
     logger.info(f"Processing {control_geo} controls with {len(out_df)} rows and {len(out_df.columns)} columns")
     logger.info(f"Control columns: {control_cols}")
@@ -2131,9 +2218,34 @@ def write_outputs(control_geo, out_df, crosswalk_df):
     
     # Write single marginals file in populationsim expected format
     if control_geo == 'MAZ':
-        # MAZ provides: num_hh, gq_pop, gq_university, gq_other (NON-INSTITUTIONAL GQ only)
-        # MODIFIED FOR TM2: Excludes institutional GQ (military, nursing homes, prisons)
-        # Group quarters now include only non-institutional types from 2020 Census data
+        # MAZ provides: num_hh, total_pop, gq_pop, gq_university, gq_military, gq_other (INCLUDES MILITARY GQ)
+        # MODIFIED FOR TM2: Excludes institutional GQ (nursing homes, prisons) but INCLUDES military
+        # Group quarters now include non-institutional types + military from 2020 Census data
+        #
+        # MAZ Marginals Column Definitions:
+        # - MAZ_NODE: MAZ identifier (TM2 naming convention)
+        # - num_hh: Number of households (private housing units)
+        # - total_pop: Total population (household + modeled group quarters)
+        # - gq_university: Population in university/college housing
+        # - gq_military: Population in military barracks/quarters
+        # - gq_other: Population in other non-institutional group quarters (group homes, 
+        #   worker dormitories, religious quarters, etc. - excludes institutional)
+        # - gq_pop: Total modeled group quarters (gq_university + gq_military + gq_other)
+        
+        # Ensure all required MAZ columns are present
+        required_maz_cols = ['num_hh', 'total_pop', 'gq_university', 'gq_military', 'gq_other', 'gq_pop']
+        missing_cols = [col for col in required_maz_cols if col not in out_df.columns]
+        if missing_cols:
+            logger.warning(f"Missing MAZ columns: {missing_cols}. Available columns: {list(out_df.columns)}")
+            # Add missing columns as zeros
+            for col in missing_cols:
+                out_df[col] = 0.0
+                logger.info(f"Added missing MAZ column '{col}' as zeros")
+        
+        # Rename MAZ to MAZ_NODE for TM2 compatibility
+        if 'MAZ' in out_df.columns:
+            out_df = out_df.rename(columns={'MAZ': 'MAZ_NODE'})
+            logger.info("Renamed MAZ column to MAZ_NODE for TM2 compatibility")
         
         output_file = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
         
@@ -2173,6 +2285,23 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         # For county, exclude county_name from the output
         output_cols = [control_geo] + control_cols
         out_df[output_cols].to_csv(output_file, index=False)
+    elif control_geo == 'MAZ':
+        # Special handling for MAZ to ensure correct column order and naming
+        geo_col = 'MAZ_NODE' if 'MAZ_NODE' in out_df.columns else 'MAZ'
+        
+        # Define expected column order for MAZ
+        expected_cols = [geo_col, 'num_hh', 'total_pop', 'gq_university', 'gq_military', 'gq_other', 'gq_pop']
+        available_cols = [col for col in expected_cols if col in out_df.columns]
+        
+        # Ensure geographic ID columns are integers to match crosswalk format
+        if geo_col in out_df.columns:
+            out_df = out_df.copy()  # Avoid modifying original dataframe
+            out_df[geo_col] = out_df[geo_col].astype(int)
+            logger.info(f"Converted {geo_col} IDs to integers for compatibility with crosswalk format")
+        
+        # Write with expected column order
+        out_df[available_cols].to_csv(output_file, index=False)
+        logger.info(f"Wrote MAZ marginals with columns: {available_cols}")
     else:
         # Ensure geographic ID columns are integers to match crosswalk format
         if control_geo in out_df.columns:
@@ -2281,6 +2410,11 @@ def create_hhgq_integrated_files(logger):
                 logger.error(f"Missing required columns in MAZ data: num_hh={('num_hh' in maz_df.columns)}, gq_pop={('gq_pop' in maz_df.columns)}")
                 return False
             
+            # Rename MAZ column to match new convention if needed
+            if 'MAZ' in maz_df.columns and 'MAZ_NODE' not in maz_df.columns:
+                maz_df = maz_df.rename(columns={'MAZ': 'MAZ_NODE'})
+                logger.info("Renamed MAZ column to MAZ_NODE for consistency with new naming convention")
+            
             maz_df.to_csv(maz_output, index=False)
             logger.info(f"Wrote MAZ HHGQ file: {maz_output}")
         else:
@@ -2345,6 +2479,11 @@ def create_hhgq_integrated_files(logger):
                     logger.info(f"Created {gq_control_name} = {size_1_control} (no GQ adjustment)")
                 elif size_1_control:
                     logger.warning(f"No {size_1_control} column found in TAZ data for HHGQ integration")
+                
+            # Rename TAZ column to match new convention if needed
+            if 'TAZ' in taz_df.columns and 'TAZ_NODE' not in taz_df.columns:
+                taz_df = taz_df.rename(columns={'TAZ': 'TAZ_NODE'})
+                logger.info("Renamed TAZ column to TAZ_NODE for consistency with new naming convention")
                 
             taz_df.to_csv(taz_output, index=False)
             logger.info(f"Wrote TAZ HHGQ file: {taz_output}")
@@ -2459,10 +2598,20 @@ def enforce_hierarchical_consistency_in_controls(logger):
         
         # Write the updated controls
         # MAZ controls should be unchanged (they're authoritative)
+        # Rename MAZ column to match new convention if needed
+        if 'MAZ' in maz_updated.columns and 'MAZ_NODE' not in maz_updated.columns:
+            maz_updated = maz_updated.rename(columns={'MAZ': 'MAZ_NODE'})
+            logger.info("Renamed MAZ column to MAZ_NODE for consistency with new naming convention")
+        
         logger.info(f"Writing MAZ controls to: {maz_file}")
         maz_updated.to_csv(maz_file, index=False)
         
         # TAZ controls have been proportionally adjusted
+        # Rename TAZ column to match new convention if needed
+        if 'TAZ' in taz_updated.columns and 'TAZ_NODE' not in taz_updated.columns:
+            taz_updated = taz_updated.rename(columns={'TAZ': 'TAZ_NODE'})
+            logger.info("Renamed TAZ column to TAZ_NODE for consistency with new naming convention")
+            
         logger.info(f"Writing adjusted TAZ controls to: {taz_file}")
         taz_updated.to_csv(taz_file, index=False)
         
@@ -2797,19 +2946,30 @@ def main():
     #         logger.error(f"Error running output structure test: {e}")
     #         logger.error(f"Test error traceback: {traceback.format_exc()}")
 
-    # FINAL VALIDATION: Ensure institutional GQ exclusion is working
-    validate_institutional_gq_exclusion(logger)
+    # FINAL VALIDATION: Ensure group quarters controls include military and exclude only institutional GQ
+    validate_group_quarters_controls(logger)
     
     logger.info("Control file generation completed successfully!")
 
 
-def validate_institutional_gq_exclusion(logger):
+def validate_group_quarters_controls(logger):
     """
-    Validate that institutional group quarters have been properly excluded from controls.
-    This ensures tm2 synthetic population alignment.
+    Validate that group quarters controls are properly structured for TM2.
+    This ensures tm2 synthetic population alignment with military GQ included.
+    
+    VALIDATION PURPOSE:
+    Confirms that the October 2025 modification to re-enable military group quarters
+    was successful. This function validates that:
+    1. gq_military column exists in final controls
+    2. Military GQ population is properly counted and separated
+    3. Total GQ excludes institutional types (nursing homes, prisons)
+    4. Component totals sum correctly: gq_pop = gq_university + gq_military + gq_other
+    
+    This validation ensures military personnel are included in synthetic population
+    while maintaining exclusion of institutional populations.
     """
     logger.info("=" * 80)
-    logger.info("VALIDATING INSTITUTIONAL GQ EXCLUSION")
+    logger.info("VALIDATING GROUP QUARTERS CONTROLS")
     logger.info("=" * 80)
     
     try:
@@ -2818,13 +2978,12 @@ def validate_institutional_gq_exclusion(logger):
         if os.path.exists(maz_file):
             maz_df = pd.read_csv(maz_file)
             
-            # Check that gq_military column does NOT exist
+            # Check that gq_military column EXISTS
             if 'gq_military' in maz_df.columns:
-                logger.error("❌ VALIDATION FAILED: gq_military column found in MAZ marginals!")
-                logger.error("   This indicates institutional GQ was not properly excluded")
-                return False
+                logger.info("✅ MAZ marginals: gq_military column found (military GQ properly included)")
             else:
-                logger.info("✅ MAZ marginals: No gq_military column (institutional GQ properly excluded)")
+                logger.warning("⚠️  MAZ marginals: No gq_military column found")
+                logger.warning("   This indicates military GQ may not be included in controls")
             
             # Check GQ totals are reasonable (should be reduced compared to full Census totals)
             if 'gq_pop' in maz_df.columns:
@@ -2838,12 +2997,30 @@ def validate_institutional_gq_exclusion(logger):
                 else:
                     logger.info(f"✅ GQ total indicates proper institutional exclusion")
             
-            # Check university vs other breakdown
-            if 'gq_university' in maz_df.columns and 'gq_other' in maz_df.columns:
+            # Check university, military, and other breakdown
+            if 'gq_university' in maz_df.columns and 'gq_military' in maz_df.columns and 'gq_other' in maz_df.columns:
+                univ_gq = maz_df['gq_university'].sum()
+                military_gq = maz_df['gq_military'].sum()
+                other_gq = maz_df['gq_other'].sum()
+                logger.info(f"   University GQ: {univ_gq:,.0f}")
+                logger.info(f"   Military GQ: {military_gq:,.0f}")
+                logger.info(f"   Other non-institutional GQ: {other_gq:,.0f}")
+                
+                # Validate components sum to total
+                component_sum = univ_gq + military_gq + other_gq
+                if 'gq_pop' in maz_df.columns:
+                    total_check = maz_df['gq_pop'].sum()
+                    if abs(component_sum - total_check) < 10:  # Allow small rounding differences
+                        logger.info("✅ GQ components sum correctly to total")
+                    else:
+                        logger.warning(f"⚠️  GQ component mismatch: {component_sum:,.0f} vs {total_check:,.0f}")
+            elif 'gq_university' in maz_df.columns and 'gq_other' in maz_df.columns:
+                # Fallback for old format without military
                 univ_gq = maz_df['gq_university'].sum()
                 other_gq = maz_df['gq_other'].sum()
                 logger.info(f"   University GQ: {univ_gq:,.0f}")
                 logger.info(f"   Other non-institutional GQ: {other_gq:,.0f}")
+                logger.warning("   No gq_military column found - using old format")
                 
                 # Validate components sum to total
                 component_sum = univ_gq + other_gq
@@ -2862,7 +3039,7 @@ def validate_institutional_gq_exclusion(logger):
         logger.error(f"❌ Error during institutional GQ validation: {e}")
         return False
     
-    logger.info("✅ INSTITUTIONAL GQ EXCLUSION VALIDATION COMPLETED")
+    logger.info("✅ GROUP QUARTERS CONTROLS VALIDATION COMPLETED")
     return True
 
 
