@@ -256,12 +256,15 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
     if os.path.exists(GEO_CROSSWALK_TM2_PATH):
         crosswalk_df = pd.read_csv(GEO_CROSSWALK_TM2_PATH)
         if 'PUMA' in crosswalk_df.columns:
-            puma_mapping = crosswalk_df[['MAZ', 'PUMA']].drop_duplicates()
+            # Use MAZ_NODE for tm2 crosswalk format
+            maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
+            puma_mapping = crosswalk_df[[maz_col, 'PUMA']].drop_duplicates()
             
             blocks_df = pd.merge(
                 left=blocks_df,
                 right=puma_mapping,
-                on='MAZ',
+                left_on='MAZ',  # blocks_df still uses MAZ column
+                right_on=maz_col,  # crosswalk uses MAZ_NODE
                 how='left'
             )
             
@@ -308,8 +311,10 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
     
     # Step 9: Validation summary
     print(f"\n8. VALIDATION SUMMARY:")
-    print(f"   - MAZs: {result_df['MAZ'].nunique()}")
-    print(f"   - TAZs: {result_df['TAZ'].nunique()}")  
+    maz_col = 'MAZ_NODE' if 'MAZ_NODE' in result_df.columns else 'MAZ'
+    taz_col = 'TAZ_NODE' if 'TAZ_NODE' in result_df.columns else 'TAZ'
+    print(f"   - MAZs: {result_df[maz_col].nunique()}")
+    print(f"   - TAZs: {result_df[taz_col].nunique()}")  
     print(f"   - Block groups: {result_df['GEOID_block group'].nunique()}")
     print(f"   - Counties: {result_df['COUNTY'].nunique()}")
     
@@ -356,12 +361,12 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     # Total population from 2020 Census PL 94-171 - essential for hierarchical control consistency, scaled to 2023 ACS
     ('total_pop',             ('pl',   CENSUS_EST_YEAR, 'P1_001N',      'block',
                                [], 'county_scale')),
-    # Group quarters from 2020 Census PL 94-171 - keep at 2020 levels (no detailed ACS1 targets available)
-    ('gq_pop',                ('pl',   CENSUS_EST_YEAR, 'P5_001N',      'block',
-                               [])),
-    # Detailed group quarters by type from 2020 Census PL 94-171 - keep at 2020 levels
-    ('gq_military',           ('pl',   CENSUS_EST_YEAR, 'P5_009N',      'block',
-                               [])),
+    # MODIFIED FOR TM2: Group quarters - NON-INSTITUTIONAL ONLY (excludes military and other institutional GQ)
+    # gq_pop will be calculated as gq_university + gq_other (non-institutional types only)
+    ('gq_pop_total_census',   ('pl',   CENSUS_EST_YEAR, 'P5_001N',      'block',
+                               [])),  # Keep total for calculation, but will be replaced
+    # Non-institutional group quarters by type from 2020 Census PL 94-171
+    # REMOVED: gq_military (P5_009N) - institutional GQ, excluded from tm2 synthetic population
     ('gq_university',         ('pl',   CENSUS_EST_YEAR, 'P5_008N',      'block',
                                [])),
 ])
@@ -1153,10 +1158,10 @@ GEOGRAPHY_ID_COLUMNS = {
         'components': ['state', 'county'],
     },
     'maz': {
-        'mapping': 'MAZ',
+        'mapping': 'MAZ_NODE',  # Updated for tm2 naming convention
     },
     'taz': {
-        'mapping': 'TAZ',
+        'mapping': 'TAZ_NODE',  # Updated for tm2 naming convention
     },
     'puma': {
         'mapping': 'PUMA',
@@ -1174,7 +1179,7 @@ GEOGRAPHY_ID_COLUMNS = {
 CONTROL_CATEGORIES = {
     'MAZ': {
         'household_counts': ['num_hh'],
-        'group_quarters': ['gq_pop', 'gq_military', 'gq_university', 'gq_other'],
+        'group_quarters': ['gq_pop', 'gq_university', 'gq_other'],  # REMOVED gq_military (institutional GQ)
     },
     'TAZ': {
         'household_income': ['hhinc_0_14', 'hhinc_14_30', 'hhinc_30_60', 'hhinc_60_100', 'hhinc_100_175', 'hhinc_175_plus'],

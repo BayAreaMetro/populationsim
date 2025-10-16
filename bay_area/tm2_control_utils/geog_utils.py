@@ -36,26 +36,56 @@ def prepare_geography_dfs():
             maz_taz_def_df = pd.read_csv(MAZ_TAZ_ALL_GEOG_FILE)
         else:
             maz_taz_def_df = pd.read_csv(MAZ_TAZ_DEF_FILE)
-            maz_taz_def_df.rename(columns={"maz": "MAZ", "taz": "TAZ"}, inplace=True)
+            maz_taz_def_df.rename(columns={"maz": "MAZ_NODE", "taz": "TAZ_NODE"}, inplace=True)
             maz_taz_def_df["GEOID_block"] = "0" + maz_taz_def_df["GEOID10"].astype(str)
             add_aggregate_geography_colums(maz_taz_def_df)
             maz_taz_def_df.drop("GEOID10", axis="columns", inplace=True)
             maz_taz_def_df = pd.merge(left=maz_taz_def_df, right=COUNTY_RECODE, how="left")
         
         # Merge with updated crosswalk to get 2020 PUMA definitions
-        maz_taz_def_df = pd.merge(
-            left=maz_taz_def_df,
-            right=crosswalk_df[["MAZ", "TAZ", "PUMA", "COUNTY", "county_name"]],
-            on=["MAZ", "TAZ"],
-            how="left",
-            suffixes=('_def', '_crosswalk')
-        )
+        # Handle both old (MAZ, TAZ) and new (MAZ_NODE, TAZ_NODE) column formats
+        print(f"[DEBUG] crosswalk_df columns: {list(crosswalk_df.columns)}")
+        maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
+        taz_col = 'TAZ_NODE' if 'TAZ_NODE' in crosswalk_df.columns else 'TAZ'
+        print(f"[DEBUG] Detected maz_col: {maz_col}, taz_col: {taz_col}")
         
-        # Use crosswalk PUMA values (2020 definitions) over original PUMA values
-        if 'PUMA_crosswalk' in maz_taz_def_df.columns:
-            maz_taz_def_df['PUMA'] = maz_taz_def_df['PUMA_crosswalk']
-            maz_taz_def_df.drop(['PUMA_crosswalk'], axis=1, inplace=True)
+        # Check if crosswalk has the required MAZ/TAZ columns for merging
+        if maz_col in crosswalk_df.columns and taz_col in crosswalk_df.columns:
+            # Select available columns for merge
+            merge_cols = [maz_col, taz_col]
+            for col in ["PUMA", "COUNTY", "county_name"]:
+                if col in crosswalk_df.columns:
+                    merge_cols.append(col)
+            
+            print(f"[DEBUG] merge_cols: {merge_cols}")
+            
+            maz_taz_def_df = pd.merge(
+                left=maz_taz_def_df,
+                right=crosswalk_df[merge_cols],
+                left_on=["MAZ_NODE", "TAZ_NODE"],  # maz_taz_def_df always uses new format
+                right_on=[maz_col, taz_col],       # crosswalk uses detected format
+                how="left",
+                suffixes=('_def', '_crosswalk')
+            )
+            
+            # Use crosswalk values over original values
+            if 'PUMA_crosswalk' in maz_taz_def_df.columns:
+                maz_taz_def_df['PUMA'] = maz_taz_def_df['PUMA_crosswalk']
+                maz_taz_def_df.drop(['PUMA_crosswalk'], axis=1, inplace=True)
+            
+            if 'COUNTY_crosswalk' in maz_taz_def_df.columns:
+                maz_taz_def_df['COUNTY'] = maz_taz_def_df['COUNTY_crosswalk'] 
+                maz_taz_def_df.drop(['COUNTY_crosswalk'], axis=1, inplace=True)
+                
+            if 'county_name_crosswalk' in maz_taz_def_df.columns:
+                maz_taz_def_df['county_name'] = maz_taz_def_df['county_name_crosswalk']
+                maz_taz_def_df.drop(['county_name_crosswalk'], axis=1, inplace=True)
+        else:
+            print(f"[DEBUG] Crosswalk missing MAZ/TAZ columns ({maz_col}, {taz_col}), skipping merge")
+            print(f"[DEBUG] maz_taz_def_df already has required columns, continuing...")
+            print(f"[DEBUG] maz_taz_def_df columns after skipping merge: {list(maz_taz_def_df.columns)}")
         
+        # Clean up any duplicate crosswalk columns (shouldn't exist if merge was skipped)
         if 'COUNTY_crosswalk' in maz_taz_def_df.columns:
             maz_taz_def_df['COUNTY'] = maz_taz_def_df['COUNTY_crosswalk'] 
             maz_taz_def_df.drop(['COUNTY_crosswalk'], axis=1, inplace=True)
@@ -64,12 +94,16 @@ def prepare_geography_dfs():
             maz_taz_def_df['county_name'] = maz_taz_def_df['county_name_crosswalk']
             maz_taz_def_df.drop(['county_name_crosswalk'], axis=1, inplace=True)
         
-        # Ensure PUMA is properly typed and filter out missing values
-        maz_taz_def_df["PUMA"] = maz_taz_def_df["PUMA"].astype("Int64")
-        maz_taz_def_df = maz_taz_def_df[maz_taz_def_df["PUMA"].notna()]
-        
-        logger.info(f"Loaded {len(maz_taz_def_df)} MAZ records with updated 2020 PUMA definitions")
-        logger.info(f"Unique PUMAs in dataset: {sorted(maz_taz_def_df['PUMA'].dropna().unique())}")
+        # Ensure PUMA is properly typed and filter out missing values (only if PUMA column exists)
+        if 'PUMA' in maz_taz_def_df.columns:
+            maz_taz_def_df["PUMA"] = maz_taz_def_df["PUMA"].astype("Int64")
+            maz_taz_def_df = maz_taz_def_df[maz_taz_def_df["PUMA"].notna()]
+            
+            logger.info(f"Loaded {len(maz_taz_def_df)} MAZ records with updated 2020 PUMA definitions")
+            logger.info(f"Unique PUMAs in dataset: {sorted(maz_taz_def_df['PUMA'].dropna().unique())}")
+        else:
+            logger.warning("PUMA column not found in maz_taz_def_df - this may cause issues downstream")
+            logger.info(f"Available columns: {list(maz_taz_def_df.columns)}")
         
     else:
         # Updated crosswalk file is required for 2020 PUMA definitions
@@ -85,13 +119,22 @@ def prepare_geography_dfs():
     # Ensure crosswalk has consistent structure
     if 'REGION' not in crosswalk_df.columns and 'REGION' in maz_taz_def_df.columns:
         # Add REGION to crosswalk if available in maz_taz_def_df
-        region_map = maz_taz_def_df[['MAZ', 'REGION']].drop_duplicates()
-        crosswalk_df = crosswalk_df.merge(region_map, on='MAZ', how='left')
+        maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
+        
+        # Only attempt merge if crosswalk has the required MAZ column
+        if maz_col in crosswalk_df.columns:
+            region_map = maz_taz_def_df[['MAZ_NODE', 'REGION']].drop_duplicates()
+            crosswalk_df = crosswalk_df.merge(region_map, left_on=maz_col, right_on='MAZ_NODE', how='left')
+        else:
+            print(f"[DEBUG] Crosswalk missing {maz_col} column, skipping REGION merge")
     
-    # Final crosswalk structure
-    available_cols = [col for col in ["MAZ", "TAZ", "PUMA", "COUNTY", "county_name", "REGION"] if col in crosswalk_df.columns]
+    # Final crosswalk structure - use available columns
+    maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
+    taz_col = 'TAZ_NODE' if 'TAZ_NODE' in crosswalk_df.columns else 'TAZ'
+    potential_cols = [maz_col, taz_col, "PUMA", "COUNTY", "county_name", "REGION"]
+    available_cols = [col for col in potential_cols if col in crosswalk_df.columns]
     crosswalk_df = crosswalk_df[available_cols].drop_duplicates()
-    crosswalk_df.sort_values(by="MAZ", inplace=True)
+    crosswalk_df.sort_values(by=maz_col, inplace=True)
 
     return maz_taz_def_df, crosswalk_df
 

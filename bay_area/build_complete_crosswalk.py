@@ -113,15 +113,25 @@ def build_complete_crosswalk():
     
     # Add block and block group information to the crosswalk
     # Map through MAZ since that's the finest level in the original crosswalk
-    if 'MAZ' in crosswalk_df.columns and 'MAZ' in maz_taz_def_df.columns:
-        # Get unique MAZ→block group mapping
-        maz_bg_mapping = maz_taz_def_df[['MAZ', 'GEOID_block', 'GEOID_block group', 'GEOID_tract', 'GEOID_county']].drop_duplicates()
+    # Handle both old (MAZ) and new (MAZ_NODE) column naming
+    crosswalk_maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
+    crosswalk_taz_col = 'TAZ_NODE' if 'TAZ_NODE' in crosswalk_df.columns else 'TAZ'
+    geog_maz_col = 'MAZ_NODE' if 'MAZ_NODE' in maz_taz_def_df.columns else 'MAZ'
+    
+    print(f"   DEBUG: crosswalk MAZ column: {crosswalk_maz_col}")
+    print(f"   DEBUG: crosswalk TAZ column: {crosswalk_taz_col}")
+    print(f"   DEBUG: geography MAZ column: {geog_maz_col}")
+    
+    if crosswalk_maz_col in crosswalk_df.columns and geog_maz_col in maz_taz_def_df.columns:
+        # Get unique MAZ→block group mapping  
+        maz_bg_mapping = maz_taz_def_df[[geog_maz_col, 'GEOID_block', 'GEOID_block group', 'GEOID_tract', 'GEOID_county']].drop_duplicates()
         
-        # Merge with crosswalk
+        # Merge with crosswalk using flexible column names
         enhanced_crosswalk = pd.merge(
             crosswalk_df,
             maz_bg_mapping,
-            on='MAZ',
+            left_on=crosswalk_maz_col,
+            right_on=geog_maz_col,
             how='left'
         )
         
@@ -144,14 +154,15 @@ def build_complete_crosswalk():
         # Step 6: Create block group summary for validation
         print("\n6. CREATING VALIDATION SUMMARY...")
         
-        bg_summary = enhanced_crosswalk.groupby(['GEOID_block group', 'TAZ']).agg({
-            'MAZ': 'count',
+        # Use flexible column names for the summary
+        bg_summary = enhanced_crosswalk.groupby(['GEOID_block group', crosswalk_taz_col]).agg({
+            crosswalk_maz_col: 'count',
             'COUNTY': 'first',
             'county_name': 'first',
             'PUMA': 'first'
         }).reset_index()
         
-        bg_summary.rename(columns={'MAZ': 'num_mazs'}, inplace=True)
+        bg_summary.rename(columns={crosswalk_maz_col: 'num_mazs'}, inplace=True)
         
         summary_file = "output_2023/bg_taz_mapping_summary.csv"
         bg_summary.to_csv(summary_file, index=False)
@@ -160,8 +171,9 @@ def build_complete_crosswalk():
         # Print statistics
         print(f"\n   CROSSWALK STATISTICS:")
         print(f"   - Total records: {len(enhanced_crosswalk)}")
-        print(f"   - MAZs: {enhanced_crosswalk['MAZ'].nunique()}")
-        print(f"   - TAZs: {enhanced_crosswalk['TAZ'].nunique()}")
+        print(f"   - MAZs: {enhanced_crosswalk[crosswalk_maz_col].nunique()}")
+        print(f"   - TAZs: {enhanced_crosswalk[crosswalk_taz_col].nunique()}")
+        
         print(f"   - Block groups: {enhanced_crosswalk['GEOID_block group'].nunique()}")
         print(f"   - Blocks: {enhanced_crosswalk['GEOID_block'].nunique()}")
         
@@ -173,7 +185,9 @@ def build_complete_crosswalk():
         return enhanced_crosswalk
         
     else:
-        print("   ERROR: Cannot merge - MAZ column missing from one of the dataframes!")
+        print(f"   ERROR: Cannot merge - MAZ columns missing! crosswalk has: {crosswalk_maz_col}, geography has: {geog_maz_col}")
+        print(f"   Crosswalk columns: {list(crosswalk_df.columns)}")
+        print(f"   Geography columns: {list(maz_taz_def_df.columns)}")
         return None
 
 if __name__ == "__main__":

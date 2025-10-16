@@ -334,43 +334,37 @@ class HouseholdProcessor:
         return df
     
     def _create_group_quarters_type(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create PopulationSim-compatible group quarters type"""
-        # Based on TYPEHUGQ: 1=household, 2=institutional GQ, 3=noninstitutional GQ  
+        """Create PopulationSim-compatible group quarters type - NON-INSTITUTIONAL ONLY
+        
+        Excludes institutional GQ (TYPEHUGQ == 2) to match master branch approach.
+        Only includes non-institutional GQ (universities, military barracks, etc.)
+        """
+        # Based on TYPEHUGQ: 1=household, 2=institutional GQ (EXCLUDE), 3=noninstitutional GQ  
         # PopulationSim expects: 0=household, 1=university GQ, 2=military GQ, 3=other GQ
-        df['hhgqtype'] = 0  # Default to household
-        df.loc[df['TYPEHUGQ'] == 3, 'hhgqtype'] = 1  # Noninstitutional GQ -> university
         
-        # Split institutional GQ into military vs other
-        institutional_gq_mask = df['TYPEHUGQ'] == 2
-        institutional_gq_count = institutional_gq_mask.sum()
-        
+        # EXCLUDE institutional GQ (TYPEHUGQ == 2) entirely
+        institutional_gq_count = (df['TYPEHUGQ'] == 2).sum()
         if institutional_gq_count > 0:
-            df = self._split_institutional_gq(df, institutional_gq_mask, institutional_gq_count)
+            logger.info(f"EXCLUDING {institutional_gq_count:,} institutional GQ records (nursing homes, correctional facilities, etc.)")
+            logger.info("This matches the master branch approach of excluding institutional GQ")
+            df = df[df['TYPEHUGQ'] != 2].copy()
+        
+        # Reset index after filtering
+        df.reset_index(drop=True, inplace=True)
+        
+        df['hhgqtype'] = 0  # Default to household
+        df.loc[df['TYPEHUGQ'] == 3, 'hhgqtype'] = 1  # Noninstitutional GQ → university
+        
+        # NO institutional GQ splitting - they're excluded entirely
+        logger.info(f"Group quarters type assignment complete:")
+        logger.info(f"  Households (hhgqtype=0): {(df['hhgqtype'] == 0).sum():,}")
+        logger.info(f"  Non-institutional GQ (hhgqtype=1): {(df['hhgqtype'] == 1).sum():,}")
+        logger.info(f"  Institutional GQ: 0 (excluded)")
         
         return df
     
-    def _split_institutional_gq(self, df: pd.DataFrame, mask: pd.Series, count: int) -> pd.DataFrame:
-        """Split institutional GQ into military vs other based on control targets"""
-        # Control targets: military=1,684, other=122,467 (ratio ~1.4% military)
-        # TO DO: We need to figure out how to split group quarters vs other institutional types
-        military_target, other_target = 1684, 122467
-        military_ratio = military_target / (military_target + other_target)
-        
-        # Randomly assign institutional GQ
-        np.random.seed(self.config.random_seed)
-        institutional_indices = df[mask].index
-        n_military = int(len(institutional_indices) * military_ratio)
-        military_indices = np.random.choice(institutional_indices, n_military, replace=False)
-        
-        # Assign hhgqtype
-        df.loc[mask, 'hhgqtype'] = 3  # Default to "other"
-        df.loc[military_indices, 'hhgqtype'] = 2  # Military
-        
-        logger.info(f"Split {count:,} institutional GQ records:")
-        logger.info(f"  Military (hhgqtype=2): {n_military:,} ({n_military/count*100:.1f}%)")
-        logger.info(f"  Other (hhgqtype=3): {count-n_military:,} ({(count-n_military)/count*100:.1f}%)")
-        
-        return df
+    # Method removed: _split_institutional_gq
+    # No longer needed since institutional GQ (TYPEHUGQ==2) are now excluded entirely
     
     def _handle_hupac(self, df: pd.DataFrame) -> pd.DataFrame:
         """Handle HUPAC (Household Under Poverty Level) field"""
@@ -1089,25 +1083,53 @@ class SeedPopulationCreator:
         # Ensure directory exists
         h_path.parent.mkdir(parents=True, exist_ok=True)
         
+        # CRITICAL: Final validation that no institutional GQ remain in the data
+        logger.info("   Step 1/5: Final institutional GQ validation...")
+        self._validate_no_institutional_gq(household_df, person_df)
+        
         # Validate data before saving
-        logger.info("   Step 1/4: Validating household data...")
+        logger.info("   Step 2/5: Validating household data...")
         self._validate_data(household_df, "household")
         
-        logger.info("   Step 2/4: Validating person data...")
+        logger.info("   Step 3/5: Validating person data...")
         self._validate_data(person_df, "person")
         
         # Save files with progress
-        logger.info(f"   Step 3/4: Writing household file to {h_path}...")
+        logger.info(f"   Step 4/5: Writing household file to {h_path}...")
         household_df.to_csv(h_path, index=False)
         file_size_mb = h_path.stat().st_size / 1024**2
         logger.info(f"   [SUCCESS] Household file written: {len(household_df):,} records, {file_size_mb:.1f}MB")
         
-        logger.info(f"   Step 4/4: Writing person file to {p_path}...")
+        logger.info(f"   Step 5/5: Writing person file to {p_path}...")
         person_df.to_csv(p_path, index=False)
         file_size_mb = p_path.stat().st_size / 1024**2
         logger.info(f"   [SUCCESS] Person file written: {len(person_df):,} records, {file_size_mb:.1f}MB")
         
         logger.info("💾 Final seed files saved successfully!")
+    
+    def _validate_no_institutional_gq(self, household_df: pd.DataFrame, person_df: pd.DataFrame) -> None:
+        """Validate that no institutional group quarters remain in final data"""
+        # Check household data for institutional GQ (hhgqtype not in [0,1])
+        if 'hhgqtype' in household_df.columns:
+            institutional_hh = household_df[~household_df['hhgqtype'].isin([0, 1])]
+            if len(institutional_hh) > 0:
+                logger.error(f"❌ VALIDATION FAILED: Found {len(institutional_hh):,} institutional GQ households!")
+                logger.error(f"   Institutional hhgqtype values: {institutional_hh['hhgqtype'].value_counts().to_dict()}")
+                raise ValueError("Institutional group quarters found in final household data")
+            else:
+                logger.info(f"   ✅ Household validation: No institutional GQ found (all {len(household_df):,} records are households or non-institutional GQ)")
+        
+        # Check person data for institutional GQ indicators
+        if 'hhgqtype' in person_df.columns:
+            institutional_persons = person_df[~person_df['hhgqtype'].isin([0, 1])]
+            if len(institutional_persons) > 0:
+                logger.error(f"❌ VALIDATION FAILED: Found {len(institutional_persons):,} persons in institutional GQ!")
+                logger.error(f"   Institutional hhgqtype values: {institutional_persons['hhgqtype'].value_counts().to_dict()}")
+                raise ValueError("Institutional group quarters found in final person data")
+            else:
+                logger.info(f"   ✅ Person validation: No institutional GQ found (all {len(person_df):,} persons are in households or non-institutional GQ)")
+        
+        logger.info("   ✅ INSTITUTIONAL GQ VALIDATION PASSED: No institutional group quarters in final data")
     
     def _validate_data(self, df: pd.DataFrame, data_type: str) -> None:
         """Validate data quality before saving"""

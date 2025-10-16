@@ -56,17 +56,17 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
             print(f"  Loaded {len(maz_gdf):,} MAZ zones")
             print(f"  CRS: {maz_gdf.crs}")
         
-        # Identify MAZ and TAZ columns
+        # Identify MAZ and TAZ columns (updated for TM2.5 naming)
         maz_col = None
         taz_col = None
         county_col = None
         
         for col in maz_gdf.columns:
-            if col.upper() in ['MAZ', 'MAZ_ID', 'MAZ_ID_']:
+            if col.upper() in ['MAZ_NODE', 'MAZ', 'MAZ_ID', 'MAZ_ID_']:
                 maz_col = col
-            elif col.upper() in ['TAZ', 'TAZ_ID', 'TAZ1454']:
+            elif col.upper() in ['TAZ_NODE', 'TAZ', 'TAZ_ID', 'TAZ1454']:
                 taz_col = col
-            elif col.upper() in ['COUNTY', 'CO_FIPS', 'COUNTY_FIPS']:
+            elif col.upper() in ['COUNTYFP10', 'COUNTY', 'CO_FIPS', 'COUNTY_FIPS']:
                 county_col = col
                 
         if not maz_col or not taz_col:
@@ -259,7 +259,7 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
     
     # Create base crosswalk DataFrame
     crosswalk_df = maz_gdf[[maz_col, taz_col, 'PUMA']].copy()
-    crosswalk_df.columns = ['MAZ', 'TAZ', 'PUMA']
+    crosswalk_df.columns = ['MAZ_NODE', 'TAZ_NODE', 'PUMA']
     
     # Add spatial county assignment using MAZ centroids
     if verbose:
@@ -335,7 +335,7 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
         fips_to_sequential = config.get_fips_to_sequential_mapping()
         
         # Add county information to crosswalk
-        crosswalk_df['COUNTY_FIPS_STR'] = crosswalk_df['MAZ'].map(maz_to_fips)
+        crosswalk_df['COUNTY_FIPS_STR'] = crosswalk_df['MAZ_NODE'].map(maz_to_fips)
         crosswalk_df['COUNTY_FIPS_INT'] = crosswalk_df['COUNTY_FIPS_STR'].astype('Int64', errors='ignore')
         crosswalk_df['COUNTY'] = crosswalk_df['COUNTY_FIPS_INT'].map(fips_to_sequential)
         
@@ -402,7 +402,7 @@ def create_tm2_crosswalk(maz_shapefile, puma_shapefile, output_file, verbose=Tru
     # Final summary
     if verbose:
         print(f"\nStep 8: Saving crosswalk...")
-        unique_tazs = crosswalk_df['TAZ'].nunique()
+        unique_tazs = crosswalk_df['TAZ_NODE'].nunique()
         unique_pumas = crosswalk_df['PUMA'].nunique()
         assigned_counties = crosswalk_df['COUNTY'].nunique()
         

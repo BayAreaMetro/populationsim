@@ -415,8 +415,21 @@ class TM2Pipeline:
             crosswalk = pd.read_csv(crosswalk_file)
             self.log(f"Original crosswalk: {len(crosswalk):,} records")
             
+            # Handle both old (MAZ, TAZ) and new (MAZ_NODE, TAZ_NODE) column naming
+            taz_col = 'TAZ_NODE' if 'TAZ_NODE' in crosswalk.columns else 'TAZ'
+            maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk.columns else 'MAZ'
+            
+            self.log(f"Using columns: TAZ={taz_col}, MAZ={maz_col}")
+            
+            # Check if we have the required columns for multi-PUMA fixing
+            if taz_col not in crosswalk.columns or 'PUMA' not in crosswalk.columns:
+                self.log(f"Crosswalk missing required columns for multi-PUMA fixing")
+                self.log(f"Available columns: {list(crosswalk.columns)}")
+                self.log("Skipping multi-PUMA TAZ fix - may cause aggregation issues downstream")
+                return True
+            
             # Identify TAZs with multiple PUMA assignments
-            taz_puma_counts = crosswalk.groupby('TAZ')['PUMA'].nunique()
+            taz_puma_counts = crosswalk.groupby(taz_col)['PUMA'].nunique()
             multi_puma_tazs = taz_puma_counts[taz_puma_counts > 1].index.tolist()
             
             if len(multi_puma_tazs) == 0:
@@ -427,26 +440,26 @@ class TM2Pipeline:
             
             # Show examples
             for taz in multi_puma_tazs[:3]:
-                taz_data = crosswalk[crosswalk['TAZ'] == taz]
+                taz_data = crosswalk[crosswalk[taz_col] == taz]
                 puma_counts = taz_data['PUMA'].value_counts()
-                self.log(f"  TAZ {taz}: {dict(puma_counts)}")
+                self.log(f"  {taz_col} {taz}: {dict(puma_counts)}")
             
             # Fix assignments using majority rule (PUMA with most MAZs for each TAZ)
             fixed_crosswalk = crosswalk.copy()
             
             for taz in multi_puma_tazs:
-                taz_data = crosswalk[crosswalk['TAZ'] == taz]
+                taz_data = crosswalk[crosswalk[taz_col] == taz]
                 
                 # Find PUMA with most MAZs for this TAZ
                 puma_counts = taz_data['PUMA'].value_counts()
                 majority_puma = puma_counts.index[0]
                 
                 # Update all MAZs in this TAZ to use the majority PUMA
-                mask = fixed_crosswalk['TAZ'] == taz
+                mask = fixed_crosswalk[taz_col] == taz
                 fixed_crosswalk.loc[mask, 'PUMA'] = majority_puma
             
             # Verify the fix
-            taz_puma_counts_fixed = fixed_crosswalk.groupby('TAZ')['PUMA'].nunique()
+            taz_puma_counts_fixed = fixed_crosswalk.groupby(taz_col)['PUMA'].nunique()
             remaining_multi_puma = taz_puma_counts_fixed[taz_puma_counts_fixed > 1]
             
             if len(remaining_multi_puma) > 0:
@@ -461,7 +474,7 @@ class TM2Pipeline:
             
             fixed_crosswalk.to_csv(crosswalk_file, index=False)
             self.log(f"✓ Fixed crosswalk saved: {len(fixed_crosswalk):,} records")
-            self.log(f"✓ All {fixed_crosswalk['TAZ'].nunique():,} TAZs now have unique PUMA assignments")
+            self.log(f"✓ All {fixed_crosswalk['TAZ_NODE'].nunique():,} TAZ_NODEs now have unique PUMA assignments")
             self.log("✓ This should resolve the NaN control aggregation issue", "SUCCESS")
             
             return True

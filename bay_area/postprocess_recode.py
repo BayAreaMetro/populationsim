@@ -43,8 +43,8 @@ HOUSING_COLUMNS = {
     # http://bayareametro.github.io/travel-model-two/input/#households
     'TM2':collections.OrderedDict([
       ("unique_hh_id",        "HHID"),          # Fixed: use unique_hh_id from PopulationSim
-      ("TAZ",                 "TAZ"),
-      ("MAZ",                 "MAZ"),
+      ("TAZ_NODE",            "TAZ"),
+      ("MAZ_NODE",            "MAZ"),
       ("TAZ_ORIGINAL",        "TAZ_ORIGINAL"),  # Original TAZ before remapping
       ("MAZ_ORIGINAL",        "MAZ_ORIGINAL"),  # Original MAZ before remapping
       ("COUNTY",              "MTCCountyID"),   # Maps to county 1-9
@@ -211,10 +211,10 @@ if __name__ == '__main__':
 
     # Add COUNTY field by joining with crosswalk for Group Quarters support
     if args.model_type == 'TM2':
-        # Use the crosswalk to add COUNTY field based on MAZ
+        # Use the crosswalk to add COUNTY field based on MAZ_NODE
         households_df = households_df.merge(
-            geocrosswalk_df[['MAZ', 'COUNTY']].drop_duplicates(),
-            on='MAZ',
+            geocrosswalk_df[['MAZ_NODE', 'COUNTY']].drop_duplicates(),
+            on='MAZ_NODE',
             how='left'
         )
         logging.info("Added COUNTY field via crosswalk join - {} households now have COUNTY field".format(
@@ -232,15 +232,15 @@ if __name__ == '__main__':
             logging.info("Read MAZ lookup table with {:,} rows".format(len(maz_lookup_df)))
             
             # Check required columns exist
-            required_cols = ['MAZ', 'TAZ', 'MAZ_ORIGINAL', 'TAZ_ORIGINAL']
+            required_cols = ['MAZ_NODE', 'TAZ_NODE', 'MAZ_ORIGINAL', 'TAZ_ORIGINAL']
             missing_cols = [col for col in required_cols if col not in maz_lookup_df.columns]
             if missing_cols:
                 logging.warning(f"Missing columns in MAZ lookup: {missing_cols}")
                 logging.info("Available columns: {}".format(list(maz_lookup_df.columns)))
             else:
-                # STEP 1: Store the current TAZ/MAZ values as _ORIGINAL (these are the old IDs)
-                households_df['TAZ_ORIGINAL'] = households_df['TAZ']  # Store old TAZ (e.g., 2080)
-                households_df['MAZ_ORIGINAL'] = households_df['MAZ']  # Store old MAZ (e.g., 19399)
+                # STEP 1: Store the current TAZ_NODE/MAZ_NODE values as _ORIGINAL (these are the old IDs)
+                households_df['TAZ_ORIGINAL'] = households_df['TAZ_NODE']  # Store old TAZ (e.g., 2080)
+                households_df['MAZ_ORIGINAL'] = households_df['MAZ_NODE']  # Store old MAZ (e.g., 19399)
                 
                 # STEP 2: Check which original MAZ values don't exist in lookup table
                 household_maz_original_values = set(households_df['MAZ_ORIGINAL'].unique())
@@ -253,34 +253,34 @@ if __name__ == '__main__':
                         print(f"  Missing MAZ: {maz_val}")
                     logging.warning(f"Total missing MAZ values: {len(missing_maz_values)}")
                 
-                # STEP 3: Join households.MAZ_ORIGINAL with lookup.MAZ_ORIGINAL to get new sequential MAZ
-                maz_remap = maz_lookup_df[['MAZ', 'MAZ_ORIGINAL']].drop_duplicates()
+                # STEP 3: Join households.MAZ_ORIGINAL with lookup.MAZ_ORIGINAL to get new sequential MAZ_NODE
+                maz_remap = maz_lookup_df[['MAZ_NODE', 'MAZ_ORIGINAL']].drop_duplicates()
                 households_df = households_df.merge(
-                    maz_remap[['MAZ', 'MAZ_ORIGINAL']],
+                    maz_remap[['MAZ_NODE', 'MAZ_ORIGINAL']],
                     on='MAZ_ORIGINAL',  # Join on the original MAZ values
                     how='left',
                     suffixes=('', '_lookup')
                 )
                 
-                # STEP 4: Replace the old MAZ with the new sequential MAZ where available
-                households_df['MAZ'] = households_df['MAZ_lookup'].fillna(households_df['MAZ'])
-                households_df.drop('MAZ_lookup', axis=1, inplace=True)
+                # STEP 4: Replace the old MAZ_NODE with the new sequential MAZ_NODE where available
+                households_df['MAZ_NODE'] = households_df['MAZ_NODE_lookup'].fillna(households_df['MAZ_NODE'])
+                households_df.drop('MAZ_NODE_lookup', axis=1, inplace=True)
                 
-                # STEP 5: Do the same for TAZ - join households.TAZ_ORIGINAL with lookup.TAZ_ORIGINAL
-                taz_remap = maz_lookup_df[['TAZ', 'TAZ_ORIGINAL']].drop_duplicates()
+                # STEP 5: Do the same for TAZ_NODE - join households.TAZ_ORIGINAL with lookup.TAZ_ORIGINAL
+                taz_remap = maz_lookup_df[['TAZ_NODE', 'TAZ_ORIGINAL']].drop_duplicates()
                 households_df = households_df.merge(
-                    taz_remap[['TAZ', 'TAZ_ORIGINAL']],
+                    taz_remap[['TAZ_NODE', 'TAZ_ORIGINAL']],
                     on='TAZ_ORIGINAL',  # Join on the original TAZ values
                     how='left',
                     suffixes=('', '_lookup')
                 )
                 
-                # STEP 6: Replace the old TAZ with the new sequential TAZ where available
-                households_df['TAZ'] = households_df['TAZ_lookup'].fillna(households_df['TAZ'])
-                households_df.drop('TAZ_lookup', axis=1, inplace=True)
+                # STEP 6: Replace the old TAZ_NODE with the new sequential TAZ_NODE where available
+                households_df['TAZ_NODE'] = households_df['TAZ_NODE_lookup'].fillna(households_df['TAZ_NODE'])
+                households_df.drop('TAZ_NODE_lookup', axis=1, inplace=True)
                 
                 logging.info("Geographic remapping completed")
-                logging.info("Households now have remapped MAZ/TAZ values with original values preserved in MAZ_ORIGINAL/TAZ_ORIGINAL")
+                logging.info("Households now have remapped MAZ_NODE/TAZ_NODE values with original values preserved in MAZ_ORIGINAL/TAZ_ORIGINAL")
                 
         except Exception as e:
             logging.error(f"Error during geographic remapping: {e}")
@@ -414,11 +414,11 @@ if __name__ == '__main__':
     # Ensure MAZ_ORIGINAL and TAZ_ORIGINAL columns exist for TM2 (fill with current values if missing)
     if args.model_type == 'TM2':
         if 'MAZ_ORIGINAL' not in households_df.columns:
-            households_df['MAZ_ORIGINAL'] = households_df['MAZ']
-            logging.info("Added MAZ_ORIGINAL column (using current MAZ values)")
+            households_df['MAZ_ORIGINAL'] = households_df['MAZ_NODE']
+            logging.info("Added MAZ_ORIGINAL column (using current MAZ_NODE values)")
         if 'TAZ_ORIGINAL' not in households_df.columns:
-            households_df['TAZ_ORIGINAL'] = households_df['TAZ']
-            logging.info("Added TAZ_ORIGINAL column (using current TAZ values)")
+            households_df['TAZ_ORIGINAL'] = households_df['TAZ_NODE']
+            logging.info("Added TAZ_ORIGINAL column (using current TAZ_NODE values)")
         
         logging.debug("Columns available for subsetting: {}".format(list(households_df.columns)))
         logging.debug("Columns needed for TM2: {}".format(list(HOUSING_COLUMNS[args.model_type].keys())))
