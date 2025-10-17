@@ -361,15 +361,12 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     # Total population from 2020 Census PL 94-171 - essential for hierarchical control consistency, scaled to 2023 ACS
     ('total_pop',             ('pl',   CENSUS_EST_YEAR, 'P1_001N',      'block',
                                [], 'county_scale')),
-    # MODIFIED FOR TM2: Group quarters - includes military, excludes other institutional GQ (nursing homes, prisons)
-    # gq_pop will be calculated as gq_university + gq_military + gq_other
-    ('gq_pop_total_census',   ('pl',   CENSUS_EST_YEAR, 'P5_001N',      'block',
-                               [])),  # Keep total for calculation, but will be replaced
-    # Group quarters by type from 2020 Census PL 94-171 (includes military, excludes other institutional)
-    ('gq_university',         ('pl',   CENSUS_EST_YEAR, 'P5_008N',      'block',
-                               [])),
-    ('gq_military',           ('pl',   CENSUS_EST_YEAR, 'P5_009N',      'block',
-                               [])),  # RE-ADDED: Military GQ included in TM2 controls
+    # MODIFIED FOR TM2: Group quarters - person-level for PopulationSim person-level controls
+    # Person-level GQ controls to match PopulationSim controls.csv expectations
+    ('pers_gq_university',    ('pl',   CENSUS_EST_YEAR, 'P5_008N',      'block',
+                               [])),  # University GQ persons
+    ('pers_gq_noninstitutional', ('pl', CENSUS_EST_YEAR, ['P5_009N', 'P5_011N', 'P5_012N'], 'block',
+                               [])),  # Military + other noninstitutional GQ persons
 ])
 
 # ----------------------------------------

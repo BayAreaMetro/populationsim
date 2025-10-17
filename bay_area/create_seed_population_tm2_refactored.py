@@ -334,21 +334,20 @@ class HouseholdProcessor:
         return df
     
     def _create_group_quarters_type(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create PopulationSim-compatible group quarters type - NON-INSTITUTIONAL ONLY
+        """Create PopulationSim-compatible group quarters type - SIMPLIFIED HOUSEHOLD ASSIGNMENT
         
-        Excludes institutional GQ (TYPEHUGQ == 2) and properly categorizes noninstitutional GQ
-        into university, military, and other types using PUMS variables.
+        At household level, we can only exclude institutional GQ and assign all noninstitutional
+        GQ to a temporary type. University GQ identification requires person-level data (age, 
+        school enrollment) which will be handled during person processing.
         
         TYPEHUGQ Values:
         - 1 = Housing unit (household)
         - 2 = Institutional GQ (EXCLUDED: nursing homes, prisons, etc.)
         - 3 = Noninstitutional GQ (university dorms, military barracks, group homes, etc.)
         
-        PopulationSim hhgqtype Values:
+        PopulationSim hhgqtype Values (final assignment done in person processing):
         - 0 = Household (TYPEHUGQ == 1)
-        - 1 = University GQ (college students in dorms)
-        - 2 = Military GQ (military personnel in barracks) 
-        - 3 = Other noninstitutional GQ (group homes, worker dorms, etc.)
+        - 2 = Noninstitutional GQ (TYPEHUGQ == 3) - will be refined to 1=university, 2=military+other
         """
         # EXCLUDE institutional GQ (TYPEHUGQ == 2) entirely
         institutional_gq_count = (df['TYPEHUGQ'] == 2).sum()
@@ -363,39 +362,34 @@ class HouseholdProcessor:
         # Initialize all as households
         df['hhgqtype'] = 0  # Default to household (TYPEHUGQ == 1)
         
-        # Process noninstitutional GQ (TYPEHUGQ == 3) with proper categorization
+        # Assign ALL noninstitutional GQ to hhgqtype=2 (temporary assignment)
         noninst_gq_mask = (df['TYPEHUGQ'] == 3)
         noninst_gq_count = noninst_gq_mask.sum()
         
         if noninst_gq_count > 0:
-            logger.info(f"Categorizing {noninst_gq_count:,} noninstitutional GQ records...")
+            logger.info(f"Assigning {noninst_gq_count:,} noninstitutional GQ records...")
             
-            # We need to join with person data to get age/occupation info for GQ categorization
-            # Since this is household-level processing, we'll use a conservative approach:
-            # Default all noninstitutional GQ to "other" and let controls handle the distribution
-            df.loc[noninst_gq_mask, 'hhgqtype'] = 3  # Other noninstitutional GQ
+            # Assign ALL noninstitutional GQ to hhgqtype=2 temporarily
+            # Person processing will refine this: university students -> hhgqtype=1, others stay hhgqtype=2
+            df.loc[noninst_gq_mask, 'hhgqtype'] = 2  # Temporary: all noninstitutional GQ
             
-            logger.info("NOTE: Assigning all noninstitutional GQ to 'other' category (hhgqtype=3)")
-            logger.info("      University vs military distinction will be handled by PopulationSim")
-            logger.info("      based on person characteristics during synthesis process.")
-            logger.info("")
-            logger.info("RATIONALE: Without person-level data at household processing stage,")
-            logger.info("           we cannot reliably distinguish university dorms from military")
-            logger.info("           barracks. PopulationSim will use person age/occupation to")
-            logger.info("           assign individuals to appropriate GQ controls during synthesis.")
+            logger.info("SIMPLIFIED GQ ASSIGNMENT: All noninstitutional GQ -> hhgqtype=2")
+            logger.info("   University students will be identified and reassigned to hhgqtype=1 during person processing")
+            logger.info("   using college enrollment (SCHG 15-16) regardless of age")
+            logger.info("   Military and other GQ will remain as hhgqtype=2")
         
         # Log final distribution
         hhgq_counts = df['hhgqtype'].value_counts().sort_index()
-        hhgq_labels = {0: 'Households', 1: 'University GQ', 2: 'Military GQ', 3: 'Other noninstitutional GQ'}
+        hhgq_labels = {0: 'Households', 2: 'Noninstitutional GQ (will be refined in person processing)'}
         
-        logger.info(f"Final household group quarters type distribution:")
+        logger.info(f"Household-level GQ type distribution (before person-level refinement):")
         for hhgqtype, count in hhgq_counts.items():
             label = hhgq_labels.get(hhgqtype, f'Type {hhgqtype}')
             pct = count / len(df) * 100
             logger.info(f"  {label} (hhgqtype={hhgqtype}): {count:,} ({pct:.1f}%)")
         
         logger.info(f"✅ Institutional GQ exclusion: 0 records (all excluded)")
-        logger.info(f"✅ Noninstitutional GQ processing: {noninst_gq_count:,} records properly categorized")
+        logger.info(f"✅ Noninstitutional GQ processing: {noninst_gq_count:,} records assigned for person-level refinement")
         
         return df
     
@@ -480,8 +474,12 @@ class PersonProcessor:
         self.county_mapper = PUMACountyMapper()
         self.data_cleaner = DataCleaner()
     
-    def process_persons(self, df: pd.DataFrame, household_df: pd.DataFrame) -> pd.DataFrame:
-        """Process person data for PopulationSim"""
+    def process_persons(self, df: pd.DataFrame, household_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Process person data for PopulationSim
+        
+        Returns:
+            Tuple[pd.DataFrame, pd.DataFrame]: Updated person_df and household_df
+        """
         logger.info(f"[PERSON] Processing {len(df):,} persons...")
         
         # Show initial data info
@@ -530,7 +528,7 @@ class PersonProcessor:
         
         # Map group quarters type from household data
         logger.info("[BUILDING] Step 6/8: Mapping group quarters type...")
-        df = self._map_group_quarters_type(df, household_df)
+        df, household_df = self._map_group_quarters_type(df, household_df)
         gq_counts = df['hhgqtype'].value_counts().sort_index()
         gq_labels = {0: 'Household', 1: 'University GQ', 2: 'Military GQ', 3: 'Other GQ'}
         logger.info("   Person GQ type distribution:")
@@ -538,6 +536,16 @@ class PersonProcessor:
             label = gq_labels.get(gq_type, f'Type {gq_type}')
             pct = count / len(df) * 100
             logger.info(f"     {label}: {count:,} persons ({pct:.1f}%)")
+        
+        # Add person-level gq_type field for PopulationSim controls
+        logger.info("[BUILDING] Step 6b/8: Adding person-level gq_type field for PopulationSim...")
+        df['gq_type'] = df['hhgqtype'].copy()  # Direct mapping: 0=household, 1=university, 2=noninstitutional
+        logger.info("   Person-level gq_type field added:")
+        gq_type_counts = df['gq_type'].value_counts().sort_index()
+        gq_type_labels = {0: 'Regular household persons', 1: 'University GQ persons', 2: 'Noninstitutional GQ persons'}
+        for gq_type, count in gq_type_counts.items():
+            label = gq_type_labels.get(gq_type, f'GQ Type {gq_type}')
+            logger.info(f"     {label} (gq_type={gq_type}): {count:,}")
         
         # Check for GQ people specifically
         total_gq_persons = len(df[df['hhgqtype'] >= 2])
@@ -552,34 +560,14 @@ class PersonProcessor:
         # Convert to integers
         logger.info("[NUMBER] Step 8/8: Converting to integer types...")
         integer_fields = ['employed', 'employ_status', 'student_status', 'person_type', 
-                         'occupation', 'hhgqtype', 'PUMA', 'COUNTY', 'PWGTP']
+                         'occupation', 'hhgqtype', 'gq_type', 'PUMA', 'COUNTY', 'PWGTP']
         df = self.data_cleaner.convert_to_integers(df, integer_fields, "person")
         
         logger.info("[SUCCESS] Person processing complete!")
         logger.info(f"   Final columns: {len(df.columns)}")
         logger.info(f"   Final memory: {df.memory_usage(deep=True).sum() / 1024**2:.1f}MB")
         
-        return df
-        
-        # Create person type
-        # TODO: What is this? Do they happen somewhere else?
-        df = self._create_person_type(df)
-        
-        # Create occupation categories
-        df = self._create_occupation_categories(df)
-        
-        # Map group quarters type from households
-        df = self._map_group_quarters_type(df, household_df)
-        
-        # Clean numeric data
-        df = self.data_cleaner.clean_numeric_columns(df, "person")
-        
-        # Convert to integers
-        integer_fields = ['AGEP', 'hhgqtype', 'employed', 'employ_status', 'student_status', 
-                         'person_type', 'occupation', 'ESR', 'PWGTP', 'PUMA', 'COUNTY']
-        df = self.data_cleaner.convert_to_integers(df, integer_fields, "person")
-        
-        return df
+        return df, household_df
     
     def _create_employment_status(self, df: pd.DataFrame) -> pd.DataFrame:
         """Create employment status fields"""
@@ -643,11 +631,88 @@ class PersonProcessor:
         df.loc[df['OCCP'] == 9920, 'occupation'] = 0  # Unemployed with no work experience
         return df
     
-    def _map_group_quarters_type(self, df: pd.DataFrame, household_df: pd.DataFrame) -> pd.DataFrame:
-        """Map group quarters type from household data"""
+    def _map_group_quarters_type(self, df: pd.DataFrame, household_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Map and refine group quarters type using household data and person demographics
+        
+        This is where the actual GQ type differentiation happens using person-level data:
+        - hhgqtype=0: Households (from household assignment)
+        - hhgqtype=1: University GQ (college enrollment SCHG 15-16, any age)
+        - hhgqtype=2: Other noninstitutional GQ (military + other combined)
+        
+        Returns:
+            Tuple[pd.DataFrame, pd.DataFrame]: Updated person_df and household_df
+        """
+        # First, map basic GQ type from household data
         hh_gq_lookup = household_df.set_index('unique_hh_id')['hhgqtype'].to_dict()
         df['hhgqtype'] = df['unique_hh_id'].map(hh_gq_lookup).fillna(0).astype(int)
-        return df
+        
+        logger.info(f"   Initial GQ mapping from households:")
+        initial_counts = df['hhgqtype'].value_counts().sort_index()
+        for gq_type, count in initial_counts.items():
+            if gq_type == 0:
+                logger.info(f"     Households (hhgqtype=0): {count:,} persons")
+            elif gq_type == 2:
+                logger.info(f"     Noninstitutional GQ (hhgqtype=2): {count:,} persons (needs refinement)")
+            else:
+                logger.info(f"     Other (hhgqtype={gq_type}): {count:,} persons")
+        
+        # Refine GQ assignment using person-level demographics
+        gq_mask = (df['hhgqtype'] == 2)  # All noninstitutional GQ from households
+        gq_count = gq_mask.sum()
+        
+        if gq_count > 0:
+            logger.info(f"   Refining GQ types for {gq_count:,} noninstitutional GQ persons using demographics...")
+            
+            # Show age distribution in GQ for context
+            if gq_count > 0:
+                gq_ages = df.loc[gq_mask, 'AGEP']
+                logger.info(f"     GQ age distribution: min={gq_ages.min()}, max={gq_ages.max()}, median={gq_ages.median():.0f}")
+            
+            # Show college enrollment in GQ
+            if 'SCHG' in df.columns:
+                college_enrolled = df.loc[gq_mask & df['SCHG'].isin([15, 16])]
+                logger.info(f"     College enrolled in GQ (SCHG 15-16): {len(college_enrolled):,} persons")
+            
+            # Identify university students: enrolled in college (SCHG 15-16) regardless of age
+            university_mask = (
+                gq_mask & 
+                (df['SCHG'].isin([15, 16]))  # College/university enrollment (SCHG 15-16)
+            )
+            
+            university_count = university_mask.sum()
+            
+            # Assign university students to hhgqtype=1 (university GQ)
+            if university_count > 0:
+                df.loc[university_mask, 'hhgqtype'] = 1  # University GQ
+                logger.info(f"   ✅ Identified {university_count:,} university students -> hhgqtype=1")
+                logger.info(f"      Criteria: college enrollment (SCHG 15-16) regardless of age")
+                
+                # CRITICAL: Also update household hhgqtype to match person assignments for household controls
+                # Get unique household IDs that contain university students
+                university_household_ids = df.loc[university_mask, 'unique_hh_id'].unique()
+                logger.info(f"   🏠 Updating {len(university_household_ids):,} households to hhgqtype=1 (university GQ)")
+                
+                # Update household hhgqtype for households containing university students
+                household_df = household_df.copy()  # Make a copy to avoid modifying original
+                household_mask = household_df['unique_hh_id'].isin(university_household_ids)
+                household_df.loc[household_mask, 'hhgqtype'] = 1  # University GQ households
+            
+            # All other noninstitutional GQ remain as hhgqtype=2 (military + other combined)
+            remaining_noninst = gq_count - university_count
+            logger.info(f"   ✅ Remaining {remaining_noninst:,} noninstitutional GQ -> hhgqtype=2 (military + other)")
+            
+            # Show final distribution after refinement
+            logger.info(f"   Final GQ type distribution after person-level refinement:")
+            final_counts = df['hhgqtype'].value_counts().sort_index()
+            gq_labels = {0: 'Households', 1: 'University GQ', 2: 'Other noninstitutional GQ (military + other)'}
+            for gq_type, count in final_counts.items():
+                label = gq_labels.get(gq_type, f'Type {gq_type}')
+                pct = count / len(df) * 100
+                logger.info(f"     {label}: {count:,} persons ({pct:.1f}%)")
+        else:
+            logger.info(f"   No noninstitutional GQ persons found - no refinement needed")
+        
+        return df, household_df
 
 class SeedPopulationCreator:
     @staticmethod
@@ -955,15 +1020,23 @@ class SeedPopulationCreator:
             workers_time = datetime.now() - workers_start
             logger.info(f"[SUCCESS] Household workers calculation completed in {workers_time}")
             
+            # DEBUG: Check household count after worker calculation
+            logger.info(f"[DEBUG] Households after worker calculation: {len(household_df):,}")
+            logger.info(f"[DEBUG] Unique household IDs: {household_df['unique_hh_id'].nunique():,}")
+            
             # Process persons with chunked logging
             logger.info("-" * 50)
             logger.info("[PERSON] PROCESSING PERSONS")
             logger.info("-" * 50)
             
             person_process_start = datetime.now()
-            person_df = self.person_processor.process_persons(person_df, household_df)
+            person_df, household_df = self.person_processor.process_persons(person_df, household_df)
             person_process_time = datetime.now() - person_process_start
             logger.info(f"[SUCCESS] Person processing completed in {person_process_time}")
+            
+            # DEBUG: Check household count after person processing
+            logger.info(f"[DEBUG] Households after person processing: {len(household_df):,}")
+            logger.info(f"[DEBUG] Unique household IDs: {household_df['unique_hh_id'].nunique():,}")
             
             # Step 3: Final processing
             logger.info("-" * 50)
@@ -1075,6 +1148,12 @@ class SeedPopulationCreator:
         # Ensure hh_workers_from_esr is integer
         if 'hh_workers_from_esr' in df.columns:
             df['hh_workers_from_esr'] = df['hh_workers_from_esr'].astype(int)
+        
+        # CRITICAL: Create TYPEHUGQ field for postprocessing compatibility
+        # This collapses our detailed hhgqtype back to original PUMS categories
+        df['TYPEHUGQ'] = 1  # Default to housing unit
+        df.loc[df['hhgqtype'] >= 1, 'TYPEHUGQ'] = 3  # All GQ (university + military) → noninstitutional GQ
+        logger.info(f"[TYPEHUGQ] Created for postprocessing: Housing units={len(df[df['TYPEHUGQ']==1]):,}, Noninstitutional GQ={len(df[df['TYPEHUGQ']==3]):,}")
         
         # CRITICAL: Ensure PUMA is in integer format for PopulationSim compatibility
         if 'PUMA' in df.columns:

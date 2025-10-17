@@ -116,18 +116,23 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 
 ### Group Quarters Handling (Updated October 2025)
 
-**Important Policy Change**: Military group quarters (gq_military) has been re-enabled for TM2.
+**Important Approach Change**: PopulationSim now uses **person-level group quarters controls** that align directly with Census data structure.
 
-1. **Separate processing**: GQ population handled independently from regular households
+1. **Person-level controls**: GQ controls count individuals, not households
+   - `pers_gq_university`: University GQ persons (Census P5_008N)
+   - `pers_gq_noninstitutional`: Military + other GQ persons (Census P5_009N+P5_011N+P5_012N)
 2. **Selective institutional inclusion**: 
+   - ✅ **INCLUDED**: University/college housing (dorms, student housing)
    - ✅ **INCLUDED**: Military barracks and base housing
-   - ✅ **INCLUDED**: University/college housing (dorms, student housing)  
-   - ✅ **INCLUDED**: Other non-institutional group quarters
+   - ✅ **INCLUDED**: Other non-institutional group quarters (group homes, worker housing)
    - ❌ **EXCLUDED**: Nursing homes, prisons, mental health institutions
-3. **MAZ assignment**: Based on special GQ controls at block level
-4. **Travel behavior**: Military personnel included in travel demand modeling
+3. **Two-level structure**: 
+   - Household level: `hhgqtype` (0=regular, 1=university, 2=noninstitutional)
+   - Person level: `gq_type` (0=regular, 1=university, 2=noninstitutional)  
+4. **Direct Census alignment**: Controls use Census person counts without household-level conversion
+5. **Travel behavior**: Non-institutional GQ residents participate in regular travel patterns
 
-**Rationale**: Military personnel participate in regular travel patterns (commuting, shopping, etc.) unlike institutional populations in nursing homes or prisons who have limited mobility.
+**Rationale**: Person-level controls eliminate conversion assumptions and ensure direct data consistency with Census P5 series tables while maintaining travel modeling utility.
 
 ## Data Quality Measures
 

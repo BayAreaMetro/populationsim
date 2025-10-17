@@ -1,4 +1,4 @@
-TAZ_NODE,inc_lt_20k,inc_20k_45k,inc_45k_60k,inc_60k_75k,inc_75k_100k,inc_100k_150k,inc_150k_200k,inc_200k_plus,hh_kids_no,hh_kids_yes,hh_size_1,hh_size_2,hh_size_3,hh_size_4,hh_size_5,hh_size_6_plus,hh_wrks_0,hh_wrks_1,hh_wrks_2,hh_wrks_3_plus,pers_age_00_19,pers_age_20_34,pers_age_35_64,pers_age_65_plus
+TAZ,inc_lt_20k,inc_20k_45k,inc_45k_60k,inc_60k_75k,inc_75k_100k,inc_100k_150k,inc_150k_200k,inc_200k_plus,hh_kids_no,hh_kids_yes,hh_size_1,hh_size_2,hh_size_3,hh_size_4,hh_size_5,hh_size_6_plus,hh_wrks_0,hh_wrks_1,hh_wrks_2,hh_wrks_3_plus,pers_age_00_19,pers_age_20_34,pers_age_35_64,pers_age_65_plus
 1,65,153,12,32,45,30,189,237,708,55,389,287,63,24,0,0,0,0,0,0,0,0,0,0
 2,146,73,108,36,55,72,111,289,798,92,376,167,179,150,13,5,0,0,0,0,0,0,0,0
 3,108,108,126,76,94,143,163,592,1267,143,656,455,209,38,52,0,0,0,0,0,0,0,0,0

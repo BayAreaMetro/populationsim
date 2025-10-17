@@ -14,30 +14,46 @@ This step generates the baseyear control files required for the Bay Area Populat
 
 ## Group Quarters Processing (Updated October 2025)
 
-**Important Change**: Military group quarters (gq_military) has been re-enabled for TM2 while maintaining exclusion of other institutional types.
+**Important Change**: Group quarters controls use **person-level controls** aligned with Census data structure to ensure data consistency and improve PopulationSim convergence.
 
 ### Background
-Originally, all institutional group quarters were excluded from TM2, including military housing. This was reconsidered because military personnel participate in regular travel patterns unlike residents of nursing homes or prisons.
 
-### Current Group Quarters Policy
-- **✅ INCLUDED**: Military barracks and base housing (Census P5_009N)
-- **✅ INCLUDED**: University/college housing (dorms, student housing)
-- **✅ INCLUDED**: Other non-institutional group quarters (group homes, worker dormitories, religious quarters)
-- **❌ EXCLUDED**: Nursing homes and long-term care facilities
-- **❌ EXCLUDED**: Correctional institutions and prisons
-- **❌ EXCLUDED**: Mental health institutions
-- **❌ EXCLUDED**: Other institutional care facilities
+Census provides group quarters data at the **person level** (P5 series tables), while PopulationSim can handle both household-level and person-level controls. The system now uses person-level GQ controls to directly match Census data structure, eliminating conversion assumptions and improving accuracy.
 
-### Final Group Quarters Structure
-```
-gq_pop = gq_university + gq_military + gq_other
-```
+### Person-Level Group Quarters Approach
 
-Where:
-- `gq_university`: University/college housing population
-- `gq_military`: Military barracks/quarters population (**re-enabled**)
-- `gq_other`: Other non-institutional group quarters
-- `gq_pop`: Total modeled group quarters population
+**Control Structure (Person Level):**
+
+- `pers_gq_university`: University GQ persons (persons.gq_type==1)
+- `pers_gq_noninstitutional`: Military + other GQ persons combined (persons.gq_type==2)
+
+**Census Data Sources:**
+- University GQ: Census P5_008N (College/university student housing persons)
+- Noninstitutional GQ: Census P5_009N + P5_011N + P5_012N (Military quarters + other noninstitutional GQ persons)
+
+### Final Group Quarters Inclusion Policy
+
+- **✅ INCLUDED**: University/college housing (dorms, student housing) - P5_008N
+- **✅ INCLUDED**: Military barracks and base housing - P5_009N
+- **✅ INCLUDED**: Other non-institutional group quarters (group homes, worker dormitories, religious quarters) - P5_011N, P5_012N
+- **❌ EXCLUDED**: Nursing homes and long-term care facilities - P5_010N
+- **❌ EXCLUDED**: Correctional institutions and prisons - P5_002N to P5_007N
+- **❌ EXCLUDED**: Mental health institutions - P5_002N to P5_007N
+- **❌ EXCLUDED**: Other institutional care facilities - P5_002N to P5_007N
+
+### Person-Level Control Structure
+
+Person-level controls count individuals directly from Census data:
+- `pers_gq_university`: Count of persons in university GQ (P5_008N)
+- `pers_gq_noninstitutional`: Count of persons in military + other noninstitutional GQ (P5_009N + P5_011N + P5_012N)
+
+### Household Count Integration
+
+The `numhh_gq` control combines:
+- Regular households (`num_hh` from Census H1_002N)
+- GQ persons treated as household units (person counts as housing demand proxy)
+
+This approach treats each GQ person as representing potential housing demand while maintaining person-level control accuracy.
 
 ## Inputs
 

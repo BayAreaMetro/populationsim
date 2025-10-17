@@ -36,7 +36,7 @@ This will generate the seed population files in the configured output directory.
 
 ## Group Quarters Handling
 
-**Important Policy Change:** As of 2025, this script implements a **noninstitutional group quarters only** approach to align with controls generation and re-enable military group quarters.
+**Important Policy Change:** As of October 2025, this script implements a **person-level group quarters approach** with two-stage assignment and person-level `gq_type` field for PopulationSim person-level controls.
 
 ### TYPEHUGQ-Based Exclusion Policy
 
@@ -46,21 +46,44 @@ The script uses the PUMS `TYPEHUGQ` variable for group quarters classification:
 - **TYPEHUGQ = 2**: Institutional GQ (nursing homes, prisons, etc.) → **EXCLUDED**  
 - **TYPEHUGQ = 3**: Noninstitutional GQ (university dorms, military barracks, group homes) → **INCLUDED**
 
-### PopulationSim hhgqtype Assignment
+### Two-Stage GQ Assignment Process
 
-For PopulationSim compatibility, all noninstitutional GQ households are assigned to **hhgqtype = 3** ("other noninstitutional GQ"). The synthesis process will use person-level characteristics (age, occupation, school enrollment) to properly distribute individuals among university, military, and other GQ controls during the balancing process.
+Due to PUMS data limitations, we use a sophisticated two-stage approach:
 
-**Rationale**: At the household processing stage, we cannot reliably distinguish university dorms from military barracks without person-level data. PopulationSim's synthesis engine handles this distinction more accurately using individual characteristics.
+**Stage 1 - Household Level Processing:**
+- All noninstitutional GQ households (TYPEHUGQ = 3) initially assigned to **hhgqtype = 2**
+- Cannot distinguish university vs. military at household level due to PUMS aggregation
 
-### Military GQ Re-enablement
+**Stage 2 - Person Level Refinement:**
+- University students identified using college enrollment status (SCHG 15-16, any age)
+- University students reassigned to **hhgqtype = 1** 
+- Their households also updated to **hhgqtype = 1** for consistency
+- Military and other GQ remain as **hhgqtype = 2**
 
-This approach **re-enables military group quarters** by:
+### Person-Level gq_type Field
 
-1. Including military barracks (TYPEHUGQ = 3) in the seed population
-2. Allowing PopulationSim to assign military personnel to military GQ controls based on occupation codes
-3. Matching the controls generation approach that creates separate military GQ targets
+For PopulationSim person-level controls, a `gq_type` field is created on each person record:
+- **gq_type = 0**: Regular household persons (from hhgqtype = 0 households)
+- **gq_type = 1**: University GQ persons (from hhgqtype = 1 households)  
+- **gq_type = 2**: Noninstitutional GQ persons (from hhgqtype = 2 households)
 
-For details on the controls generation side, see [MILITARY_GQ_CHANGE_LOG.md](MILITARY_GQ_CHANGE_LOG.md).
+This field enables PopulationSim to use person-level control expressions like `persons.gq_type==1` that directly match Census person-level GQ data structure.
+
+### Final PopulationSim Structure
+
+For PopulationSim balancing:
+- **Household level**: `hhgqtype` (0=regular, 1=university, 2=noninstitutional)
+- **Person level**: `gq_type` (0=regular, 1=university, 2=noninstitutional)
+
+### Output TYPE Field Creation
+
+For travel model compatibility, a collapsed `TYPEHUGQ` field is created:
+- **TYPEHUGQ = 1**: Housing units (hhgqtype = 0)
+- **TYPEHUGQ = 3**: All noninstitutional GQ (hhgqtype = 1 or 2)
+
+This ensures the final `TYPE` field in travel model outputs correctly represents the original PUMS categories while allowing person-level detailed balancing during synthesis.
+
+**Rationale**: This approach uses person-level controls that align directly with Census P5 series data structure, eliminating household-level conversion assumptions while maintaining PopulationSim convergence and travel model compatibility.
 
 ## Notes
 

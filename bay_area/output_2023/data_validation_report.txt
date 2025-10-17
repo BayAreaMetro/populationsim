@@ -16,7 +16,7 @@ ERRORS (1):
 HOUSEHOLD SUMMARY:
   Total: 149,785
   Avg Size: 2.46
-  Types: {0: 139704, 3: 10081}
+  Types: {0: 139704, 1: 4396, 2: 5685}
 
 PERSON SUMMARY:
   Total: 374,515
