@@ -151,7 +151,7 @@ GEO_CROSSWALK_TM2_PATH = str(unified_config.CROSSWALK_FILES['popsim_crosswalk'])
 
 # Define variables that may not be set but are used by legacy scripts
 MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location (now CSV)
-MAZ_TAZ_ALL_GEOG_FILE = "mazs_tazs_all_geog.csv"  # Use canonical, up-to-date geography file
+MAZ_TAZ_ALL_GEOG_FILE = f"{PRIMARY_OUTPUT_DIR}/mazs_tazs_all_geog.csv"  # Use canonical, up-to-date geography file
 
 
 def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
@@ -196,8 +196,8 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
     # Standardize column names to match expected format
     blocks_df.rename(columns={
         'GEOID10': 'GEOID10',  # Keep as-is if already correct
-        'maz': 'MAZ',
-        'taz': 'TAZ'
+        'maz': 'MAZ_NODE',
+        'taz': 'TAZ_NODE'
     }, inplace=True)
     
     # Step 2: Create standardized GEOID_block (15 digits, 2010 format)
@@ -263,8 +263,8 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
             blocks_df = pd.merge(
                 left=blocks_df,
                 right=puma_mapping,
-                left_on='MAZ',  # blocks_df still uses MAZ column
-                right_on=maz_col,  # crosswalk uses MAZ_NODE
+                left_on='MAZ_NODE',  # blocks_df now uses MAZ_NODE column
+                right_on=maz_col,    # crosswalk uses MAZ_NODE or MAZ
                 how='left'
             )
             
@@ -285,7 +285,7 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
     
     # Select and order columns to match expected format
     output_columns = [
-        'MAZ', 'TAZ', 'COUNTY', 'county_name', 'PUMA',
+        'MAZ_NODE', 'TAZ_NODE', 'COUNTY', 'county_name', 'PUMA',
         'GEOID_block', 'GEOID_block group', 'GEOID_tract', 'GEOID_county'
     ]
     
@@ -329,7 +329,7 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
     else:
         print(f"   - All block GEOIDs are unique")
         
-    duplicate_bg = result_df[['GEOID_block group', 'TAZ']].duplicated().sum()
+    duplicate_bg = result_df[['GEOID_block group', 'TAZ_NODE']].duplicated().sum()
     if duplicate_bg > 0:
         print(f"   - INFO: {duplicate_bg} block groups span multiple TAZs (expected)")
     
@@ -361,12 +361,14 @@ CONTROLS[ACS_EST_YEAR]['MAZ'] = collections.OrderedDict([
     # Total population from 2020 Census PL 94-171 - essential for hierarchical control consistency, scaled to 2023 ACS
     ('total_pop',             ('pl',   CENSUS_EST_YEAR, 'P1_001N',      'block',
                                [], 'county_scale')),
-    # MODIFIED FOR TM2: Group quarters - person-level for PopulationSim person-level controls
-    # Person-level GQ controls to match PopulationSim controls.csv expectations
-    ('pers_gq_university',    ('pl',   CENSUS_EST_YEAR, 'P5_008N',      'block',
-                               [])),  # University GQ persons
-    ('pers_gq_noninstitutional', ('pl', CENSUS_EST_YEAR, ['P5_009N', 'P5_011N', 'P5_012N'], 'block',
-                               [])),  # Military + other noninstitutional GQ persons
+    # MODIFIED FOR TM2: Group quarters - person-as-household approach
+    # Household-level GQ controls treating each GQ person as one-person household
+    ('hh_gq_university',      ('pl',   CENSUS_EST_YEAR, 'P5_008N',      'block',
+                               [], 'county_scale')),  # University GQ households (each person = 1 household)
+    ('hh_gq_military',        ('pl',   CENSUS_EST_YEAR, 'P5_009N',      'block',
+                               [], 'county_scale')),  # Military GQ households  
+    ('hh_gq_other_nonins',    ('pl',   CENSUS_EST_YEAR, 'P5_010N',      'block',
+                               [], 'county_scale')),  # Other noninstitutional GQ households (P5_010N)
 ])
 
 # ----------------------------------------

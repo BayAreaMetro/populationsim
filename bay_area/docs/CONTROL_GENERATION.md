@@ -55,6 +55,112 @@ The `numhh_gq` control combines:
 
 This approach treats each GQ person as representing potential housing demand while maintaining person-level control accuracy.
 
+## Column Naming Standards
+
+### Geographic Column Naming Convention
+
+**Standardized Column Names:**
+
+- `MAZ_NODE`: Standardized MAZ identifier used throughout all crosswalk files
+- `TAZ_NODE`: Standardized TAZ identifier used throughout all crosswalk files
+- `COUNTY`: County identifier (numeric, e.g., 1-9 for Bay Area counties)
+- `county_name`: County name (text, e.g., "Alameda", "San Francisco")
+- `PUMA`: Public Use Microdata Area identifier
+
+**Legacy Column Names (Deprecated):**
+
+- `MAZ`: Old MAZ column name (replaced by `MAZ_NODE`)
+- `TAZ`: Old TAZ column name (replaced by `TAZ_NODE`)
+
+### Control File Column Structure
+
+**MAZ Controls (`maz_marginals.csv` and `maz_marginals_hhgq.csv`):**
+
+- `MAZ`: MAZ identifier (matches `MAZ_NODE` from crosswalk)
+- `num_hh`: Number of households (Census H1_002N)
+- `total_pop`: Total population
+- `hh_gq_university`: University group quarters persons (P5_008N)
+- `hh_gq_military`: Military group quarters persons (P5_009N) [combined into other]
+- `hh_gq_other_nonins`: Other noninstitutional group quarters persons (P5_011N, P5_012N)
+- `numhh_gq`: Combined household + GQ count (for PopulationSim person-as-household approach)
+
+**TAZ Controls (`taz_marginals.csv` and `taz_marginals_hhgq.csv`):**
+
+- `TAZ`: TAZ identifier (matches `TAZ_NODE` from crosswalk)
+- `num_hh`: Number of households
+- `hh_size_1` through `hh_size_4plus`: Household size categories
+- `hh_inc_0_30k` through `hh_inc_200kplus`: Income categories
+- `pers_age_00_17` through `pers_age_65plus`: Age categories
+- `pers_workers_0` through `pers_workers_3plus`: Worker categories
+- `hh_size_1_gq`: Size-1 households + GQ persons (for HHGQ integration)
+
+**County Controls (`county_marginals.csv`):**
+
+- `COUNTY`: County identifier (1-9)
+- `pers_occ_management`: Management/business/finance workers
+- `pers_occ_professional`: Professional/technical workers
+- `pers_occ_services`: Service workers
+- `pers_occ_retail`: Sales and office workers
+- `pers_occ_manual_military`: Manual/production + military workers (combined)
+
+**Geographic Crosswalk (`geo_cross_walk_tm2.csv`):**
+
+- `MAZ_NODE`: MAZ identifier
+- `TAZ_NODE`: TAZ identifier
+- `COUNTY`: County code (1-9)
+- `county_name`: County name
+- `PUMA`: PUMA identifier
+
+### Column Naming Migration (October 2025)
+
+**What Changed:**
+The system was updated to use consistent `MAZ_NODE`/`TAZ_NODE` naming throughout all geographic crosswalk files. The `rebuild_maz_taz_all_geog_file()` function in `tm2_control_utils/config_census.py` was updated to ensure consistent column naming.
+
+**Migration Impact:**
+
+- All geographic aggregation operations now use standardized column names
+- Census geographic matching uses consistent `MAZ_NODE`/`TAZ_NODE` references
+- Control validation and hierarchical consistency checks work with unified naming
+- PopulationSim input files use the standardized column structure
+
+**Validation:**
+The `mazs_tazs_all_geog.csv` crosswalk file was rebuilt with 109,228 records using the new naming convention, ensuring all geographic operations use consistent identifiers.
+
+### Group Quarters Control Integration (October 2025)
+
+**Military GQ Combination:**
+As of October 2025, military group quarters persons are automatically combined into the "other noninstitutional" category to match the seed population encoding structure:
+
+- **Before combination**: Separate `hh_gq_military` and `hh_gq_other_nonins` columns
+- **After combination**: Military persons (1,684) combined into `hh_gq_other_nonins` (final total: 76,071)
+- **File cleanup**: Intermediate `maz_marginals.csv` automatically removed, leaving only `maz_marginals_hhgq.csv`
+
+**Processing Steps:**
+
+1. Generate separate military and other noninstitutional GQ controls from Census P5 data
+2. Validate each control category individually  
+3. Combine military into other noninstitutional to match seed population structure
+4. Create HHGQ-integrated files for PopulationSim consumption
+5. Clean up intermediate files to maintain organized workflow
+
+This ensures the control structure exactly matches the seed population GQ encoding while preserving the underlying Census data accuracy.
+
+### Column Naming Quick Reference
+
+| Geography Level | File | Key ID Column | Standard Name | Legacy Name |
+|----------------|------|---------------|---------------|-------------|
+| MAZ | `maz_marginals_hhgq.csv` | MAZ identifier | `MAZ` | `MAZ` |
+| TAZ | `taz_marginals_hhgq.csv` | TAZ identifier | `TAZ` | `TAZ` |  
+| County | `county_marginals.csv` | County identifier | `COUNTY` | N/A |
+| Crosswalk | `geo_cross_walk_tm2.csv` | MAZ identifier | `MAZ_NODE` | `MAZ` |
+| Crosswalk | `geo_cross_walk_tm2.csv` | TAZ identifier | `TAZ_NODE` | `TAZ` |
+
+**Important**: 
+- Control files (`*_marginals_hhgq.csv`) use `MAZ`/`TAZ` as geography identifiers
+- Crosswalk files (`geo_cross_walk_tm2.csv`) use `MAZ_NODE`/`TAZ_NODE` as geography identifiers
+- PopulationSim config files (`controls.csv`) must use `MAZ`/`TAZ` to match the control file structure
+- The system handles this mapping automatically during geographic aggregation operations
+
 ## Inputs
 
 - ACS 2023 5-year and 1-year estimates (tract, block group, county)
@@ -64,13 +170,24 @@ This approach treats each GQ person as representing potential housing demand whi
 
 ## Outputs
 
-- `maz_marginals.csv`: MAZ-level controls (households, group quarters, etc.)
-- `taz_marginals.csv`: TAZ-level controls (workers, age, household size, income, etc.)
-- `county_marginals.csv`: County-level controls and region totals
-- `county_summary_2020_2023.csv`: County scaling factors and validation
-- `geo_cross_walk_tm2.csv`: Geographic crosswalk (copied from the crosswalk step)
+### PopulationSim Input Files (Primary)
+
+- `maz_marginals_hhgq.csv`: MAZ-level controls with integrated households and group quarters
+- `taz_marginals_hhgq.csv`: TAZ-level controls with HHGQ integration  
+- `county_marginals.csv`: County-level occupation controls
+
+### Supporting Files
+
+- `geo_cross_walk_tm2.csv`: Geographic crosswalk with standardized MAZ_NODE/TAZ_NODE columns
 - `maz_data.csv`, `maz_data_withDensity.csv`: Land use and density files for TM2
-- `maz_marginals_hhgq.csv`, `taz_marginals_hhgq.csv`: Controls integrating households and group quarters
+- `county_summary_2020_2023.csv`: County scaling factors and validation statistics
+- `county_targets_2023.csv`: Target totals for validation
+
+### File Processing Notes
+
+- **Intermediate files**: `maz_marginals.csv` and `taz_marginals.csv` are generated during processing but automatically removed after HHGQ integration
+- **Final structure**: PopulationSim uses only the `*_hhgq.csv` files which contain the integrated household+GQ controls
+- **File naming**: All output files use the standardized `MAZ_NODE`/`TAZ_NODE` column naming convention
 
 ## How to Run
 

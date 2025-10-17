@@ -479,6 +479,8 @@ class CensusFetcher:
                     cached_df = pd.read_csv(table_cache_file)
                     # Set proper index
                     cached_df = cached_df.set_index(geo_index)
+                    # Reset index to keep geographic columns as regular columns for GEOID construction
+                    cached_df = cached_df.reset_index()
                     logging.info(f"Loaded PL cached data: {len(cached_df)} rows")
                     print(f"[DEBUG] EXIT get_census_data (PL cached): df.columns: {list(cached_df.columns)}")
                     return cached_df

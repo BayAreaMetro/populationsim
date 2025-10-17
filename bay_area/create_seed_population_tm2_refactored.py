@@ -537,16 +537,8 @@ class PersonProcessor:
             pct = count / len(df) * 100
             logger.info(f"     {label}: {count:,} persons ({pct:.1f}%)")
         
-        # Add person-level gq_type field for PopulationSim controls
-        logger.info("[BUILDING] Step 6b/8: Adding person-level gq_type field for PopulationSim...")
-        df['gq_type'] = df['hhgqtype'].copy()  # Direct mapping: 0=household, 1=university, 2=noninstitutional
-        logger.info("   Person-level gq_type field added:")
-        gq_type_counts = df['gq_type'].value_counts().sort_index()
-        gq_type_labels = {0: 'Regular household persons', 1: 'University GQ persons', 2: 'Noninstitutional GQ persons'}
-        for gq_type, count in gq_type_counts.items():
-            label = gq_type_labels.get(gq_type, f'GQ Type {gq_type}')
-            logger.info(f"     {label} (gq_type={gq_type}): {count:,}")
-        
+        # Person-as-household GQ approach: Each GQ person treated as one-person household
+        logger.info("   Using household-level hhgqtype for person-as-household GQ controls")
         # Check for GQ people specifically
         total_gq_persons = len(df[df['hhgqtype'] >= 2])
         logger.info(f"   Total GQ persons (hhgqtype >= 2): {total_gq_persons:,}")
@@ -560,7 +552,7 @@ class PersonProcessor:
         # Convert to integers
         logger.info("[NUMBER] Step 8/8: Converting to integer types...")
         integer_fields = ['employed', 'employ_status', 'student_status', 'person_type', 
-                         'occupation', 'hhgqtype', 'gq_type', 'PUMA', 'COUNTY', 'PWGTP']
+                         'occupation', 'hhgqtype', 'PUMA', 'COUNTY', 'PWGTP']
         df = self.data_cleaner.convert_to_integers(df, integer_fields, "person")
         
         logger.info("[SUCCESS] Person processing complete!")
