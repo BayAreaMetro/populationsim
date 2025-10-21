@@ -92,3 +92,5 @@ MainProcess,initial_seed_balancing,152.7,2.5
 MainProcess,meta_control_factoring,0.2,0.0
 MainProcess,final_seed_balancing,264.8,4.4
 MainProcess,integerize_final_seed_weights,29.7,0.5
+MainProcess,input_pre_processor,22.1,0.4
+MainProcess,setup_data_structures,11.9,0.2

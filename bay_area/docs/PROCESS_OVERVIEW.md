@@ -18,7 +18,7 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 ### 2. Geographic Framework
 - **Region**: 9-county San Francisco Bay Area
 - **Counties**: Sequential numbering 1-9 (SF=1, San Mateo=2, Santa Clara=3, Alameda=4, Contra Costa=5, Solano=6, Napa=7, Sonoma=8, Marin=9)
-- **Zones**: ~1,400 TAZs containing ~2,000 MAZs
+- **Zones**: 4735 Zones, 39587 MAZs
 - **PUMAs**: 104 Public Use Microdata Areas covering the region
 
 ## Step-by-Step Process
@@ -164,11 +164,7 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 
 ## Output Uses
 
-The synthetic population is used for:
-- **Travel demand modeling**: Input to Travel Model 2 (TM2)
-- **Transportation planning**: Regional transportation projects
-- **Policy analysis**: Impact assessment of transportation policies
-- **Scenario planning**: Future year population forecasts
+
 
 ## Quality Assurance
 

@@ -374,3 +374,12 @@ MainProcess,13160,1_371_795_456,1_371_795_456,1_354_874_880,pipeline.run_model i
 MainProcess,13160,1_382_989_824,1_382_989_824,1_361_379_328,pipeline.run_model integerize_final_seed_weights finished,0,2025/10/21 08:47:17.468663
 MainProcess,13160,1_382_780_928,1_382_780_928,1_360_318_464,pipeline.run after integerize_final_seed_weights,0,2025/10/21 08:47:17.611233
 MainProcess,13160,1_382_780_928,1_382_780_928,1_360_318_464,pipeline.run_model sub_balancing.geography=TAZ_NODE start,0,2025/10/21 08:47:17.674800
+MainProcess,26316,98_713_600,98_713_600,65_679_360,pipeline.run before preload_injectables,0,2025/10/21 11:27:43.251246
+MainProcess,26316,98_996_224,98_996_224,65_679_360,pipeline.run after preload_injectables,0,2025/10/21 11:27:43.267170
+MainProcess,26316,99_020_800,99_020_800,65_679_360,pipeline.run_model input_pre_processor start,0,2025/10/21 11:27:43.283250
+MainProcess,26316,931_540_992,931_540_992,930_152_448,pipeline.run_model input_pre_processor finished,0,2025/10/21 11:27:59.995231
+MainProcess,26316,1_133_617_152,1_133_617_152,1_133_744_128,pipeline.run after input_pre_processor,0,2025/10/21 11:28:05.345432
+MainProcess,26316,1_136_070_656,1_136_070_656,1_134_333_952,pipeline.run_model setup_data_structures start,0,2025/10/21 11:28:05.422874
+MainProcess,26316,1_316_098_048,1_316_098_048,1_313_001_472,pipeline.run_model setup_data_structures finished,0,2025/10/21 11:28:12.401891
+MainProcess,26316,1_311_678_464,1_311_678_464,1_308_708_864,pipeline.run after setup_data_structures,0,2025/10/21 11:28:17.280533
+MainProcess,26316,1_312_632_832,1_312_632_832,1_308_712_960,pipeline.run_model initial_seed_balancing start,0,2025/10/21 11:28:17.347836
