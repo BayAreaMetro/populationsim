@@ -3077,6 +3077,28 @@ def main():
     else:
         logger.info("No intermediate maz_marginals.csv file to clean up")
 
+    # CLEANUP: Remove unsuffixed marginals files to avoid PopulationSim confusion
+    logger.info("=" * 80)
+    logger.info("CLEANING UP UNSUFFIXED MARGINALS FILES")
+    logger.info("=" * 80)
+    
+    cleanup_files = [
+        os.path.join(PRIMARY_OUTPUT_DIR, "taz_marginals.csv"),
+        os.path.join(PRIMARY_OUTPUT_DIR, "maz_marginals.csv")
+    ]
+    
+    for cleanup_file in cleanup_files:
+        if os.path.exists(cleanup_file):
+            try:
+                os.remove(cleanup_file)
+                logger.info(f"✓ Removed unsuffixed file: {os.path.basename(cleanup_file)}")
+            except Exception as e:
+                logger.warning(f"Could not remove {cleanup_file}: {e}")
+        else:
+            logger.info(f"  No {os.path.basename(cleanup_file)} to clean up")
+    
+    logger.info("PopulationSim will now use only the _hhgq.csv files with proper TAZ_NODE/MAZ_NODE columns")
+
     logger.info("Control file generation completed successfully!")
 
 
