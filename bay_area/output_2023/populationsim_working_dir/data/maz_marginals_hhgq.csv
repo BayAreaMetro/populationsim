@@ -1,4 +1,4 @@
-MAZ_NODE,num_hh,total_pop,gq_pop,numhh_gq,hh_gq_university,hh_gq_noninstitutional,hh_gq_total
+MAZ_NODE,num_hh,total_pop,gq_pop,numhh_gq,gq_type_univ,gq_type_noninst,hh_gq_total
 10001,62,130,0.0,62,0,0,0
 10002,72,157,0.0,72,0,0,0
 10003,77,112,0.0,77,0,0,0

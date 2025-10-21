@@ -14,20 +14,20 @@ SUB_BALANCE_WITH_FLOAT_SEED_WEIGHTS: True
 GROUP_BY_INCIDENCE_SIGNATURE: False
 USE_SIMUL_INTEGERIZER: True
 USE_CVXPY: False
-max_expansion_factor: 30
+max_expansion_factor: 50
 
 
 # ------------------------------------------------------------------
-rel_tolerance: 0.01        
-abs_tolerance: 10.0         
-integer_tolerance: 0.1   
+rel_tolerance: 0.05        
+abs_tolerance: 20.0         
+integer_tolerance: 0.5   
 
-# Convergence Settings - ADJUSTED for difficult seed convergence  
+# Convergence Settings 
 # ------------------------------------------------------------------
 MAX_BALANCE_ITERATIONS_SIMULTANEOUS: 500    
-MAX_BALANCE_ITERATIONS_SEQUENTIAL: 5000  
+MAX_BALANCE_ITERATIONS_SEQUENTIAL: 100000
 MAX_DELTA: 1.0e-9                         
-MAX_GAMMA: 1.0e-4                                            
+MAX_GAMMA: 1.0e-5                                            
 
 
 # Geographic Settings
@@ -39,14 +39,14 @@ seed_geography: PUMA
 # Tracing
 # ------------------------------------------------------------------
 trace_geography:
-  TAZ: 56
-  MAZ: 10001
+  TAZ_NODE: 56
+  MAZ_NODE: 10001
 
 # Additional debugging options
 # ------------------------------------------------------------------
 # Enable detailed debugging output
 TRACE_ENABLED: True
-DEBUG_DATA_PROCESSING: True
+DEBUG_DATA_PROCESSING: True 
 
 
 # Data Directory
@@ -110,8 +110,8 @@ control_file_name: controls.csv
 output_tables:
   action: include
   tables:
-    - summary_MAZ
-    - summary_TAZ
+    - summary_MAZ_NODE
+    - summary_TAZ_NODE
     - summary_COUNTY_1
     - summary_COUNTY_2
     - summary_COUNTY_3
@@ -148,7 +148,7 @@ control_file_name: controls.csv
 output_tables:
   action: include
   tables:
-    - summary_TAZ
+    - summary_TAZ_NODE
     - summary_COUNTY_1
     - summary_COUNTY_2
     - summary_COUNTY_3
@@ -230,8 +230,8 @@ run_list:
     - meta_control_factoring
     - final_seed_balancing
     - integerize_final_seed_weights
-    - sub_balancing.geography=TAZ
-    - sub_balancing.geography=MAZ
+    - sub_balancing.geography=TAZ_NODE
+    - sub_balancing.geography=MAZ_NODE
     - expand_households
     - summarize
     - write_tables

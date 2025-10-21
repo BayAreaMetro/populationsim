@@ -1123,7 +1123,12 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
         # Always use MAZ_NODE for standardized output
         maz_output_col = 'MAZ_NODE'
         
-        output_columns = [maz_output_col, 'num_hh', 'total_pop', 'hh_gq_university', 'hh_gq_noninstitutional']  # Final two GQ categories only
+        # Create combined GQ control to avoid convergence issues with sparse university GQ seed
+        if 'hh_gq_university' in maz_with_county.columns and 'hh_gq_noninstitutional' in maz_with_county.columns:
+            maz_with_county['gq_type_all'] = maz_with_county['hh_gq_university'] + maz_with_county['hh_gq_noninstitutional']
+            logger.info(f"Combined GQ controls: university ({maz_with_county['hh_gq_university'].sum():,}) + noninstitutional ({maz_with_county['hh_gq_noninstitutional'].sum():,}) = total ({maz_with_county['gq_type_all'].sum():,})")
+        
+        output_columns = [maz_output_col, 'num_hh', 'total_pop', 'gq_type_all']  # Combined GQ control
         maz_with_county[output_columns].to_csv(maz_marginals_file, index=False)
         
         logger.info(f"Updated MAZ marginals file: {maz_marginals_file}")
@@ -2303,13 +2308,10 @@ def create_hhgq_integrated_files(logger):
     import shutil
     
     try:
-        # Define input file paths - marginals are in main output directory
-        import unified_tm2_config
-        main_output_dir = str(unified_tm2_config.config.POPSIM_DATA_DIR)
-        
-        maz_input = os.path.join(main_output_dir, MAZ_MARGINALS_FILE)
-        taz_input = os.path.join(main_output_dir, TAZ_MARGINALS_FILE)
-        county_input = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_MARGINALS_FILE)  # This one is in PopSim data dir
+        # Define input file paths - marginals are in PRIMARY_OUTPUT_DIR where main generation writes them
+        maz_input = os.path.join(PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE)
+        taz_input = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
+        county_input = os.path.join(PRIMARY_OUTPUT_DIR, COUNTY_MARGINALS_FILE)
         
         # Output files will be in PopulationSim data directory
         output_dir = PRIMARY_OUTPUT_DIR
@@ -2376,25 +2378,47 @@ def create_hhgq_integrated_files(logger):
             return False
             
         # Create numhh_gq = num_hh + person-level GQ converted to household count estimate  
-        if 'num_hh' in maz_df.columns and ('hh_gq_university' in maz_df.columns or 'hh_gq_noninstitutional' in maz_df.columns):
-            # Estimate GQ households from person counts (approximate, since GQ persons don't form traditional households)
-            gq_persons = 0
+        # Support both old column names (hh_gq_*) and new column names (gq_type_*)
+        gq_persons = 0
+        gq_columns_found = []
+        
+        if 'num_hh' in maz_df.columns:
+            # Try old column names first
             if 'hh_gq_university' in maz_df.columns:
                 gq_persons += maz_df['hh_gq_university'].fillna(0)
+                gq_columns_found.append('hh_gq_university')
             if 'hh_gq_noninstitutional' in maz_df.columns:
                 gq_persons += maz_df['hh_gq_noninstitutional'].fillna(0)
+                gq_columns_found.append('hh_gq_noninstitutional')
             
-            # Use person count directly as proxy for GQ household units (each GQ person represents potential housing demand)
-            maz_df["numhh_gq"] = maz_df.num_hh + gq_persons
-            logger.info(f"Created numhh_gq column: num_hh ({maz_df.num_hh.sum():,.0f}) + gq_persons ({gq_persons.sum():,.0f}) = {maz_df.numhh_gq.sum():,.0f}")
-        elif 'num_hh' in maz_df.columns:
-            # No GQ data available - just use households
-            maz_df["numhh_gq"] = maz_df.num_hh
-            logger.warning("No person-level GQ controls found - using num_hh only for numhh_gq")
+            # Try new column names if old ones not found
+            if 'gq_type_univ' in maz_df.columns:
+                gq_persons += maz_df['gq_type_univ'].fillna(0)
+                gq_columns_found.append('gq_type_univ')
+            if 'gq_type_noninst' in maz_df.columns:
+                gq_persons += maz_df['gq_type_noninst'].fillna(0)
+                gq_columns_found.append('gq_type_noninst')
+            
+            if len(gq_columns_found) > 0:
+                # Use person count directly as proxy for GQ household units (each GQ person represents potential housing demand)
+                maz_df["numhh_gq"] = maz_df.num_hh + gq_persons
+                logger.info(f"Created numhh_gq column: num_hh ({maz_df.num_hh.sum():,.0f}) + gq_persons ({gq_persons.sum():,.0f}) = {maz_df.numhh_gq.sum():,.0f}")
+                logger.info(f"Used GQ columns: {gq_columns_found}")
+            else:
+                # No GQ data available - just use households
+                maz_df["numhh_gq"] = maz_df.num_hh
+                logger.warning("No GQ controls found - using num_hh only for numhh_gq")
         else:
             logger.error(f"Missing required num_hh column in MAZ data")
             return False
             
+        # Create combined GQ control to avoid convergence issues with sparse university GQ seed
+        if 'hh_gq_university' in maz_df.columns and 'hh_gq_noninstitutional' in maz_df.columns:
+            maz_df['gq_type_all'] = maz_df['hh_gq_university'] + maz_df['hh_gq_noninstitutional']
+            logger.info(f"Combined GQ controls: university ({maz_df['hh_gq_university'].sum():,}) + noninstitutional ({maz_df['hh_gq_noninstitutional'].sum():,}) = total ({maz_df['gq_type_all'].sum():,})")
+            # Remove separate columns to avoid confusion
+            maz_df.drop(['hh_gq_university', 'hh_gq_noninstitutional'], axis=1, inplace=True)
+        
         maz_df.to_csv(maz_output, index=False)
         logger.info(f"Wrote MAZ HHGQ file: {maz_output}")
             
@@ -2428,13 +2452,16 @@ def create_hhgq_integrated_files(logger):
             logger.info(f"Using size-1 household control: {size_1_control}")
             
             # Get GQ population by TAZ from MAZ data
-            if 'TAZ' in maz_df.columns:
-                maz_gq_by_taz = maz_df.groupby('TAZ')['gq_pop'].sum().reset_index()
+            if 'TAZ' in maz_df.columns or 'TAZ_NODE' in maz_df.columns:
+                taz_col = 'TAZ' if 'TAZ' in maz_df.columns else 'TAZ_NODE'
+                maz_gq_by_taz = maz_df.groupby(taz_col)['gq_pop'].sum().reset_index()
                 logger.info(f"Aggregated GQ population from {len(maz_df)} MAZ to {len(maz_gq_by_taz)} TAZ")
                 
                 # Merge GQ data with TAZ controls
-                taz_df = taz_df.merge(maz_gq_by_taz, on='TAZ', how='left')
+                taz_df = taz_df.merge(maz_gq_by_taz, left_on='TAZ_NODE', right_on=taz_col, how='left')
                 taz_df['gq_pop'] = taz_df['gq_pop'].fillna(0)
+                if taz_col != 'TAZ_NODE':
+                    taz_df.drop(taz_col, axis=1, inplace=True)
                 
                 # Create size_1_gq control = size_1 + gq_pop
                 if size_1_control and size_1_control in taz_df.columns:
@@ -2453,14 +2480,75 @@ def create_hhgq_integrated_files(logger):
                     logger.warning("No household size controls found in configuration - cannot create HHGQ integration")
                     taz_df.drop('gq_pop', axis=1, inplace=True)
             else:
-                logger.warning("No TAZ column in MAZ data - cannot aggregate GQ by TAZ")
-                # Assume no GQ adjustment needed
-                if size_1_control and size_1_control in taz_df.columns:
-                    gq_control_name = f"{size_1_control}_gq"
-                    taz_df[gq_control_name] = taz_df[size_1_control]
-                    logger.info(f"Created {gq_control_name} = {size_1_control} (no GQ adjustment)")
-                elif size_1_control:
-                    logger.warning(f"No {size_1_control} column found in TAZ data for HHGQ integration")
+                logger.warning("No TAZ column in MAZ data - trying to use crosswalk for GQ aggregation")
+                
+                # Try to use crosswalk to aggregate GQ from MAZ to TAZ
+                try:
+                    crosswalk_file = os.path.join(output_dir, "geo_cross_walk_tm2.csv")
+                    if os.path.exists(crosswalk_file):
+                        crosswalk = pd.read_csv(crosswalk_file)
+                        logger.info(f"Loaded crosswalk file with columns: {list(crosswalk.columns)}")
+                        
+                        if 'MAZ_NODE' in crosswalk.columns and 'TAZ_NODE' in crosswalk.columns:
+                            # Add TAZ information to MAZ data using crosswalk
+                            maz_with_taz = maz_df.merge(crosswalk[['MAZ_NODE', 'TAZ_NODE']], on='MAZ_NODE', how='left')
+                            
+                            # Calculate total GQ population (combined person-level control)
+                            if 'gq_type_all' in maz_with_taz.columns:
+                                maz_with_taz['total_gq_persons'] = maz_with_taz['gq_type_all']
+                            elif 'gq_pop' in maz_with_taz.columns:
+                                maz_with_taz['total_gq_persons'] = maz_with_taz['gq_pop']
+                            else:
+                                logger.warning("No GQ population columns found in MAZ data")
+                                maz_with_taz['total_gq_persons'] = 0
+                            
+                            # Aggregate GQ persons by TAZ
+                            maz_gq_by_taz = maz_with_taz.groupby('TAZ_NODE')['total_gq_persons'].sum().reset_index()
+                            logger.info(f"Using crosswalk: Aggregated GQ population from {len(maz_df)} MAZ to {len(maz_gq_by_taz)} TAZ")
+                            logger.info(f"Total GQ persons: {maz_gq_by_taz['total_gq_persons'].sum():,}")
+                            
+                            # Merge GQ data with TAZ controls
+                            taz_df = taz_df.merge(maz_gq_by_taz, on='TAZ_NODE', how='left')
+                            taz_df['total_gq_persons'] = taz_df['total_gq_persons'].fillna(0)
+                            
+                            # Create size_1_gq control = size_1 + gq_persons
+                            if size_1_control and size_1_control in taz_df.columns:
+                                gq_control_name = f"{size_1_control}_gq"
+                                taz_df[gq_control_name] = taz_df[size_1_control] + taz_df['total_gq_persons']
+                                logger.info(f"Created {gq_control_name} column: {size_1_control} ({taz_df[size_1_control].sum():,.0f}) + gq_persons ({taz_df['total_gq_persons'].sum():,.0f}) = {taz_df[gq_control_name].sum():,.0f}")
+                                
+                                # Remove the temporary gq column
+                                taz_df.drop('total_gq_persons', axis=1, inplace=True)
+                            elif size_1_control:
+                                logger.warning(f"No {size_1_control} column found in TAZ data - creating {size_1_control}_gq = gq_persons")
+                                gq_control_name = f"{size_1_control}_gq"
+                                taz_df[gq_control_name] = taz_df['total_gq_persons']
+                                taz_df.drop('total_gq_persons', axis=1, inplace=True)
+                            else:
+                                logger.warning("No household size controls found in configuration - cannot create HHGQ integration")
+                                taz_df.drop('total_gq_persons', axis=1, inplace=True)
+                        else:
+                            logger.warning("Crosswalk missing required MAZ_NODE/TAZ_NODE columns")
+                            # Fallback: no GQ adjustment
+                            if size_1_control and size_1_control in taz_df.columns:
+                                gq_control_name = f"{size_1_control}_gq"
+                                taz_df[gq_control_name] = taz_df[size_1_control]
+                                logger.info(f"Created {gq_control_name} = {size_1_control} (no GQ adjustment - crosswalk issue)")
+                    else:
+                        logger.warning("No crosswalk file found - cannot aggregate GQ to TAZ")
+                        # Fallback: no GQ adjustment
+                        if size_1_control and size_1_control in taz_df.columns:
+                            gq_control_name = f"{size_1_control}_gq"
+                            taz_df[gq_control_name] = taz_df[size_1_control]
+                            logger.info(f"Created {gq_control_name} = {size_1_control} (no GQ adjustment - no crosswalk)")
+                            
+                except Exception as e:
+                    logger.error(f"Error using crosswalk for GQ aggregation: {e}")
+                    # Fallback: no GQ adjustment
+                    if size_1_control and size_1_control in taz_df.columns:
+                        gq_control_name = f"{size_1_control}_gq"
+                        taz_df[gq_control_name] = taz_df[size_1_control]
+                        logger.info(f"Created {gq_control_name} = {size_1_control} (no GQ adjustment - error fallback)")
                 
             taz_df.to_csv(taz_output, index=False)
             logger.info(f"Wrote TAZ HHGQ file: {taz_output}")

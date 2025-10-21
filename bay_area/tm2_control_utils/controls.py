@@ -229,7 +229,8 @@ def disaggregate_tract_to_block_group(control_table_df, control_name, hh_weights
     
     # Get the mapping and ensure consistent data types - USE MAZ-BASED APPORTIONMENT
     # Since block groups can span multiple TAZs, we need to apportion based on MAZ counts
-    bg_taz_mapping = maz_taz_def_df[['GEOID_block group', taz_col, 'MAZ']].copy()
+    maz_col = 'MAZ_NODE' if 'MAZ_NODE' in maz_taz_def_df.columns else 'MAZ'
+    bg_taz_mapping = maz_taz_def_df[['GEOID_block group', taz_col, maz_col]].copy()
     bg_taz_mapping['GEOID_block group'] = bg_taz_mapping['GEOID_block group'].astype(str)
     
     # Rename TAZ column to standard 'TAZ' for processing
@@ -589,7 +590,7 @@ def ensure_geoid_column(df, geography):
         
         # For temporary controls that have been aggregated to MAZ level, we might not have component columns
         # Check if this is a temp control that has already been aggregated to MAZ level
-        if df.index.name == 'MAZ' or 'MAZ' in df.columns:
+        if df.index.name in ['MAZ', 'MAZ_NODE'] or any(col in df.columns for col in ['MAZ', 'MAZ_NODE']):
             logging.error(f"[GEOID] DataFrame appears to be MAZ-level temp control, skipping GEOID construction for '{geo}'")
             print(f"[GEOID] DataFrame appears to be MAZ-level temp control, skipping GEOID construction for '{geo}'")
             return df
@@ -734,7 +735,7 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
     scale_num_df = temp_controls.get(scale_numerator) if scale_numerator else None
     
     is_maz_level = (scale_denom_df is not None and 
-                   (scale_denom_df.index.name == 'MAZ' or 'MAZ' in scale_denom_df.columns))
+                   (scale_denom_df.index.name in ['MAZ', 'MAZ_NODE'] or any(col in scale_denom_df.columns for col in ['MAZ', 'MAZ_NODE'])))
     
     if is_maz_level:
         logger.info("Detected MAZ-level temp controls, performing MAZ-level scaling")
@@ -758,9 +759,10 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
                 maz_taz_def_df, {}, None, None, None, 0
             )
             
-            if control_maz_df.index.name != 'MAZ':
-                if 'MAZ' in control_maz_df.columns:
-                    control_maz_df = control_maz_df.set_index('MAZ')[[control_name]]
+            maz_col = 'MAZ_NODE' if 'MAZ_NODE' in control_maz_df.columns else 'MAZ'
+            if control_maz_df.index.name not in ['MAZ', 'MAZ_NODE']:
+                if maz_col in control_maz_df.columns:
+                    control_maz_df = control_maz_df.set_index(maz_col)[[control_name]]
                 else:
                     logger.error("Failed to aggregate control_table_df to MAZ level")
                     raise ValueError(f"Failed to aggregate control_table_df to MAZ level")
@@ -769,8 +771,9 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
         else:
             # Already has MAZ column
             logger.info("Control data already has MAZ column")
-            if control_table_df.index.name != 'MAZ':
-                control_maz_df = control_table_df.groupby('MAZ')[control_name].sum().to_frame()
+            maz_col = 'MAZ_NODE' if 'MAZ_NODE' in control_table_df.columns else 'MAZ'
+            if control_table_df.index.name not in ['MAZ', 'MAZ_NODE']:
+                control_maz_df = control_table_df.groupby(maz_col)[control_name].sum().to_frame()
             else:
                 control_maz_df = control_table_df[[control_name]]
         
@@ -780,9 +783,10 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
         
         # Get denominator values (ensure it's indexed by MAZ)
         logger.info(f"Preparing denominator data: {scale_denominator}")
-        if scale_denom_df.index.name != 'MAZ':
-            if 'MAZ' in scale_denom_df.columns:
-                denom_maz = scale_denom_df.set_index('MAZ')[[scale_denominator]]
+        denom_maz_col = 'MAZ_NODE' if 'MAZ_NODE' in scale_denom_df.columns else 'MAZ'
+        if scale_denom_df.index.name not in ['MAZ', 'MAZ_NODE']:
+            if denom_maz_col in scale_denom_df.columns:
+                denom_maz = scale_denom_df.set_index(denom_maz_col)[[scale_denominator]]
             else:
                 logger.error(f"Cannot determine MAZ index for scale_denominator {scale_denominator}")
                 raise ValueError(f"Cannot determine MAZ index for scale_denominator {scale_denominator}")
@@ -811,9 +815,10 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
         if scale_numerator and scale_num_df is not None:
             print(f"[DEBUG] merged columns before numerator merge: {list(merged.columns)}")
             # Get numerator values (ensure it's indexed by MAZ)
-            if scale_num_df.index.name != 'MAZ':
-                if 'MAZ' in scale_num_df.columns:
-                    num_maz = scale_num_df.set_index('MAZ')[[scale_numerator]]
+            num_maz_col = 'MAZ_NODE' if 'MAZ_NODE' in scale_num_df.columns else 'MAZ'
+            if scale_num_df.index.name not in ['MAZ', 'MAZ_NODE']:
+                if num_maz_col in scale_num_df.columns:
+                    num_maz = scale_num_df.set_index(num_maz_col)[[scale_numerator]]
                 else:
                     raise ValueError(f"Cannot determine MAZ index for scale_numerator {scale_numerator}")
             else:
@@ -868,9 +873,10 @@ def temp_table_scaling(control_table_df, control_name, scale_numerator, scale_de
                     for ctrl_name in available_hh_size_controls:
                         # Get the control data aggregated to MAZ level
                         ctrl_data = temp_controls[ctrl_name]
-                        if ctrl_data.index.name != 'MAZ':
-                            if 'MAZ' in ctrl_data.columns:
-                                ctrl_maz = ctrl_data.set_index('MAZ')[ctrl_name]
+                        ctrl_maz_col = 'MAZ_NODE' if 'MAZ_NODE' in ctrl_data.columns else 'MAZ'
+                        if ctrl_data.index.name not in ['MAZ', 'MAZ_NODE']:
+                            if ctrl_maz_col in ctrl_data.columns:
+                                ctrl_maz = ctrl_data.set_index(ctrl_maz_col)[ctrl_name]
                             else:
                                 print(f"[DEBUG] Cannot get MAZ-indexed data for {ctrl_name}")
                                 continue
