@@ -94,3 +94,13 @@ MainProcess,final_seed_balancing,264.8,4.4
 MainProcess,integerize_final_seed_weights,29.7,0.5
 MainProcess,input_pre_processor,22.1,0.4
 MainProcess,setup_data_structures,11.9,0.2
+MainProcess,initial_seed_balancing,282.1,4.7
+MainProcess,meta_control_factoring,0.4,0.0
+MainProcess,final_seed_balancing,324.8,5.4
+MainProcess,integerize_final_seed_weights,26.9,0.4
+MainProcess,sub_balancing.geography=TAZ_NODE,15555.0,259.3
+MainProcess,sub_balancing.geography=MAZ_NODE,12505.2,208.4
+MainProcess,expand_households,2.0,0.0
+MainProcess,summarize,3869.1,64.5
+MainProcess,write_tables,7.6,0.1
+MainProcess,write_synthetic_population,118.4,2.0
