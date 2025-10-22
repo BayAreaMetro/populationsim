@@ -38,11 +38,11 @@ def load_data():
     print(f"Loaded {len(synthetic_hh):,} synthetic households")
     
     # Load MAZ controls (non-GQ household targets)
-    maz_controls = pd.read_csv(data_path / "maz_marginals.csv")
+    maz_controls = pd.read_csv(data_path / "maz_marginals_hhgq.csv")
     print(f"Loaded {len(maz_controls):,} MAZ controls")
     
     # Load TAZ controls for comparison
-    taz_controls = pd.read_csv(data_path / "taz_marginals.csv")
+    taz_controls = pd.read_csv(data_path / "taz_marginals_hhgq.csv")
     print(f"Loaded {len(taz_controls):,} TAZ controls")
     
     return synthetic_hh, maz_controls, taz_controls
@@ -80,15 +80,15 @@ def analyze_corrected_maz_performance(synthetic_hh, maz_controls):
     # Get regular households only from synthetic data
     regular_hh = synthetic_hh[synthetic_hh['hhgqtype'] == 0].copy()
     
-    # Aggregate synthetic regular households by MAZ
-    synthetic_by_maz = regular_hh.groupby('MAZ').size().reset_index(name='synthetic_regular_hh')
+    # Aggregate synthetic regular households by MAZ_NODE
+    synthetic_by_maz = regular_hh.groupby('MAZ_NODE').size().reset_index(name='synthetic_regular_hh')
     
     # Get MAZ targets (num_hh = non-GQ household targets)
-    maz_targets = maz_controls[['MAZ', 'num_hh']].copy()
+    maz_targets = maz_controls[['MAZ_NODE', 'num_hh']].copy()
     maz_targets.rename(columns={'num_hh': 'target_nonGQ_hh'}, inplace=True)
     
     # Merge for comparison
-    comparison = pd.merge(maz_targets, synthetic_by_maz, on='MAZ', how='left')
+    comparison = pd.merge(maz_targets, synthetic_by_maz, on='MAZ_NODE', how='left')
     comparison['synthetic_regular_hh'] = comparison['synthetic_regular_hh'].fillna(0)
     
     # Calculate performance metrics
@@ -161,13 +161,22 @@ def create_corrected_visualizations(comparison):
     scatter = ax1.scatter(comparison['target_nonGQ_hh'], comparison['synthetic_regular_hh'], 
                          alpha=0.6, s=1, c='blue')
     
-    # Add perfect fit line
+    # Add perfect fit line (y=x)
     max_val = max(comparison['target_nonGQ_hh'].max(), comparison['synthetic_regular_hh'].max())
-    ax1.plot([0, max_val], [0, max_val], 'r--', linewidth=2, label='Perfect Fit')
+    ax1.plot([0, max_val], [0, max_val], 'r--', linewidth=2, label='Perfect Fit (y=x)')
+    
+    # Add best fit line
+    x_vals = comparison['target_nonGQ_hh']
+    y_vals = comparison['synthetic_regular_hh']
+    # Calculate best fit line coefficients
+    coeffs = np.polyfit(x_vals, y_vals, 1)
+    best_fit_line = np.poly1d(coeffs)
+    x_range = np.linspace(0, max_val, 100)
+    ax1.plot(x_range, best_fit_line(x_range), 'g-', linewidth=2, label=f'Best Fit (y={coeffs[0]:.3f}x+{coeffs[1]:.1f})')
     
     ax1.set_xlabel('Target Non-GQ Households')
     ax1.set_ylabel('Synthetic Regular Households')
-    ax1.set_title('CORRECTED: Target vs Synthetic Regular Households\n(Proper Like-with-Like Comparison)')
+    ax1.set_title('Target vs Synthetic Regular Households\n(Proper Like-with-Like Comparison)')
     ax1.legend()
     
     # Calculate and display R²
@@ -177,22 +186,26 @@ def create_corrected_visualizations(comparison):
     
     # 2. Error distribution histogram
     ax2 = plt.subplot(2, 3, 2)
-    ax2.hist(comparison['difference'], bins=50, alpha=0.7, color='green', edgecolor='black')
+    # Use more granular bins for better distribution visualization
+    ax2.hist(comparison['difference'], bins=100, alpha=0.7, color='green', edgecolor='black', range=(-500, 500))
     ax2.axvline(x=0, color='red', linestyle='--', linewidth=2, label='Perfect Match')
+    ax2.set_xlim(-500, 500)  # Set x-axis range to -500 to 500
     ax2.set_xlabel('Difference (Synthetic - Target)')
     ax2.set_ylabel('Number of MAZs')
-    ax2.set_title('CORRECTED: Household Allocation Error Distribution\n(Regular HH Only)')
+    ax2.set_title('Household Allocation Error Distribution\n(Regular HH Only)')
     ax2.legend()
     
     # 3. Percentage error distribution (exclude extreme cases)
     ax3 = plt.subplot(2, 3, 3)
     valid_pct_errors = comparison[comparison['pct_error'] != 999]['pct_error']
     if len(valid_pct_errors) > 0:
-        ax3.hist(valid_pct_errors, bins=50, alpha=0.7, color='orange', edgecolor='black')
+        # Use more granular bins and ensure proper range
+        ax3.hist(valid_pct_errors, bins=100, alpha=0.7, color='orange', edgecolor='black', range=(-50, 50))
     ax3.axvline(x=0, color='red', linestyle='--', linewidth=2, label='Perfect Match')
+    ax3.set_xlim(-50, 50)  # Set x-axis range to -50% to 50%
     ax3.set_xlabel('Percentage Error (%)')
     ax3.set_ylabel('Number of MAZs')
-    ax3.set_title('CORRECTED: Percentage Error Distribution\n(Regular HH Only, Valid Cases)')
+    ax3.set_title('Percentage Error Distribution\n(Regular HH Only, Valid Cases)')
     ax3.legend()
     
     # 4. Performance summary bar chart
@@ -207,7 +220,7 @@ def create_corrected_visualizations(comparison):
     
     bars = ax4.bar(categories, counts, color=colors, alpha=0.7)
     ax4.set_ylabel('Number of MAZs')
-    ax4.set_title('CORRECTED: MAZ Performance Distribution\n(Regular HH Only)')
+    ax4.set_title('MAZ Performance Distribution\n(Regular HH Only)')
     
     # Add count labels on bars
     for bar, count in zip(bars, counts):
@@ -228,7 +241,7 @@ def create_corrected_visualizations(comparison):
     ax5.boxplot(box_data, labels=['1-10', '11-50', '51-100', '101-500', '500+'])
     ax5.set_xlabel('Target Household Size Bins')
     ax5.set_ylabel('Absolute Error')
-    ax5.set_title('CORRECTED: Error Distribution by Target Size\n(Regular HH Only)')
+    ax5.set_title('Error Distribution by Target Size\n(Regular HH Only)')
     
     # 6. Summary statistics text
     ax6 = plt.subplot(2, 3, 6)
@@ -259,7 +272,7 @@ def create_corrected_visualizations(comparison):
         allocation_direction = "Perfect allocation achieved."
 
     summary_text = f"""
-CORRECTED PopulationSim Performance Summary
+PopulationSim Performance Summary
 (Regular Households vs Non-GQ Targets)
 
 Target Non-GQ Households: {total_target:,}
@@ -312,8 +325,8 @@ def analyze_gq_allocation(synthetic_hh, maz_controls):
         pct = (count / total_gq) * 100
         print(f"  {label}: {count:,} ({pct:.2f}%)")
     
-    # Aggregate GQ households by MAZ
-    gq_by_maz = gq_hh.groupby('MAZ').size().reset_index(name='synthetic_gq_hh')
+    # Aggregate GQ households by MAZ_NODE
+    gq_by_maz = gq_hh.groupby('MAZ_NODE').size().reset_index(name='synthetic_gq_hh')
     
     # Check if we have GQ population targets in MAZ controls
     if 'gq_pop' in maz_controls.columns:
