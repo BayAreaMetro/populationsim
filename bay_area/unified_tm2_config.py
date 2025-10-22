@@ -347,7 +347,11 @@ class UnifiedTM2Config:
             },
             'validation_scripts': {},
             'check_scripts': {},
-            'visualization_scripts': {}
+            'visualization_scripts': {
+                'taz_controls_analysis': self.BASE_DIR / "analyze_taz_controls_vs_results.py",
+                'interactive_taz_analysis': self.BASE_DIR / "create_interactive_taz_analysis.py", 
+                'county_analysis': self.BASE_DIR / "analyze_county_results.py"
+            }
         }
     
     def _create_directories(self):

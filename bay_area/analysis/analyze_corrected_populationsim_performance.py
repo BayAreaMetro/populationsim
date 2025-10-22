@@ -187,9 +187,9 @@ def create_corrected_visualizations(comparison):
     # 2. Error distribution histogram
     ax2 = plt.subplot(2, 3, 2)
     # Use more granular bins for better distribution visualization
-    ax2.hist(comparison['difference'], bins=100, alpha=0.7, color='green', edgecolor='black', range=(-500, 500))
+    ax2.hist(comparison['difference'], bins=100, alpha=0.7, color='green', edgecolor='black', range=(-10, 10))
     ax2.axvline(x=0, color='red', linestyle='--', linewidth=2, label='Perfect Match')
-    ax2.set_xlim(-500, 500)  # Set x-axis range to -500 to 500
+    ax2.set_xlim(-10, 10)  # Set x-axis range to -10 to 10
     ax2.set_xlabel('Difference (Synthetic - Target)')
     ax2.set_ylabel('Number of MAZs')
     ax2.set_title('Household Allocation Error Distribution\n(Regular HH Only)')
@@ -200,9 +200,9 @@ def create_corrected_visualizations(comparison):
     valid_pct_errors = comparison[comparison['pct_error'] != 999]['pct_error']
     if len(valid_pct_errors) > 0:
         # Use more granular bins and ensure proper range
-        ax3.hist(valid_pct_errors, bins=100, alpha=0.7, color='orange', edgecolor='black', range=(-50, 50))
+        ax3.hist(valid_pct_errors, bins=100, alpha=0.7, color='orange', edgecolor='black', range=(-5, 5))
     ax3.axvline(x=0, color='red', linestyle='--', linewidth=2, label='Perfect Match')
-    ax3.set_xlim(-50, 50)  # Set x-axis range to -50% to 50%
+    ax3.set_xlim(-5, 5)  # Set x-axis range to -5% to 5%
     ax3.set_xlabel('Percentage Error (%)')
     ax3.set_ylabel('Number of MAZs')
     ax3.set_title('Percentage Error Distribution\n(Regular HH Only, Valid Cases)')
@@ -302,10 +302,12 @@ with {overall_pct_error:.2f}% allocation of regular households.
     
     plt.tight_layout()
     from pathlib import Path
-    output_path = Path('output_2023') / 'corrected_populationsim_performance.png'
+    charts_dir = Path('output_2023') / 'charts'
+    charts_dir.mkdir(exist_ok=True)  # Ensure charts directory exists
+    output_path = charts_dir / 'populationsim_performance.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.show()
-    print(f"Corrected performance visualization saved as '{output_path}'")
+    print(f"Performance visualization saved as '{output_path}'")
 
 def analyze_gq_allocation(synthetic_hh, maz_controls):
     """Analyze Group Quarters allocation separately"""

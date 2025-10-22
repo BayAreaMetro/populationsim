@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
 
         # read the taz and county summaries
-    taz_summary_file = pathlib.Path(args.directory) / "final_summary_TAZ.csv"
+    taz_summary_file = pathlib.Path(args.directory) / "final_summary_TAZ_NODE.csv"
     taz_summary_df = pandas.read_csv(taz_summary_file)
     logging.info("Read {:,} rows from {}".format(len(taz_summary_df), taz_summary_file))
     logging.debug("taz_summary_df.dtypes():\n{}".format(taz_summary_df.dtypes))
@@ -185,13 +185,13 @@ if __name__ == '__main__':
     for county_num in range(1,10):
         county_result_file = pathlib.Path(args.directory) / "final_summary_COUNTY_{}.csv".format(county_num)
         county_result_df = pandas.read_csv(county_result_file, 
-                                           usecols=['control_name','control_value','TAZ_integer_weight'])
+                                           usecols=['control_name','control_value','COUNTY_integer_weight'])
         county_result_df['geography'] = 'county'
         county_result_df['id'] = county_num
         county_result_df.rename(columns={
            'control_name':'variable',
            'control_value':'control', 
-           'TAZ_integer_weight':'result'}, inplace=True)
+           'COUNTY_integer_weight':'result'}, inplace=True)
         
         summary_melt_df = pandas.concat([summary_melt_df, county_result_df])
 
@@ -425,6 +425,17 @@ if __name__ == '__main__':
 
     # (d) subset & rename household columns according to HOUSING_COLUMNS
     households_df = households_df[HOUSING_COLUMNS[args.model_type].keys()].rename(columns=HOUSING_COLUMNS[args.model_type])
+
+    # Fix negative household incomes by setting them to 0
+    income_col = 'HINC' if args.model_type == 'TM1' else 'HHINCADJ'
+    if income_col in households_df.columns:
+        negative_incomes = households_df[income_col] < 0
+        if negative_incomes.any():
+            num_negative = negative_incomes.sum()
+            logging.info(f"Found {num_negative:,} households with negative incomes, setting to 0")
+            households_df.loc[negative_incomes, income_col] = 0
+        else:
+            logging.info("No negative household incomes found")
 
     if args.model_type == 'TM1': 
         # add hinccat1 as variable for tm1, group hh_income_2000 by tm1 income categories

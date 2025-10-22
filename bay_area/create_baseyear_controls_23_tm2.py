@@ -2419,6 +2419,23 @@ def create_hhgq_integrated_files(logger):
             # Remove separate columns to avoid confusion
             maz_df.drop(['hh_gq_university', 'hh_gq_noninstitutional'], axis=1, inplace=True)
         
+        # Filter to only include columns used as PopulationSim controls
+        # Based on controls.csv: numhh_gq, gq_type_univ, gq_type_noninst are the only MAZ controls used
+        required_columns = ['MAZ_NODE', 'numhh_gq']
+        optional_control_columns = ['gq_type_univ', 'gq_type_noninst', 'gq_type_all']
+        
+        # Keep only required columns plus any optional control columns that exist
+        columns_to_keep = required_columns.copy()
+        for col in optional_control_columns:
+            if col in maz_df.columns:
+                columns_to_keep.append(col)
+        
+        # Filter dataframe to only include control columns
+        original_columns = len(maz_df.columns)
+        maz_df = maz_df[columns_to_keep]
+        logger.info(f"Filtered MAZ columns from {original_columns} to {len(maz_df.columns)} (keeping only PopulationSim control columns)")
+        logger.info(f"Kept columns: {list(maz_df.columns)}")
+        
         maz_df.to_csv(maz_output, index=False)
         logger.info(f"Wrote MAZ HHGQ file: {maz_output}")
             
@@ -3053,6 +3070,22 @@ def main():
             hhgq_df['hh_gq_other_nonins'] = hhgq_df['hh_gq_other_nonins'] + hhgq_df['hh_gq_military']
             # Zero out military column
             hhgq_df['hh_gq_military'] = 0
+            
+            # Filter to only include columns used as PopulationSim controls (apply same filtering as main creation)
+            required_columns = ['MAZ_NODE', 'numhh_gq']
+            optional_control_columns = ['gq_type_univ', 'gq_type_noninst', 'gq_type_all', 'hh_gq_other_nonins']
+            
+            # Keep only required columns plus any optional control columns that exist
+            columns_to_keep = required_columns.copy()
+            for col in optional_control_columns:
+                if col in hhgq_df.columns:
+                    columns_to_keep.append(col)
+            
+            # Filter dataframe to only include control columns
+            original_columns = len(hhgq_df.columns)
+            hhgq_df = hhgq_df[columns_to_keep]
+            logger.info(f"Filtered MAZ HHGQ columns from {original_columns} to {len(hhgq_df.columns)} (keeping only PopulationSim control columns)")
+            logger.info(f"Kept columns: {list(hhgq_df.columns)}")
             
             # Save updated file
             hhgq_df.to_csv(maz_hhgq_file, index=False)
