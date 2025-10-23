@@ -100,7 +100,20 @@ if __name__ == '__main__':
         print("PROCESSING TM2 MODEL")
         print("="*60)
         
-        maz_controls_file = input_dir / "maz_marginals.csv"
+        # Try working directory structure first, then fallback to input directory
+        maz_controls_file = input_dir / "populationsim_working_dir" / "data" / "maz_marginals.csv"
+        if not maz_controls_file.exists():
+            maz_controls_file = input_dir / "maz_marginals.csv"
+        
+        if not maz_controls_file.exists():
+            print(f"ERROR: MAZ controls file not found at {maz_controls_file}")
+            print("Available files in working directory:")
+            working_dir = input_dir / "populationsim_working_dir" / "data"
+            if working_dir.exists():
+                for f in working_dir.glob("*marginals*"):
+                    print(f"  {f.name}")
+            sys.exit(1)
+        
         maz_controls_df   = pandas.read_csv(maz_controls_file)
         print("Read {} MAZ controls from {}".format(len(maz_controls_df), maz_controls_file))
         print("MAZ columns:", list(maz_controls_df.columns))

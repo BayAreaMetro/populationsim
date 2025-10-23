@@ -80,7 +80,7 @@ def get_bay_area_income_from_census():
     results_df = pd.DataFrame(results)
 
     # Print summary
-    print("\n📊 BAY AREA HOUSEHOLD INCOME DISTRIBUTION BY COUNTY (ACS, config-driven bins)")
+    print("\n[INFO] BAY AREA HOUSEHOLD INCOME DISTRIBUTION BY COUNTY (ACS, config-driven bins)")
     print("=" * 95)
     header = f"{'County':<15} | {'Total HH':<10} | " + " | ".join([f"{b['control']:<16}" for b in bins])
     print(header)
@@ -104,7 +104,7 @@ def get_bay_area_income_from_census():
     # Save results
     output_file = config.POPSIM_OUTPUT_DIR / "bay_area_income_acs_2023_2010bins.csv"
     results_df.to_csv(output_file, index=False)
-    print(f"\n💾 Results saved to: {output_file}")
+    print(f"\n[SAVED] Results saved to: {output_file}")
 
 
 if __name__ == "__main__":

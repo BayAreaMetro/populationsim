@@ -1,0 +1,112 @@
+Comparing: C:\GitHub\populationsim\bay_area\example_2015_outputs\hh_persons_model\households.csv vs C:\GitHub\populationsim\bay_area\output_2023\populationsim_working_dir\output\households_2023_tm2.csv
+
+Column presence:
+  BLD: Both
+  HHID: Both
+  HHINCADJ: Both
+  HHT: Both
+  MAZ: Only in old
+  MAZ_NODE: Only in new
+  MAZ_ORIGINAL: Only in new
+  MAZ_SEQ: Only in new
+  MTCCountyID: Both
+  NP: Both
+  NWRKRS_ESR: Both
+  ORIG_MAZ: Only in old
+  ORIG_TAZ: Only in old
+  TAZ: Only in old
+  TAZ_NODE: Only in new
+  TAZ_ORIGINAL: Only in new
+  TAZ_SEQ: Only in new
+  TEN: Only in new
+  TYPE: Both
+  VEH: Both
+
+=== BLD ===
+  Value           Old      New      Diff     %Diff
+  -9                 83728   117276    33548    40.07
+  1                  70035    55209   -14826   -21.17
+  10                  2498     3309      811    32.47
+  2                1417205  1412009    -5196    -0.37
+  3                 267916   262676    -5240    -1.96
+  4                  98803    86916   -11887   -12.03
+  5                 172253   171055    -1198    -0.70
+  6                 167064   156721   -10343    -6.19
+  7                 142380   147589     5209     3.66
+  8                 146292   166303    20011    13.68
+  9                 199853   339517   139664    69.88
+
+=== HHINCADJ ===
+  Stat      Old         New         Diff        %Diff
+  mean       93584.54  124800.87   31216.33      33.36
+  median     66135.77   88876.00   22740.23      34.38
+  min       -21382.11       0.00   21382.11    -100.00
+  max      1517212.48 1715388.00  198175.52      13.06
+
+=== HHT ===
+  Value           Old      New      Diff     %Diff
+  -9                 83728   117276    33548    40.07
+  1                1142602  1349729   207127    18.13
+  2                 193224   161321   -31903   -16.51
+  3                 503999   298742  -205257   -40.73
+  4                 302952   349775    46823    15.46
+  5                 101317   152698    51381    50.71
+  6                 372748   371321    -1427    -0.38
+  7                  67457   117718    50261    74.51
+
+=== NP ===
+  Value           Old      New      Diff     %Diff
+  1                 759428   838372    78944    10.40
+  10                  7735    12536     4801    62.07
+  11                  2317    12297     9980   430.73
+  12                  1017     6385     5368   527.83
+  13                  1089     2616     1527   140.22
+  14                   137     1860     1723  1257.66
+  15                   375     1699     1324   353.07
+  16                     0      695      695      nan
+  18                    38      374      336   884.21
+  2                 840401   893519    53118     6.32
+  20                     0      255      255      nan
+  3                 465128   476025    10897     2.34
+  4                 307897   420583   112686    36.60
+  5                 188394   174204   -14190    -7.53
+  6                 111705    27771   -83934   -75.14
+  7                  45273    16362   -28911   -63.86
+  8                  24730    14395   -10335   -41.79
+  9                  12363    18632     6269    50.71
+
+=== NWRKRS_ESR ===
+  Value           Old      New      Diff     %Diff
+  0                 673873   691681    17808     2.64
+  1                1046653  1053374     6721     0.64
+  10                    51     1746     1695  3323.53
+  11                     0        9        9      nan
+  2                 813531   897071    83540    10.27
+  3                 174350   161647   -12703    -7.29
+  4                  46024    52452     6428    13.97
+  5                   9787    30158    20371   208.14
+  6                   3047    16357    13310   436.82
+  7                    219     7106     6887  3144.75
+  8                    492     6442     5950  1209.35
+  9                      0      537      537      nan
+
+=== TYPE ===
+  Value           Old      New      Diff     %Diff
+  1                2684299  2801304   117005     4.36
+  3                  83728   117276    33548    40.07
+
+=== VEH ===
+  Value           Old      New      Diff     %Diff
+  -9                 83728   117276    33548    40.07
+  0                 274665   292360    17695     6.44
+  1                 880707   907383    26676     3.03
+  2                 951040   958725     7685     0.81
+  3                 371535   398677    27142     7.31
+  4                 148534   153068     4534     3.05
+  5                  40291    51766    11475    28.48
+  6                  17527    39325    21798   124.37
+
+
+---
+
+Note: Only columns present in both files are compared. Columns missing in one file are listed above.

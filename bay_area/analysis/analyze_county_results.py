@@ -362,7 +362,15 @@ def create_detailed_variable_analysis(df, output_dir):
                           label='Result', alpha=0.7, color='orange')
             
             ax.set_xlabel('County')
-            ax.set_ylabel('Count')
+            # Set appropriate y-axis label based on variable category
+            if category in ['Household Size', 'Workers', 'Income']:
+                ax.set_ylabel('Total Households')
+            elif category == 'Age Groups':
+                ax.set_ylabel('Total Persons')
+            elif category == 'Group Quarters':
+                ax.set_ylabel('People in Group Quarters')
+            else:
+                ax.set_ylabel('Count')
             ax.set_title(var.replace('_', ' ').title())
             ax.set_xticks(x)
             ax.set_xticklabels(var_data['county_name'], rotation=45, ha='right')

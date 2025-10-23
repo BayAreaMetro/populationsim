@@ -55,7 +55,7 @@ VARIABLE_LABELS = {
 def load_taz_data():
     """Load TAZ data"""
     
-    print("📊 Loading TAZ data...")
+    print("[INFO] Loading TAZ data...")
     
     taz_file = Path("output_2023/populationsim_working_dir/output/final_summary_TAZ_NODE.csv")
     if not taz_file.exists():
@@ -63,7 +63,7 @@ def load_taz_data():
         return None
     
     df = pd.read_csv(taz_file)
-    print(f"📈 Loaded TAZ data: {len(df):,} TAZ zones")
+    print(f"[INFO] Loaded TAZ data: {len(df):,} TAZ zones")
     
     return df
 
@@ -74,7 +74,7 @@ def create_interactive_variable_chart(df, var_name, output_dir):
     result_col = f"{var_name}_result"
     
     if control_col not in df.columns or result_col not in df.columns:
-        print(f"   ⚠️  Skipping {var_name} - missing columns")
+        print(f"   [WARNING] Skipping {var_name} - missing columns")
         return None
     
     controls = df[control_col].values
@@ -296,7 +296,7 @@ def create_interactive_variable_chart(df, var_name, output_dir):
 def create_variable_selector_dashboard(df, output_dir):
     """Create a dashboard with variable selector dropdown"""
     
-    print("📊 Creating interactive dashboard with variable selector...")
+    print("[INFO] Creating interactive dashboard with variable selector...")
     
     # Get control variables
     control_vars = [col.replace('_control', '') for col in df.columns if col.endswith('_control')]
@@ -496,12 +496,12 @@ def create_interactive_taz_analysis():
     control_vars = [col.replace('_control', '') for col in df.columns if col.endswith('_control')]
     control_vars = [var for var in control_vars if f"{var}_result" in df.columns]
     
-    print(f"📊 Creating interactive charts for {len(control_vars)} variables...")
+    print("[INFO] Creating interactive charts for {:} variables...".format(len(control_vars)))
     
     # Create individual charts
     results = []
     for i, var in enumerate(control_vars):
-        print(f"   📈 Creating chart {i+1}/{len(control_vars)}: {var}")
+        print(f"   [INFO] Creating chart {i+1}/{len(control_vars)}: {var}")
         result = create_interactive_variable_chart(df, var, output_dir)
         if result:
             results.append(result)
@@ -512,9 +512,9 @@ def create_interactive_taz_analysis():
     # Create summary index page
     create_summary_index(results, dashboard_file, output_dir)
     
-    print(f"\n✅ Interactive analysis complete!")
-    print(f"📊 Generated {len(results)} interactive charts")
-    print(f"🎛️  Dashboard: {dashboard_file}")
+    print(f"\n[SUCCESS] Interactive analysis complete!")
+    print(f"[INFO] Generated {len(results)} interactive charts")
+    print(f"[DASHBOARD] Dashboard: {dashboard_file}")
     print(f"📁 All files saved to: {output_dir}")
 
 def create_summary_index(results, dashboard_file, output_dir):
@@ -554,7 +554,7 @@ def create_summary_index(results, dashboard_file, output_dir):
     <body>
         <h1>Interactive TAZ Analysis - Bay Area PopulationSim Results</h1>
         
-        <a href="{dashboard_file.name}" class="dashboard-link">🎛️ Open Interactive Dashboard</a>
+        <a href="{dashboard_file.name}" class="dashboard-link">[LINK] Open Interactive Dashboard</a>
         
         <h2>Performance Summary</h2>
         <table>

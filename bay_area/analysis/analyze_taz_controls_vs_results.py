@@ -37,31 +37,31 @@ def analyze_taz_controls_vs_results():
         return
     
     df = pd.read_csv(taz_file)
-    print(f"📊 Loaded TAZ data: {len(df):,} TAZ zones")
+    print("[INFO] Loaded TAZ data: {:,} TAZ zones".format(len(df)))
     
     # Create output directory
-    output_dir = Path("output_2023/charts/taz_analysis")
+    output_dir = Path("../output_2023/charts/taz_analysis")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Identify control variables (exclude geography and id columns)
     control_vars = [col for col in df.columns if col.endswith('_control')]
     control_vars = [var.replace('_control', '') for var in control_vars]
     
-    print(f"📈 Found {len(control_vars)} control variables to analyze")
+    print("[INFO] Found {:} control variables to analyze".format(len(control_vars)))
     print("Variables:", control_vars[:10], "..." if len(control_vars) > 10 else "")
     
     # Analyze each variable
     results_summary = []
     
     for i, var in enumerate(control_vars):
-        print(f"\n📊 Analyzing variable {i+1}/{len(control_vars)}: {var}")
+        print(f"\n[INFO] Analyzing variable {i+1}/{len(control_vars)}: {var}")
         
         control_col = f"{var}_control"
         result_col = f"{var}_result"
         
         # Skip if columns don't exist
         if control_col not in df.columns or result_col not in df.columns:
-            print(f"   ⚠️  Skipping {var} - missing columns")
+            print(f"   [WARNING] Skipping {var} - missing columns")
             continue
         
         # Get data
@@ -73,7 +73,7 @@ def analyze_taz_controls_vs_results():
         total_result = results.sum()
         
         if total_control == 0:
-            print(f"   ⚠️  Skipping {var} - zero total control")
+            print(f"   [WARNING] Skipping {var} - zero total control")
             continue
         
         # Calculate errors
@@ -91,9 +91,9 @@ def analyze_taz_controls_vs_results():
         perfect_matches = np.sum(errors == 0)
         perfect_pct = (perfect_matches / len(errors)) * 100
         
-        print(f"   📈 Total Control: {total_control:,.0f}, Total Result: {total_result:,.0f}")
-        print(f"   📊 R²: {r_squared:.4f}, MAE: {mae:.2f}, RMSE: {rmse:.2f}")
-        print(f"   🎯 Perfect matches: {perfect_matches:,} ({perfect_pct:.1f}%)")
+        print(f"   [INFO] Total Control: {total_control:,.0f}, Total Result: {total_result:,.0f}")
+        print(f"   [INFO] R-squared: {r_squared:.4f}, MAE: {mae:.2f}, RMSE: {rmse:.2f}")
+        print(f"   [RESULT] Perfect matches: {perfect_matches:,} ({perfect_pct:.1f}%)")
         
         # Store results
         results_summary.append({
@@ -118,8 +118,8 @@ def analyze_taz_controls_vs_results():
     # Create summary analysis
     create_summary_analysis(results_summary, output_dir)
     
-    print(f"\n✅ Analysis complete! Charts saved to: {output_dir}")
-    print(f"📊 Generated {len(results_summary)} variable analyses")
+    print(f"\n[SUCCESS] Analysis complete! Charts saved to: {output_dir}")
+    print(f"[INFO] Generated {len(results_summary)} variable analyses")
 
 def create_variable_chart(var_name, controls, results, errors, pct_errors, 
                          output_dir, r_squared, mae, perfect_pct):
@@ -398,9 +398,9 @@ Regional Accuracy:
     # Save detailed results CSV
     csv_file = output_dir / "taz_analysis_summary.csv"
     df_summary.to_csv(csv_file, index=False)
-    print(f"📊 Summary data saved to: {csv_file}")
+    print(f"[INFO] Summary data saved to: {csv_file}")
     
-    print(f"\n📈 OVERALL PERFORMANCE SUMMARY:")
+    print(f"\n[SUMMARY] OVERALL PERFORMANCE SUMMARY:")
     print(f"   • Variables analyzed: {len(df_summary)}")
     print(f"   • Mean R-squared: {df_summary['r_squared'].mean():.4f}")
     print(f"   • Mean perfect match rate: {df_summary['perfect_pct'].mean():.1f}%")
@@ -437,7 +437,7 @@ def analyze_total_population_by_taz():
     total_diff = total_result - total_control
     total_diff_pct = (total_diff / total_control) * 100
     
-    print(f"📊 Total Population Analysis:")
+    print("[INFO] Total Population Analysis:")
     print(f"   • Control Population: {total_control:,.0f}")
     print(f"   • Result Population: {total_result:,.0f}")
     print(f"   • Difference: {total_diff:,.0f} ({total_diff_pct:+.3f}%)")
@@ -454,7 +454,7 @@ def analyze_total_population_by_taz():
     print(f"   • Perfect matches: {perfect_matches:,} ({perfect_pct:.1f}%)")
     
     # Create visualization
-    output_dir = Path("output_2023/charts/taz_analysis")
+    output_dir = Path("../output_2023/charts/taz_analysis")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
@@ -532,12 +532,12 @@ Error Distribution:
     plt.savefig(pop_file, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"📊 Population analysis chart saved to: {pop_file}")
+    print(f"[INFO] Population analysis chart saved to: {pop_file}")
     
     # Save detailed population data
     pop_csv = output_dir / "taz_population_summary.csv" 
     df[['id', 'total_pop_control', 'total_pop_result', 'total_pop_diff', 'total_pop_pct_error']].to_csv(pop_csv, index=False)
-    print(f"📊 Population data saved to: {pop_csv}")
+    print(f"[INFO] Population data saved to: {pop_csv}")
 
 if __name__ == '__main__':
     analyze_taz_controls_vs_results()

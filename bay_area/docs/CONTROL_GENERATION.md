@@ -76,7 +76,7 @@ This approach treats each GQ person as representing potential housing demand whi
 
 **MAZ Controls (`maz_marginals.csv` and `maz_marginals_hhgq.csv`):**
 
-- `MAZ`: MAZ identifier (matches `MAZ_NODE` from crosswalk)
+- `MAZ_NODE`: MAZ identifier (matches `MAZ_NODE` from crosswalk)
 - `num_hh`: Number of households (Census H1_002N)
 - `total_pop`: Total population
 - `hh_gq_university`: University group quarters persons (P5_008N)
@@ -86,7 +86,7 @@ This approach treats each GQ person as representing potential housing demand whi
 
 **TAZ Controls (`taz_marginals.csv` and `taz_marginals_hhgq.csv`):**
 
-- `TAZ`: TAZ identifier (matches `TAZ_NODE` from crosswalk)
+- `TAZ_NODE`: TAZ identifier (matches `TAZ_NODE` from crosswalk)
 - `num_hh`: Number of households
 - `hh_size_1` through `hh_size_4plus`: Household size categories
 - `hh_inc_0_30k` through `hh_inc_200kplus`: Income categories

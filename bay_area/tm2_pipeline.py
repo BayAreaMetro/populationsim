@@ -501,8 +501,8 @@ class TM2Pipeline:
                 'seed_households.csv',
                 'seed_persons.csv', 
                 'geo_cross_walk_tm2.csv',
-                'maz_marginals.csv',
-                'taz_marginals.csv',
+                'maz_marginals_hhgq.csv',
+                'taz_marginals_hhgq.csv',
                 'county_marginals.csv'
             ]
             

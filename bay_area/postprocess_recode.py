@@ -43,8 +43,10 @@ HOUSING_COLUMNS = {
     # http://bayareametro.github.io/travel-model-two/input/#households
     'TM2':collections.OrderedDict([
       ("unique_hh_id",        "HHID"),          # Fixed: use unique_hh_id from PopulationSim
-      ("TAZ_NODE",            "TAZ"),
-      ("MAZ_NODE",            "MAZ"),
+      ("TAZ_NODE",            "TAZ_NODE"),      # Keep as TAZ_NODE to match controls
+      ("MAZ_NODE",            "MAZ_NODE"),      # Keep as MAZ_NODE to match controls
+      ("MAZ_SEQ",             "MAZ_SEQ"),       # Sequential MAZ ID for analysis
+      ("TAZ_SEQ",             "TAZ_SEQ"),       # Sequential TAZ ID for analysis
       ("TAZ_ORIGINAL",        "TAZ_ORIGINAL"),  # Original TAZ before remapping
       ("MAZ_ORIGINAL",        "MAZ_ORIGINAL"),  # Original MAZ before remapping
       ("COUNTY",              "MTCCountyID"),   # Maps to county 1-9
@@ -232,55 +234,39 @@ if __name__ == '__main__':
             logging.info("Read MAZ lookup table with {:,} rows".format(len(maz_lookup_df)))
             
             # Check required columns exist
-            required_cols = ['MAZ_NODE', 'TAZ_NODE', 'MAZ_ORIGINAL', 'TAZ_ORIGINAL']
+            required_cols = ['MAZ_NODE', 'TAZ_NODE', 'MAZ_SEQ', 'TAZ_SEQ']
             missing_cols = [col for col in required_cols if col not in maz_lookup_df.columns]
             if missing_cols:
                 logging.warning(f"Missing columns in MAZ lookup: {missing_cols}")
                 logging.info("Available columns: {}".format(list(maz_lookup_df.columns)))
             else:
-                # STEP 1: Store the current TAZ_NODE/MAZ_NODE values as _ORIGINAL (these are the old IDs)
-                households_df['TAZ_ORIGINAL'] = households_df['TAZ_NODE']  # Store old TAZ (e.g., 2080)
-                households_df['MAZ_ORIGINAL'] = households_df['MAZ_NODE']  # Store old MAZ (e.g., 19399)
+                # CORRECT LOGIC: Keep MAZ_NODE and TAZ_NODE unchanged, just add MAZ_SEQ and TAZ_SEQ from lookup
+                logging.info("Adding MAZ_SEQ and TAZ_SEQ from lookup table while preserving original MAZ_NODE and TAZ_NODE")
                 
-                # STEP 2: Check which original MAZ values don't exist in lookup table
-                household_maz_original_values = set(households_df['MAZ_ORIGINAL'].unique())
-                lookup_maz_original_values = set(maz_lookup_df['MAZ_ORIGINAL'].unique())
+                # Check for missing MAZ_NODEs in lookup
+                household_maz_values = set(households_df['MAZ_NODE'].unique())
+                lookup_maz_values = set(maz_lookup_df['MAZ_NODE'].unique())
                 
-                missing_maz_values = household_maz_original_values - lookup_maz_original_values
+                missing_maz_values = household_maz_values - lookup_maz_values
                 if missing_maz_values:
-                    logging.warning("MAZ values from households that don't exist in lookup table:")
-                    for maz_val in sorted(missing_maz_values):
-                        print(f"  Missing MAZ: {maz_val}")
-                    logging.warning(f"Total missing MAZ values: {len(missing_maz_values)}")
+                    logging.warning("MAZ_NODE values from households that don't exist in lookup table:")
+                    for maz_val in sorted(list(missing_maz_values)[:10]):  # Show first 10
+                        logging.warning(f"  Missing MAZ_NODE: {maz_val}")
+                    logging.warning(f"Total missing MAZ_NODE values: {len(missing_maz_values)}")
                 
-                # STEP 3: Join households.MAZ_ORIGINAL with lookup.MAZ_ORIGINAL to get new sequential MAZ_NODE
-                maz_remap = maz_lookup_df[['MAZ_NODE', 'MAZ_ORIGINAL']].drop_duplicates()
+                # Join to add MAZ_SEQ and TAZ_SEQ columns (preserving MAZ_NODE and TAZ_NODE)
                 households_df = households_df.merge(
-                    maz_remap[['MAZ_NODE', 'MAZ_ORIGINAL']],
-                    on='MAZ_ORIGINAL',  # Join on the original MAZ values
-                    how='left',
-                    suffixes=('', '_lookup')
+                    maz_lookup_df[['MAZ_NODE', 'TAZ_NODE', 'MAZ_SEQ', 'TAZ_SEQ']].drop_duplicates(),
+                    on=['MAZ_NODE', 'TAZ_NODE'],
+                    how='left'
                 )
                 
-                # STEP 4: Replace the old MAZ_NODE with the new sequential MAZ_NODE where available
-                households_df['MAZ_NODE'] = households_df['MAZ_NODE_lookup'].fillna(households_df['MAZ_NODE'])
-                households_df.drop('MAZ_NODE_lookup', axis=1, inplace=True)
+                # Check join success
+                households_with_seq = households_df['MAZ_SEQ'].notna().sum()
+                total_households = len(households_df)
+                logging.info(f"Successfully added MAZ_SEQ/TAZ_SEQ to {households_with_seq:,}/{total_households:,} households ({households_with_seq/total_households*100:.1f}%)")
                 
-                # STEP 5: Do the same for TAZ_NODE - join households.TAZ_ORIGINAL with lookup.TAZ_ORIGINAL
-                taz_remap = maz_lookup_df[['TAZ_NODE', 'TAZ_ORIGINAL']].drop_duplicates()
-                households_df = households_df.merge(
-                    taz_remap[['TAZ_NODE', 'TAZ_ORIGINAL']],
-                    on='TAZ_ORIGINAL',  # Join on the original TAZ values
-                    how='left',
-                    suffixes=('', '_lookup')
-                )
-                
-                # STEP 6: Replace the old TAZ_NODE with the new sequential TAZ_NODE where available
-                households_df['TAZ_NODE'] = households_df['TAZ_NODE_lookup'].fillna(households_df['TAZ_NODE'])
-                households_df.drop('TAZ_NODE_lookup', axis=1, inplace=True)
-                
-                logging.info("Geographic remapping completed")
-                logging.info("Households now have remapped MAZ_NODE/TAZ_NODE values with original values preserved in MAZ_ORIGINAL/TAZ_ORIGINAL")
+                logging.info("Geographic lookup completed - MAZ_NODE and TAZ_NODE preserved, MAZ_SEQ and TAZ_SEQ added")
                 
         except Exception as e:
             logging.error(f"Error during geographic remapping: {e}")

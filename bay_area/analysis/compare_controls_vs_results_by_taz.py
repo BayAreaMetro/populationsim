@@ -14,7 +14,7 @@ from unified_tm2_config import UnifiedTM2Config
 
 # --- CONFIG ---
 config = UnifiedTM2Config()
-summary_file = config.POPSIM_OUTPUT_DIR / "final_summary_TAZ.csv"
+summary_file = config.POPSIM_OUTPUT_DIR / "final_summary_TAZ_NODE.csv"
 sumdf = pd.read_csv(summary_file)
 
 # --- FIND METRICS ---

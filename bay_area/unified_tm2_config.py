@@ -250,8 +250,8 @@ class UnifiedTM2Config:
             'pums_persons': "bay_area_persons_2019_2023_crosswalked.csv",
             
             # Control files
-            'maz_marginals': "maz_marginals.csv",
-            'taz_marginals': "taz_marginals.csv",
+            'maz_marginals': "maz_marginals_hhgq.csv",
+            'taz_marginals': "taz_marginals_hhgq.csv",
             'county_marginals': "county_marginals.csv",
             'maz_data': "maz_data.csv",
             'maz_data_density': "maz_data_withDensity.csv",
@@ -333,25 +333,17 @@ class UnifiedTM2Config:
             'script': self.BASE_DIR / "prepare_tableau_data.py"
         }
         self.ANALYSIS_FILES = {
-            # Main analysis outputs
+            # Main analysis outputs (for status checking only)
             'full_analysis': self.OUTPUT_DIR / "FULL_DATASET_ANALYSIS.md",
             'performance_summary': self.OUTPUT_DIR / "PERFORMANCE_SUMMARY.txt",
             'analysis_results': self.OUTPUT_DIR / "README_ANALYSIS_RESULTS.md",
             'analysis_log': self.OUTPUT_DIR / "analysis_complete.log",
-            # Analysis scripts (organized by category)
+            # Analysis scripts moved to run_all_summaries.py for independent execution
             'scripts_dir': self.BASE_DIR / "analysis",
-            'main_scripts': {
-                'performance_summary': self.BASE_DIR / "analysis" / "analyze_corrected_populationsim_performance.py",
-                'full_dataset': self.BASE_DIR / "analysis" / "analyze_full_dataset.py",
-                'compare_controls_vs_results_by_taz': self.BASE_DIR / "analysis" / "compare_controls_vs_results_by_taz.py"
-            },
+            'main_scripts': {},
             'validation_scripts': {},
             'check_scripts': {},
-            'visualization_scripts': {
-                'taz_controls_analysis': self.BASE_DIR / "analyze_taz_controls_vs_results.py",
-                'interactive_taz_analysis': self.BASE_DIR / "create_interactive_taz_analysis.py", 
-                'county_analysis': self.BASE_DIR / "analyze_county_results.py"
-            }
+            'visualization_scripts': {}
         }
     
     def _create_directories(self):
@@ -485,15 +477,7 @@ class UnifiedTM2Config:
                 "python",
                 str(self.BASE_DIR / "create_baseyear_controls_23_tm2.py")
             ] + self.get_test_puma_args(),
-            # Step 4: Group quarters integration
-            'hhgq': [
-                "python",
-                str(self.BASE_DIR / "add_hhgq_combined_controls.py"),
-                "--model_type", self.MODEL_TYPE,
-                "--input_dir", str(self.OUTPUT_DIR),
-                "--output_dir", str(self.POPSIM_DATA_DIR)
-            ] + self.get_test_puma_args(),
-            # Step 5: PopulationSim synthesis
+            # Step 4: PopulationSim synthesis (HHGQ integration now included in controls step)
             'populationsim': [
                 "python",
                 str(self.BASE_DIR / "run_populationsim_synthesis.py"),
@@ -716,7 +700,7 @@ class UnifiedTM2Config:
         if not tableau_dir.exists():
             return False
         # Check for key tableau files
-        key_files = ['taz_marginals.csv', 'maz_marginals.csv', 'geo_crosswalk.csv']
+        key_files = ['taz_marginals_hhgq.csv', 'maz_marginals_hhgq.csv', 'geo_crosswalk.csv']
         return all((tableau_dir / f).exists() for f in key_files)
     
     # ============================================================

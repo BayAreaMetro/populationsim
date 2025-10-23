@@ -91,7 +91,7 @@ def build_complete_crosswalk():
     
     # Group by block group and determine the dominant TAZ for each block group
     # This handles cases where a block group spans multiple TAZs
-    bg_taz_mapping = maz_taz_def_df.groupby(['GEOID_block group', 'TAZ']).size().reset_index(name='block_count')
+    bg_taz_mapping = maz_taz_def_df.groupby(['GEOID_block group', 'TAZ_NODE']).size().reset_index(name='block_count')
     
     # For each block group, find the TAZ with the most blocks
     dominant_taz = bg_taz_mapping.loc[bg_taz_mapping.groupby('GEOID_block group')['block_count'].idxmax()]

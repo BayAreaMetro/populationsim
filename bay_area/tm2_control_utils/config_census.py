@@ -203,8 +203,12 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
     # Step 2: Create standardized GEOID_block (15 digits, 2010 format)
     print("\n2. CREATING STANDARDIZED GEOID_BLOCK...")
     
-    # Ensure GEOID10 is treated as string and properly zero-padded to 15 digits
-    blocks_df['GEOID10_str'] = blocks_df['GEOID10'].astype(str).str.zfill(15)
+    # Handle GEOID10 whether it's read as float or string
+    # If it's a float, convert to int first to remove decimal, then to string
+    if blocks_df['GEOID10'].dtype in ['float64', 'float32']:
+        blocks_df['GEOID10_str'] = blocks_df['GEOID10'].astype('int64').astype(str).str.zfill(15)
+    else:
+        blocks_df['GEOID10_str'] = blocks_df['GEOID10'].astype(str).str.zfill(15)
     
     # Create GEOID_block in the format expected by the control system
     blocks_df['GEOID_block'] = blocks_df['GEOID10_str']

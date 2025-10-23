@@ -12,27 +12,27 @@ print(f'Total households: {len(df):,}')
 print()
 
 # Count households by both new and original MAZ
-maz_summary = df.groupby(['MAZ', 'MAZ_ORIGINAL']).size().reset_index(name='household_count')
+maz_summary = df.groupby(['MAZ_SEQ', 'MAZ_NODE']).size().reset_index(name='household_count')
 maz_summary = maz_summary.sort_values('household_count', ascending=False)
 
 print('Top 20 MAZ by household count:')
-print('NEW_MAZ  ORIGINAL_MAZ  Households')
+print('MAZ_SEQ  MAZ_NODE      Households')
 print('-' * 35)
 for _, row in maz_summary.head(20).iterrows():
-    print(f'{row.MAZ:7d}  {row.MAZ_ORIGINAL:11.0f}  {row.household_count:10d}')
+    print(f'{row.MAZ_SEQ:7d}  {row.MAZ_NODE:11.0f}  {row.household_count:10d}')
 print()
 
 # Summary statistics
-new_maz_counts = df.groupby('MAZ').size()
+new_maz_counts = df.groupby('MAZ_SEQ').size()
 print('Summary Statistics:')
-print(f'Unique NEW MAZ zones: {len(new_maz_counts):,}')
-print(f'Unique ORIGINAL MAZ zones: {df.MAZ_ORIGINAL.nunique():,}')
+print(f'Unique MAZ_SEQ zones: {len(new_maz_counts):,}')
+print(f'Unique MAZ_NODE zones: {df.MAZ_NODE.nunique():,}')
 print()
 
 # ID Range Information
 print('MAZ ID Ranges:')
-print(f'NEW MAZ range: {df.MAZ.min():,} to {df.MAZ.max():,}')
-print(f'ORIGINAL MAZ range: {df.MAZ_ORIGINAL.min():,.0f} to {df.MAZ_ORIGINAL.max():,.0f}')
+print(f'MAZ_SEQ range: {df.MAZ_SEQ.min():,} to {df.MAZ_SEQ.max():,}')
+print(f'MAZ_NODE range: {df.MAZ_NODE.min():,.0f} to {df.MAZ_NODE.max():,.0f}')
 print()
 
 # Household distribution statistics
