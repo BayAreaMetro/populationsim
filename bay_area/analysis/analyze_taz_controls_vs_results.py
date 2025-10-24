@@ -18,6 +18,7 @@ import seaborn as sns
 from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
+import re
 
 # Repo root and output root (make paths robust regardless of current working dir)
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -72,12 +73,34 @@ def analyze_taz_controls_vs_results():
         controls = df[control_col].values
         results = df[result_col].values
         
-        # Special handling for hh_size_1 to include group quarters in control
+        # Special handling for hh_size_1 to include group quarters in both control and result
         if var == 'hh_size_1':
-            print("   [INFO] Adjusting hh_size_1 control to include group quarters for fair comparison")
-            gq_control = df['hh_gq_university_control'].values + df['hh_gq_noninstitutional_control'].values
+            print("   [INFO] Adjusting hh_size_1 control and result to include group quarters for fair comparison")
+            # Safely load control GQ columns (default to zeros if missing)
+            if 'hh_gq_university_control' in df.columns:
+                gq_univ_ctrl = df['hh_gq_university_control'].fillna(0).values
+            else:
+                gq_univ_ctrl = np.zeros(len(df))
+            if 'hh_gq_noninstitutional_control' in df.columns:
+                gq_noninst_ctrl = df['hh_gq_noninstitutional_control'].fillna(0).values
+            else:
+                gq_noninst_ctrl = np.zeros(len(df))
+            gq_control = gq_univ_ctrl + gq_noninst_ctrl
             controls = controls + gq_control
-            print(f"   [INFO] Added {gq_control.sum():,.0f} group quarters to hh_size_1 control")
+
+            # Safely load result GQ columns (default to zeros if missing)
+            if 'hh_gq_university_result' in df.columns:
+                gq_univ_res = df['hh_gq_university_result'].fillna(0).values
+            else:
+                gq_univ_res = np.zeros(len(df))
+            if 'hh_gq_noninstitutional_result' in df.columns:
+                gq_noninst_res = df['hh_gq_noninstitutional_result'].fillna(0).values
+            else:
+                gq_noninst_res = np.zeros(len(df))
+            gq_result = gq_univ_res + gq_noninst_res
+            results = results + gq_result
+
+            print(f"   [INFO] Added {int(gq_control.sum()):,} group quarters to hh_size_1 control and {int(gq_result.sum()):,} to hh_size_1 result")
         
         # Calculate metrics
         total_control = controls.sum()
@@ -284,7 +307,15 @@ TAZ Distribution:
     plt.tight_layout()
     
     # Save the chart
-    safe_name = var_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+    # Create a filesystem-safe name: remove/control non-printable or unsafe characters
+    safe_name = var_name
+    # replace spaces and slashes
+    safe_name = safe_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+    # remove any characters that are not alphanumeric, underscore, dot or hyphen
+    safe_name = re.sub(r'[^A-Za-z0-9_.-]', '_', safe_name)
+    # limit length to avoid Windows path issues
+    if len(safe_name) > 120:
+        safe_name = safe_name[:120]
     output_file = output_dir / f"taz_{safe_name}_analysis.png"
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     plt.close()
@@ -577,10 +608,11 @@ def create_tableau_export():
     print("[INFO] Calculating summary variables...")
     
     # 1. Total Households (sum of all hh_size categories) - NOTE: this excludes GQ
+    # Label changed to make explicit that these are Non-GQ households
     hh_size_vars = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4', 'hh_size_5', 'hh_size_6_plus']
-    tableau_data['Total Households - Control'] = sum(df[f"{var}_control"] for var in hh_size_vars)
-    tableau_data['Total Households - Result'] = sum(df[f"{var}_result"] for var in hh_size_vars)
-    tableau_data['Total Households - Difference'] = tableau_data['Total Households - Result'] - tableau_data['Total Households - Control']
+    tableau_data['Total Households Non-GQ - Control'] = sum(df[f"{var}_control"] for var in hh_size_vars)
+    tableau_data['Total Households Non-GQ - Result'] = sum(df[f"{var}_result"] for var in hh_size_vars)
+    tableau_data['Total Households Non-GQ - Difference'] = tableau_data['Total Households Non-GQ - Result'] - tableau_data['Total Households Non-GQ - Control']
     
     # 2. Total Group Quarters (sum of GQ categories)
     gq_vars = ['hh_gq_university', 'hh_gq_noninstitutional']
@@ -651,8 +683,8 @@ def create_tableau_export():
                 tableau_data[f"{label} - Difference"] = df[f"{var}_result"] - df[f"{var}_control"]
     
     # Calculate percentage errors for key summary variables
-    tableau_data['Total Households - Percent Error'] = (
-        tableau_data['Total Households - Difference'] / np.maximum(tableau_data['Total Households - Control'], 1) * 100
+    tableau_data['Total Households Non-GQ - Percent Error'] = (
+        tableau_data['Total Households Non-GQ - Difference'] / np.maximum(tableau_data['Total Households Non-GQ - Control'], 1) * 100
     )
     tableau_data['Total Group Quarters - Percent Error'] = (
         tableau_data['Total Group Quarters - Difference'] / np.maximum(tableau_data['Total Group Quarters - Control'], 1) * 100
@@ -670,9 +702,9 @@ def create_tableau_export():
     
     # Print summary of key totals
     print("\n[SUMMARY] Regional Totals:")
-    print(f"   • Total Households - Control: {tableau_data['Total Households - Control'].sum():,}")
-    print(f"   • Total Households - Result: {tableau_data['Total Households - Result'].sum():,}")
-    print(f"   • Total Households - Difference: {tableau_data['Total Households - Difference'].sum():+,}")
+    print(f"   • Total Households Non-GQ - Control: {tableau_data['Total Households Non-GQ - Control'].sum():,}")
+    print(f"   • Total Households Non-GQ - Result: {tableau_data['Total Households Non-GQ - Result'].sum():,}")
+    print(f"   • Total Households Non-GQ - Difference: {tableau_data['Total Households Non-GQ - Difference'].sum():+,}")
     
     print(f"   • Total Group Quarters - Control: {tableau_data['Total Group Quarters - Control'].sum():,}")
     print(f"   • Total Group Quarters - Result: {tableau_data['Total Group Quarters - Result'].sum():,}")
