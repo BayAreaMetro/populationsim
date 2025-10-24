@@ -39,7 +39,7 @@ COUNTY_NAMES = {
 def load_county_data():
     """Load and combine all county summary files"""
     
-    print("📊 Loading county data files...")
+    print("Loading county data files...")
     
     all_counties = []
     
@@ -55,17 +55,28 @@ def load_county_data():
             df['result'] = df['TAZ_NODE_integer_weight']
             df['control'] = df['control_value']
             
+            # Special handling for hh_size_1 to include group quarters in control
+            hh_size_1_rows = df[df['control_name'] == 'hh_size_1']
+            if len(hh_size_1_rows) > 0:
+                gq_university = df[df['control_name'] == 'hh_gq_university']['control'].iloc[0] if len(df[df['control_name'] == 'hh_gq_university']) > 0 else 0
+                gq_noninst = df[df['control_name'] == 'hh_gq_noninstitutional']['control'].iloc[0] if len(df[df['control_name'] == 'hh_gq_noninstitutional']) > 0 else 0
+                gq_total = gq_university + gq_noninst
+                
+                # Update hh_size_1 control to include group quarters
+                df.loc[df['control_name'] == 'hh_size_1', 'control'] = df.loc[df['control_name'] == 'hh_size_1', 'control'] + gq_total
+                print(f"   Adjusted hh_size_1 control to include {gq_total:,.0f} group quarters")
+            
             all_counties.append(df)
-            print(f"   ✅ Loaded {COUNTY_NAMES[county_id]}: {len(df)} variables")
+            print(f"   Loaded {COUNTY_NAMES[county_id]}: {len(df)} variables")
         else:
-            print(f"   ❌ Missing file for county {county_id}")
+            print(f"   Missing file for county {county_id}")
     
     if not all_counties:
-        print("❌ No county files found!")
+        print("No county files found!")
         return None
     
     combined_df = pd.concat(all_counties, ignore_index=True)
-    print(f"📈 Combined data: {len(combined_df)} records across {len(all_counties)} counties")
+    print(f"Combined data: {len(combined_df)} records across {len(all_counties)} counties")
     
     return combined_df
 
@@ -83,9 +94,16 @@ def create_county_performance_overview(df, output_dir):
         if len(county_data) == 0:
             continue
         
-        # Calculate metrics
-        total_control = county_data['control'].sum()
-        total_result = county_data['result'].sum()
+        # Calculate metrics - use only numhh_gq for total households
+        numhh_gq_data = county_data[county_data['control_name'] == 'numhh_gq']
+        
+        if len(numhh_gq_data) > 0:
+            total_control = numhh_gq_data['control'].iloc[0]
+            total_result = numhh_gq_data['result'].iloc[0]
+        else:
+            # Fallback to sum if numhh_gq not found (shouldn't happen)
+            total_control = county_data['control'].sum()
+            total_result = county_data['result'].sum()
         
         errors = county_data['result'] - county_data['control']
         abs_errors = np.abs(errors)
@@ -371,7 +389,12 @@ def create_detailed_variable_analysis(df, output_dir):
                 ax.set_ylabel('People in Group Quarters')
             else:
                 ax.set_ylabel('Count')
-            ax.set_title(var.replace('_', ' ').title())
+            
+            # Special title for hh_size_1 to indicate it includes GQ
+            if var == 'hh_size_1':
+                ax.set_title('Household Size - 1 Person (including Group Quarters)')
+            else:
+                ax.set_title(var.replace('_', ' ').title())
             ax.set_xticks(x)
             ax.set_xticklabels(var_data['county_name'], rotation=45, ha='right')
             ax.legend()

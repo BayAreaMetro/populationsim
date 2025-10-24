@@ -7,9 +7,13 @@ notes missing columns, and writes results to output_2023.
 import pandas as pd
 from pathlib import Path
 
-# File locations
-old_dir = Path(r"C:/GitHub/populationsim/bay_area/example_2015_outputs/hh_persons_model")
-new_dir = Path(r"C:/GitHub/populationsim/bay_area/output_2023/populationsim_working_dir/output")
+# Repo-root aware paths
+REPO_ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_ROOT = REPO_ROOT / "output_2023"
+
+# File locations (old example outputs and new outputs)
+old_dir = REPO_ROOT / "example_2015_outputs" / "hh_persons_model"
+new_dir = OUTPUT_ROOT / "populationsim_working_dir" / "output"
 
 files = [
     ("households.csv", "households_{year}_tm2.csv", "households_comparison_summary.txt"),
@@ -20,9 +24,18 @@ files = [
 YEAR = 2023
 
 def compare_files(old_file, new_file, out_file, key_col="HHINCADJ"):
+    if not old_file.exists():
+        print(f"[WARN] Old file not found: {old_file}")
+        return
+    if not new_file.exists():
+        print(f"[WARN] New file not found: {new_file}")
+        return
+
     old_df = pd.read_csv(old_file)
     new_df = pd.read_csv(new_file)
-    
+
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+
     with open(out_file, "w", encoding="utf-8") as f:
         f.write(f"Comparing: {old_file} vs {new_file}\n\n")
         # Column matching
@@ -45,7 +58,11 @@ def compare_files(old_file, new_file, out_file, key_col="HHINCADJ"):
         for col in common_cols:
             # Skip columns that are likely ID columns or are MAZ/TAZ columns
             col_lower = col.lower()
-            if 'id' in col_lower or col_lower == 'maz' or col_lower == 'taz':
+            if (
+                'id' in col_lower or
+                col_lower in ('maz', 'taz', 'maz_node', 'taz_node') or
+                'maz_' in col_lower or 'taz_' in col_lower
+            ):
                 continue
             f.write(f"=== {col} ===\n")
             if col.upper() == key_col.upper():

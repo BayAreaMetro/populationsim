@@ -90,7 +90,7 @@ def main():
     )
     parser.add_argument("--year", type=int, default=2023, help="Model year")
     parser.add_argument("--model_type", default="TM2", help="Model type (TM1/TM2)")
-    parser.add_argument("--category", choices=['core', 'visualization', 'validation', 'tableau', 'all'], 
+    parser.add_argument("--category", choices=['core', 'visualization', 'validation', 'all'], 
                        default='all', help="Script category to run")
     parser.add_argument("--skip-errors", action="store_true", help="Continue even if scripts fail")
     
@@ -144,9 +144,7 @@ def main():
             ('compare_synthetic_populations', analysis_dir / "compare_synthetic_populations.py", []),
             ('data_validation', analysis_dir / "data_validation.py", [])
         ],
-        'tableau': [
-            ('prepare_tableau', analysis_dir / "prepare_tableau_data.py", ["--year", str(args.year)])
-        ]
+        # 'tableau' category intentionally removed per user request
     }
     
     # Determine which categories to run

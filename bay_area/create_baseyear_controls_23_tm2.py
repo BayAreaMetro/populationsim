@@ -236,12 +236,12 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     logger.info(f"Applying county-level scaling to {control_name}")
     
     # Ensure control_df has MAZ index
-    if 'MAZ' not in control_df.columns and control_df.index.name != 'MAZ':
+    if 'MAZ_NODE' not in control_df.columns and control_df.index.name != 'MAZ_NODE':
         logger.error(f"Control dataframe for {control_name} missing MAZ identifier")
         return control_df
         
     # Reset index if MAZ is the index
-    if control_df.index.name == 'MAZ':
+    if control_df.index.name == 'MAZ_NODE':
         control_df = control_df.reset_index()
     
     # Get county mapping from the crosswalk file (same approach as the validation function)
@@ -265,7 +265,7 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
             county_to_fips_mapping[county_id] = county_info['fips_str']  # 3-digit FIPS string
         
         # Create county mapping - COUNTY column should already be 1-9 system from crosswalk
-        county_fips_map = crosswalk_df[['MAZ', 'county_name', 'COUNTY']].drop_duplicates()
+        county_fips_map = crosswalk_df[['MAZ_NODE', 'county_name', 'COUNTY']].drop_duplicates()
         
         # Convert COUNTY values (1-9) to 3-digit FIPS strings using unified config mapping
         county_fips_map['county_fips'] = county_fips_map['COUNTY'].map(county_to_fips_mapping)
@@ -279,7 +279,7 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
         return control_df
     
     # Merge control data with county mapping
-    scaled_df = control_df.merge(county_fips_map[['MAZ', 'county_fips']], on='MAZ', how='left')
+    scaled_df = control_df.merge(county_fips_map[['MAZ_NODE', 'county_fips']], on='MAZ_NODE', how='left')
     
     # Check for missing county mappings
     missing_counties = scaled_df['county_fips'].isna().sum()
@@ -326,13 +326,13 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     non_finite = ~numpy.isfinite(scaled_df[control_name])
     if non_finite.any():
         logger.error(f"Found {non_finite.sum()} non-finite values in {control_name} after scaling")
-        logger.error(f"Non-finite zones: {scaled_df.loc[non_finite, 'MAZ'].tolist()[:10]}...")  # Show first 10
+        logger.error(f"Non-finite zones: {scaled_df.loc[non_finite, 'MAZ_NODE'].tolist()[:10]}...")  # Show first 10
         # Replace non-finite values with 0
         scaled_df.loc[non_finite, control_name] = 0
         logger.warning(f"Replaced non-finite values in {control_name} with 0")
     
     # Return scaled dataframe with original structure
-    result_df = scaled_df[['MAZ', control_name]].set_index('MAZ')
+    result_df = scaled_df[['MAZ_NODE', control_name]].set_index('MAZ_NODE')
     
     # Verify scaling results
     original_total = control_df[control_name].sum()
@@ -540,7 +540,7 @@ def process_maz_scaled_control(control_name, control_def, cf, maz_taz_def_df, cr
         # Merge with existing MAZ_SCALED controls
         existing_df = final_control_dfs['MAZ_SCALED']
         final_control_dfs['MAZ_SCALED'] = existing_df.merge(
-            final_df, on='MAZ', how='outer'
+            final_df, on='MAZ_NODE', how='outer'
         ).fillna(0)
     
     logger.info(f"Completed processing MAZ_SCALED control: {control_name}")
@@ -804,22 +804,27 @@ def process_control(
                 print(f"[DEBUG][MAIN] Result columns: {list(final_df.columns)}")
     
     # Step 7.5: Apply county-level scaling for household and population controls
-    if control_name in ["num_hh", "tot_pop"] and county_targets:
+    if (control_name in ["num_hh", "numhh_gq", "tot_pop"] or 
+        control_name.startswith("hh_size_")) and county_targets:
         # Get county targets for this specific control
-        if control_name == "num_hh":
+        if control_name in ["num_hh", "numhh_gq"] or control_name.startswith("hh_size_"):
             control_county_targets = {k: v.get('num_hh_target_by_county') for k, v in county_targets.items() 
                                     if v.get('num_hh_target_by_county')}
+            if control_name == "numhh_gq":
+                logger.info(f"Applying household county targets to {control_name} for hierarchical consistency with TAZ household size controls")
+            elif control_name.startswith("hh_size_"):
+                logger.info(f"Applying household county targets to {control_name} for hierarchical consistency with MAZ numhh_gq control")
         elif control_name == "total_pop":
             control_county_targets = {k: v.get('tot_pop_target_by_county') for k, v in county_targets.items() 
                                     if v.get('tot_pop_target_by_county')}
         else:
             control_county_targets = {}
             
+        # County scaling will be applied later after HHGQ integration
         if control_county_targets:
-            logger.info(f"Applying county-level scaling to {control_name}")
-            final_df = apply_county_scaling(final_df, control_name, control_county_targets, maz_taz_def_df, logger)
+            logger.info(f"County targets available for {control_name} - will be applied after HHGQ integration")
         else:
-            logger.warning(f"No county targets found for {control_name}, skipping county scaling")
+            logger.info(f"No county targets found for {control_name}")
     
     # Step 8: Integerize if needed
     if control_name in ["num_hh", "gq_pop", "total_pop"]:
@@ -996,7 +1001,7 @@ def scale_maz_households_to_county_targets(maz_marginals_file, county_summary_fi
         # Handle both old (MAZ) and new (MAZ_NODE) column naming
         maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
         county_crosswalk = crosswalk_df[[maz_col, 'county_name', 'COUNTY']].drop_duplicates()
-        maz_with_county = maz_df.merge(county_crosswalk, left_on='MAZ', right_on=maz_col, how='left')
+        maz_with_county = maz_df.merge(county_crosswalk, left_on='MAZ_NODE', right_on=maz_col, how='left')
         
         # Ensure we use standardized MAZ_NODE column name in output
         if maz_col == 'MAZ_NODE' and 'MAZ' in maz_with_county.columns:
@@ -1574,7 +1579,7 @@ def summarize_maz_households_by_taz(logger):
         # Handle both old (MAZ, TAZ) and new (MAZ_NODE, TAZ_NODE) column naming
         maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk_df.columns else 'MAZ'
         taz_col = 'TAZ_NODE' if 'TAZ_NODE' in crosswalk_df.columns else 'TAZ'
-        maz_taz = maz_df.merge(crosswalk_df[[maz_col, taz_col]], left_on='MAZ', right_on=maz_col, how='left')
+        maz_taz = maz_df.merge(crosswalk_df[[maz_col, taz_col]], left_on='MAZ_NODE', right_on=maz_col, how='left')
         
         # Check for missing TAZ mappings
         missing_taz = maz_taz['TAZ'].isna().sum()
@@ -1818,7 +1823,7 @@ def create_maz_data_files(logger):
             # Create mapping from MAZ to actual population
             if 'MAZ_ORIGINAL' in current_maz_data.columns and 'POP' in current_maz_data.columns:
                 pop_mapping = current_maz_data.set_index('MAZ_ORIGINAL')['POP'].to_dict()
-                maz_marginals_2023['total_pop'] = maz_marginals_2023['MAZ'].map(pop_mapping)
+                maz_marginals_2023['total_pop'] = maz_marginals_2023['MAZ_NODE'].map(pop_mapping)
                 
                 # Fill any missing values with the household-based estimate as fallback
                 missing_pop = maz_marginals_2023['total_pop'].isna()
@@ -1862,7 +1867,7 @@ def create_maz_data_files(logger):
         # Convert MAZ column to integer to match the format in marginals
         if 'MAZ_ORIGINAL' in example_maz_data.columns:
             maz_id_col = 'MAZ_ORIGINAL'
-        elif 'MAZ' in example_maz_data.columns:
+        elif 'MAZ_NODE' in example_maz_data.columns:
             maz_id_col = 'MAZ'
         else:
             logger.error("Cannot find MAZ ID column in example data")
@@ -2253,6 +2258,20 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         add_hh_size_1_gq_control(output_file, logger)
     elif control_geo == 'MAZ':
         logger.info("Creating MAZ HHGQ controls with person-level GQ")
+        
+        # DEBUG: Check what columns are actually in the MAZ file before processing
+        logger.info(f"[DEBUG] About to call create_maz_hhgq_controls with file: {output_file}")
+        if os.path.exists(output_file):
+            debug_df = pd.read_csv(output_file)
+            logger.info(f"[DEBUG] MAZ file exists with {len(debug_df)} rows and {len(debug_df.columns)} columns")
+            logger.info(f"[DEBUG] MAZ file columns: {list(debug_df.columns)}")
+            if 'num_hh' in debug_df.columns:
+                logger.info(f"[DEBUG] num_hh column found with sum: {debug_df['num_hh'].sum():,.0f}")
+            else:
+                logger.warning(f"[DEBUG] num_hh column NOT found in MAZ file!")
+        else:
+            logger.error(f"[DEBUG] MAZ file does not exist: {output_file}")
+        
         create_maz_hhgq_controls(output_file, logger)
 
 
@@ -2384,30 +2403,58 @@ def create_maz_hhgq_controls(maz_file, logger):
     """
     Create MAZ HHGQ controls with person-level GQ controls and proper column filtering.
     """
+    from tm2_control_utils.census_fetcher import CensusFetcher
+    
     logger.info("=" * 60)
     logger.info("CREATING MAZ HHGQ CONTROLS")
     logger.info("=" * 60)
+    logger.info(f"[DEBUG] Input MAZ file: {maz_file}")
+    
+    # Check if file exists
+    if not os.path.exists(maz_file):
+        logger.error(f"[DEBUG] MAZ file does not exist: {maz_file}")
+        return False
     
     # Load MAZ controls
     maz_df = pd.read_csv(maz_file)
     logger.info(f"Loaded MAZ controls: {len(maz_df)} zones, {len(maz_df.columns)} columns")
+    logger.info(f"MAZ dataframe columns: {list(maz_df.columns)}")
+    
+    # Check for MAZ identifier column
+    maz_id_col = None
+    if 'MAZ_NODE' in maz_df.columns:
+        maz_id_col = 'MAZ_NODE'
+    elif 'MAZ' in maz_df.columns:
+        maz_id_col = 'MAZ'
+    else:
+        logger.error("No MAZ identifier column found (looking for MAZ_NODE or MAZ)")
+        return False
+    logger.info(f"Using MAZ identifier column: {maz_id_col}")
     
     # Create numhh_gq control (households + GQ persons as housing demand proxy)
+    logger.info(f"[DEBUG] Checking for num_hh column availability...")
     if 'num_hh' not in maz_df.columns:
-        logger.error("num_hh column not found in MAZ controls")
+        logger.error(f"[DEBUG] num_hh column not found in MAZ controls. Available columns: {list(maz_df.columns)}")
         return False
+    logger.info(f"[DEBUG] Found num_hh column with sum: {maz_df['num_hh'].sum():,.0f}")
         
     # Calculate total GQ persons for housing demand calculation
     gq_person_cols = ['hh_gq_university', 'hh_gq_other_nonins']
     total_gq_persons = 0
+    logger.info(f"[DEBUG] Looking for GQ person columns: {gq_person_cols}")
     for col in gq_person_cols:
         if col in maz_df.columns:
+            logger.info(f"[DEBUG] Found GQ column {col} with sum: {maz_df[col].sum():,.0f}")
             total_gq_persons += maz_df[col].fillna(0)
+        else:
+            logger.warning(f"[DEBUG] GQ column {col} not found")
+    
+    logger.info(f"[DEBUG] Total GQ persons calculated: {total_gq_persons.sum():,.0f}")
     
     maz_df['numhh_gq'] = maz_df['num_hh'] + total_gq_persons
     
     logger.info(f"Created numhh_gq control:")
-    logger.info(f"  num_hh: {maz_df['num_hh'].sum():,.0f}")
+    logger.info(f"  households: {maz_df['num_hh'].sum():,.0f}")
     logger.info(f"  gq_persons: {total_gq_persons.sum():,.0f}")
     logger.info(f"  numhh_gq: {maz_df['numhh_gq'].sum():,.0f}")
     
@@ -3230,6 +3277,10 @@ def main():
     # FINAL VALIDATION: Ensure institutional GQ exclusion is working
     validate_institutional_gq_exclusion(logger)
     
+    # CREATE HHGQ INTEGRATED FILES BEFORE MILITARY GQ COMBINATION
+    logger.info("Creating HHGQ integrated control files...")
+    create_hhgq_integrated_files(logger)
+    
     # COMBINE MILITARY GQ INTO OTHER NONINSTITUTIONAL GQ
     logger.info("=" * 80)
     logger.info("COMBINING MILITARY GQ INTO OTHER NONINSTITUTIONAL GQ")
@@ -3338,6 +3389,13 @@ def main():
     
     logger.info("PopulationSim will now use only the _hhgq.csv files with proper TAZ_NODE/MAZ_NODE columns")
 
+    # APPLY COUNTY SCALING TO MAZ HHGQ FILE 
+    logger.info("=" * 80)
+    logger.info("APPLYING COUNTY SCALING TO MAZ NUMHH_GQ")
+    logger.info("=" * 80)
+    
+    apply_county_scaling_to_maz_hhgq(logger)
+
     logger.info("Control file generation completed successfully!")
 
 
@@ -3415,6 +3473,126 @@ def validate_institutional_gq_exclusion(logger):
         return False
     
     logger.info("PASS INSTITUTIONAL GQ EXCLUSION VALIDATION COMPLETED")
+    return True
+
+
+def apply_county_scaling_to_maz_hhgq(logger):
+    """
+    Apply county scaling to the final MAZ HHGQ file.
+    This is the simple implementation that operates on the final generated file.
+    """
+    logger.info("Reading back the generated MAZ HHGQ file to apply county scaling...")
+    
+    # Read the generated MAZ HHGQ file
+    maz_hhgq_file = os.path.join(PRIMARY_OUTPUT_DIR, "maz_marginals_hhgq.csv")
+    if not os.path.exists(maz_hhgq_file):
+        logger.error(f"MAZ HHGQ file not found: {maz_hhgq_file}")
+        return False
+    
+    maz_df = pd.read_csv(maz_hhgq_file)
+    logger.info(f"Loaded MAZ HHGQ file: {len(maz_df)} zones")
+    logger.info(f"Available columns: {list(maz_df.columns)}")
+    
+    # Check for required columns
+    if 'numhh_gq' not in maz_df.columns:
+        logger.error("numhh_gq column not found in MAZ HHGQ file")
+        return False
+    
+    # Load county targets
+    county_targets_file = os.path.join(PRIMARY_OUTPUT_DIR, "county_targets_2023.csv")
+    if not os.path.exists(county_targets_file):
+        logger.error(f"County targets file not found: {county_targets_file}")
+        return False
+    
+    county_targets_df = pd.read_csv(county_targets_file)
+    logger.info(f"Loaded county targets: {len(county_targets_df)} counties")
+    
+    # Load crosswalk to map MAZ to county
+    crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, "geo_cross_walk_tm2.csv")
+    if not os.path.exists(crosswalk_file):
+        logger.error(f"Crosswalk file not found: {crosswalk_file}")
+        return False
+    
+    crosswalk_df = pd.read_csv(crosswalk_file)
+    logger.info(f"Loaded crosswalk: {len(crosswalk_df)} zones")
+    
+    # Map county codes to county targets
+    county_mapping = {}
+    household_targets = county_targets_df[county_targets_df['target_name'] == 'num_hh_target_by_county']
+    for _, row in household_targets.iterrows():
+        county_fips = str(row['county_fips']).zfill(3)
+        county_mapping[county_fips] = row['target_value']
+    
+    logger.info(f"County household targets: {county_mapping}")
+    
+    # Create county mapping for MAZ zones
+    # Map crosswalk COUNTY codes (1-9) to FIPS codes
+    county_code_to_fips = {
+        1: '075',  # San Francisco
+        2: '081',  # San Mateo  
+        3: '085',  # Santa Clara
+        4: '001',  # Alameda
+        5: '013',  # Contra Costa
+        6: '095',  # Solano
+        7: '055',  # Napa
+        8: '097',  # Sonoma
+        9: '041'   # Marin
+    }
+    
+    # Merge MAZ data with county mapping
+    maz_with_county = maz_df.merge(crosswalk_df[['MAZ_NODE', 'COUNTY']], 
+                                 left_on='MAZ_NODE', right_on='MAZ_NODE', how='left')
+    
+    # Map county codes to FIPS codes
+    maz_with_county['county_fips'] = maz_with_county['COUNTY'].map(county_code_to_fips)
+    
+    # Calculate current totals by county
+    county_current_totals = maz_with_county.groupby('county_fips')['numhh_gq'].sum()
+    logger.info(f"Current MAZ numhh_gq totals by county: {dict(county_current_totals)}")
+    
+    # Calculate scaling factors
+    county_scale_factors = {}
+    for county_fips in county_current_totals.index:
+        if county_fips in county_mapping:
+            current_total = county_current_totals[county_fips]
+            target_total = county_mapping[county_fips]
+            if current_total > 0:
+                scale_factor = target_total / current_total
+                county_scale_factors[county_fips] = scale_factor
+                logger.info(f"County {county_fips}: current={current_total:,.0f}, target={target_total:,.0f}, factor={scale_factor:.4f}")
+            else:
+                county_scale_factors[county_fips] = 1.0
+        else:
+            county_scale_factors[county_fips] = 1.0
+            logger.warning(f"No target found for county {county_fips}, using factor 1.0")
+    
+    # Apply scaling factors
+    maz_with_county['scale_factor'] = maz_with_county['county_fips'].map(county_scale_factors).fillna(1.0)
+    
+    # Scale numhh_gq with rounding to ensure integer values
+    original_numhh_gq = maz_with_county['numhh_gq'].sum()
+    maz_with_county['numhh_gq'] = (maz_with_county['numhh_gq'] * maz_with_county['scale_factor']).round()
+    scaled_numhh_gq = maz_with_county['numhh_gq'].sum()
+    
+    # Scale GQ controls if they exist
+    gq_columns = ['gq_type_univ', 'gq_type_noninst']
+    for col in gq_columns:
+        if col in maz_with_county.columns:
+            original_total = maz_with_county[col].sum()
+            maz_with_county[col] = (maz_with_county[col] * maz_with_county['scale_factor']).round()
+            scaled_total = maz_with_county[col].sum()
+            logger.info(f"Scaled {col}: {original_total:,.0f} -> {scaled_total:,.0f}")
+    
+    logger.info(f"Applied county scaling to numhh_gq:")
+    logger.info(f"  Original total: {original_numhh_gq:,.0f}")
+    logger.info(f"  Scaled total: {scaled_numhh_gq:,.0f}")
+    logger.info(f"  Regional factor: {scaled_numhh_gq/original_numhh_gq:.4f}")
+    
+    # Save the scaled data back
+    output_columns = ['MAZ_NODE', 'numhh_gq'] + [col for col in gq_columns if col in maz_with_county.columns]
+    maz_with_county[output_columns].to_csv(maz_hhgq_file, index=False)
+    logger.info(f"Saved scaled MAZ HHGQ file: {maz_hhgq_file}")
+    
     return True
 
 

@@ -19,6 +19,10 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
+# Repo root and output root (make paths robust regardless of current working dir)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_ROOT = REPO_ROOT / "output_2023"
+
 # Set style
 plt.style.use('seaborn-v0_8')
 sns.set_palette("husl")
@@ -31,7 +35,7 @@ def analyze_taz_controls_vs_results():
     print("="*80)
     
     # Load TAZ data
-    taz_file = Path("output_2023/populationsim_working_dir/output/final_summary_TAZ_NODE.csv")
+    taz_file = OUTPUT_ROOT / "populationsim_working_dir" / "output" / "final_summary_TAZ_NODE.csv"
     if not taz_file.exists():
         print(f"Error: Could not find {taz_file}")
         return
@@ -39,8 +43,8 @@ def analyze_taz_controls_vs_results():
     df = pd.read_csv(taz_file)
     print("[INFO] Loaded TAZ data: {:,} TAZ zones".format(len(df)))
     
-    # Create output directory
-    output_dir = Path("../output_2023/charts/taz_analysis")
+    # Create output directory (repo-root based)
+    output_dir = OUTPUT_ROOT / "charts" / "taz_analysis"
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Identify control variables (exclude geography and id columns)
@@ -67,6 +71,13 @@ def analyze_taz_controls_vs_results():
         # Get data
         controls = df[control_col].values
         results = df[result_col].values
+        
+        # Special handling for hh_size_1 to include group quarters in control
+        if var == 'hh_size_1':
+            print("   [INFO] Adjusting hh_size_1 control to include group quarters for fair comparison")
+            gq_control = df['hh_gq_university_control'].values + df['hh_gq_noninstitutional_control'].values
+            controls = controls + gq_control
+            print(f"   [INFO] Added {gq_control.sum():,.0f} group quarters to hh_size_1 control")
         
         # Calculate metrics
         total_control = controls.sum()
@@ -129,7 +140,6 @@ def create_variable_chart(var_name, controls, results, errors, pct_errors,
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
     fig.suptitle(f'TAZ Analysis: {var_name.replace("_", " ").title()}', 
                  fontsize=16, fontweight='bold')
-    
     # 1. Scatter plot: Control vs Result
     ax1 = axes[0, 0]
     max_val = max(controls.max(), results.max())
@@ -415,7 +425,7 @@ def analyze_total_population_by_taz():
     print("="*80)
     
     # Load TAZ data
-    taz_file = Path("output_2023/populationsim_working_dir/output/final_summary_TAZ_NODE.csv")
+    taz_file = OUTPUT_ROOT / "populationsim_working_dir" / "output" / "final_summary_TAZ_NODE.csv"
     if not taz_file.exists():
         print(f"Error: Could not find {taz_file}")
         return
@@ -453,8 +463,8 @@ def analyze_total_population_by_taz():
     print(f"   • MAE: {mae:.2f}, RMSE: {rmse:.2f}, R²: {r_squared:.6f}")
     print(f"   • Perfect matches: {perfect_matches:,} ({perfect_pct:.1f}%)")
     
-    # Create visualization
-    output_dir = Path("../output_2023/charts/taz_analysis")
+    # Create visualization (repo-root based)
+    output_dir = OUTPUT_ROOT / "charts" / "taz_analysis"
     output_dir.mkdir(parents=True, exist_ok=True)
     
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
@@ -539,6 +549,149 @@ Error Distribution:
     df[['id', 'total_pop_control', 'total_pop_result', 'total_pop_diff', 'total_pop_pct_error']].to_csv(pop_csv, index=False)
     print(f"[INFO] Population data saved to: {pop_csv}")
 
+def create_tableau_export():
+    """Create Tableau-formatted export with controls, results, and differences for mapping"""
+    
+    print("="*80)
+    print("CREATING TABLEAU MAP DATA EXPORT")
+    print("="*80)
+    
+    # Load TAZ data
+    taz_file = OUTPUT_ROOT / "populationsim_working_dir" / "output" / "final_summary_TAZ_NODE.csv"
+    if not taz_file.exists():
+        print(f"Error: Could not find {taz_file}")
+        return
+
+    df = pd.read_csv(taz_file)
+    print(f"[INFO] Loaded TAZ data: {len(df):,} TAZ zones")
+
+    # Create output directory
+    output_dir = OUTPUT_ROOT / "tableau"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Start with geography columns
+    tableau_data = df[['id']].copy()
+    tableau_data = tableau_data.rename(columns={'id': 'TAZ_NODE'})
+    
+    # Calculate summary variables first (as requested) with human-readable names
+    print("[INFO] Calculating summary variables...")
+    
+    # 1. Total Households (sum of all hh_size categories) - NOTE: this excludes GQ
+    hh_size_vars = ['hh_size_1', 'hh_size_2', 'hh_size_3', 'hh_size_4', 'hh_size_5', 'hh_size_6_plus']
+    tableau_data['Total Households - Control'] = sum(df[f"{var}_control"] for var in hh_size_vars)
+    tableau_data['Total Households - Result'] = sum(df[f"{var}_result"] for var in hh_size_vars)
+    tableau_data['Total Households - Difference'] = tableau_data['Total Households - Result'] - tableau_data['Total Households - Control']
+    
+    # 2. Total Group Quarters (sum of GQ categories)
+    gq_vars = ['hh_gq_university', 'hh_gq_noninstitutional']
+    tableau_data['Total Group Quarters - Control'] = sum(df[f"{var}_control"] for var in gq_vars)
+    tableau_data['Total Group Quarters - Result'] = sum(df[f"{var}_result"] for var in gq_vars)
+    tableau_data['Total Group Quarters - Difference'] = tableau_data['Total Group Quarters - Result'] - tableau_data['Total Group Quarters - Control']
+    
+    # 3. Total Population (sum of age categories)
+    age_vars = ['pers_age_00_19', 'pers_age_20_34', 'pers_age_35_64', 'pers_age_65_plus']
+    tableau_data['Total Population - Control'] = sum(df[f"{var}_control"] for var in age_vars)
+    tableau_data['Total Population - Result'] = sum(df[f"{var}_result"] for var in age_vars)
+    tableau_data['Total Population - Difference'] = tableau_data['Total Population - Result'] - tableau_data['Total Population - Control']
+    
+    # Create human-readable variable name mapping
+    variable_labels = {
+        'numhh_gq': 'Total Households + Group Quarters',
+        'hh_gq_university': 'Group Quarters - University',
+        'hh_gq_noninstitutional': 'Group Quarters - Non-institutional',
+        'hh_size_1': 'Household Size - 1 Person (including GQ)',
+        'hh_size_2': 'Household Size - 2 Persons',
+        'hh_size_3': 'Household Size - 3 Persons', 
+        'hh_size_4': 'Household Size - 4 Persons',
+        'hh_size_5': 'Household Size - 5 Persons',
+        'hh_size_6_plus': 'Household Size - 6+ Persons',
+        'hh_wrks_0': 'Households - 0 Workers',
+        'hh_wrks_1': 'Households - 1 Worker',
+        'hh_wrks_2': 'Households - 2 Workers',
+        'hh_wrks_3_plus': 'Households - 3+ Workers',
+        'pers_age_00_19': 'Population - Age 0-19',
+        'pers_age_20_34': 'Population - Age 20-34',
+        'pers_age_35_64': 'Population - Age 35-64',
+        'pers_age_65_plus': 'Population - Age 65+',
+        'hh_kids_yes': 'Households - With Children',
+        'hh_kids_no': 'Households - Without Children',
+        'inc_lt_20k': 'Income - Under $20k',
+        'inc_20k_45k': 'Income - $20k to $45k',
+        'inc_45k_60k': 'Income - $45k to $60k',
+        'inc_60k_75k': 'Income - $60k to $75k',
+        'inc_75k_100k': 'Income - $75k to $100k',
+        'inc_100k_150k': 'Income - $100k to $150k',
+        'inc_150k_200k': 'Income - $150k to $200k',
+        'inc_200k_plus': 'Income - $200k+'
+    }
+    
+    # Add all individual control variables with human-readable names
+    control_vars = [col for col in df.columns if col.endswith('_control')]
+    control_vars = [var.replace('_control', '') for var in control_vars]
+    
+    print(f"[INFO] Adding {len(control_vars)} individual variables with human-readable names...")
+    
+    for var in control_vars:
+        if f"{var}_control" in df.columns and f"{var}_result" in df.columns:
+            # Use human-readable label if available, otherwise clean up the variable name
+            label = variable_labels.get(var, var.replace('_', ' ').title())
+            
+            # Special handling for hh_size_1 to include group quarters
+            if var == 'hh_size_1':
+                # For hh_size_1, add group quarters to make control and result comparable
+                gq_control = tableau_data['Total Group Quarters - Control']
+                gq_result = tableau_data['Total Group Quarters - Result']
+                
+                tableau_data[f"{label} - Control"] = df[f"{var}_control"] + gq_control
+                tableau_data[f"{label} - Result"] = df[f"{var}_result"]  # Already includes GQ
+                tableau_data[f"{label} - Difference"] = tableau_data[f"{label} - Result"] - tableau_data[f"{label} - Control"]
+            else:
+                tableau_data[f"{label} - Control"] = df[f"{var}_control"]
+                tableau_data[f"{label} - Result"] = df[f"{var}_result"]
+                tableau_data[f"{label} - Difference"] = df[f"{var}_result"] - df[f"{var}_control"]
+    
+    # Calculate percentage errors for key summary variables
+    tableau_data['Total Households - Percent Error'] = (
+        tableau_data['Total Households - Difference'] / np.maximum(tableau_data['Total Households - Control'], 1) * 100
+    )
+    tableau_data['Total Group Quarters - Percent Error'] = (
+        tableau_data['Total Group Quarters - Difference'] / np.maximum(tableau_data['Total Group Quarters - Control'], 1) * 100
+    )
+    tableau_data['Total Population - Percent Error'] = (
+        tableau_data['Total Population - Difference'] / np.maximum(tableau_data['Total Population - Control'], 1) * 100
+    )
+    
+    # Save the Tableau export
+    tableau_file = output_dir / "taz_controls_results_tableau.csv"
+    tableau_data.to_csv(tableau_file, index=False)
+    
+    print(f"[INFO] Tableau data exported to: {tableau_file}")
+    print(f"[INFO] Export contains {len(tableau_data)} TAZ zones and {len(tableau_data.columns)} variables")
+    
+    # Print summary of key totals
+    print("\n[SUMMARY] Regional Totals:")
+    print(f"   • Total Households - Control: {tableau_data['Total Households - Control'].sum():,}")
+    print(f"   • Total Households - Result: {tableau_data['Total Households - Result'].sum():,}")
+    print(f"   • Total Households - Difference: {tableau_data['Total Households - Difference'].sum():+,}")
+    
+    print(f"   • Total Group Quarters - Control: {tableau_data['Total Group Quarters - Control'].sum():,}")
+    print(f"   • Total Group Quarters - Result: {tableau_data['Total Group Quarters - Result'].sum():,}")
+    print(f"   • Total Group Quarters - Difference: {tableau_data['Total Group Quarters - Difference'].sum():+,}")
+    
+    print(f"   • Total Population - Control: {tableau_data['Total Population - Control'].sum():,}")
+    print(f"   • Total Population - Result: {tableau_data['Total Population - Result'].sum():,}")
+    print(f"   • Total Population - Difference: {tableau_data['Total Population - Difference'].sum():+,}")
+    
+    # Print column information for Tableau users
+    print(f"\n[INFO] Variable naming convention:")
+    print(f"   • * - Control: Control/target values")
+    print(f"   • * - Result: PopulationSim output values")
+    print(f"   • * - Difference: Difference (result - control)")
+    print(f"   • * - Percent Error: Percentage error for summary variables")
+    
+    return tableau_file
+
 if __name__ == '__main__':
     analyze_taz_controls_vs_results()
     analyze_total_population_by_taz()
+    create_tableau_export()

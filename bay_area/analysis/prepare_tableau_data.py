@@ -54,10 +54,36 @@ class TableauDataPreparer:
         # Default to tableau subdirectory within data_dir for consolidated structure
         self.output_dir = output_dir or os.path.join(data_dir, "tableau")
         
-        # Use unified config if available
+        # Use unified config if available. Support multiple possible attribute namings
         if UnifiedTM2Config and not shapefile_dir:
             config = UnifiedTM2Config()
-            self.shapefile_dirs = [str(config.external_paths['tm2py_shapefiles'])]
+            # Try multiple attribute/call patterns used across versions of the config
+            ext = None
+            if hasattr(config, 'external_paths'):
+                ext = config.external_paths
+            elif hasattr(config, 'EXTERNAL_PATHS'):
+                ext = config.EXTERNAL_PATHS
+            elif hasattr(config, 'get_external_paths'):
+                try:
+                    ext = config.get_external_paths()
+                except Exception:
+                    ext = None
+
+            tm2_shapefiles = None
+            if isinstance(ext, dict) and 'tm2py_shapefiles' in ext:
+                tm2_shapefiles = ext.get('tm2py_shapefiles')
+
+            if tm2_shapefiles:
+                # normalize Path objects to string
+                self.shapefile_dirs = [str(tm2_shapefiles)]
+            else:
+                # fall back to the hardcoded search paths below
+                self.shapefile_dirs = [
+                    r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\shapefiles",
+                    "local_data/gis", 
+                    "input_2023/gis",
+                    "../shapefiles"
+                ]
         else:
             # Shapefile search paths with updated primary location
             self.shapefile_dirs = [
@@ -422,19 +448,41 @@ class TableauDataPreparer:
         
     def prepare_geo_crosswalk(self):
         """Prepare geographic crosswalk with standardized join fields."""
-        print(f"\n🔗 Processing geographic crosswalk...")
+        print("\nProcessing geographic crosswalk...")
         
-        # Try both original and updated crosswalk files
+        # Try both original and updated crosswalk filenames and multiple likely locations
         crosswalk_files = [
             'geo_cross_walk_tm2_updated.csv',
             'geo_cross_walk_tm2.csv'
         ]
-        
+
+        # Candidate directories to search
+        candidate_dirs = [
+            self.data_dir,
+            os.path.join(self.data_dir, 'populationsim_working_dir', 'data'),
+            os.path.join(self.data_dir, 'populationsim_working_dir')
+        ]
+
+        # If unified config is available, prefer the configured crosswalk location
+        if UnifiedTM2Config:
+            try:
+                cfg = UnifiedTM2Config()
+                if hasattr(cfg, 'CROSSWALK_FILES') and 'popsim_crosswalk' in cfg.CROSSWALK_FILES:
+                    cw_path = str(cfg.CROSSWALK_FILES['popsim_crosswalk'])
+                    candidate_dirs.insert(0, os.path.dirname(cw_path))
+            except Exception:
+                pass
+
         crosswalk_file = None
         for filename in crosswalk_files:
-            filepath = os.path.join(self.data_dir, filename)
-            if os.path.exists(filepath):
-                crosswalk_file = filepath
+            for d in candidate_dirs:
+                if not d:
+                    continue
+                filepath = os.path.join(d, filename)
+                if os.path.exists(filepath):
+                    crosswalk_file = filepath
+                    break
+            if crosswalk_file:
                 break
                 
         if not crosswalk_file:
