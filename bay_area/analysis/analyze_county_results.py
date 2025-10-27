@@ -53,18 +53,12 @@ def load_county_data():
             
             # Use the final integer weight as the result
             df['result'] = df['TAZ_NODE_integer_weight']
+            # Restore the original behavior: use the raw control_value column as the control.
+            # The `control_value` field contains the original control marginals (from marginals source).
             df['control'] = df['control_value']
             
-            # Special handling for hh_size_1 to include group quarters in control
-            hh_size_1_rows = df[df['control_name'] == 'hh_size_1']
-            if len(hh_size_1_rows) > 0:
-                gq_university = df[df['control_name'] == 'hh_gq_university']['control'].iloc[0] if len(df[df['control_name'] == 'hh_gq_university']) > 0 else 0
-                gq_noninst = df[df['control_name'] == 'hh_gq_noninstitutional']['control'].iloc[0] if len(df[df['control_name'] == 'hh_gq_noninstitutional']) > 0 else 0
-                gq_total = gq_university + gq_noninst
-                
-                # Update hh_size_1 control to include group quarters
-                df.loc[df['control_name'] == 'hh_size_1', 'control'] = df.loc[df['control_name'] == 'hh_size_1', 'control'] + gq_total
-                print(f"   Adjusted hh_size_1 control to include {gq_total:,.0f} group quarters")
+            # No special handling for hh_size_1 at the county aggregation level.
+            # Keep control and result values as provided in the county summary files.
             
             all_counties.append(df)
             print(f"   Loaded {COUNTY_NAMES[county_id]}: {len(df)} variables")
@@ -390,11 +384,8 @@ def create_detailed_variable_analysis(df, output_dir):
             else:
                 ax.set_ylabel('Count')
             
-            # Special title for hh_size_1 to indicate it includes GQ
-            if var == 'hh_size_1':
-                ax.set_title('Household Size - 1 Person (including Group Quarters)')
-            else:
-                ax.set_title(var.replace('_', ' ').title())
+            # Standard title for the variable
+            ax.set_title(var.replace('_', ' ').title())
             ax.set_xticks(x)
             ax.set_xticklabels(var_data['county_name'], rotation=45, ha='right')
             ax.legend()
