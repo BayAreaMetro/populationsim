@@ -236,38 +236,44 @@ if __name__ == '__main__':
             maz_gq_by_taz = None
         
         if maz_gq_by_taz is not None:
-            print("Merging GQ population with TAZ controls...")
-            print(f"TAZ controls before merge: {len(taz_controls_df)} rows")
-            print(f"GQ by TAZ: {len(maz_gq_by_taz)} rows")
-            
-            taz_controls_df = taz_controls_df.merge(maz_gq_by_taz, on='TAZ', how='left')
-            print(f"TAZ controls after merge: {len(taz_controls_df)} rows")
-            
-            # Check for missing GQ data
-            missing_gq = taz_controls_df['gq_pop'].isna().sum()
-            print(f"TAZ zones with missing GQ data: {missing_gq}")
-            
-            taz_controls_df['gq_pop'] = taz_controls_df['gq_pop'].fillna(0)
-            print(f"Filled missing GQ values with 0")
-            print(f"Final GQ population stats: min={taz_controls_df['gq_pop'].min()}, max={taz_controls_df['gq_pop'].max()}, sum={taz_controls_df['gq_pop'].sum():,.0f}")
-            
-            # Check hh_size_1 column exists
-            if 'hh_size_1' in taz_controls_df.columns:
-                print(f"hh_size_1 stats before GQ: min={taz_controls_df['hh_size_1'].min()}, max={taz_controls_df['hh_size_1'].max()}, sum={taz_controls_df['hh_size_1'].sum():,.0f}")
-                taz_controls_df["hh_size_1_gq"] = taz_controls_df.hh_size_1 + taz_controls_df.gq_pop
-                print(f"hh_size_1_gq stats after GQ: min={taz_controls_df['hh_size_1_gq'].min()}, max={taz_controls_df['hh_size_1_gq'].max()}, sum={taz_controls_df['hh_size_1_gq'].sum():,.0f}")
+            # If hh_size_1_gq already exists in the TAZ controls, assume GQ integration
+            # has already been applied upstream and skip re-applying it. This makes
+            # the script idempotent when run multiple times in the pipeline.
+            if 'hh_size_1_gq' in taz_controls_df.columns:
+                print("hh_size_1_gq already present in TAZ controls - skipping GQ integration (idempotent)")
             else:
-                print("ERROR: hh_size_1 column not found in TAZ controls!")
-                taz_controls_df["hh_size_1_gq"] = taz_controls_df.gq_pop
-            
-            # Also add GQ to total household count
-            print(f"numhh_gq before adding GQ: min={taz_controls_df['numhh_gq'].min()}, max={taz_controls_df['numhh_gq'].max()}, sum={taz_controls_df['numhh_gq'].sum():,.0f}")
-            taz_controls_df["numhh_gq"] = taz_controls_df["numhh_gq"] + taz_controls_df.gq_pop
-            print(f"numhh_gq after adding GQ: min={taz_controls_df['numhh_gq'].min()}, max={taz_controls_df['numhh_gq'].max()}, sum={taz_controls_df['numhh_gq'].sum():,.0f}")
-            
-            # Clean up temporary column
-            taz_controls_df.drop('gq_pop', axis=1, inplace=True)
-            print("Dropped temporary gq_pop column")
+                print("Merging GQ population with TAZ controls...")
+                print(f"TAZ controls before merge: {len(taz_controls_df)} rows")
+                print(f"GQ by TAZ: {len(maz_gq_by_taz)} rows")
+
+                taz_controls_df = taz_controls_df.merge(maz_gq_by_taz, on='TAZ', how='left')
+                print(f"TAZ controls after merge: {len(taz_controls_df)} rows")
+
+                # Check for missing GQ data
+                missing_gq = taz_controls_df['gq_pop'].isna().sum()
+                print(f"TAZ zones with missing GQ data: {missing_gq}")
+
+                taz_controls_df['gq_pop'] = taz_controls_df['gq_pop'].fillna(0)
+                print(f"Filled missing GQ values with 0")
+                print(f"Final GQ population stats: min={taz_controls_df['gq_pop'].min()}, max={taz_controls_df['gq_pop'].max()}, sum={taz_controls_df['gq_pop'].sum():,.0f}")
+
+                # Check hh_size_1 column exists
+                if 'hh_size_1' in taz_controls_df.columns:
+                    print(f"hh_size_1 stats before GQ: min={taz_controls_df['hh_size_1'].min()}, max={taz_controls_df['hh_size_1'].max()}, sum={taz_controls_df['hh_size_1'].sum():,.0f}")
+                    taz_controls_df["hh_size_1_gq"] = taz_controls_df.hh_size_1 + taz_controls_df.gq_pop
+                    print(f"hh_size_1_gq stats after GQ: min={taz_controls_df['hh_size_1_gq'].min()}, max={taz_controls_df['hh_size_1_gq'].max()}, sum={taz_controls_df['hh_size_1_gq'].sum():,.0f}")
+                else:
+                    print("ERROR: hh_size_1 column not found in TAZ controls!")
+                    taz_controls_df["hh_size_1_gq"] = taz_controls_df.gq_pop
+
+                # Also add GQ to total household count
+                print(f"numhh_gq before adding GQ: min={taz_controls_df['numhh_gq'].min()}, max={taz_controls_df['numhh_gq'].max()}, sum={taz_controls_df['numhh_gq'].sum():,.0f}")
+                taz_controls_df["numhh_gq"] = taz_controls_df["numhh_gq"] + taz_controls_df.gq_pop
+                print(f"numhh_gq after adding GQ: min={taz_controls_df['numhh_gq'].min()}, max={taz_controls_df['numhh_gq'].max()}, sum={taz_controls_df['numhh_gq'].sum():,.0f}")
+
+                # Clean up temporary column
+                taz_controls_df.drop('gq_pop', axis=1, inplace=True)
+                print("Dropped temporary gq_pop column")
         else:
             # If no TAZ column in MAZ data, assume no GQ adjustment needed
             print("No GQ adjustment - using original hh_size_1 values")

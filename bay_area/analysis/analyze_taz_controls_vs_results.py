@@ -54,6 +54,40 @@ def analyze_taz_controls_vs_results():
     
     print("[INFO] Found {:} control variables to analyze".format(len(control_vars)))
     print("Variables:", control_vars[:10], "..." if len(control_vars) > 10 else "")
+
+    # --- HHGQ diagnostics (per-TAZ) -------------------------------------------------
+    # Create a small diagnostics CSV to help identify where household-size buckets and
+    # numhh_gq disagree (possible double-counting of GQ). This emits:
+    # id, hh_size_sum_control, numhh_gq_control, hh_gq_total_control, diff, pct_diff, flag
+    hh_size_cols = [c for c in df.columns if c.startswith('hh_size_') and c.endswith('_control')]
+    hh_gq_cols = [c for c in df.columns if c.startswith('hh_gq_') and c.endswith('_control')]
+
+    if 'id' in df.columns and len(hh_size_cols) > 0 and 'numhh_gq_control' in df.columns:
+        diag = pd.DataFrame()
+        diag['id'] = df['id']
+        diag['hh_size_sum_control'] = df[hh_size_cols].sum(axis=1)
+        diag['numhh_gq_control'] = df['numhh_gq_control']
+        diag['hh_gq_total_control'] = df[hh_gq_cols].sum(axis=1) if len(hh_gq_cols) > 0 else 0
+        diag['diff'] = diag['hh_size_sum_control'] - diag['numhh_gq_control']
+        # pct diff relative to numhh_gq (guard against zero)
+        diag['pct_diff'] = diag['diff'] / diag['numhh_gq_control'].replace({0: pd.NA}) * 100
+        diag['flag'] = diag['diff'].abs() >= 1  # flag TA Zs with non-zero diff
+
+        diag_output = output_dir / 'taz_hhgq_diagnostics.csv'
+        diag.to_csv(diag_output, index=False)
+        print(f"[DIAG] Wrote HH/GQ diagnostics to {diag_output} (rows: {len(diag)})")
+
+        # Print quick aggregate summary
+        tot_size = diag['hh_size_sum_control'].sum()
+        tot_numhh = diag['numhh_gq_control'].sum()
+        tot_gq = diag['hh_gq_total_control'].sum()
+        n_flags = diag['flag'].sum()
+        print(f"[DIAG] hh_size_sum total: {tot_size:,.0f}, numhh_gq total: {tot_numhh:,.0f}, hh_gq_total: {tot_gq:,.0f}")
+        print(f"[DIAG] Zones with non-zero diff: {n_flags} (top 10 diffs shown below)")
+        print(diag.sort_values('diff', ascending=False).head(10).to_string(index=False))
+    else:
+        print("[DIAG] Skipping HH/GQ diagnostics: required columns missing")
+    # -------------------------------------------------------------------------------
     
     # Analyze each variable
     results_summary = []
@@ -73,34 +107,7 @@ def analyze_taz_controls_vs_results():
         controls = df[control_col].values
         results = df[result_col].values
         
-        # Special handling for hh_size_1 to include group quarters in both control and result
-        if var == 'hh_size_1':
-            print("   [INFO] Adjusting hh_size_1 control and result to include group quarters for fair comparison")
-            # Safely load control GQ columns (default to zeros if missing)
-            if 'hh_gq_university_control' in df.columns:
-                gq_univ_ctrl = df['hh_gq_university_control'].fillna(0).values
-            else:
-                gq_univ_ctrl = np.zeros(len(df))
-            if 'hh_gq_noninstitutional_control' in df.columns:
-                gq_noninst_ctrl = df['hh_gq_noninstitutional_control'].fillna(0).values
-            else:
-                gq_noninst_ctrl = np.zeros(len(df))
-            gq_control = gq_univ_ctrl + gq_noninst_ctrl
-            controls = controls + gq_control
-
-            # Safely load result GQ columns (default to zeros if missing)
-            if 'hh_gq_university_result' in df.columns:
-                gq_univ_res = df['hh_gq_university_result'].fillna(0).values
-            else:
-                gq_univ_res = np.zeros(len(df))
-            if 'hh_gq_noninstitutional_result' in df.columns:
-                gq_noninst_res = df['hh_gq_noninstitutional_result'].fillna(0).values
-            else:
-                gq_noninst_res = np.zeros(len(df))
-            gq_result = gq_univ_res + gq_noninst_res
-            results = results + gq_result
-
-            print(f"   [INFO] Added {int(gq_control.sum()):,} group quarters to hh_size_1 control and {int(gq_result.sum()):,} to hh_size_1 result")
+        # No special handling for hh_size_1 here: keep hh_size_1 values as-is (do not add GQ)
         
         # Calculate metrics
         total_control = controls.sum()
@@ -285,7 +292,7 @@ def create_variable_chart(var_name, controls, results, errors, pct_errors,
 Summary Statistics
 
 Total Control: {controls.sum():,.0f}
-Total Result: {controls.sum():,.0f}
+Total Result: {results.sum():,.0f}
 Total Difference: {(results.sum() - controls.sum()):,.0f}
 
 Accuracy Metrics:
@@ -500,44 +507,62 @@ def analyze_total_population_by_taz():
     
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
     fig.suptitle('Total Population by TAZ: Controls vs Results', fontsize=16, fontweight='bold')
-    
-    # 1. Scatter plot
+
+    # 1. Scatter plot (Control vs Result) with best-fit line and equation annotation
     ax1 = axes[0, 0]
-    scatter = ax1.scatter(df['total_pop_control'], df['total_pop_result'], 
-                         alpha=0.6, s=20, c='steelblue', edgecolors='none')
-    
+    x = df['total_pop_control'].values
+    y = df['total_pop_result'].values
+    scatter = ax1.scatter(x, y, alpha=0.6, s=20, c='steelblue', edgecolors='none')
+
     # Perfect line
-    max_val = max(df['total_pop_control'].max(), df['total_pop_result'].max())
+    max_val = max(x.max(), y.max())
     ax1.plot([0, max_val], [0, max_val], 'r--', alpha=0.8, linewidth=2, label='Perfect Match')
-    
+
+    # Best fit line (linear regression) and equation annotation
+    if len(x) > 1:
+        m, b = np.polyfit(x, y, 1)
+        p = np.poly1d((m, b))
+        ax1.plot([0, max_val], p([0, max_val]), color='orange', linewidth=2, alpha=0.9,
+                 label=f'Best Fit: y = {m:.4f}x + {b:.1f}')
+
+        # Annotate equation and R^2 on the plot
+        eq_text = f'y = {m:.4f}x + {b:.1f}\nR² = {r_squared:.4f}'
+        # Place annotation in top-left corner of the axes
+        ax1.text(0.02, 0.98, eq_text, transform=ax1.transAxes, fontsize=10,
+                 verticalalignment='top', bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+
     ax1.set_xlabel('Control Population')
     ax1.set_ylabel('Result Population')
-    ax1.set_title(f'Population Control vs Result\nR² = {r_squared:.6f}')
+    ax1.set_title('Population Control vs Result')
     ax1.legend()
     ax1.grid(True, alpha=0.3)
-    
-    # 2. Error distribution
+
+    # 2. Error distribution (zoomed to -2000..2000 on x; counts 0..1500 on y)
     ax2 = axes[0, 1]
     errors = df['total_pop_diff']
-    n_bins = min(50, max(10, int(np.sqrt(len(errors)))))
-    ax2.hist(errors, bins=n_bins, alpha=0.7, color='lightcoral', edgecolor='black')
+    # Filter errors to the requested display range so the histogram focuses on the central mass
+    err_min, err_max = -2000, 2000
+    errors_display = errors[(errors >= err_min) & (errors <= err_max)]
+    n_bins = min(80, max(10, int(np.sqrt(len(errors_display)))))
+    if len(errors_display) > 0:
+        ax2.hist(errors_display, bins=n_bins, alpha=0.7, color='lightcoral', edgecolor='black')
+    else:
+        # Fallback: plot empty histogram with same bins
+        ax2.hist([], bins=n_bins, alpha=0.7, color='lightcoral', edgecolor='black')
     ax2.axvline(0, color='red', linestyle='--', linewidth=2, alpha=0.8)
     ax2.set_xlabel('Population Error (Result - Control)')
     ax2.set_ylabel('Number of TAZs')
     ax2.set_title(f'Population Error Distribution\nMAE = {mae:.1f}')
+    # Zoom x-axis to the requested range and limit y-axis counts
+    ax2.set_xlim(err_min, err_max)
+    ax2.set_ylim(0, 1500)
     ax2.grid(True, alpha=0.3)
-    
-    # 3. Geographic distribution (using TAZ ID as proxy)
+
+    # 3. (Removed) Population Error by TAZ ID - per user request the geographic-by-ID chart is removed
+    # Keep the axis invisible (no placeholder text) so the figure layout stays consistent
     ax3 = axes[1, 0]
-    scatter = ax3.scatter(df['id'], df['total_pop_diff'], alpha=0.6, s=15, 
-                         c=df['total_pop_diff'], cmap='RdBu_r', edgecolors='none')
-    ax3.axhline(0, color='black', linestyle='-', linewidth=1, alpha=0.8)
-    ax3.set_xlabel('TAZ ID')
-    ax3.set_ylabel('Population Error')
-    ax3.set_title('Population Error by TAZ ID')
-    ax3.grid(True, alpha=0.3)
-    plt.colorbar(scatter, ax=ax3, label='Population Error')
-    
+    ax3.axis('off')
+
     # 4. Summary statistics
     ax4 = axes[1, 1]
     ax4.axis('off')
@@ -563,7 +588,8 @@ Error Distribution:
 • Median Error: {errors.median():.1f}
 """
     
-    ax4.text(0.1, 0.9, summary_text, transform=ax4.transAxes, fontsize=11,
+    # Increase summary stats font size for readability per request
+    ax4.text(0.1, 0.9, summary_text, transform=ax4.transAxes, fontsize=13,
              verticalalignment='top', fontfamily='monospace')
     
     plt.tight_layout()
@@ -668,15 +694,11 @@ def create_tableau_export():
             # Use human-readable label if available, otherwise clean up the variable name
             label = variable_labels.get(var, var.replace('_', ' ').title())
             
-            # Special handling for hh_size_1 to include group quarters
+            # No special handling for hh_size_1 in the Tableau export: keep raw hh_size_1
             if var == 'hh_size_1':
-                # For hh_size_1, add group quarters to make control and result comparable
-                gq_control = tableau_data['Total Group Quarters - Control']
-                gq_result = tableau_data['Total Group Quarters - Result']
-                
-                tableau_data[f"{label} - Control"] = df[f"{var}_control"] + gq_control
-                tableau_data[f"{label} - Result"] = df[f"{var}_result"]  # Already includes GQ
-                tableau_data[f"{label} - Difference"] = tableau_data[f"{label} - Result"] - tableau_data[f"{label} - Control"]
+                tableau_data[f"{label} - Control"] = df[f"{var}_control"]
+                tableau_data[f"{label} - Result"] = df[f"{var}_result"]
+                tableau_data[f"{label} - Difference"] = df[f"{var}_result"] - df[f"{var}_control"]
             else:
                 tableau_data[f"{label} - Control"] = df[f"{var}_control"]
                 tableau_data[f"{label} - Result"] = df[f"{var}_result"]

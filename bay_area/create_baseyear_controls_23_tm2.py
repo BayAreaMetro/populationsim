@@ -546,6 +546,409 @@ def process_maz_scaled_control(control_name, control_def, cf, maz_taz_def_df, cr
     logger.info(f"Completed processing MAZ_SCALED control: {control_name}")
 
 
+def get_regional_acs_totals(cf, logger, use_offline_fallback=True):
+    """Get regional totals from ACS 2023 1-year estimates for category scaling verification.
+    
+    Returns a dictionary with regional totals for households and population.
+    """
+    from tm2_control_utils.config_census import ACS_EST_YEAR, PRIMARY_OUTPUT_DIR
+    
+    # Check for regional totals cache file
+    regional_totals_file = os.path.join(PRIMARY_OUTPUT_DIR, "regional_acs_totals_2023.csv")
+    
+    # Try to read from cache first
+    if os.path.exists(regional_totals_file):
+        logger.info(f"Reading regional ACS totals from cache: {regional_totals_file}")
+        try:
+            totals_df = pd.read_csv(regional_totals_file)
+            regional_totals = {}
+            for _, row in totals_df.iterrows():
+                target_name = row['target_name']
+                target_value = row['target_value']
+                regional_totals[target_name] = target_value
+            
+            logger.info(f"Loaded regional ACS totals from cache: {regional_totals}")
+            return regional_totals
+        except Exception as e:
+            logger.error(f"Failed to read regional ACS totals cache: {e}")
+            if use_offline_fallback:
+                logger.error("Cannot proceed in offline mode without valid regional totals cache")
+                return {}
+    
+    # Fetch from Census API
+    logger.info("Fetching regional totals from ACS 2023 1-year estimates")
+    regional_totals = {}
+    
+    try:
+        # Define Bay Area county FIPS codes (9-county region)
+        bay_area_counties = ['001', '013', '041', '055', '075', '081', '085', '095', '097']  # Alameda through Sonoma
+        
+        # Get total households (B25001_001E) for each county and sum
+        logger.info("Fetching household totals (B25001) for Bay Area counties")
+        total_households = 0
+        hh_data = cf.get_census_data('acs1', ACS_EST_YEAR, 'B25001', 'county')
+        if 'B25001_001E' in hh_data.columns:
+            hh_data_reset = hh_data.reset_index()
+            for _, row in hh_data_reset.iterrows():
+                county_fips = str(row['county']).zfill(3)
+                if county_fips in bay_area_counties:
+                    hh_count = int(row['B25001_001E'])
+                    total_households += hh_count
+                    logger.info(f"County {county_fips}: {hh_count:,} households")
+        
+        regional_totals['regional_households_acs1'] = total_households
+        logger.info(f"Regional total households (ACS 1-year): {total_households:,}")
+        
+        # Get total population (B01003_001E) for each county and sum  
+        logger.info("Fetching population totals (B01003) for Bay Area counties")
+        total_population = 0
+        pop_data = cf.get_census_data('acs1', ACS_EST_YEAR, 'B01003', 'county')
+        if 'B01003_001E' in pop_data.columns:
+            pop_data_reset = pop_data.reset_index()
+            for _, row in pop_data_reset.iterrows():
+                county_fips = str(row['county']).zfill(3)
+                if county_fips in bay_area_counties:
+                    pop_count = int(row['B01003_001E'])
+                    total_population += pop_count
+                    logger.info(f"County {county_fips}: {pop_count:,} population")
+        
+        regional_totals['regional_population_acs1'] = total_population
+        logger.info(f"Regional total population (ACS 1-year): {total_population:,}")
+        
+        # Save to cache file
+        if regional_totals:
+            cache_data = []
+            for target_name, target_value in regional_totals.items():
+                cache_data.append({
+                    'target_name': target_name,
+                    'target_value': target_value,
+                    'year': ACS_EST_YEAR,
+                    'source': 'ACS1'
+                })
+            
+            cache_df = pd.DataFrame(cache_data)
+            os.makedirs(os.path.dirname(regional_totals_file), exist_ok=True)
+            cache_df.to_csv(regional_totals_file, index=False)
+            logger.info(f"Saved regional ACS totals cache: {regional_totals_file}")
+        
+        return regional_totals
+        
+    except Exception as e:
+        logger.error(f"Error fetching regional ACS totals: {e}")
+        return {}
+
+
+def verify_category_totals_vs_acs(control_dfs, regional_totals, logger):
+    """Verify that category totals match ACS 1-year regional totals.
+    
+    Args:
+        control_dfs: Dictionary of control dataframes by geography (TAZ, COUNTY, etc.)
+        regional_totals: Dictionary with regional_households_acs1 and regional_population_acs1
+        logger: Logger instance
+        
+    Returns:
+        Dictionary with verification results and scaling factors needed
+    """
+    from tm2_control_utils.config_census import get_control_categories_for_geography
+    
+    verification_results = {
+        'household_categories': {},
+        'person_categories': {},
+        'scaling_factors': {}
+    }
+    
+    if not regional_totals:
+        logger.warning("No regional ACS totals available - skipping category verification")
+        return verification_results
+    
+    # Check TAZ household categories
+    if 'TAZ' in control_dfs:
+        taz_df = control_dfs['TAZ']
+        taz_categories = get_control_categories_for_geography('TAZ')
+        
+        logger.info("\nVERIFYING TAZ HOUSEHOLD CATEGORIES vs ACS 1-YEAR TOTALS:")
+        logger.info("-" * 60)
+        
+        for category_name, control_list in taz_categories.items():
+            if 'household' in category_name.lower() and 'count' not in category_name.lower():
+                # Sum across category controls
+                available_controls = [col for col in control_list if col in taz_df.columns]
+                if available_controls:
+                    category_total = taz_df[available_controls].sum().sum()
+                    acs_target = regional_totals.get('regional_households_acs1', 0)
+                    
+                    diff = category_total - acs_target
+                    pct_diff = (diff / acs_target) * 100 if acs_target > 0 else 0
+                    scale_factor = acs_target / category_total if category_total > 0 else 1.0
+                    
+                    verification_results['household_categories'][category_name] = {
+                        'current_total': category_total,
+                        'acs_target': acs_target,
+                        'difference': diff,
+                        'pct_difference': pct_diff,
+                        'scale_factor': scale_factor,
+                        'controls': available_controls
+                    }
+                    
+                    logger.info(f"{category_name:20}: {category_total:>12,.0f} | ACS Target: {acs_target:>12,.0f} | Diff: {diff:>10,.0f} ({pct_diff:>6.2f}%) | Scale: {scale_factor:.6f}")
+    
+    # Note: COUNTY person categories will be scaled separately using county household scaling factors
+    # This approach assumes worker/household ratios are similar between 2020 and 2023 by county
+    logger.info("\nNOTE ON COUNTY PERSON CATEGORIES:")
+    logger.info("-" * 60)
+    logger.info("Person occupation controls will be scaled separately using county household scaling factors.")
+    logger.info("This assumes worker/household ratios by county are similar between 2020 and 2023.")
+    
+    return verification_results
+
+
+def apply_category_scaling(control_dfs, verification_results, logger):
+    """Apply scaling factors to ensure category totals match ACS 1-year regional totals.
+    
+    Args:
+        control_dfs: Dictionary of control dataframes by geography (TAZ, COUNTY, etc.)
+        verification_results: Results from verify_category_totals_vs_acs
+        logger: Logger instance
+        
+    Returns:
+        Updated control_dfs with scaled categories
+    """
+    logger.info("\nAPPLYING CATEGORY-LEVEL SCALING TO MATCH ACS 1-YEAR TOTALS:")
+    logger.info("=" * 70)
+    
+    scaled_dfs = control_dfs.copy()
+    
+    # Scale TAZ household categories
+    if 'TAZ' in scaled_dfs and verification_results['household_categories']:
+        taz_df = scaled_dfs['TAZ'].copy()
+        
+        logger.info("\nScaling TAZ household categories:")
+        logger.info("-" * 40)
+        
+        for category_name, results in verification_results['household_categories'].items():
+            scale_factor = results['scale_factor']
+            controls = results['controls']
+            
+            if abs(scale_factor - 1.0) > 0.001:  # Only scale if factor is meaningful
+                logger.info(f"Scaling {category_name} by factor {scale_factor:.6f}")
+                
+                for control in controls:
+                    if control in taz_df.columns:
+                        original_total = taz_df[control].sum()
+                        taz_df[control] = taz_df[control] * scale_factor
+                        
+                        # Round to integers while preserving totals
+                        taz_df[control] = taz_df[control].round().astype(int)
+                        
+                        scaled_total = taz_df[control].sum()
+                        logger.info(f"  {control}: {original_total:,.0f} → {scaled_total:,.0f}")
+        
+        scaled_dfs['TAZ'] = taz_df
+    
+    # Note: COUNTY person categories will be scaled separately using county household scaling factors
+    logger.info("\nCOUNTY person category scaling:")
+    logger.info("-" * 40)
+    logger.info("Person occupation controls will be scaled separately using county household scaling factors.")
+    logger.info("This approach assumes worker/household ratios by county are similar between 2020 and 2023.")
+    
+    return scaled_dfs
+
+
+def verify_post_scaling_totals(control_dfs, regional_totals, logger):
+    """Verify that category totals match ACS targets after scaling.
+    
+    Args:
+        control_dfs: Dictionary of scaled control dataframes 
+        regional_totals: Dictionary with regional ACS totals
+        logger: Logger instance
+    """
+    from tm2_control_utils.config_census import get_control_categories_for_geography
+    
+    logger.info("\nPOST-SCALING VERIFICATION vs ACS 1-YEAR TOTALS:")
+    logger.info("=" * 60)
+    
+    verification_passed = True
+    tolerance = 0.01  # 1% tolerance for rounding errors
+    
+    # Check TAZ household categories
+    if 'TAZ' in control_dfs and 'regional_households_acs1' in regional_totals:
+        taz_df = control_dfs['TAZ']
+        taz_categories = get_control_categories_for_geography('TAZ')
+        acs_hh_target = regional_totals['regional_households_acs1']
+        
+        logger.info(f"\nTAZ Household Categories vs ACS Target ({acs_hh_target:,}):")
+        logger.info("-" * 50)
+        
+        for category_name, control_list in taz_categories.items():
+            if 'household' in category_name.lower() and 'count' not in category_name.lower():
+                available_controls = [col for col in control_list if col in taz_df.columns]
+                if available_controls:
+                    category_total = taz_df[available_controls].sum().sum()
+                    diff = abs(category_total - acs_hh_target)
+                    pct_diff = (diff / acs_hh_target) * 100 if acs_hh_target > 0 else 0
+                    status = "PASS" if pct_diff <= tolerance else "FAIL"
+                    
+                    logger.info(f"{category_name:20}: {category_total:>12,.0f} | Diff: {diff:>8,.0f} ({pct_diff:>5.2f}%) | {status}")
+                    
+                    if pct_diff > tolerance:
+                        verification_passed = False
+    
+    # Note: COUNTY person categories scaled separately using county household scaling factors
+    logger.info(f"\nCOUNTY Person Categories (scaled separately):")
+    logger.info("-" * 50)
+    logger.info("Person occupation controls were scaled using county household scaling factors")
+    logger.info("(based on assumption that worker/household ratios by county are similar between 2020-2023)")
+    
+    if verification_passed:
+        logger.info("\n✓ All scaled category totals match ACS 1-year regional targets within tolerance")
+    else:
+        logger.warning("\n✗ Some category totals still don't match ACS targets - check scaling logic")
+    
+    return verification_passed
+
+
+def load_county_household_scaling_factors(logger):
+    """Load county household scaling factors from county_summary_2020_2023.csv.
+    
+    Returns:
+        dict: County FIPS (3-digit string) -> scaling factor
+    """
+    import os
+    from tm2_control_utils.config_census import PRIMARY_OUTPUT_DIR
+    
+    # Correct path - file is directly in populationsim_working_dir/data, not nested
+    county_summary_file = os.path.join(PRIMARY_OUTPUT_DIR, 'county_summary_2020_2023.csv')
+    
+    if not os.path.exists(county_summary_file):
+        logger.warning(f"County summary file not found: {county_summary_file}")
+        return {}
+        
+    try:
+        import pandas as pd
+        summary_df = pd.read_csv(county_summary_file)
+        
+        # Convert FIPS to 3-digit string format and create scaling factor mapping
+        scaling_factors = {}
+        for _, row in summary_df.iterrows():
+            county_fips = f"{int(row['County_FIPS']):03d}"  # Convert to 3-digit FIPS string
+            scaling_factor = row['Scaling_Factor']
+            scaling_factors[county_fips] = scaling_factor
+            logger.info(f"County {county_fips} ({row['County_Name']}): household scaling factor = {scaling_factor:.4f}")
+            
+        logger.info(f"Loaded {len(scaling_factors)} county household scaling factors")
+        return scaling_factors
+        
+    except Exception as e:
+        logger.error(f"Error loading county household scaling factors: {e}")
+        return {}
+
+
+def apply_county_household_scaling_to_workers(control_dfs, county_scaling_factors, logger):
+    """Apply county household scaling factors to COUNTY person occupation controls.
+    
+    Assumption: Worker/household ratios by county are similar between 2020 Census and 2023 ACS.
+    Therefore, we can use household scaling factors as a proxy for worker scaling factors.
+    
+    Args:
+        control_dfs: Dict of geography -> DataFrame with controls
+        county_scaling_factors: Dict of county FIPS -> household scaling factor
+        logger: Logger instance
+        
+    Returns:
+        dict: Updated control_dfs with scaled COUNTY person occupation controls
+    """
+    if 'COUNTY' not in control_dfs or not county_scaling_factors:
+        logger.info("No COUNTY controls or county scaling factors available - skipping worker scaling")
+        return control_dfs
+        
+    logger.info(f"\nAPPLYING COUNTY HOUSEHOLD SCALING FACTORS TO PERSON OCCUPATION CONTROLS:")
+    logger.info("=" * 80)
+    logger.info("Assumption: Worker/household ratios by county are similar between 2020 and 2023")
+    logger.info("Therefore, household scaling factors can serve as proxies for worker scaling factors")
+    logger.info("-" * 80)
+    
+    county_df = control_dfs['COUNTY'].copy()
+    
+    # DEBUG: Show the dataframe structure
+    logger.info(f"DEBUG: County dataframe shape: {county_df.shape}")
+    logger.info(f"DEBUG: County dataframe columns: {list(county_df.columns)}")
+    logger.info(f"DEBUG: County dataframe head:\n{county_df.head()}")
+    
+    # Get the county identifier column (should be index or first column)
+    if county_df.index.name in ['COUNTY', 'county', 'County']:
+        county_df = county_df.reset_index()
+        county_col = county_df.columns[0]
+    else:
+        county_col = county_df.columns[0]  # Assume first column is county identifier
+        
+    logger.info(f"DEBUG: Using county column: {county_col}")
+    logger.info(f"DEBUG: County values: {county_df[county_col].tolist()}")
+    
+    # Find person occupation columns
+    occupation_cols = [col for col in county_df.columns if col.startswith('pers_occ_')]
+    
+    if not occupation_cols:
+        logger.info("No person occupation columns found in COUNTY controls - skipping worker scaling")
+        return control_dfs
+        
+    logger.info(f"Found {len(occupation_cols)} person occupation categories: {occupation_cols}")
+    
+    # Apply scaling by county
+    from unified_tm2_config import config
+    
+    # Create mapping from county ID (1-9) to FIPS
+    county_id_to_fips = {}
+    for county_id, county_info in config.BAY_AREA_COUNTIES.items():
+        county_id_to_fips[county_id] = county_info['fips_str']
+    
+    scaled_county_df = county_df.copy()
+    
+    for idx, row in county_df.iterrows():
+        county_id = row[county_col]
+        
+        # Convert county ID to FIPS
+        if county_id in county_id_to_fips:
+            county_fips = county_id_to_fips[county_id]
+        else:
+            # Handle 4-digit FIPS codes (like 6001.0) by taking last 3 digits
+            if county_id >= 6000:  # 4-digit CA FIPS format (6001 -> 001)
+                county_fips = f"{int(county_id):04d}"[-3:]  # Take last 3 digits: 6001 -> 001
+            else:
+                # Try direct FIPS lookup if already in correct format
+                county_fips = f"{int(county_id):03d}" if str(county_id).isdigit() else str(county_id)
+            
+        if county_fips in county_scaling_factors:
+            scaling_factor = county_scaling_factors[county_fips]
+            
+            logger.info(f"\nCounty {county_id} (FIPS {county_fips}): applying scaling factor {scaling_factor:.4f}")
+            
+            for col in occupation_cols:
+                original_value = row[col]
+                scaled_value = int(round(original_value * scaling_factor))
+                scaled_county_df.at[idx, col] = scaled_value
+                logger.info(f"  {col}: {original_value:,.0f} → {scaled_value:,.0f}")
+                
+        else:
+            logger.warning(f"No scaling factor found for county {county_id} (FIPS {county_fips}) - keeping original values")
+    
+    # Calculate totals before and after scaling
+    logger.info(f"\nSCALING SUMMARY:")
+    logger.info("-" * 40)
+    for col in occupation_cols:
+        original_total = county_df[col].sum()
+        scaled_total = scaled_county_df[col].sum()
+        pct_change = ((scaled_total - original_total) / original_total * 100) if original_total > 0 else 0
+        logger.info(f"{col}: {original_total:,.0f} → {scaled_total:,.0f} ({pct_change:+.1f}%)")
+    
+    # Update the control_dfs
+    updated_dfs = control_dfs.copy()
+    updated_dfs['COUNTY'] = scaled_county_df
+    
+    logger.info("\n✓ County person occupation controls scaled using household scaling factors")
+    
+    return updated_dfs
+
+
 def process_control(
     control_geo, control_name, control_def, cf, maz_taz_def_df, crosswalk_df, temp_controls, final_control_dfs, county_targets=None
 ):
@@ -3059,6 +3462,9 @@ def main():
     if 'COUNTY_TARGETS' in CONTROLS[ACS_EST_YEAR]:
         county_targets = get_county_targets(cf, logger, use_offline_fallback=True)
 
+    # Initialize dictionary to collect all processed controls before scaling
+    processed_controls = {}
+
     for control_geo, control_dict in CONTROLS[ACS_EST_YEAR].items():
         # Debug: Check what's actually in each control dictionary
         logger.info(f"[DEBUG] Checking geography {control_geo}: dict type = {type(control_dict)}, len = {len(control_dict)}")
@@ -3154,32 +3560,83 @@ def main():
                     print(f"[DEBUG][FINAL] Total size controls: {size_total:,.0f}")
                     print(f"[DEBUG][FINAL] Worker/Size ratio: {ratio:.6f}")
         
-        write_outputs(control_geo, out_df, crosswalk_df)
+        # Store the processed controls but don't write outputs yet
+        # We'll apply category scaling first, then write all outputs
+        processed_controls[control_geo] = out_df.copy()
+    
+    # APPLY CATEGORY-LEVEL SCALING TO MATCH ACS 1-YEAR REGIONAL TOTALS
+    logger.info("=" * 80)
+    logger.info("APPLYING CATEGORY-LEVEL SCALING TO MATCH ACS 1-YEAR REGIONAL TOTALS")
+    logger.info("=" * 80)
+    
+    # Get regional ACS totals for scaling
+    regional_totals = get_regional_acs_totals(cf, logger, use_offline_fallback=True)
+    
+    if regional_totals:
+        # Verify current category totals vs ACS targets
+        verification_results = verify_category_totals_vs_acs(processed_controls, regional_totals, logger)
         
-        # Validate TAZ household consistency after writing TAZ controls
-        if control_geo == 'TAZ':
-            logger.info("Validating TAZ household control consistency")
-            taz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
-            validation_passed = validate_taz_household_consistency(taz_marginals_file, logger)
+        # Apply scaling to match ACS totals
+        scaled_controls = apply_category_scaling(processed_controls, verification_results, logger)
+        
+        # Verify post-scaling results
+        verify_post_scaling_totals(scaled_controls, regional_totals, logger)
+        
+        # Update final_control_dfs with scaled results
+        final_control_dfs.update(scaled_controls)
+    else:
+        logger.warning("No regional ACS totals available - skipping category scaling")
+        final_control_dfs.update(processed_controls)
+    
+    # APPLY COUNTY HOUSEHOLD SCALING TO PERSON OCCUPATION CONTROLS
+    logger.info("=" * 80)
+    logger.info("APPLYING COUNTY HOUSEHOLD SCALING TO PERSON OCCUPATION CONTROLS")
+    logger.info("=" * 80)
+    
+    # Load county household scaling factors
+    county_scaling_factors = load_county_household_scaling_factors(logger)
+    
+    if county_scaling_factors:
+        # Apply household scaling factors to county person occupation controls
+        final_control_dfs = apply_county_household_scaling_to_workers(final_control_dfs, county_scaling_factors, logger)
+    else:
+        logger.warning("No county household scaling factors available - skipping worker scaling")
+        final_control_dfs.update(processed_controls)
+    
+    # NOW WRITE ALL OUTPUTS WITH SCALED CONTROLS
+    logger.info("=" * 60)
+    logger.info("WRITING SCALED CONTROLS TO OUTPUT FILES")
+    logger.info("=" * 60)
+    
+    for control_geo, out_df in final_control_dfs.items():
+        if control_geo in ['MAZ', 'MAZ_SCALED', 'TAZ', 'COUNTY']:
+            logger.info(f"Writing {control_geo} controls with {len(out_df)} zones")
+            write_outputs(control_geo, out_df, crosswalk_df)
             
-            # If validation failed, attempt to harmonize controls
-            if not validation_passed:
-                logger.info("TAZ validation failed - attempting to harmonize household controls")
-                harmonization_success = harmonize_taz_household_controls(taz_marginals_file, logger)
+            # Validate TAZ household consistency after writing TAZ controls
+            if control_geo == 'TAZ':
+                logger.info("Validating TAZ household control consistency")
+                taz_marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, TAZ_MARGINALS_FILE)
+                validation_passed = validate_taz_household_consistency(taz_marginals_file, logger)
                 
-                if harmonization_success:
-                    logger.info("Re-validating TAZ controls after harmonization")
-                    final_validation = validate_taz_household_consistency(taz_marginals_file, logger)
-                    if final_validation:
-                        logger.info("SUCCESS: TAZ controls are now consistent after harmonization")
+                # If validation failed, attempt to harmonize controls
+                if not validation_passed:
+                    logger.info("TAZ validation failed - attempting to harmonize household controls")
+                    harmonization_success = harmonize_taz_household_controls(taz_marginals_file, logger)
+                    
+                    if harmonization_success:
+                        logger.info("Re-validating TAZ controls after harmonization")
+                        final_validation = validate_taz_household_consistency(taz_marginals_file, logger)
+                        if final_validation:
+                            logger.info("SUCCESS: TAZ controls are now consistent after harmonization")
+                        else:
+                            logger.warning("TAZ controls still have inconsistencies after harmonization")
                     else:
-                        logger.warning("TAZ controls still have inconsistencies after harmonization")
-                else:
-                    logger.error("Failed to harmonize TAZ controls")
-            
-            # Add MAZ household summary by TAZ for comparison
-            logger.info("Adding MAZ household summary to TAZ marginals")
-            summarize_maz_households_by_taz(logger)
+                        logger.error("Failed to harmonize TAZ controls")
+                
+                # Add MAZ household summary by TAZ for comparison
+                logger.info("Adding MAZ household summary to TAZ marginals")
+                summarize_maz_households_by_taz(logger)
     
     # Handle COUNTY separately since we have no data but need to create empty file for populationsim
     # TEMPORARILY COMMENTED OUT - focusing on MAZ controls only
