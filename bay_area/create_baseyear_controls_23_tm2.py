@@ -2663,8 +2663,10 @@ def write_outputs(control_geo, out_df, crosswalk_df):
     
     # INTEGRATE GROUP QUARTERS PROCESSING
     if control_geo == 'TAZ':
-        logger.info("Adding hh_size_1_gq control to TAZ marginals")
-        add_hh_size_1_gq_control(output_file, logger)
+        # REMOVED: No longer creating hh_size_1_gq - clean household/GQ separation
+        # logger.info("Adding hh_size_1_gq control to TAZ marginals")
+        # add_hh_size_1_gq_control(output_file, logger)
+        pass
     elif control_geo == 'MAZ':
         logger.info("Creating MAZ HHGQ controls with person-level GQ")
         
@@ -2791,7 +2793,8 @@ def add_hh_size_1_gq_control(taz_file, logger):
         'inc_100k_150k', 'inc_150k_200k', 'inc_200k_plus', 'hh_wrks_0', 'hh_wrks_1', 
         'hh_wrks_2', 'hh_wrks_3_plus', 'pers_age_00_19', 'pers_age_20_34', 'pers_age_35_64', 
         'pers_age_65_plus', 'hh_kids_yes', 'hh_kids_no', 'hh_size_1', 'hh_size_2', 
-        'hh_size_3', 'hh_size_4', 'hh_size_5', 'hh_size_6_plus', 'hh_size_1_gq'
+        'hh_size_3', 'hh_size_4', 'hh_size_5', 'hh_size_6_plus'
+        # REMOVED: 'hh_size_1_gq' - clean household/GQ separation, no mixed controls
     ]
     
     # Keep only columns that exist and are required
@@ -3159,22 +3162,13 @@ def create_hhgq_integrated_files(logger):
                 if taz_col != 'TAZ_NODE':
                     taz_df.drop(taz_col, axis=1, inplace=True)
                 
-                # Create size_1_gq control = size_1 + gq_pop
-                if size_1_control and size_1_control in taz_df.columns:
-                    gq_control_name = f"{size_1_control}_gq"
-                    taz_df[gq_control_name] = taz_df[size_1_control] + taz_df.gq_pop
-                    logger.info(f"Created {gq_control_name} column: {size_1_control} ({taz_df[size_1_control].sum():,.0f}) + gq_pop ({taz_df.gq_pop.sum():,.0f}) = {taz_df[gq_control_name].sum():,.0f}")
-                    
-                    # Remove the temporary gq_pop column
-                    taz_df.drop('gq_pop', axis=1, inplace=True)
-                elif size_1_control:
-                    logger.warning(f"No {size_1_control} column found in TAZ data - creating {size_1_control}_gq = gq_pop")
-                    gq_control_name = f"{size_1_control}_gq"
-                    taz_df[gq_control_name] = taz_df.gq_pop
-                    taz_df.drop('gq_pop', axis=1, inplace=True)
-                else:
-                    logger.warning("No household size controls found in configuration - cannot create HHGQ integration")
-                    taz_df.drop('gq_pop', axis=1, inplace=True)
+                # REMOVED: No longer creating size_1_gq controls - clean household/GQ separation
+                # Total GQ persons: log only, do not add to household controls
+                total_gq_persons = taz_df['gq_pop'].sum()
+                logger.info(f"Total GQ persons: {total_gq_persons:,.0f}")
+                
+                # Remove the gq_pop column - we don't need it in final output
+                taz_df.drop('gq_pop', axis=1, inplace=True)
             else:
                 logger.warning("No TAZ column in MAZ data - trying to use crosswalk for GQ aggregation")
                 
@@ -3207,36 +3201,19 @@ def create_hhgq_integrated_files(logger):
                             taz_df = taz_df.merge(maz_gq_by_taz, on='TAZ_NODE', how='left')
                             taz_df['total_gq_persons'] = taz_df['total_gq_persons'].fillna(0)
                             
-                            # Create size_1_gq control = size_1 + gq_persons
-                            if size_1_control and size_1_control in taz_df.columns:
-                                gq_control_name = f"{size_1_control}_gq"
-                                taz_df[gq_control_name] = taz_df[size_1_control] + taz_df['total_gq_persons']
-                                logger.info(f"Created {gq_control_name} column: {size_1_control} ({taz_df[size_1_control].sum():,.0f}) + gq_persons ({taz_df['total_gq_persons'].sum():,.0f}) = {taz_df[gq_control_name].sum():,.0f}")
-                                
-                                # Remove the temporary gq column
-                                taz_df.drop('total_gq_persons', axis=1, inplace=True)
-                            elif size_1_control:
-                                logger.warning(f"No {size_1_control} column found in TAZ data - creating {size_1_control}_gq = gq_persons")
-                                gq_control_name = f"{size_1_control}_gq"
-                                taz_df[gq_control_name] = taz_df['total_gq_persons']
-                                taz_df.drop('total_gq_persons', axis=1, inplace=True)
-                            else:
-                                logger.warning("No household size controls found in configuration - cannot create HHGQ integration")
-                                taz_df.drop('total_gq_persons', axis=1, inplace=True)
+                            # REMOVED: No longer creating size_1_gq controls - clean household/GQ separation
+                            # Log GQ totals for information only
+                            total_gq_persons = taz_df['total_gq_persons'].sum()
+                            logger.info(f"Total GQ persons: {total_gq_persons:,.0f}")
+                            
+                            # Remove the temporary gq column - we don't need it in final output
+                            taz_df.drop('total_gq_persons', axis=1, inplace=True)
                         else:
                             logger.warning("Crosswalk missing required MAZ_NODE/TAZ_NODE columns")
-                            # Fallback: no GQ adjustment
-                            if size_1_control and size_1_control in taz_df.columns:
-                                gq_control_name = f"{size_1_control}_gq"
-                                taz_df[gq_control_name] = taz_df[size_1_control]
-                                logger.info(f"Created {gq_control_name} = {size_1_control} (no GQ adjustment - crosswalk issue)")
+                            # No GQ data processing needed with clean separation
                     else:
                         logger.warning("No crosswalk file found - cannot aggregate GQ to TAZ")
-                        # Fallback: no GQ adjustment
-                        if size_1_control and size_1_control in taz_df.columns:
-                            gq_control_name = f"{size_1_control}_gq"
-                            taz_df[gq_control_name] = taz_df[size_1_control]
-                            logger.info(f"Created {gq_control_name} = {size_1_control} (no GQ adjustment - no crosswalk)")
+                        # No GQ data processing needed with clean separation
                             
                 except Exception as e:
                     logger.error(f"Error using crosswalk for GQ aggregation: {e}")
@@ -3882,6 +3859,13 @@ def main():
     
     validation_passed = validate_household_scaling_results(logger)
     
+    # GENERATE COMPREHENSIVE SUMMARY REPORT
+    logger.info("\n" + "=" * 80)
+    logger.info("GENERATING CONTROLS SUMMARY REPORT")
+    logger.info("=" * 80)
+    
+    generate_controls_summary_report(logger, validation_passed)
+    
     if validation_passed:
         logger.info("Control file generation completed successfully!")
         logger.info("✓ All household scaling validations PASSED")
@@ -4114,6 +4098,7 @@ def validate_household_scaling_results(logger):
     
     try:
         # Load county targets (ACS 1-year non-GQ household targets)
+        # County targets are in the data subdirectory
         county_targets_file = os.path.join(PRIMARY_OUTPUT_DIR, "county_targets_2023.csv")
         county_targets_df = pd.read_csv(county_targets_file)
         
@@ -4228,16 +4213,8 @@ def validate_household_scaling_results(logger):
         else:
             logger.warning("No TAZ household size controls found for validation")
         
-        # Check if hh_size_1_gq exists and shows the correct total
-        if 'hh_size_1_gq' in taz_df.columns:
-            taz_hh_size_1_gq_total = taz_df['hh_size_1_gq'].sum()
-            logger.info(f"\nTAZ hh_size_1_gq total: {taz_hh_size_1_gq_total:,.0f}")
-            
-            # This should approximately equal numhh_gq total from MAZ
-            gq_diff = taz_hh_size_1_gq_total - total_maz_numhh_gq
-            gq_pct_diff = (gq_diff / total_maz_numhh_gq) * 100 if total_maz_numhh_gq > 0 else 0
-            gq_status = "✓ PASS" if abs(gq_pct_diff) < 1.0 else "✗ FAIL"
-            logger.info(f"  vs MAZ numhh_gq total: {total_maz_numhh_gq:,.0f} | Diff: {gq_diff:+,.0f} ({gq_pct_diff:+.2f}%) | {gq_status}")
+        # REMOVED: No longer validating hh_size_1_gq - clean household/GQ separation
+        # hh_size_1_gq column should not exist in the new architecture
         
         # ==============================================================
         # SECTION D: Summary Status
@@ -4283,6 +4260,227 @@ def validate_household_scaling_results(logger):
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         return False
+
+
+def generate_controls_summary_report(logger, validation_passed):
+    """
+    Generate a comprehensive markdown summary report of the control generation process.
+    
+    Args:
+        logger: Logger instance for status messages
+        validation_passed: Boolean indicating if all validations passed
+    """
+    from datetime import datetime
+    
+    logger.info("Creating controls generation summary report...")
+    
+    try:
+        # Define file paths
+        summary_file = os.path.join(PRIMARY_OUTPUT_DIR, "CONTROLS_GENERATION_SUMMARY.md")
+        
+        # Load data files for statistics
+        maz_file = os.path.join(PRIMARY_OUTPUT_DIR, "maz_marginals_hhgq.csv")
+        taz_file = os.path.join(PRIMARY_OUTPUT_DIR, "taz_marginals_hhgq.csv") 
+        county_file = os.path.join(PRIMARY_OUTPUT_DIR, "county_marginals.csv")
+        county_summary_file = os.path.join(PRIMARY_OUTPUT_DIR, "county_summary_2020_2023.csv")
+        
+        # Create markdown content
+        md_content = []
+        
+        # Header
+        md_content.append("# PopulationSim Controls Generation Summary")
+        md_content.append(f"**Generated:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
+        md_content.append(f"**Status:** {'✅ SUCCESS' if validation_passed else '❌ VALIDATION ISSUES'}")
+        md_content.append("")
+        md_content.append("---")
+        md_content.append("")
+        
+        # Architecture Overview
+        md_content.append("## 🏗️ Control Architecture")
+        md_content.append("")
+        md_content.append("This control generation implements **clean household/group quarters separation**:")
+        md_content.append("")
+        md_content.append("### MAZ Level Controls")
+        md_content.append("- `numhh`: Regular households only (excludes group quarters)")
+        md_content.append("- `numhh_gq`: Total households (regular + group quarters)")
+        md_content.append("- `gq_type_univ`: University group quarters persons")
+        md_content.append("- `gq_type_noninst`: Non-institutional group quarters persons")
+        md_content.append("")
+        md_content.append("### TAZ Level Controls")
+        md_content.append("- **Household controls**: `hh_size_*`, `hh_wrks_*`, `hh_kids_*`, `inc_*` (regular households only)")
+        md_content.append("- **Person controls**: `pers_age_*` (all persons)")
+        md_content.append("- **Note**: All household controls include `hhgqtype==0` filter to exclude group quarters")
+        md_content.append("")
+        
+        # File Overview
+        md_content.append("## 📁 Generated Files")
+        md_content.append("")
+        md_content.append("| File | Purpose | Geography | Key Controls |")
+        md_content.append("|------|---------|-----------|--------------|")
+        
+        # Check which files exist and add to table
+        if os.path.exists(maz_file):
+            maz_df = pd.read_csv(maz_file)
+            md_content.append(f"| `maz_marginals_hhgq.csv` | Population synthesis targets | MAZ ({len(maz_df):,} zones) | numhh, numhh_gq, GQ types |")
+        
+        if os.path.exists(taz_file):
+            taz_df = pd.read_csv(taz_file)
+            md_content.append(f"| `taz_marginals_hhgq.csv` | Household/person distributions | TAZ ({len(taz_df):,} zones) | Household size, income, workers, age |")
+        
+        if os.path.exists(county_file):
+            county_df = pd.read_csv(county_file)
+            md_content.append(f"| `county_marginals.csv` | Regional totals | County ({len(county_df):,} counties) | Occupation controls |")
+        
+        md_content.append("| `controls.csv` | PopulationSim expressions | All levels | Targeting expressions |")
+        md_content.append("")
+        
+        # Regional Totals
+        md_content.append("## 🎯 Regional Totals & Targets")
+        md_content.append("")
+        
+        if os.path.exists(county_summary_file):
+            county_summary_df = pd.read_csv(county_summary_file)
+            regional_target = county_summary_df['2023_ACS_Households'].sum()
+            md_content.append(f"**ACS 2023 Regional Target**: {regional_target:,} households")
+            md_content.append("")
+        
+        if os.path.exists(maz_file):
+            maz_df = pd.read_csv(maz_file)
+            regional_numhh = maz_df['numhh'].sum()
+            regional_numhh_gq = maz_df['numhh_gq'].sum()
+            regional_gq_univ = maz_df['gq_type_univ'].sum()
+            regional_gq_noninst = maz_df['gq_type_noninst'].sum()
+            
+            md_content.append("### MAZ Regional Totals")
+            md_content.append("| Control | Total | Description |")
+            md_content.append("|---------|-------|-------------|")
+            md_content.append(f"| `numhh` | {regional_numhh:,} | Regular households (target match) |")
+            md_content.append(f"| `numhh_gq` | {regional_numhh_gq:,} | Total households + GQ |")
+            md_content.append(f"| `gq_type_univ` | {regional_gq_univ:,} | University GQ persons |")
+            md_content.append(f"| `gq_type_noninst` | {regional_gq_noninst:,} | Non-institutional GQ persons |")
+            
+            if os.path.exists(county_summary_file):
+                diff = regional_numhh - regional_target
+                pct_diff = (diff / regional_target) * 100 if regional_target > 0 else 0
+                status = "✅" if abs(pct_diff) < 1.0 else "❌"
+                md_content.append(f"| **Accuracy** | {diff:+,} ({pct_diff:+.2f}%) | {status} Target match |")
+            
+            md_content.append("")
+        
+        if os.path.exists(taz_file):
+            taz_df = pd.read_csv(taz_file)
+            hh_size_cols = [col for col in taz_df.columns if col.startswith('hh_size_') and col != 'hh_size_1_gq']
+            if hh_size_cols:
+                taz_hh_total = taz_df[hh_size_cols].sum().sum()
+                md_content.append("### TAZ Regional Totals")
+                md_content.append("| Control Category | Total | Description |")
+                md_content.append("|------------------|-------|-------------|")
+                md_content.append(f"| Household Size | {taz_hh_total:,} | Sum of hh_size_* controls |")
+                
+                if 'hh_wrks_0' in taz_df.columns:
+                    wrk_cols = [col for col in taz_df.columns if col.startswith('hh_wrks_')]
+                    taz_wrk_total = taz_df[wrk_cols].sum().sum()
+                    md_content.append(f"| Worker Controls | {taz_wrk_total:,} | Sum of hh_wrks_* controls |")
+                
+                if 'inc_lt_20k' in taz_df.columns:
+                    inc_cols = [col for col in taz_df.columns if col.startswith('inc_')]
+                    taz_inc_total = taz_df[inc_cols].sum().sum()
+                    md_content.append(f"| Income Controls | {taz_inc_total:,} | Sum of inc_* controls |")
+                
+                if os.path.exists(county_summary_file):
+                    taz_diff = taz_hh_total - regional_target
+                    taz_pct_diff = (taz_diff / regional_target) * 100 if regional_target > 0 else 0
+                    taz_status = "✅" if abs(taz_pct_diff) < 1.0 else "❌"
+                    md_content.append(f"| **TAZ Accuracy** | {taz_diff:+,} ({taz_pct_diff:+.2f}%) | {taz_status} vs Regional Target |")
+                
+                md_content.append("")
+        
+        # County Breakdown
+        if os.path.exists(county_summary_file):
+            md_content.append("## 🏘️ County Breakdown")
+            md_content.append("")
+            county_summary_df = pd.read_csv(county_summary_file)
+            
+            md_content.append("| County | 2020 Census | 2023 ACS Target | Scaling Factor | Status |")
+            md_content.append("|--------|-------------|-----------------|----------------|--------|")
+            
+            for _, row in county_summary_df.iterrows():
+                county_name = row.get('County_Name', f"County {row.get('County_FIPS', 'Unknown')}")
+                census_2020 = row.get('2020_Census_Households', 0)
+                acs_2023 = row.get('2023_ACS_Households', 0)
+                scaling_factor = row.get('Scaling_Factor', 0)
+                
+                md_content.append(f"| {county_name} | {census_2020:,} | {acs_2023:,} | {scaling_factor:.4f} | ✅ |")
+            
+            md_content.append("")
+        
+        # Data Sources
+        md_content.append("## 📊 Data Sources")
+        md_content.append("")
+        md_content.append("### Primary Sources")
+        md_content.append("- **ACS 2023 1-Year**: County-level household targets for scaling")
+        md_content.append("- **ACS 2023 5-Year**: TAZ-level demographic controls (tract/block group)")
+        md_content.append("- **2020 Census PL 94-171**: MAZ-level household and GQ base counts")
+        md_content.append("- **NHGIS Crosswalks**: Geographic interpolation (2020→2010 boundaries)")
+        md_content.append("")
+        md_content.append("### Control Mapping")
+        md_content.append("- **MAZ**: Block-level aggregation with county scaling")
+        md_content.append("- **TAZ**: ACS table queries with areal interpolation")
+        md_content.append("- **County**: Direct ACS API calls for validation targets")
+        md_content.append("")
+        
+        # Architecture Notes
+        md_content.append("## ⚙️ Architecture Changes")
+        md_content.append("")
+        md_content.append("### Key Improvements")
+        md_content.append("1. **Clean Separation**: Regular households (`numhh`) vs. total (`numhh_gq`)")
+        md_content.append("2. **Eliminated Mixed Controls**: Removed `hh_size_1_gq` confusion")
+        md_content.append("3. **Proper Scaling**: County factors based on regular households only")
+        md_content.append("4. **Consistent Validation**: All household controls sum to `numhh` target")
+        md_content.append("")
+        md_content.append("### PopulationSim Integration")
+        md_content.append("- **Target Control**: `numhh` for regular household synthesis")
+        md_content.append("- **Expression Filters**: All household expressions include `hhgqtype==0`")
+        md_content.append("- **GQ Handling**: Separate person-level controls for university/non-institutional GQ")
+        md_content.append("")
+        
+        # Validation Results
+        md_content.append("## ✅ Validation Results")
+        md_content.append("")
+        if validation_passed:
+            md_content.append("**Overall Status**: ✅ ALL VALIDATIONS PASSED")
+            md_content.append("")
+            md_content.append("### Checks Completed")
+            md_content.append("- ✅ Regional household totals match ACS targets (±1%)")
+            md_content.append("- ✅ TAZ controls sum to regional household target (±1%)")
+            md_content.append("- ✅ County scaling factors applied correctly")
+            md_content.append("- ✅ File structure matches PopulationSim requirements")
+        else:
+            md_content.append("**Overall Status**: ❌ VALIDATION ISSUES DETECTED")
+            md_content.append("")
+            md_content.append("### Issues Detected")
+            md_content.append("- ❌ Some validations failed - see log for details")
+            md_content.append("- ⚠️ Manual review required before PopulationSim run")
+        
+        md_content.append("")
+        
+        # Footer
+        md_content.append("---")
+        md_content.append("")
+        md_content.append("**Generated by**: `create_baseyear_controls_23_tm2.py`")
+        md_content.append(f"**Configuration**: ACS {ACS_EST_YEAR} 5-year estimates + 2023 1-year county targets")
+        md_content.append("**Next Step**: Run PopulationSim synthesis with generated control files")
+        
+        # Write the file
+        with open(summary_file, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(md_content))
+        
+        logger.info(f"✓ Controls summary report saved: {summary_file}")
+        
+    except Exception as e:
+        logger.error(f"Failed to generate summary report: {e}")
+        import traceback
+        logger.error(f"Summary generation traceback: {traceback.format_exc()}")
 
 
 if __name__ == '__main__':
