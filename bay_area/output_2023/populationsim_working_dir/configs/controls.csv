@@ -2,12 +2,12 @@ target,geography,seed_table,importance,control_field,expression
 numhh_gq,MAZ_NODE,households,100000,numhh_gq,households.unique_hh_id > 0
 hh_gq_university,MAZ_NODE,persons,100000,gq_type_univ,persons.hhgqtype==1
 hh_gq_noninstitutional,MAZ_NODE,persons,100000,gq_type_noninst,persons.hhgqtype==2
-hh_size_1,TAZ_NODE,households,10000,hh_size_1_gq,households.NP == 1
-hh_size_2,TAZ_NODE,households,10000,hh_size_2,households.NP == 2
-hh_size_3,TAZ_NODE,households,10000,hh_size_3,households.NP == 3
-hh_size_4,TAZ_NODE,households,10000,hh_size_4,households.NP == 4
-hh_size_5,TAZ_NODE,households,10000,hh_size_5,households.NP == 5
-hh_size_6_plus,TAZ_NODE,households,10000,hh_size_6_plus,households.NP >= 6
+hh_size_1,TAZ_NODE,households,10000,hh_size_1_gq,((households.NP == 1) & (households.hhgqtype == 0)) | (households.hhgqtype > 0)
+hh_size_2,TAZ_NODE,households,10000,hh_size_2,(households.NP == 2) & (households.hhgqtype == 0)
+hh_size_3,TAZ_NODE,households,10000,hh_size_3,(households.NP == 3) & (households.hhgqtype == 0)
+hh_size_4,TAZ_NODE,households,10000,hh_size_4,(households.NP == 4) & (households.hhgqtype == 0)
+hh_size_5,TAZ_NODE,households,10000,hh_size_5,(households.NP == 5) & (households.hhgqtype == 0)
+hh_size_6_plus,TAZ_NODE,households,10000,hh_size_6_plus,(households.NP >= 6) & (households.hhgqtype == 0)
 hh_wrks_0,TAZ_NODE,households,10000,hh_wrks_0,(households.hhgqtype==0) & (households.hh_workers_from_esr == 0)
 hh_wrks_1,TAZ_NODE,households,10000,hh_wrks_1,(households.hhgqtype==0) & (households.hh_workers_from_esr == 1)
 hh_wrks_2,TAZ_NODE,households,10000,hh_wrks_2,(households.hhgqtype==0) & (households.hh_workers_from_esr == 2)

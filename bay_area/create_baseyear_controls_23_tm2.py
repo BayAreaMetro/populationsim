@@ -1207,16 +1207,18 @@ def process_control(
                 print(f"[DEBUG][MAIN] Result columns: {list(final_df.columns)}")
     
     # Step 7.5: Apply county-level scaling for household and population controls
-    if (control_name in ["num_hh", "numhh_gq", "tot_pop"] or 
+    if (control_name in ["num_hh", "numhh", "numhh_gq", "tot_pop"] or 
         control_name.startswith("hh_size_")) and county_targets:
         # Get county targets for this specific control
-        if control_name in ["num_hh", "numhh_gq"] or control_name.startswith("hh_size_"):
+        if control_name in ["num_hh", "numhh", "numhh_gq"] or control_name.startswith("hh_size_"):
             control_county_targets = {k: v.get('num_hh_target_by_county') for k, v in county_targets.items() 
                                     if v.get('num_hh_target_by_county')}
-            if control_name == "numhh_gq":
+            if control_name == "numhh":
+                logger.info(f"Applying household county targets to {control_name} for hierarchical consistency with TAZ household size controls")
+            elif control_name == "numhh_gq":
                 logger.info(f"Applying household county targets to {control_name} for hierarchical consistency with TAZ household size controls")
             elif control_name.startswith("hh_size_"):
-                logger.info(f"Applying household county targets to {control_name} for hierarchical consistency with MAZ numhh_gq control")
+                logger.info(f"Applying household county targets to {control_name} for hierarchical consistency with MAZ numhh control")
         elif control_name == "total_pop":
             control_county_targets = {k: v.get('tot_pop_target_by_county') for k, v in county_targets.items() 
                                     if v.get('tot_pop_target_by_county')}
@@ -1361,11 +1363,15 @@ def process_control(
             print(f"[DEBUG][MAIN] Merged df[{control_name}].sum(): {merged_df[control_name].sum():,.0f}")
             print(f"[DEBUG][MAIN] All worker controls in merged df: {[col for col in merged_df.columns if 'wrk' in col.lower()]}")
     
-    # Special case: Add num_hh to temp_controls so household size controls can use it as denominator
+    # Special case: Add household controls to temp_controls so household size controls can use them as denominator
     if control_name == "num_hh":
         temp_controls["num_hh"] = final_df
         logger.info(f"Added num_hh to temp_controls for household size scaling")
         logger.info(f"num_hh sum: {final_df['num_hh'].sum():,.0f}")
+    elif control_name == "numhh":
+        temp_controls["numhh"] = final_df
+        logger.info(f"Added numhh to temp_controls for household size scaling")
+        logger.info(f"numhh sum: {final_df['numhh'].sum():,.0f}")
 
 
 
@@ -2854,12 +2860,16 @@ def create_maz_hhgq_controls(maz_file, logger):
     
     logger.info(f"[DEBUG] Total GQ persons calculated: {total_gq_persons.sum():,.0f}")
     
+    # Create numhh control for regular households only (excludes group quarters)
+    maz_df['numhh'] = maz_df['num_hh']
+    
+    # Create numhh_gq control (households + GQ persons as housing demand proxy)
     maz_df['numhh_gq'] = maz_df['num_hh'] + total_gq_persons
     
-    logger.info(f"Created numhh_gq control:")
-    logger.info(f"  households: {maz_df['num_hh'].sum():,.0f}")
+    logger.info(f"Created household controls:")
+    logger.info(f"  numhh (regular households): {maz_df['numhh'].sum():,.0f}")
     logger.info(f"  gq_persons: {total_gq_persons.sum():,.0f}")
-    logger.info(f"  numhh_gq: {maz_df['numhh_gq'].sum():,.0f}")
+    logger.info(f"  numhh_gq (households + GQ): {maz_df['numhh_gq'].sum():,.0f}")
     
     # Create person-level GQ controls as expected by controls.csv
     if 'hh_gq_university' in maz_df.columns:
@@ -2877,7 +2887,7 @@ def create_maz_hhgq_controls(maz_file, logger):
         logger.warning("No non-institutional GQ data - using zeros")
     
     # Filter to only include columns defined in controls.csv
-    required_maz_columns = ['MAZ_NODE', 'numhh_gq', 'gq_type_univ', 'gq_type_noninst']
+    required_maz_columns = ['MAZ_NODE', 'numhh', 'numhh_gq', 'gq_type_univ', 'gq_type_noninst']
     
     # Map MAZ to MAZ_NODE for output consistency
     if 'MAZ' in maz_df.columns and 'MAZ_NODE' not in maz_df.columns:
@@ -3034,10 +3044,16 @@ def create_hhgq_integrated_files(logger):
             
         # Create numhh_gq = num_hh + person-level GQ converted to household count estimate  
         # Support both old column names (hh_gq_*) and new column names (gq_type_*)
-        gq_persons = 0
-        gq_columns_found = []
         
-        if 'num_hh' in maz_df.columns:
+        # Check if we already have the updated structure with numhh and numhh_gq
+        if 'numhh' in maz_df.columns and 'numhh_gq' in maz_df.columns:
+            logger.info("Found existing numhh and numhh_gq controls - using as-is")
+            logger.info(f"  numhh (regular households): {maz_df['numhh'].sum():,.0f}")
+            logger.info(f"  numhh_gq (households + GQ): {maz_df['numhh_gq'].sum():,.0f}")
+        elif 'num_hh' in maz_df.columns:
+            # Legacy path: create from num_hh + GQ persons
+            gq_persons = 0
+            gq_columns_found = []
             # Try old column names first
             if 'hh_gq_university' in maz_df.columns:
                 gq_persons += maz_df['hh_gq_university'].fillna(0)
@@ -3055,16 +3071,22 @@ def create_hhgq_integrated_files(logger):
                 gq_columns_found.append('gq_type_noninst')
             
             if len(gq_columns_found) > 0:
+                # Create separate household controls
+                maz_df["numhh"] = maz_df.num_hh  # Regular households only
                 # Use person count directly as proxy for GQ household units (each GQ person represents potential housing demand)
                 maz_df["numhh_gq"] = maz_df.num_hh + gq_persons
-                logger.info(f"Created numhh_gq column: num_hh ({maz_df.num_hh.sum():,.0f}) + gq_persons ({gq_persons.sum():,.0f}) = {maz_df.numhh_gq.sum():,.0f}")
-                logger.info(f"Used GQ columns: {gq_columns_found}")
+                logger.info(f"Created household controls:")
+                logger.info(f"  numhh (regular households): {maz_df['numhh'].sum():,.0f}")
+                logger.info(f"  numhh_gq (households + GQ): {maz_df['numhh_gq'].sum():,.0f}")
+                logger.info(f"  Used GQ columns: {gq_columns_found}")
             else:
-                # No GQ data available - just use households
+                # No GQ data available - create both controls using just households
+                maz_df["numhh"] = maz_df.num_hh
                 maz_df["numhh_gq"] = maz_df.num_hh
-                logger.warning("No GQ controls found - using num_hh only for numhh_gq")
+                logger.warning("No GQ controls found - using num_hh for both numhh and numhh_gq")
         else:
-            logger.error(f"Missing required num_hh column in MAZ data")
+            logger.error(f"Missing required household columns in MAZ data. Need either (numhh + numhh_gq) or num_hh")
+            logger.error(f"Available columns: {list(maz_df.columns)}")
             return False
             
         # Create separate GQ controls as expected by PopulationSim
@@ -3077,8 +3099,8 @@ def create_hhgq_integrated_files(logger):
             maz_df.drop(['hh_gq_university', 'hh_gq_noninstitutional'], axis=1, inplace=True)
         
         # Filter to only include columns used as PopulationSim controls
-        # Based on controls.csv: numhh_gq, gq_type_univ, gq_type_noninst are the only MAZ controls used
-        required_columns = ['MAZ_NODE', 'numhh_gq']
+        # Based on controls.csv: numhh, numhh_gq, gq_type_univ, gq_type_noninst are the MAZ controls used
+        required_columns = ['MAZ_NODE', 'numhh', 'numhh_gq']
         optional_control_columns = ['gq_type_univ', 'gq_type_noninst']
         
         # Keep only required columns plus any optional control columns that exist
@@ -3786,7 +3808,7 @@ def main():
             hhgq_df['hh_gq_military'] = 0
             
             # Filter to only include columns used as PopulationSim controls (apply same filtering as main creation)
-            required_columns = ['MAZ_NODE', 'numhh_gq']
+            required_columns = ['MAZ_NODE', 'numhh', 'numhh_gq']
             optional_control_columns = ['gq_type_univ', 'gq_type_noninst', 'gq_type_all', 'hh_gq_other_nonins']
             
             # Keep only required columns plus any optional control columns that exist
@@ -3853,7 +3875,19 @@ def main():
     
     apply_county_scaling_to_maz_hhgq(logger)
 
-    logger.info("Control file generation completed successfully!")
+    # COMPREHENSIVE VALIDATION OF HOUSEHOLD SCALING
+    logger.info("\n" + "=" * 80)
+    logger.info("FINAL VALIDATION OF HOUSEHOLD SCALING RESULTS")
+    logger.info("=" * 80)
+    
+    validation_passed = validate_household_scaling_results(logger)
+    
+    if validation_passed:
+        logger.info("Control file generation completed successfully!")
+        logger.info("✓ All household scaling validations PASSED")
+    else:
+        logger.warning("Control file generation completed with validation issues!")
+        logger.warning("✗ Some household scaling validations FAILED - please review")
 
 
 def validate_institutional_gq_exclusion(logger):
@@ -3955,6 +3989,10 @@ def apply_county_scaling_to_maz_hhgq(logger):
         logger.error("numhh_gq column not found in MAZ HHGQ file")
         return False
     
+    if 'numhh' not in maz_df.columns:
+        logger.error("numhh column not found in MAZ HHGQ file")
+        return False
+    
     # Load county targets
     county_targets_file = os.path.join(PRIMARY_OUTPUT_DIR, "county_targets_2023.csv")
     if not os.path.exists(county_targets_file):
@@ -4003,9 +4041,10 @@ def apply_county_scaling_to_maz_hhgq(logger):
     # Map county codes to FIPS codes
     maz_with_county['county_fips'] = maz_with_county['COUNTY'].map(county_code_to_fips)
     
-    # Calculate current totals by county
-    county_current_totals = maz_with_county.groupby('county_fips')['numhh_gq'].sum()
-    logger.info(f"Current MAZ numhh_gq totals by county: {dict(county_current_totals)}")
+    # Calculate current totals by county based on REGULAR HOUSEHOLDS ONLY (numhh)
+    # This is the correct base for calculating scaling factors since county targets are for regular HH
+    county_current_totals = maz_with_county.groupby('county_fips')['numhh'].sum()
+    logger.info(f"Current MAZ numhh (regular households) totals by county: {dict(county_current_totals)}")
     
     # Calculate scaling factors
     county_scale_factors = {}
@@ -4023,10 +4062,15 @@ def apply_county_scaling_to_maz_hhgq(logger):
             county_scale_factors[county_fips] = 1.0
             logger.warning(f"No target found for county {county_fips}, using factor 1.0")
     
-    # Apply scaling factors
+    # Apply scaling factors to ALL household measures
     maz_with_county['scale_factor'] = maz_with_county['county_fips'].map(county_scale_factors).fillna(1.0)
     
-    # Scale numhh_gq with rounding to ensure integer values
+    # Scale numhh (regular households) with rounding to ensure integer values
+    original_numhh = maz_with_county['numhh'].sum()
+    maz_with_county['numhh'] = (maz_with_county['numhh'] * maz_with_county['scale_factor']).round()
+    scaled_numhh = maz_with_county['numhh'].sum()
+    
+    # Scale numhh_gq (households + GQ) using the SAME factor derived from regular households
     original_numhh_gq = maz_with_county['numhh_gq'].sum()
     maz_with_county['numhh_gq'] = (maz_with_county['numhh_gq'] * maz_with_county['scale_factor']).round()
     scaled_numhh_gq = maz_with_county['numhh_gq'].sum()
@@ -4040,17 +4084,205 @@ def apply_county_scaling_to_maz_hhgq(logger):
             scaled_total = maz_with_county[col].sum()
             logger.info(f"Scaled {col}: {original_total:,.0f} -> {scaled_total:,.0f}")
     
-    logger.info(f"Applied county scaling to numhh_gq:")
-    logger.info(f"  Original total: {original_numhh_gq:,.0f}")
-    logger.info(f"  Scaled total: {scaled_numhh_gq:,.0f}")
-    logger.info(f"  Regional factor: {scaled_numhh_gq/original_numhh_gq:.4f}")
+    logger.info(f"Applied county scaling based on regular households to all measures:")
+    logger.info(f"  numhh (regular households): {original_numhh:,.0f} -> {scaled_numhh:,.0f}")
+    logger.info(f"  numhh_gq (households + GQ): {original_numhh_gq:,.0f} -> {scaled_numhh_gq:,.0f}")
+    logger.info(f"  Regional scaling factor: {scaled_numhh/original_numhh:.4f}")
     
-    # Save the scaled data back
-    output_columns = ['MAZ_NODE', 'numhh_gq'] + [col for col in gq_columns if col in maz_with_county.columns]
+    # Save the scaled data back (now including both numhh and numhh_gq)
+    output_columns = ['MAZ_NODE', 'numhh', 'numhh_gq'] + [col for col in gq_columns if col in maz_with_county.columns]
     maz_with_county[output_columns].to_csv(maz_hhgq_file, index=False)
     logger.info(f"Saved scaled MAZ HHGQ file: {maz_hhgq_file}")
     
     return True
+
+
+def validate_household_scaling_results(logger):
+    """
+    Comprehensive validation that household scaling worked correctly.
+    
+    Checks:
+    a) County targets vs ACS 1-year targets for non-GQ households
+    b) MAZ totals across three household groups
+    c) TAZ totals matching non-GQ ACS targets
+    """
+    logger.info("=" * 80)
+    logger.info("COMPREHENSIVE HOUSEHOLD SCALING VALIDATION")
+    logger.info("=" * 80)
+    
+    from tm2_control_utils.config_census import PRIMARY_OUTPUT_DIR
+    
+    try:
+        # Load county targets (ACS 1-year non-GQ household targets)
+        county_targets_file = os.path.join(PRIMARY_OUTPUT_DIR, "county_targets_2023.csv")
+        county_targets_df = pd.read_csv(county_targets_file)
+        
+        # Load final MAZ controls
+        maz_file = os.path.join(PRIMARY_OUTPUT_DIR, "maz_marginals_hhgq.csv")
+        maz_df = pd.read_csv(maz_file)
+        
+        # Load TAZ controls  
+        taz_file = os.path.join(PRIMARY_OUTPUT_DIR, "taz_marginals_hhgq.csv")
+        taz_df = pd.read_csv(taz_file)
+        
+        # Load crosswalk for county aggregation
+        crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, "geo_cross_walk_tm2.csv")
+        crosswalk_df = pd.read_csv(crosswalk_file)
+        
+        logger.info("Loaded all required files for validation")
+        
+        # ==============================================================
+        # SECTION A: County Targets vs ACS 1-Year Non-GQ Targets
+        # ==============================================================
+        logger.info("\n" + "="*60)
+        logger.info("A) COUNTY TARGETS vs ACS 1-YEAR NON-GQ TARGETS")
+        logger.info("="*60)
+        
+        # Get county household targets (these should be non-GQ households)
+        county_hh_targets = {}
+        for _, row in county_targets_df.iterrows():
+            if row['target_name'] == 'num_hh_target_by_county':
+                county_code = f"{int(row['county_fips']):03d}"
+                county_hh_targets[county_code] = row['target_value']
+        
+        total_target_hh = sum(county_hh_targets.values())
+        logger.info(f"Total ACS 1-year non-GQ household target: {total_target_hh:,.0f}")
+        
+        for county_code, target in county_hh_targets.items():
+            county_name = crosswalk_df[crosswalk_df['COUNTY'] == int(county_code)]['county_name'].iloc[0] if len(crosswalk_df[crosswalk_df['COUNTY'] == int(county_code)]) > 0 else f"County {county_code}"
+            logger.info(f"  {county_name} ({county_code}): {target:,.0f} non-GQ households")
+        
+        # ==============================================================
+        # SECTION B: MAZ Totals Across Three Household Groups  
+        # ==============================================================
+        logger.info("\n" + "="*60)
+        logger.info("B) MAZ TOTALS ACROSS THREE HOUSEHOLD GROUPS")
+        logger.info("="*60)
+        
+        # Merge MAZ with county info for aggregation
+        maz_with_county = maz_df.merge(crosswalk_df[['MAZ_NODE', 'COUNTY']], on='MAZ_NODE', how='left')
+        
+        # Calculate totals by county
+        county_maz_totals = {}
+        for county_code in county_hh_targets.keys():
+            county_mask = maz_with_county['COUNTY'] == int(county_code)
+            county_mazs = maz_with_county[county_mask]
+            
+            numhh_total = county_mazs['numhh'].sum() if 'numhh' in county_mazs.columns else 0
+            numhh_gq_total = county_mazs['numhh_gq'].sum() if 'numhh_gq' in county_mazs.columns else 0
+            gq_total = numhh_gq_total - numhh_total  # GQ households = total - regular households
+            
+            county_maz_totals[county_code] = {
+                'non_gq_hh': numhh_total,
+                'total_hh_gq': numhh_gq_total, 
+                'gq_hh': gq_total
+            }
+            
+            county_name = crosswalk_df[crosswalk_df['COUNTY'] == int(county_code)]['county_name'].iloc[0] if len(crosswalk_df[crosswalk_df['COUNTY'] == int(county_code)]) > 0 else f"County {county_code}"
+            logger.info(f"  {county_name} ({county_code}):")
+            logger.info(f"    Non-GQ households (numhh): {numhh_total:,.0f}")
+            logger.info(f"    GQ households: {gq_total:,.0f}")
+            logger.info(f"    Total households (numhh_gq): {numhh_gq_total:,.0f}")
+            
+            # Validation check
+            target_hh = county_hh_targets[county_code]
+            diff = numhh_total - target_hh
+            pct_diff = (diff / target_hh) * 100 if target_hh > 0 else 0
+            status = "✓ PASS" if abs(pct_diff) < 1.0 else "✗ FAIL"
+            logger.info(f"    vs Target: {target_hh:,.0f} | Diff: {diff:+,.0f} ({pct_diff:+.2f}%) | {status}")
+        
+        # Regional totals
+        total_maz_numhh = maz_df['numhh'].sum() if 'numhh' in maz_df.columns else 0
+        total_maz_numhh_gq = maz_df['numhh_gq'].sum() if 'numhh_gq' in maz_df.columns else 0
+        total_maz_gq = total_maz_numhh_gq - total_maz_numhh
+        
+        logger.info(f"\nREGIONAL MAZ TOTALS:")
+        logger.info(f"  Non-GQ households (numhh): {total_maz_numhh:,.0f}")
+        logger.info(f"  GQ households: {total_maz_gq:,.0f}")
+        logger.info(f"  Total households (numhh_gq): {total_maz_numhh_gq:,.0f}")
+        
+        regional_diff = total_maz_numhh - total_target_hh
+        regional_pct_diff = (regional_diff / total_target_hh) * 100 if total_target_hh > 0 else 0
+        regional_status = "✓ PASS" if abs(regional_pct_diff) < 1.0 else "✗ FAIL"
+        logger.info(f"  vs Regional Target: {total_target_hh:,.0f} | Diff: {regional_diff:+,.0f} ({regional_pct_diff:+.2f}%) | {regional_status}")
+        
+        # ==============================================================
+        # SECTION C: TAZ Totals vs Non-GQ ACS Targets
+        # ==============================================================
+        logger.info("\n" + "="*60)
+        logger.info("C) TAZ TOTALS vs NON-GQ ACS TARGETS")
+        logger.info("="*60)
+        
+        # TAZ household size controls should sum to non-GQ household target
+        taz_hh_size_cols = [col for col in taz_df.columns if col.startswith('hh_size_') and col != 'hh_size_1_gq']
+        
+        if taz_hh_size_cols:
+            taz_hh_total = taz_df[taz_hh_size_cols].sum().sum()
+            logger.info(f"TAZ household size controls sum: {taz_hh_total:,.0f}")
+            logger.info(f"  Columns: {taz_hh_size_cols}")
+            
+            taz_diff = taz_hh_total - total_target_hh
+            taz_pct_diff = (taz_diff / total_target_hh) * 100 if total_target_hh > 0 else 0
+            taz_status = "✓ PASS" if abs(taz_pct_diff) < 1.0 else "✗ FAIL"
+            logger.info(f"  vs Regional Target: {total_target_hh:,.0f} | Diff: {taz_diff:+,.0f} ({taz_pct_diff:+.2f}%) | {taz_status}")
+        else:
+            logger.warning("No TAZ household size controls found for validation")
+        
+        # Check if hh_size_1_gq exists and shows the correct total
+        if 'hh_size_1_gq' in taz_df.columns:
+            taz_hh_size_1_gq_total = taz_df['hh_size_1_gq'].sum()
+            logger.info(f"\nTAZ hh_size_1_gq total: {taz_hh_size_1_gq_total:,.0f}")
+            
+            # This should approximately equal numhh_gq total from MAZ
+            gq_diff = taz_hh_size_1_gq_total - total_maz_numhh_gq
+            gq_pct_diff = (gq_diff / total_maz_numhh_gq) * 100 if total_maz_numhh_gq > 0 else 0
+            gq_status = "✓ PASS" if abs(gq_pct_diff) < 1.0 else "✗ FAIL"
+            logger.info(f"  vs MAZ numhh_gq total: {total_maz_numhh_gq:,.0f} | Diff: {gq_diff:+,.0f} ({gq_pct_diff:+.2f}%) | {gq_status}")
+        
+        # ==============================================================
+        # SECTION D: Summary Status
+        # ==============================================================
+        logger.info("\n" + "="*60)
+        logger.info("D) VALIDATION SUMMARY")
+        logger.info("="*60)
+        
+        validations = []
+        
+        # County-level validation
+        county_passes = 0
+        for county_code in county_hh_targets.keys():
+            target = county_hh_targets[county_code]
+            actual = county_maz_totals[county_code]['non_gq_hh']
+            pct_diff = abs(actual - target) / target * 100 if target > 0 else 0
+            if pct_diff < 1.0:
+                county_passes += 1
+        
+        county_validation = f"County-level accuracy: {county_passes}/{len(county_hh_targets)} counties within 1%"
+        validations.append(county_validation)
+        logger.info(f"  {county_validation}")
+        
+        # Regional validation  
+        regional_validation = f"Regional accuracy: {'PASS' if abs(regional_pct_diff) < 1.0 else 'FAIL'} ({regional_pct_diff:+.2f}% difference)"
+        validations.append(regional_validation)
+        logger.info(f"  {regional_validation}")
+        
+        # TAZ validation
+        if taz_hh_size_cols:
+            taz_validation = f"TAZ consistency: {'PASS' if abs(taz_pct_diff) < 1.0 else 'FAIL'} ({taz_pct_diff:+.2f}% difference)"
+            validations.append(taz_validation)
+            logger.info(f"  {taz_validation}")
+        
+        # Overall status
+        overall_pass = all("PASS" in v for v in validations if "PASS" in v or "FAIL" in v)
+        logger.info(f"\nOVERALL VALIDATION: {'✓ PASS' if overall_pass else '✗ FAIL'}")
+        
+        return overall_pass
+        
+    except Exception as e:
+        logger.error(f"Validation failed with error: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return False
 
 
 if __name__ == '__main__':
