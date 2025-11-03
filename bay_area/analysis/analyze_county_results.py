@@ -53,9 +53,8 @@ def load_county_data():
             
             # Use the final integer weight as the result
             df['result'] = df['TAZ_NODE_integer_weight']
-            # Restore the original behavior: use the raw control_value column as the control.
-            # The `control_value` field contains the original control marginals (from marginals source).
-            df['control'] = df['control_value']
+            # Use COUNTY_preliminary_balanced weight as the control instead of raw control_value
+            df['control'] = df['COUNTY_preliminary_balanced_weight']
             
             # No special handling for hh_size_1 at the county aggregation level.
             # Keep control and result values as provided in the county summary files.
