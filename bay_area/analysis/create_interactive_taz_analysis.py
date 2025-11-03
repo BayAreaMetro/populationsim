@@ -152,6 +152,8 @@ def create_interactive_variable_chart(df, var_name, output_dir):
     if len(controls) > 1:
         z = np.polyfit(controls, results, 1)
         p = np.poly1d(z)
+        m, b = z  # slope and intercept
+        eqn = f'y = {m:.3f}x + {b:.1f}'
         fig.add_trace(
             go.Scatter(
                 x=controls,
@@ -159,7 +161,7 @@ def create_interactive_variable_chart(df, var_name, output_dir):
                 mode='lines',
                 name=f'Best Fit (R²={r_squared:.3f})',
                 line=dict(color='orange', width=2),
-                hovertemplate=f'Best Fit Line (R²={r_squared:.3f})<extra></extra>'
+                hovertemplate=f'Best Fit Line<br>R²={r_squared:.3f}<br>{eqn}<extra></extra>'
             ),
             row=1, col=1
         )
@@ -264,9 +266,17 @@ def create_interactive_variable_chart(df, var_name, output_dir):
     fig.update_yaxes(title_text="Perfect Match Rate (%)", row=2, col=2)
     
     # Add annotations with statistics
+    if len(controls) > 1:
+        z = np.polyfit(controls, results, 1)
+        m, b = z
+        eqn = f'y = {m:.3f}x + {b:.1f}'
+        equation_text = f"<br>Best Fit: {eqn}"
+    else:
+        equation_text = ""
+    
     fig.add_annotation(
         text=f"<b>Performance Metrics:</b><br>"
-             f"R² = {r_squared:.4f}<br>"
+             f"R² = {r_squared:.4f}{equation_text}<br>"
              f"MAE = {mae:.2f}<br>"
              f"Perfect Matches = {perfect_matches:,} ({perfect_pct:.1f}%)<br>"
              f"Total Control = {controls.sum():,.0f}<br>"
@@ -353,6 +363,22 @@ def create_variable_selector_dashboard(df, output_dir):
         )
     )
     
+    # Add best fit line
+    if len(controls) > 1:
+        z = np.polyfit(controls, results, 1)
+        p = np.poly1d(z)
+        r_squared_initial = np.corrcoef(controls, results)[0, 1]**2
+        fig.add_trace(
+            go.Scatter(
+                x=controls,
+                y=p(controls),
+                mode='lines',
+                name=f'Best Fit (R²={r_squared_initial:.3f})',
+                line=dict(color='orange', width=2),
+                hovertemplate=f'Best Fit Line (R²={r_squared_initial:.3f})<extra></extra>'
+            )
+        )
+    
     # Create dropdown buttons for variable selection
     dropdown_buttons = []
     
@@ -372,6 +398,15 @@ def create_variable_selector_dashboard(df, output_dir):
         mae = np.mean(np.abs(var_errors))
         perfect_matches = np.sum(var_errors == 0)
         perfect_pct = (perfect_matches / len(var_errors)) * 100
+        
+        # Calculate best fit equation
+        if len(var_controls) > 1:
+            z = np.polyfit(var_controls, var_results, 1)
+            m, b = z
+            eqn = f'y = {m:.3f}x + {b:.1f}'
+            equation_text = f"<br>Best Fit: {eqn}"
+        else:
+            equation_text = ""
         
         dropdown_buttons.append(
             dict(
@@ -399,7 +434,7 @@ def create_variable_selector_dashboard(df, output_dir):
                         "annotations": [
                             dict(
                                 text=f"<b>Performance Metrics:</b><br>"
-                                     f"R² = {r_squared:.4f}<br>"
+                                     f"R² = {r_squared:.4f}{equation_text}<br>"
                                      f"MAE = {mae:.2f}<br>"
                                      f"Perfect Matches = {perfect_matches:,} ({perfect_pct:.1f}%)<br>"
                                      f"Total Control = {var_controls.sum():,.0f}<br>"
@@ -424,6 +459,15 @@ def create_variable_selector_dashboard(df, output_dir):
     perfect_matches = np.sum(errors == 0)
     perfect_pct = (perfect_matches / len(errors)) * 100
     initial_label = VARIABLE_LABELS.get(initial_var, initial_var.replace('_', ' ').title())
+    
+    # Calculate initial equation
+    if len(controls) > 1:
+        z = np.polyfit(controls, results, 1)
+        m, b = z
+        eqn = f'y = {m:.3f}x + {b:.1f}'
+        equation_text = f"<br>Best Fit: {eqn}"
+    else:
+        equation_text = ""
     
     # Update layout
     fig.update_layout(
@@ -454,7 +498,7 @@ def create_variable_selector_dashboard(df, output_dir):
             ),
             dict(
                 text=f"<b>Performance Metrics:</b><br>"
-                     f"R² = {r_squared:.4f}<br>"
+                     f"R² = {r_squared:.4f}{equation_text}<br>"
                      f"MAE = {mae:.2f}<br>"
                      f"Perfect Matches = {perfect_matches:,} ({perfect_pct:.1f}%)<br>"
                      f"Total Control = {controls.sum():,.0f}<br>"

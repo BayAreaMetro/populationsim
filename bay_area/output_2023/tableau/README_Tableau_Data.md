@@ -57,5 +57,5 @@ All files use consistent field naming and data types for seamless joins:
 3. Filter data by COUNTY_NAME for sub-regional analysis
 4. Aggregate MAZ data to TAZ level using geo_crosswalk relationships
 
-Generated on: 2025-10-24 10:02:31
+Generated on: 2025-10-31 10:08:18
 PopulationSim Version: TM2

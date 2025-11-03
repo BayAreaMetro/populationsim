@@ -5,7 +5,15 @@ MAZ Household Comparison Analysis
 
 Clean analysis comparing MAZ-level household controls vs synthetic outputs:
 - Control Total HH (including GQ) vs Synthetic Total HH
-- Control GQ HH (uni + noninst) vs Synthetic GQ HH  
+- Control GQ HH (uni +            r2_gq = np.corrcoef(x_vals_gq, y_vals_gq)[0, 1] ** 2
+            eqn_gq = f'y = {m_gq:.3f}x + {b_gq:.1f}'
+            ax3.text(0.5, 0.5, f'R² = {r2_gq:.4f}\n{eqn_gq}', transform=ax3.transAxes,
+                     bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.5, edgecolor='black'),
+                     fontsize=10, ha='center', va='center', fontweight='bold')
+        else:
+            ax3.text(0.5, 0.5, 'Insufficient data for regression', transform=ax3.transAxes,
+                     bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.5, edgecolor='black'),
+                     ha='center', va='center', fontweight='bold') vs Synthetic GQ HH  
 - Control Uni HH vs Synthetic Uni HH
 - Control Noninst HH vs Synthetic Noninst HH
 
@@ -190,10 +198,19 @@ def create_scatter_plots(comparison):
     max_val = max(comparison['control_total_hh'].max(), comparison['syn_total_hh'].max())
     ax1.plot([0, max_val], [0, max_val], 'r--', linewidth=2, label='Perfect Match')
     
-    # Calculate R²
-    r2_total = np.corrcoef(comparison['control_total_hh'], comparison['syn_total_hh'])[0, 1] ** 2
-    ax1.text(0.05, 0.95, f'R² = {r2_total:.6f}', transform=ax1.transAxes, 
-             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    # Best fit line and equation
+    x_vals = comparison['control_total_hh']
+    y_vals = comparison['syn_total_hh']
+    coeffs = np.polyfit(x_vals, y_vals, 1)
+    m, b = coeffs
+    ax1.plot(x_vals, m * x_vals + b, 'orange', linewidth=2, alpha=0.8, label='Best Fit')
+    
+    # Calculate R² and show equation
+    r2_total = np.corrcoef(x_vals, y_vals)[0, 1] ** 2
+    eqn = f'y = {m:.3f}x + {b:.1f}'
+    ax1.text(0.5, 0.5, f'R² = {r2_total:.4f}\n{eqn}', transform=ax1.transAxes, 
+             bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.5, edgecolor='black'),
+             fontsize=10, ha='center', va='center', fontweight='bold')
     
     ax1.set_xlabel('Control Total Households')
     ax1.set_ylabel('Synthetic Total Households')
@@ -208,9 +225,18 @@ def create_scatter_plots(comparison):
     max_val_reg = max(comparison['control_regular_hh'].max(), comparison['syn_regular_hh'].max())
     ax2.plot([0, max_val_reg], [0, max_val_reg], 'r--', linewidth=2, label='Perfect Match')
     
-    r2_reg = np.corrcoef(comparison['control_regular_hh'], comparison['syn_regular_hh'])[0, 1] ** 2
-    ax2.text(0.05, 0.95, f'R² = {r2_reg:.6f}', transform=ax2.transAxes,
-             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    # Best fit line and equation
+    x_vals_reg = comparison['control_regular_hh']
+    y_vals_reg = comparison['syn_regular_hh']
+    coeffs_reg = np.polyfit(x_vals_reg, y_vals_reg, 1)
+    m_reg, b_reg = coeffs_reg
+    ax2.plot(x_vals_reg, m_reg * x_vals_reg + b_reg, 'orange', linewidth=2, alpha=0.8, label='Best Fit')
+    
+    r2_reg = np.corrcoef(x_vals_reg, y_vals_reg)[0, 1] ** 2
+    eqn_reg = f'y = {m_reg:.3f}x + {b_reg:.1f}'
+    ax2.text(0.5, 0.5, f'R² = {r2_reg:.4f}\n{eqn_reg}', transform=ax2.transAxes,
+             bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.5, edgecolor='black'),
+             fontsize=10, ha='center', va='center', fontweight='bold')
     
     ax2.set_xlabel('Control Regular Households')
     ax2.set_ylabel('Synthetic Regular Households')
@@ -228,9 +254,23 @@ def create_scatter_plots(comparison):
         max_val_gq = max(gq_data['control_gq_hh'].max(), gq_data['syn_gq_hh'].max())
         ax3.plot([0, max_val_gq], [0, max_val_gq], 'r--', linewidth=2, label='Perfect Match')
         
-        r2_gq = np.corrcoef(gq_data['control_gq_hh'], gq_data['syn_gq_hh'])[0, 1] ** 2
-        ax3.text(0.05, 0.95, f'R² = {r2_gq:.6f}', transform=ax3.transAxes,
-                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+        # Best fit line and equation for GQ households
+        if len(gq_data) > 1:  # Need at least 2 points for regression
+            x_vals_gq = gq_data['control_gq_hh']
+            y_vals_gq = gq_data['syn_gq_hh']
+            coeffs_gq = np.polyfit(x_vals_gq, y_vals_gq, 1)
+            m_gq, b_gq = coeffs_gq
+            ax3.plot(x_vals_gq, m_gq * x_vals_gq + b_gq, 'orange', linewidth=2, alpha=0.8, label='Best Fit')
+            
+            r2_gq = np.corrcoef(x_vals_gq, y_vals_gq)[0, 1] ** 2
+            eqn_gq = f'y = {m_gq:.3f}x + {b_gq:.1f}'
+            ax3.text(0.05, 0.95, f'R² = {r2_gq:.4f}\n{eqn_gq}', transform=ax3.transAxes,
+                     bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.5),
+                     fontsize=10, verticalalignment='top')
+        else:
+            ax3.text(0.05, 0.95, 'Insufficient data for regression', transform=ax3.transAxes,
+                     bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, pad=0.5),
+                     fontsize=10, verticalalignment='top')
     
     ax3.set_xlabel('Control GQ Households')
     ax3.set_ylabel('Synthetic GQ Households')

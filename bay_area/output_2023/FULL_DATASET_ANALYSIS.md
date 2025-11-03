@@ -1,79 +1,79 @@
 # PopulationSim TM2 Full Dataset Analysis
-Generated on: 2025-10-24 10:25:21
+Generated on: 2025-10-31 09:27:55
 *Based on complete datasets - all 3.2M households and 7.8M persons*
 
 ## Complete Household Analysis
-**Total Households:** 3,032,138
+**Total Households:** 3,168,663
 
 ### Household Size Distribution
-- 1 person: 899,396 (29.7%)
-- 2 persons: 934,694 (30.8%)
-- 3 persons: 488,574 (16.1%)
-- 4 persons: 423,747 (14.0%)
-- 5 persons: 173,515 (5.7%)
-- 6 persons: 48,662 (1.6%)
-- 7 persons: 20,553 (0.7%)
-- 8 persons: 12,814 (0.4%)
-- 9 persons: 13,262 (0.4%)
-- 10 persons: 7,140 (0.2%)
+- 1 person: 987,876 (31.2%)
+- 2 persons: 984,583 (31.1%)
+- 3 persons: 500,597 (15.8%)
+- 4 persons: 421,339 (13.3%)
+- 5 persons: 168,840 (5.3%)
+- 6 persons: 71,114 (2.2%)
+- 7 persons: 16,534 (0.5%)
+- 8 persons: 8,591 (0.3%)
+- 9 persons: 5,094 (0.2%)
+- 10 persons: 2,992 (0.1%)
 
 ### Geographic Distribution by County
-- San Francisco: 418,196 (13.8%)
-- San Mateo: 288,250 (9.5%)
-- Santa Clara: 704,160 (23.2%)
-- Alameda: 646,592 (21.3%)
-- Contra Costa: 431,991 (14.2%)
-- Solano: 165,589 (5.5%)
-- Napa: 56,033 (1.8%)
-- Sonoma: 208,981 (6.9%)
-- Marin: 112,346 (3.7%)
+- San Francisco: 444,955 (14.0%)
+- San Mateo: 294,729 (9.3%)
+- Santa Clara: 737,391 (23.3%)
+- Alameda: 693,547 (21.9%)
+- Contra Costa: 439,210 (13.9%)
+- Solano: 168,073 (5.3%)
+- Napa: 59,382 (1.9%)
+- Sonoma: 216,229 (6.8%)
+- Marin: 115,147 (3.6%)
 
 ## Complete Person Analysis
-**Total Persons:** 7,642,976
+**Total Persons:** 7,688,448
 
 ### Age Distribution (Complete Dataset)
-- 0-4: 373,878 (4.9%)
-- 5-17: 1,162,673 (15.2%)
-- 18-24: 568,761 (7.4%)
-- 25-34: 1,177,224 (15.4%)
-- 35-44: 1,179,471 (15.4%)
-- 45-54: 1,006,005 (13.2%)
-- 55-64: 918,299 (12.0%)
-- 65-74: 733,505 (9.6%)
-- 75+: 523,160 (6.8%)
+- 0-4: 350,413 (4.6%)
+- 5-17: 1,154,224 (15.0%)
+- 18-24: 607,943 (7.9%)
+- 25-34: 1,189,546 (15.5%)
+- 35-44: 1,204,908 (15.7%)
+- 45-54: 1,042,231 (13.6%)
+- 55-64: 875,500 (11.4%)
+- 65-74: 746,437 (9.7%)
+- 75+: 517,246 (6.7%)
 
 ### Gender Distribution
-- Male: 3,803,895 (49.8%)
-- Female: 3,839,081 (50.2%)
+- Male: 3,837,517 (49.9%)
+- Female: 3,850,931 (50.1%)
 
 ### Employment Status
-- Not Employed: 3,673,517 (48.1%)
-- Employed: 3,969,459 (51.9%)
+- Not Employed: 3,343,567 (43.5%)
+- Employed: 4,344,881 (56.5%)
 
 ### Group Quarters Distribution (Complete Dataset)
-- Regular Households: 7,520,570 (98.4%)
-- University GQ: 50,459 (0.7%)
-- Military GQ: 71,947 (0.9%)
+- Regular Households: 7,557,474 (98.3%)
+- University GQ: 54,019 (0.7%)
+- Military GQ: 76,955 (1.0%)
 
 ### Household Income Distribution (2010$)
-- Mean: $124,024
-- Median: $88,403
+- Mean: $123,397
+- Median: $87,512
 - Min: $0
 - Max: $1,715,388
-- 10th percentile: $10,459
-- 25th percentile: $39,790
-- 50th percentile: $88,403
-- 75th percentile: $163,000
-- 90th percentile: $268,446
+- 10th percentile: $9,769
+- 25th percentile: $38,552
+- 50th percentile: $87,512
+- 75th percentile: $163,106
+- 90th percentile: $269,485
 
 ## Key Summary Statistics
 
-**Average Household Income:** $124,024
-**Average Household Size:** 2.52 persons
+**Average Household Income:** $123,397
+**Average Household Size:** 2.43 persons
 **Average Age:** 39.9 years
 
 ---
 *This analysis processed the complete datasets:*
-*- 3,032,138 households analyzed in full*
-*- 7,642,976 persons analyzed in full*
+*- 3,168,663 households analyzed in full*
+*- 7,688,448 persons analyzed in full*
 *- All statistics represent the complete synthetic population*

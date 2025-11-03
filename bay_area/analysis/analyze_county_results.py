@@ -77,7 +77,7 @@ def load_county_data():
 def create_county_performance_overview(df, output_dir):
     """Create overall county performance comparison"""
     
-    print("📊 Creating county performance overview...")
+    print("[ANALYSIS] Creating county performance overview...")
     
     # Calculate performance metrics by county
     county_metrics = []
@@ -213,20 +213,20 @@ def create_county_performance_overview(df, output_dir):
 Regional Performance Summary
 
 Total Households:
-• Control: {regional_control:,.0f}
-• Result: {regional_result:,.0f}
-• Difference: {regional_diff:,.0f} ({regional_diff_pct:.2f}%)
+- Control: {regional_control:,.0f}
+- Result: {regional_result:,.0f}
+- Difference: {regional_diff:,.0f} ({regional_diff_pct:.2f}%)
 
 County Performance:
-• Mean MAE: {metrics_df['mae'].mean():.1f}
-• Mean Perfect Match: {metrics_df['perfect_pct'].mean():.1f}%
-• Best Performer: {metrics_df.loc[metrics_df['perfect_pct'].idxmax(), 'county_name']}
-• Most Accurate Total: {metrics_df.loc[metrics_df['total_diff_pct'].abs().idxmin(), 'county_name']}
+- Mean MAE: {metrics_df['mae'].mean():.1f}
+- Mean Perfect Match: {metrics_df['perfect_pct'].mean():.1f}%
+- Best Performer: {metrics_df.loc[metrics_df['perfect_pct'].idxmax(), 'county_name']}
+- Most Accurate Total: {metrics_df.loc[metrics_df['total_diff_pct'].abs().idxmin(), 'county_name']}
 
 Accuracy Standards:
-• Counties within ±1%: {(metrics_df['total_diff_pct'].abs() <= 1).sum()}/9
-• Counties within ±2%: {(metrics_df['total_diff_pct'].abs() <= 2).sum()}/9
-• Perfect match rate >15%: {(metrics_df['perfect_pct'] > 15).sum()}/9
+- Counties within +/-1%: {(metrics_df['total_diff_pct'].abs() <= 1).sum()}/9
+- Counties within +/-2%: {(metrics_df['total_diff_pct'].abs() <= 2).sum()}/9
+- Perfect match rate >15%: {(metrics_df['perfect_pct'] > 15).sum()}/9
 """
     
     ax6.text(0.1, 0.9, summary_text, transform=ax6.transAxes, fontsize=11,
@@ -244,7 +244,7 @@ Accuracy Standards:
 def create_variable_performance_by_county(df, output_dir):
     """Create heatmap of variable performance across counties"""
     
-    print("📊 Creating variable performance heatmap...")
+    print("[ANALYSIS] Creating variable performance heatmap...")
     
     # Calculate perfect match rates for each variable by county
     pivot_data = []
@@ -314,7 +314,7 @@ def create_variable_performance_by_county(df, output_dir):
 def create_detailed_variable_analysis(df, output_dir):
     """Create detailed analysis for key variable categories"""
     
-    print("📊 Creating detailed variable analysis...")
+    print("[ANALYSIS] Creating detailed variable analysis...")
     
     # Group variables by category
     variable_categories = {
@@ -332,7 +332,7 @@ def create_detailed_variable_analysis(df, output_dir):
         if not variables:
             continue
             
-        print(f"   📈 Analyzing {category} variables...")
+        print(f"   [TREND] Analyzing {category} variables...")
         
         # Create figure for this category
         n_vars = len(variables)
@@ -430,7 +430,7 @@ def analyze_county_results():
     output_dir = Path("output_2023/charts/county_analysis")
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    print(f"\n📊 Analyzing {len(df['control_name'].unique())} variables across {len(df['county_id'].unique())} counties")
+    print(f"\n[ANALYSIS] Analyzing {len(df['control_name'].unique())} variables across {len(df['county_id'].unique())} counties")
     
     # Create visualizations
     metrics_df = create_county_performance_overview(df, output_dir)
@@ -445,20 +445,20 @@ def analyze_county_results():
     detailed_file = output_dir / "county_detailed_results.csv"
     df.to_csv(detailed_file, index=False)
     
-    print(f"\n✅ County analysis complete!")
-    print(f"📊 Charts saved to: {output_dir}")
-    print(f"📈 Generated performance overview, heatmaps, and detailed variable analysis")
+    print(f"\n[COMPLETE] County analysis complete!")
+    print(f"[ANALYSIS] Charts saved to: {output_dir}")
+    print(f"[TREND] Generated performance overview, heatmaps, and detailed variable analysis")
     
     # Print summary
     regional_control = metrics_df['total_control'].sum()
     regional_result = metrics_df['total_result'].sum()
     regional_diff_pct = ((regional_result - regional_control) / regional_control) * 100
     
-    print(f"\n📈 REGIONAL SUMMARY:")
-    print(f"   • Total households - Control: {regional_control:,.0f}, Result: {regional_result:,.0f}")
-    print(f"   • Regional accuracy: {regional_diff_pct:+.2f}%")
-    print(f"   • Best performing county: {metrics_df.loc[metrics_df['perfect_pct'].idxmax(), 'county_name']}")
-    print(f"   • Counties within ±1% total: {(metrics_df['total_diff_pct'].abs() <= 1).sum()}/9")
+    print(f"\n[TREND] REGIONAL SUMMARY:")
+    print(f"   - Total households - Control: {regional_control:,.0f}, Result: {regional_result:,.0f}")
+    print(f"   - Regional accuracy: {regional_diff_pct:+.2f}%")
+    print(f"   - Best performing county: {metrics_df.loc[metrics_df['perfect_pct'].idxmax(), 'county_name']}")
+    print(f"   - Counties within +/-1% total: {(metrics_df['total_diff_pct'].abs() <= 1).sum()}/9")
 
 if __name__ == '__main__':
     analyze_county_results()

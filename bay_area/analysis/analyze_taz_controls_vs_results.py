@@ -181,12 +181,19 @@ def create_variable_chart(var_name, controls, results, errors, pct_errors,
     # Perfect fit line (y=x)
     ax1.plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, alpha=0.8, label='Perfect Fit (y=x)')
     
-    # Best fit line
+    # Best fit line with equation
     if len(controls) > 1:
         z = np.polyfit(controls, results, 1)
         p = np.poly1d(z)
+        m, b = z  # slope and intercept
         ax1.plot(controls, p(controls), 'orange', linewidth=2, alpha=0.8, 
                 label=f'Best Fit (R²={r_squared:.3f})')
+        
+        # Add equation text
+        eqn = f'y = {m:.3f}x + {b:.1f}'
+        ax1.text(0.5, 0.5, eqn, transform=ax1.transAxes, 
+                bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.8, pad=0.5, edgecolor='black'),
+                fontsize=11, ha='center', va='center', fontweight='bold')
     
     ax1.set_xlabel('Control Values')
     ax1.set_ylabel('Result Values')
