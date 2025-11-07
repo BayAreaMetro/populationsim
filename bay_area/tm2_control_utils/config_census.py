@@ -558,7 +558,7 @@ CONTROLS[ACS_EST_YEAR]['REGION'] = collections.OrderedDict([
 # These will be used as county-specific scaling factors applied to 2020 Census occupied housing units
 CONTROLS[ACS_EST_YEAR]['COUNTY_TARGETS'] = collections.OrderedDict([
     # Household targets from ACS 2023 1-year county estimates (by county)
-    ('num_hh_target_by_county',  ('acs1', ACS_EST_YEAR, 'B25001', 'county', [])),        # Total households by county
+    ('num_hh_target_by_county',  ('acs1', ACS_EST_YEAR, 'B25003', 'county', [])),        # Total households by county (B25003_001E)
     ('tot_pop_target_by_county', ('acs1', ACS_EST_YEAR, 'B01003', 'county', [])),        # Total population by county
     # Note: Group quarters subcategory variables (B26001_006E, B26001_007E) are not available in ACS1
     # Using 2020 Census PL data for group quarters (no county-level scaling)
