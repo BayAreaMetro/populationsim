@@ -225,21 +225,46 @@ if __name__ == '__main__':
         # Geographic remapping: Add MAZ_ORIGINAL and TAZ_ORIGINAL columns
         logging.info("-- Performing geographic remapping for TM2 --")
         
-        # Read the MAZ ID lookup table
-        maz_id_file = config.CONTROL_FILES['maz_id_file']
-        logging.info(f"Reading MAZ ID lookup from: {maz_id_file}")
+        # Check if MAZ ID lookup file is available (optional since crosswalk is now external)
+        maz_id_file = config.CONTROL_FILES.get('maz_id_file')
+        if maz_id_file and os.path.exists(maz_id_file):
+            logging.info(f"Reading MAZ ID lookup from: {maz_id_file}")
+        else:
+            logging.info("MAZ ID lookup file not available - will generate sequential IDs from crosswalk")
+            maz_id_file = None
         
         try:
-            maz_lookup_df = pandas.read_csv(maz_id_file)
-            logging.info("Read MAZ lookup table with {:,} rows".format(len(maz_lookup_df)))
-            
-            # Check required columns exist
-            required_cols = ['MAZ_NODE', 'TAZ_NODE', 'MAZ_SEQ', 'TAZ_SEQ']
-            missing_cols = [col for col in required_cols if col not in maz_lookup_df.columns]
-            if missing_cols:
-                logging.warning(f"Missing columns in MAZ lookup: {missing_cols}")
-                logging.info("Available columns: {}".format(list(maz_lookup_df.columns)))
+            if maz_id_file:
+                maz_lookup_df = pandas.read_csv(maz_id_file)
+                logging.info("Read MAZ lookup table with {:,} rows".format(len(maz_lookup_df)))
+                
+                # Check required columns exist
+                required_cols = ['MAZ_NODE', 'TAZ_NODE', 'MAZ_SEQ', 'TAZ_SEQ']
+                missing_cols = [col for col in required_cols if col not in maz_lookup_df.columns]
+                if missing_cols:
+                    logging.warning(f"Missing columns in MAZ lookup: {missing_cols}")
+                    logging.info("Available columns: {}".format(list(maz_lookup_df.columns)))
+                    maz_lookup_df = None
             else:
+                # Generate sequential IDs from crosswalk data
+                logging.info("Generating sequential MAZ/TAZ IDs from crosswalk data")
+                
+                # Get unique MAZ and TAZ values from crosswalk
+                unique_mazs = geocrosswalk_df[['MAZ_NODE']].drop_duplicates().sort_values('MAZ_NODE')
+                unique_tazs = geocrosswalk_df[['TAZ_NODE']].drop_duplicates().sort_values('TAZ_NODE')
+                
+                # Create sequential IDs
+                unique_mazs['MAZ_SEQ'] = range(1, len(unique_mazs) + 1)
+                unique_tazs['TAZ_SEQ'] = range(1, len(unique_tazs) + 1)
+                
+                # Create lookup table from crosswalk
+                maz_lookup_df = geocrosswalk_df[['MAZ_NODE', 'TAZ_NODE']].drop_duplicates()
+                maz_lookup_df = maz_lookup_df.merge(unique_mazs, on='MAZ_NODE', how='left')
+                maz_lookup_df = maz_lookup_df.merge(unique_tazs, on='TAZ_NODE', how='left')
+                
+                logging.info(f"Generated lookup table with {len(maz_lookup_df)} MAZ/TAZ combinations")
+            
+            if maz_lookup_df is not None:
                 # CORRECT LOGIC: Keep MAZ_NODE and TAZ_NODE unchanged, just add MAZ_SEQ and TAZ_SEQ from lookup
                 logging.info("Adding MAZ_SEQ and TAZ_SEQ from lookup table while preserving original MAZ_NODE and TAZ_NODE")
                 
@@ -264,9 +289,11 @@ if __name__ == '__main__':
                 # Check join success
                 households_with_seq = households_df['MAZ_SEQ'].notna().sum()
                 total_households = len(households_df)
-                logging.info(f"Successfully added MAZ_SEQ/TAZ_SEQ to {households_with_seq:,}/{total_households:,} households ({households_with_seq/total_households*100:.1f}%)")
+                logging.info(f"Successfully added sequential IDs to {households_with_seq:,} of {total_households:,} households ({households_with_seq/total_households*100:.1f}%)")
+            else:
+                logging.warning("No MAZ lookup data available - skipping MAZ_SEQ/TAZ_SEQ columns")
                 
-                logging.info("Geographic lookup completed - MAZ_NODE and TAZ_NODE preserved, MAZ_SEQ and TAZ_SEQ added")
+            logging.info("Geographic lookup completed - MAZ_NODE and TAZ_NODE preserved, MAZ_SEQ and TAZ_SEQ added")
                 
         except Exception as e:
             logging.error(f"Error during geographic remapping: {e}")

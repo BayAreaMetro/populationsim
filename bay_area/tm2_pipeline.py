@@ -37,11 +37,6 @@ import pandas as pd
 
 from unified_tm2_config import UnifiedTM2Config
 
-try:
-    from tm2_control_utils.config_census import rebuild_maz_taz_all_geog_file
-except ImportError:
-    rebuild_maz_taz_all_geog_file = None
-
 
 class TM2Pipeline:
     """Complete TM2 population synthesis pipeline with single source of truth"""
@@ -357,37 +352,6 @@ class TM2Pipeline:
             
         except Exception as e:
             self.log(f"Error fixing county codes: {e}", "ERROR")
-            # traceback already imported at top
-            self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
-            return False
-    
-
-    def run_geographic_rebuild(self):
-        """Rebuild complete geographic crosswalk from 2010 Census blocks"""
-        try:
-            # rebuild_maz_taz_all_geog_file imported at top
-            
-            self.log("Rebuilding complete geographic crosswalk from 2010 Census blocks...")
-            
-            # Use unified config paths
-            blocks_file = self.config.TM2PY_UTILS_BLOCKS_FILE
-            output_dir = self.config.PRIMARY_OUTPUT_DIR
-            
-            self.log(f"Source blocks file: {blocks_file}")
-            self.log(f"Output directory: {output_dir}")
-            
-            # Call the rebuild function - pass None for output_path to use default
-            success = rebuild_maz_taz_all_geog_file(blocks_file, None)
-            
-            if success:
-                self.log("✓ Successfully rebuilt complete geographic crosswalk", "SUCCESS")
-                return True
-            else:
-                self.log("Failed to rebuild geographic crosswalk", "ERROR")
-                return False
-                
-        except Exception as e:
-            self.log(f"Error rebuilding geographic crosswalk: {e}", "ERROR")
             # traceback already imported at top
             self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
             return False

@@ -196,44 +196,14 @@ class UnifiedTM2Config:
     def _setup_external_paths(self):
         """Setup external system paths"""
         self.EXTERNAL_PATHS = {
-            # TM2PY utilities (for shapefiles and outputs)
-            'tm2py_shapefiles': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles"),
-            'tm2py_utils': Path("C:/GitHub/tm2py-utils/tm2py_utils"),
-            'tm2py_crosswalks': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/crosswalks"),
-            # Original populationsim_update path (used in some scripts)
-            'populationsim_update': Path("c:/GitHub/populationsim_update/bay_area"),
             # Census data cache
             'census_cache': self.BASE_DIR / "data_cache" / "census",
-            'network_gis': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
             'network_census_cache': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls"),
             'network_census_api': Path("M:/Data/Census/API/new_key"),
             'pums_current': Path("M:/Data/Census/PUMS_2023_5Year_Crosswalked"),
-            'pums_cached': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23"),
-            # LEGACY: Local fallback paths - not required for config-driven runs
-            #'local_data': self.BASE_DIR / "local_data",
-            #'local_gis': self.BASE_DIR / "local_data" / "gis", 
-            #'local_census': self.BASE_DIR / "local_data" / "census",
-            #'input_2023_cache': self.BASE_DIR / "input_2023" / "NewCachedTablesForPopulationSimControls",
-            # Shapefiles for geographic processing
-            'maz_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/mazs_TM2_2_5.shp"),
-            'puma_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/tl_2022_06_puma20.shp"),
-            'county_shapefile': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/Counties.shp"),
-            # Geographic crosswalk source
-            'blocks_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/blocks_mazs_tazs_2.5.csv"),
-            # MAZ ID lookup file
-            'maz_id_file': Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/crosswalks/maz_id_lookups.csv")
+            'pums_cached': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23")
         }
 
-        # ============================================================
-        # SHAPEFILE PATHS
-        # ============================================================
-        self.SHAPEFILES = {
-            'maz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "mazs_TM2_2_5.shp",
-            'taz_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tazs_TM2_2_5.shp",
-            'puma_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "tl_2022_06_puma20.shp",
-            'county_shapefile': self.EXTERNAL_PATHS['tm2py_shapefiles'] / "Counties.shp"
-        }
-    
     def _setup_file_templates(self):
         """Setup file naming templates"""
         self.FILE_TEMPLATES = {
@@ -306,8 +276,7 @@ class UnifiedTM2Config:
             'maz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals_hhgq'],
             'taz_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['taz_marginals_hhgq'],
             'county_marginals_main': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['county_marginals'],
-            'maz_data_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data'],
-            'maz_id_file': self.EXTERNAL_PATHS['maz_id_file']  # Use tm2py-utils location
+            'maz_data_main': self.OUTPUT_DIR / self.FILE_TEMPLATES['maz_data']
         }
         self.HHGQ_FILES = {
             'maz_marginals_hhgq': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['maz_marginals_hhgq'],
@@ -516,15 +485,6 @@ class UnifiedTM2Config:
     # HELPER METHODS FOR SCRIPT INTEGRATION
     # ============================================================
     
-    def get_crosswalk_paths(self):
-        """Get paths for crosswalk generation scripts"""
-        return {
-            'maz_shapefile': self.SHAPEFILES['maz_shapefile'],
-            'puma_shapefile': self.SHAPEFILES['puma_shapefile'], 
-            'output_primary': self.CROSSWALK_FILES['popsim_crosswalk'],
-            'output_reference': self.CROSSWALK_FILES['main_crosswalk']
-        }
-    
     def get_seed_paths(self):
         """Get paths for seed generation scripts"""
         return {
@@ -567,10 +527,6 @@ class UnifiedTM2Config:
         return self.EXTERNAL_PATHS
     
     @property
-    def TM2PY_UTILS_BLOCKS_FILE(self):
-        """Get path to TM2PY utils blocks file for geographic rebuild"""
-        return self.EXTERNAL_PATHS['blocks_file']
-    
     def get_file_template(self, template_name):
         """Get a specific file template"""
         return self.FILE_TEMPLATES.get(template_name, template_name)

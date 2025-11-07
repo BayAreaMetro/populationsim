@@ -715,3 +715,9 @@ MainProcess,18904,1_341_034_496,1_341_034_496,1_318_170_624,pipeline.run_model m
 MainProcess,18904,1_343_041_536,1_343_041_536,1_321_033_728,pipeline.run_model meta_control_factoring finished,0,2025/11/07 11:42:12.249819
 MainProcess,18904,1_344_061_440,1_344_061_440,1_321_168_896,pipeline.run after meta_control_factoring,0,2025/11/07 11:42:12.311372
 MainProcess,18904,1_344_094_208,1_344_094_208,1_321_168_896,pipeline.run_model final_seed_balancing start,0,2025/11/07 11:42:12.409073
+MainProcess,18904,167_895_040,167_895_040,160_210_944,pipeline.run_model final_seed_balancing finished,0,2025/11/07 11:47:04.269819
+MainProcess,18904,167_792_640,167_792_640,159_227_904,pipeline.run after final_seed_balancing,0,2025/11/07 11:47:04.349028
+MainProcess,18904,167_796_736,167_796_736,159_227_904,pipeline.run_model integerize_final_seed_weights start,0,2025/11/07 11:47:04.379779
+MainProcess,18904,185_872_384,185_872_384,171_716_608,pipeline.run_model integerize_final_seed_weights finished,0,2025/11/07 11:47:32.410066
+MainProcess,18904,185_856_000,185_856_000,170_823_680,pipeline.run after integerize_final_seed_weights,0,2025/11/07 11:47:32.568581
+MainProcess,18904,185_835_520,185_835_520,170_803_200,pipeline.run_model sub_balancing.geography=TAZ_NODE start,0,2025/11/07 11:47:32.606781
