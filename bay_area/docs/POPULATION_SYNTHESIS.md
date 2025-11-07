@@ -14,7 +14,7 @@ This step runs the PopulationSim library to generate the synthetic population fo
 
 - `households.csv` and `persons.csv`: Harmonized seed population files (from the seed step)
 - `maz_marginals_hhgq.csv`, `taz_marginals.csv`, `county_marginals.csv`: Control files (from the control generation step)
-- `geo_cross_walk_tm2_enhanced.csv`: Enhanced crosswalk file (from the crosswalk step)
+- `geo_cross_walk_tm2_block10.csv`: Enhanced crosswalk file (from the crosswalk step)
 - `controls.csv`: PopulationSim control configuration with person-level GQ controls
 - Configuration files for PopulationSim and ActivitySim (see `configs/` and `unified_tm2_config.py`)
 
@@ -70,3 +70,5 @@ This will execute the full PopulationSim synthesis pipeline and write outputs to
 ---
 
 *Return to the [main documentation index](README.md) for other pipeline steps.*
+
+

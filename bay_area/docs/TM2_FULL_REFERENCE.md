@@ -167,7 +167,7 @@ This reference covers the following:
 
 Important repository locations (relative to repo root):
 - Primary outputs directory: `output_2023/populationsim_working_dir/`
-  - `data/` — generated upstream marginal files and crosswalks (e.g., `maz_marginals_hhgq.csv`, `taz_marginals_hhgq.csv`, `county_marginals.csv`, `geo_cross_walk_tm2.csv`).
+  - `data/` — generated upstream marginal files and crosswalks (e.g., `maz_marginals_hhgq.csv`, `taz_marginals_hhgq.csv`, `county_marginals.csv`, `geo_cross_walk_tm2_maz.csv`).
   - `output/` — final PopulationSim outputs and run summaries (e.g., `synthetic_households.csv`, `synthetic_persons.csv`, `households_2023_tm2.csv`, `persons_2023_tm2.csv`, `final_summary_TAZ_NODE.csv`, `final_summary_COUNTY_*.csv`).
 - Documentation: `docs/TM2_OUTPUTS.md`, `docs/TM2_INPUT_FIELDS.md`, `docs/TM2_OUTPUT_SUMMARIES.md` (supporting reference files already in the repo).
 
@@ -227,7 +227,7 @@ Group quarters (GQ) handling
 
 Recommended checks (high level):
 - Referential integrity: ensure every person in `synthetic_persons.csv` has a matching household id in `synthetic_households.csv`.
-- TAZ vs MAZ totals: aggregate `maz_marginals_hhgq.csv` by TAZ using `geo_cross_walk_tm2.csv` and compare to `taz_marginals_hhgq.csv`.
+- TAZ vs MAZ totals: aggregate `maz_marginals_hhgq.csv` by TAZ using `geo_cross_walk_tm2_maz.csv` and compare to `taz_marginals_hhgq.csv`.
 - County reconciliation: sum MAZ `numhh_gq` by county and compare to `county_targets_2023.csv` and to `final_summary_COUNTY_*.csv` balanced/integer weight columns.
 
 Standard acceptance tolerances:
@@ -261,7 +261,7 @@ pandoc docs/TM2_FULL_REFERENCE.md -o docs/TM2_FULL_REFERENCE.pdf
 
 Appendix A — Quick checklist before a formal delivery
 
-- Confirm `geo_cross_walk_tm2.csv` covers all MAZs referenced in `maz_marginals_hhgq.csv`.
+- Confirm `geo_cross_walk_tm2_maz.csv` covers all MAZs referenced in `maz_marginals_hhgq.csv`.
 - Confirm `maz_marginals_hhgq.csv` contains a `numhh_gq` column and that county sums match `county_targets_2023.csv` when using balanced/integer weights.
 - Run hierarchical enforcement (if re-generating marginals) and check reported `HIERARCHICAL_TOLERANCE`.
 
@@ -562,5 +562,7 @@ MAZ_NODE,control_total_hh,syn_total_hh,diff_total_hh,pct_diff_total_hh,control_r
 10044,54.0,54.0,0.0,0.0,54.0,54.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
 10045,58.0,58.0,0.0,0.0,58.0,58.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
 ```
+
+
 
 

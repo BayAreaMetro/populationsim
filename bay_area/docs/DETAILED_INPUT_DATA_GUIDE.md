@@ -414,7 +414,7 @@ EXTERNAL_PATHS = {
 FILE_TEMPLATES = {
     'seed_households': "seed_households.csv",
     'maz_marginals': "maz_marginals_hhgq.csv",
-    'geo_crosswalk_base': "geo_cross_walk_tm2.csv"
+    'geo_crosswalk_base': "geo_cross_walk_tm2_maz.csv"
 }
 ```
 
@@ -611,3 +611,4 @@ The TM2 PopulationSim system relies on a comprehensive ecosystem of authoritativ
 - Quality assurance documentation and validation reports
 
 This comprehensive input data framework ensures the PopulationSim pipeline can reliably generate high-quality synthetic populations while maintaining transparency, reproducibility, and quality control throughout the entire process.
+

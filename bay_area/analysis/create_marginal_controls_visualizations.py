@@ -143,8 +143,8 @@ class MarginalControlsVisualizer:
         try:
             # Try to load crosswalk
             crosswalk_paths = [
-                self.data_dir / "../data/geo_cross_walk_tm2.csv",
-                "geo_cross_walk_tm2.csv",
+                self.data_dir / "../data/geo_cross_walk_tm2_maz.csv",
+                "geo_cross_walk_tm2_maz.csv",
                 "mazs_tazs_all_geog.csv"
             ]
             
@@ -836,3 +836,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

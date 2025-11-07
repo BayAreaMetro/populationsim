@@ -371,7 +371,7 @@ COUNTY,pers_occ_management,pers_occ_professional,pers_occ_services,pers_occ_reta
 
 ### Supporting Files
 
-#### Geographic Crosswalk: `geo_cross_walk_tm2.csv`
+#### Geographic Crosswalk: `geo_cross_walk_tm2_maz.csv`
 Essential for linking different geographic levels:
 ```csv
 MAZ_NODE,TAZ_NODE,COUNTY,county_name,PUMA
@@ -474,3 +474,4 @@ As the Bay Area continues to evolve rapidly, this robust control generation fram
 ---
 
 *For technical details on running the control generation system, see [CONTROL_GENERATION.md](CONTROL_GENERATION.md). For environment setup, see [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md).*
+

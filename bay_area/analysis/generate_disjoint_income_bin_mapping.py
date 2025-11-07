@@ -81,3 +81,6 @@ with open('analysis/DISJOINT_INCOME_BIN_MAPPING.txt', 'w') as f:
     f.write('\n'.join(lines))
 
 print("✓ Disjoint income bin mapping written to analysis/DISJOINT_INCOME_BIN_MAPPING.txt")
+
+
+

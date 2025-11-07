@@ -187,3 +187,5 @@ python -c "import populationsim; print(populationsim.__file__)"
 2. **Environment issues**: Run `python setup_environment.py`
 3. **Path problems**: Check `unified_tm2_config.py` external paths
 4. **Data issues**: Verify input files in `output_2023/populationsim_working_dir/data/`
+
+

@@ -698,3 +698,20 @@ MainProcess,25748,1_122_938_880,1_122_938_880,1_033_097_216,pipeline.run_model w
 MainProcess,25748,303_419_392,303_419_392,287_789_056,pipeline.run_model write_synthetic_population finished,0,2025/10/30 19:14:35.238215
 MainProcess,25748,314_007_552,314_007_552,295_542_784,pipeline.run after write_synthetic_population,0,2025/10/30 19:14:35.407869
 MainProcess,25748,314_019_840,314_019_840,295_555_072,pipeline.run after run_models,0,2025/10/30 19:14:35.471541
+
+
+MainProcess,18904,87_113_728,87_113_728,60_477_440,pipeline.run before preload_injectables,0,2025/11/07 11:36:24.846765
+MainProcess,18904,87_404_544,87_404_544,60_485_632,pipeline.run after preload_injectables,0,2025/11/07 11:36:24.863413
+MainProcess,18904,87_429_120,87_429_120,60_485_632,pipeline.run_model input_pre_processor start,0,2025/11/07 11:36:24.879412
+MainProcess,18904,1_321_320_448,1_321_320_448,1_298_706_432,pipeline.run_model input_pre_processor finished,0,2025/11/07 11:36:34.868030
+MainProcess,18904,1_354_031_104,1_354_031_104,1_331_556_352,pipeline.run after input_pre_processor,0,2025/11/07 11:36:38.848105
+MainProcess,18904,1_354_235_904,1_354_235_904,1_331_568_640,pipeline.run_model setup_data_structures start,0,2025/11/07 11:36:38.886039
+MainProcess,18904,1_361_162_240,1_361_162_240,1_338_265_600,pipeline.run_model setup_data_structures finished,0,2025/11/07 11:36:43.365521
+MainProcess,18904,1_367_212_032,1_367_212_032,1_345_159_168,pipeline.run after setup_data_structures,0,2025/11/07 11:36:46.396606
+MainProcess,18904,1_368_236_032,1_368_236_032,1_345_204_224,pipeline.run_model initial_seed_balancing start,0,2025/11/07 11:36:46.432811
+MainProcess,18904,1_340_026_880,1_340_026_880,1_318_125_568,pipeline.run_model initial_seed_balancing finished,0,2025/11/07 11:42:12.031293
+MainProcess,18904,1_341_034_496,1_341_034_496,1_318_170_624,pipeline.run after initial_seed_balancing,0,2025/11/07 11:42:12.097129
+MainProcess,18904,1_341_034_496,1_341_034_496,1_318_170_624,pipeline.run_model meta_control_factoring start,0,2025/11/07 11:42:12.135536
+MainProcess,18904,1_343_041_536,1_343_041_536,1_321_033_728,pipeline.run_model meta_control_factoring finished,0,2025/11/07 11:42:12.249819
+MainProcess,18904,1_344_061_440,1_344_061_440,1_321_168_896,pipeline.run after meta_control_factoring,0,2025/11/07 11:42:12.311372
+MainProcess,18904,1_344_094_208,1_344_094_208,1_321_168_896,pipeline.run_model final_seed_balancing start,0,2025/11/07 11:42:12.409073

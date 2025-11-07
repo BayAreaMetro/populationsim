@@ -49,3 +49,5 @@ Contact / follow-up
 If you want, I can produce a Word (.docx) version of this page, or expand it into a 2–3 page technical appendix with exact sample CSV column headers and a small checklist for preparing synthesis inputs.
 
 (End of one-page summary)
+
+

@@ -81,3 +81,6 @@ print('\nPer-county balanced vs integer weight check:')
 print(df2[['county_name','bal_size_sum','bal_numhh','int_size_sum','int_numhh']])
 
 print('\nIf COUNTY_balanced_weight sums align but control_value sums do not, the control breakdowns likely come from mismatched control sources or were not normalized to the same total during control generation.')
+
+
+

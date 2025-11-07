@@ -156,9 +156,9 @@ class PUMACountyMapper:
             except:
                 # Fallback to hardcoded paths if config fails
                 crosswalk_paths = [
-                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv"),  # Fresh crosswalk only
-                    Path("output_2023/geo_cross_walk_tm2.csv"),
-                    Path("geo_cross_walk_tm2.csv")
+                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_maz.csv"),  # Fresh crosswalk only
+                    Path("output_2023/geo_cross_walk_tm2_maz.csv"),
+                    Path("geo_cross_walk_tm2_maz.csv")
                 ]
         
         for crosswalk_path in crosswalk_paths:
@@ -1302,3 +1302,6 @@ def main():
 
 if __name__ == "__main__":
     exit(main())
+
+
+

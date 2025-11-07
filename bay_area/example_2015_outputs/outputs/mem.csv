@@ -62,3 +62,5 @@ MainProcess,1296,1_940_475_904,1_940_475_904,633_503_744,pipeline.run_model writ
 MainProcess,1296,1_521_098_752,1_521_098_752,695_984_128,pipeline.run_model write_synthetic_population finished,0,2025/06/05 20:42:09.635524
 MainProcess,1296,1_534_324_736,1_534_324_736,705_748_992,pipeline.run after write_synthetic_population,0,2025/06/05 20:42:09.875967
 MainProcess,1296,1_534_377_984,1_534_377_984,705_802_240,pipeline.run after run_models,0,2025/06/05 20:42:09.945240
+
+

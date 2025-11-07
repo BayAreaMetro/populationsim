@@ -108,3 +108,4 @@ Where to find the definitive headers
 
 Next steps to fully document ALL I/O fields
 - I can iterate over all generated summary CSVs (MAZ / TAZ / County / final_summary files) and auto-extract headers and first-row samples, then create a per-file markdown section with per-field descriptions. Confirm if you want me to automatically generate those sections for every CSV under `output_2023/populationsim_working_dir/data/` and `.../output/` and I'll run it and commit the generated docs.
+

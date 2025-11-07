@@ -659,3 +659,5 @@ def create_summary_index(results, dashboard_file, output_dir):
 
 if __name__ == '__main__':
     create_interactive_taz_analysis()
+
+

@@ -62,3 +62,6 @@ with open('analysis/ACS_ALIGNED_INCOME_BINS.txt', 'w') as f:
     f.write('\n'.join(lines))
 
 print("✓ ACS-aligned income bins written to analysis/ACS_ALIGNED_INCOME_BINS.txt")
+
+
+

@@ -35,6 +35,9 @@ dependencies:
   - requests
   - click
   
+  # Parallel computing (required by ActivitySim/Sharrow)
+  - dask
+  
   - pip:
     # Let pip handle the complex dependencies
     - populationsim
@@ -43,3 +46,5 @@ dependencies:
     - psutil
     - census  # US Census API access for control generation
     - beautifulsoup4  # HTML/XML parsing for geography utilities
+
+

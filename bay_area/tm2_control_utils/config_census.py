@@ -117,7 +117,7 @@ INPUT_2023_CACHE_FOLDER = "input_2023/NewCachedTablesForPopulationSimControls"
 
 # Network (M: drive) file locations
 NETWORK_MAZ_TAZ_DEF_FILE = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\blocks_mazs_tazs_2.5.csv"
-NETWORK_MAZ_TAZ_ALL_GEOG_FILE = "mazs_tazs_all_geog.csv"
+NETWORK_MAZ_TAZ_ALL_GEOG_FILE = "geo_cross_walk_tm2_block10.csv"
 NETWORK_CENSUS_API_KEY_FILE = r"M:\Data\Census\API\new_key\api-key.txt"
 
 
@@ -126,8 +126,8 @@ NETWORK_CENSUS_API_KEY_FILE = r"M:\Data\Census\API\new_key\api-key.txt"
 BLOCKS_MAZ_TAZ_FILE = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\blocks_mazs_tazs_2.5.csv"  # Verified 2010 Census blocks with MAZ/TAZ mapping
 
 # Output file names
-GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2.csv"
-MAZ_TAZ_ALL_GEOG_OUTPUT_FILE = "mazs_tazs_all_geog.csv"  # Rebuilt complete geography file
+GEO_CROSSWALK_TM2_FILE = "geo_cross_walk_tm2_maz.csv"
+MAZ_TAZ_ALL_GEOG_OUTPUT_FILE = "geo_cross_walk_tm2_block10.csv"  # Rebuilt complete geography file
 COUNTY_TARGETS_FILE = "county_targets_2023.csv"
 MAZ_MARGINALS_FILE = "maz_marginals.csv"
 TAZ_MARGINALS_FILE = "taz_marginals.csv"
@@ -151,7 +151,7 @@ GEO_CROSSWALK_TM2_PATH = str(unified_config.CROSSWALK_FILES['popsim_crosswalk'])
 
 # Define variables that may not be set but are used by legacy scripts
 MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location (now CSV)
-MAZ_TAZ_ALL_GEOG_FILE = f"{PRIMARY_OUTPUT_DIR}/mazs_tazs_all_geog.csv"  # Use canonical, up-to-date geography file
+MAZ_TAZ_ALL_GEOG_FILE = f"{PRIMARY_OUTPUT_DIR}/geo_cross_walk_tm2_block10.csv"  # Use canonical, up-to-date geography file
 
 
 def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
@@ -1300,3 +1300,5 @@ def get_missing_controls_for_geography(geography, existing_controls):
             missing_by_category[category] = missing_in_category
     
     return missing_by_category
+
+

@@ -30,7 +30,7 @@ def main():
     
     households_file = data_dir / "seed_households.csv"
     persons_file = data_dir / "seed_persons.csv"
-    crosswalk_file = data_dir / "geo_cross_walk_tm2.csv"
+    crosswalk_file = data_dir / "geo_cross_walk_tm2_maz.csv"
     
     # Check if files exist
     if not households_file.exists():
@@ -314,3 +314,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

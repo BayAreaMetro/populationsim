@@ -519,8 +519,8 @@ Current school attendance level:
 #### Geographic Files
 
 **Files**:
-- `geo_cross_walk_tm2.csv`: Primary geographic crosswalk
-- `geo_cross_walk_tm2_enhanced.csv`: Extended crosswalk with block groups
+- `geo_cross_walk_tm2_maz.csv`: Primary geographic crosswalk
+- `geo_cross_walk_tm2_block10.csv`: Extended crosswalk with block groups
 - `mazs_tazs_all_geog.csv`: Complete geographic hierarchy
 
 ### Diagnostic and Debug Outputs
@@ -739,3 +739,4 @@ The TM2 PopulationSim output suite provides comprehensive support for transporta
 - Performance optimization supporting large-scale applications
 
 This comprehensive output framework ensures that PopulationSim synthesis results effectively support the full spectrum of Bay Area planning, policy, and research applications while maintaining the highest standards of data quality and analytical rigor.
+

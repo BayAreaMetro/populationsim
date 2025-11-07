@@ -32,3 +32,6 @@ if os.path.exists(f3):
         print('TAZ numhh_gq: MISSING')
 else:
     print('TAZ marginals not found')
+
+
+

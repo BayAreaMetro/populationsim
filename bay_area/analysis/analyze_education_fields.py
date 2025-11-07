@@ -122,3 +122,6 @@ def analyze_education_patterns():
 
 if __name__ == '__main__':
     analyze_education_patterns()
+
+
+

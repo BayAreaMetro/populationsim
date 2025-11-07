@@ -179,3 +179,5 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 - Age/income distribution review
 - Household size and composition analysis
 - Geographic distribution patterns
+
+

@@ -106,3 +106,6 @@ if __name__ == "__main__":
     # Test reverse conversion
     converted_back = convert_2010_to_2023_dollars(test_income_2010)
     print(f"${test_income_2010:,.0f} in 2010 dollars = ${converted_back:,.0f} in 2023 dollars")
+
+
+

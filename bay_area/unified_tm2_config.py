@@ -21,7 +21,7 @@ class UnifiedTM2Config:
     @property
     def MAZ_TAZ_ALL_GEOG_FILE(self):
         """Canonical path to the block-level MAZ/TAZ all geography file (one row per block)."""
-        return self.POPSIM_DATA_DIR / "mazs_tazs_all_geog.csv"
+        return self.POPSIM_DATA_DIR / "geo_cross_walk_tm2_block10.csv"
     """Single configuration class that handles everything"""
     
     def _setup_value_labels(self):
@@ -261,7 +261,7 @@ class UnifiedTM2Config:
             'example_maz_density': "maz_data_withDensity.csv",
             
             # Crosswalk files
-            'geo_crosswalk_base': f"geo_cross_walk_{self.MODEL_TYPE.lower()}.csv",
+            'geo_crosswalk_base': f"geo_cross_walk_{self.MODEL_TYPE.lower()}_maz.csv",
             
             # Group quarters files
             'maz_marginals_hhgq': "maz_marginals_hhgq.csv",
@@ -287,7 +287,7 @@ class UnifiedTM2Config:
         self.CROSSWALK_FILES = {
             'main_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
             'popsim_crosswalk': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['geo_crosswalk_base'],
-            'enhanced_crosswalk': self.POPSIM_DATA_DIR / 'geo_cross_walk_tm2_enhanced.csv',
+            'enhanced_crosswalk': self.POPSIM_DATA_DIR / 'geo_cross_walk_tm2_block10.csv',
         }
         self.SEED_FILES = {
             'households_raw': self.POPSIM_DATA_DIR / self.FILE_TEMPLATES['households_raw'],
@@ -447,17 +447,9 @@ class UnifiedTM2Config:
         """Define ALL commands in the system, including new comparison/analysis step"""
         self.COMMANDS = {
             # Step 0: Crosswalk creation (MUST be first - seed generation needs it)
-            'crosswalk': [
-                [
-                    "python",
-                    str(self.BASE_DIR / "create_tm2_crosswalk.py"),
-                    "--output", str(self.CROSSWALK_FILES['popsim_crosswalk'])
-                ] + self.get_test_puma_args(),
-                [
-                    "python",
-                    str(self.BASE_DIR / "build_complete_crosswalk.py")
-                ]
-            ],
+            # Step 0: Crosswalk creation (NOW EXTERNAL - use standalone_tm2_crosswalk_creator.py)
+            # Note: Crosswalk creation moved to external standalone script in tm2py-utils
+            'crosswalk': [],  # External step - no longer part of this pipeline
             # Step 0.5: Geographic rebuild (rebuild complete crosswalk from Census blocks)
             'geographic_rebuild': [],  # Handled specially in pipeline - no external command needed
             # Step 1: PUMS data download (depends on crosswalk for PUMA filtering)
@@ -590,7 +582,7 @@ class UnifiedTM2Config:
     def get_script_paths(self):
         """Get paths to all workflow scripts"""
         return {
-            'crosswalk': self.BASE_DIR / "create_tm2_crosswalk.py",
+            # Note: 'crosswalk' removed - now external standalone script
             'seed': self.BASE_DIR / "create_seed_population_tm2_refactored.py",
             'controls': self.BASE_DIR / "create_baseyear_controls_23_tm2.py",
             'hhgq': self.BASE_DIR / "add_hhgq_combined_controls.py",
@@ -700,7 +692,7 @@ class UnifiedTM2Config:
         if not tableau_dir.exists():
             return False
         # Check for key tableau files
-        key_files = ['taz_marginals_hhgq.csv', 'maz_marginals_hhgq.csv', 'geo_crosswalk.csv']
+        key_files = ['taz_marginals_hhgq.csv', 'maz_marginals_hhgq.csv', 'geo_cross_walk_tm2_maz.csv']
         return all((tableau_dir / f).exists() for f in key_files)
     
     # ============================================================
@@ -809,7 +801,7 @@ class UnifiedTM2Config:
                 self.PUMS_FILES['persons_current']
             ],
             'crosswalk': [self.CROSSWALK_FILES['main_crosswalk']],
-            'geographic_rebuild': [self.POPSIM_DATA_DIR / "mazs_tazs_all_geog.csv"],
+            'geographic_rebuild': [self.POPSIM_DATA_DIR / "geo_cross_walk_tm2_block10.csv"],
             'seed': [self.SEED_FILES['households'], self.SEED_FILES['persons']],
             'controls': [
                 self.CONTROL_FILES['maz_marginals_main'], 
@@ -999,3 +991,6 @@ class UnifiedTM2Config:
 
 # Create global configuration instance
 config = UnifiedTM2Config()
+
+
+

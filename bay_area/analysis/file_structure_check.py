@@ -23,3 +23,5 @@ if persons_file.exists():
     print('Persons shape:', pers_df.shape)
     if 'PERID' in pers_df.columns:
         print('PERID sample values:', pers_df['PERID'].head(10).tolist())
+
+

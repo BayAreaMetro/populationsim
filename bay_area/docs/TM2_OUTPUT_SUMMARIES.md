@@ -41,7 +41,7 @@ Field descriptions
 - COUNTY: local county numeric code (MTC ordering)
 - pers_occ_*: occupational group totals derived from ACS (C24010) aggregated to county; categories are management, professional, services, retail/sales, and manual/military combined
 
-4) Geography crosswalk — `geo_cross_walk_tm2.csv` (canonical)
+4) Geography crosswalk — `geo_cross_walk_tm2_maz.csv` (canonical)
 
 Header (current):
 ```
@@ -159,4 +159,6 @@ id,total_pop_control,total_pop_result,total_pop_diff,total_pop_pct_error
 51,1222.0,877,-345.0,-28.23240589198036
 52,844.0,909,65.0,7.701421800947868
 ````
+
+
 

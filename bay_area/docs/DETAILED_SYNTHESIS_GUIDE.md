@@ -106,7 +106,7 @@ The synthesis phase transforms control data and seed population into a balanced 
 # Seed data inputs
 households: seed_households.csv    # ~96,000 Bay Area household records
 persons: seed_persons.csv         # ~230,000 Bay Area person records
-crosswalk: geo_cross_walk_tm2.csv # Geographic relationships
+crosswalk: geo_cross_walk_tm2_maz.csv # Geographic relationships
 ```
 
 **Control Data Integration**:
@@ -210,7 +210,7 @@ Post-processing transforms raw PopulationSim outputs into TM2-compatible format 
 # Load synthesis outputs
 households_df = pd.read_csv("synthetic_households.csv")      # Raw household data
 persons_df = pd.read_csv("synthetic_persons.csv")          # Raw person data
-crosswalk_df = pd.read_csv("geo_cross_walk_tm2.csv")       # Geographic relationships
+crosswalk_df = pd.read_csv("geo_cross_walk_tm2_maz.csv")       # Geographic relationships
 ```
 
 **Unique Identifier Generation**:
@@ -672,3 +672,4 @@ The TM2 population synthesis and post-processing system represents a sophisticat
 - **Cloud Integration**: Scalable processing for regional model expansion
 
 This comprehensive system provides the demographic foundation essential for accurate transportation modeling while maintaining the flexibility to adapt to evolving data sources and modeling requirements.
+

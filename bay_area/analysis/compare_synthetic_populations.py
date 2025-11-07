@@ -108,3 +108,6 @@ if __name__ == "__main__":
         out_file = new_dir / out_name
         compare_files(old_file, new_file, out_file)
     print("Comparison summaries written to output_2023.")
+
+
+

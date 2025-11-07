@@ -27,3 +27,6 @@ print('SCHL 10-16: Different education completion levels')
 
 print()
 print('Need to map 2023 PUMS detailed codes (0-24) to these 2015 categories (1-16)')
+
+
+

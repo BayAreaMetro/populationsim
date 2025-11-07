@@ -103,7 +103,7 @@ This approach treats each GQ person as representing potential housing demand whi
 - `pers_occ_retail`: Sales and office workers
 - `pers_occ_manual_military`: Manual/production + military workers (combined)
 
-**Geographic Crosswalk (`geo_cross_walk_tm2.csv`):**
+**Geographic Crosswalk (`geo_cross_walk_tm2_maz.csv`):**
 
 - `MAZ_NODE`: MAZ identifier
 - `TAZ_NODE`: TAZ identifier
@@ -152,12 +152,12 @@ This ensures the control structure exactly matches the seed population GQ encodi
 | MAZ | `maz_marginals_hhgq.csv` | MAZ identifier | `MAZ` | `MAZ` |
 | TAZ | `taz_marginals_hhgq.csv` | TAZ identifier | `TAZ` | `TAZ` |  
 | County | `county_marginals.csv` | County identifier | `COUNTY` | N/A |
-| Crosswalk | `geo_cross_walk_tm2.csv` | MAZ identifier | `MAZ_NODE` | `MAZ` |
-| Crosswalk | `geo_cross_walk_tm2.csv` | TAZ identifier | `TAZ_NODE` | `TAZ` |
+| Crosswalk | `geo_cross_walk_tm2_maz.csv` | MAZ identifier | `MAZ_NODE` | `MAZ` |
+| Crosswalk | `geo_cross_walk_tm2_maz.csv` | TAZ identifier | `TAZ_NODE` | `TAZ` |
 
 **Important**: 
 - Control files (`*_marginals_hhgq.csv`) use `MAZ`/`TAZ` as geography identifiers
-- Crosswalk files (`geo_cross_walk_tm2.csv`) use `MAZ_NODE`/`TAZ_NODE` as geography identifiers
+- Crosswalk files (`geo_cross_walk_tm2_maz.csv`) use `MAZ_NODE`/`TAZ_NODE` as geography identifiers
 - PopulationSim config files (`controls.csv`) must use `MAZ`/`TAZ` to match the control file structure
 - The system handles this mapping automatically during geographic aggregation operations
 
@@ -178,7 +178,7 @@ This ensures the control structure exactly matches the seed population GQ encodi
 
 ### Supporting Files
 
-- `geo_cross_walk_tm2.csv`: Geographic crosswalk with standardized MAZ_NODE/TAZ_NODE columns
+- `geo_cross_walk_tm2_maz.csv`: Geographic crosswalk with standardized MAZ_NODE/TAZ_NODE columns
 - `maz_data.csv`, `maz_data_withDensity.csv`: Land use and density files for TM2
 - `county_summary_2020_2023.csv`: County scaling factors and validation statistics
 - `county_targets_2023.csv`: Target totals for validation
@@ -201,10 +201,12 @@ This will generate all control and summary files in the configured output direct
 
 ## Notes
 
-- The enhanced crosswalk (`geo_cross_walk_tm2_enhanced.csv`) from the crosswalk step is required as input.
+- The enhanced crosswalk (`geo_cross_walk_tm2_block10.csv`) from the crosswalk step is required as input.
 - If you update any Census data or crosswalks, you must re-run this step.
 - For more details on configuration and file paths, see [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) and [HOW_TO_RUN.md](HOW_TO_RUN.md).
 
 ---
 
 *Return to the [main documentation index](README.md) for other pipeline steps.*
+
+

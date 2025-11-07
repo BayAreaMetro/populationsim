@@ -287,3 +287,6 @@ progress_logger.info(f"Final memory usage: {get_memory_usage()}")
 # file_path = os.path.join(inject.get_injectable("output_dir"), "checkpoints.csv")
 # pipeline.get_checkpoints().to_csv(file_path)
 t0 = print_elapsed_time("all models", t0)
+
+
+

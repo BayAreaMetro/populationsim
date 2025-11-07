@@ -45,3 +45,5 @@ for county, total in univ_by_county[univ_by_county > 0].items():
 print('Military GQ by county:')
 for county, total in mil_by_county[mil_by_county > 0].items():
     print(f'  County {county:03d}: {total:,}')
+
+

@@ -6,7 +6,7 @@ Inputs:
 (1) [args.directory]/final_summary_[TAZ|COUNTY_N].csv
 (2) [args.directory]/synthetic_households.csv
 (3) [args.directory]/synthetic_persons.csv
-(4) hh_gq/data/geo_cross_walk_tm2.csv
+(4) hh_gq/data/geo_cross_walk_tm2_maz.csv
 
 Outputs:
 (1) [args.directory]/summary_melt.csv
@@ -493,5 +493,8 @@ if __name__ == '__main__':
     logging.info("Writing {:,} rows to {}".format(len(persons_df), persons_outfile))
     persons_df.to_csv(persons_outfile, header=True, index=False)
     logging.info("Done")
+
+
+
 
 

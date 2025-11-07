@@ -77,7 +77,7 @@ input_table_list:
       - SOCP
       - soc
   - tablename: geo_cross_walk
-    filename : geo_cross_walk_tm2.csv
+    filename : geo_cross_walk_tm2_maz.csv
     # created by create_tm2_crosswalk.py (linked from geo_cross_walk_tm2_updated.csv)
   - tablename: MAZ_NODE_control_data
     filename : maz_marginals_hhgq.csv
@@ -238,3 +238,5 @@ run_list:
     - write_synthetic_population
 
   #resume_after: expand_households
+
+

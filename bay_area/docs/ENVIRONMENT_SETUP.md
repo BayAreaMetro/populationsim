@@ -155,3 +155,5 @@ PopulationSim is installed in development mode (`pip install -e .`) because:
 - The pipeline uses custom modifications to the base PopulationSim code
 - Changes to the code are immediately available without reinstallation
 - This ensures the exact version used in development is replicated
+
+

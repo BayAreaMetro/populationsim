@@ -266,3 +266,5 @@ wc -l output_2023/populationsim_working_dir/data/*.csv
 - **Seed generation**: 15-30 minutes
 - **Controls creation**: 20-45 minutes (Census API dependent)
 - **PopulationSim synthesis**: 60-180 minutes (main processing)
+
+

@@ -49,3 +49,6 @@ print(f'MAZ with 1-10 households: {(new_maz_counts <= 10).sum():,}')
 print(f'MAZ with 11-50 households: {((new_maz_counts > 10) & (new_maz_counts <= 50)).sum():,}')
 print(f'MAZ with 51-100 households: {((new_maz_counts > 50) & (new_maz_counts <= 100)).sum():,}')
 print(f'MAZ with 100+ households: {(new_maz_counts > 100).sum():,}')
+
+
+

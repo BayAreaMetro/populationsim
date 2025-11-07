@@ -32,3 +32,5 @@ inc_75k_100k,TAZ_NODE,households,10000,inc_75k_100k,(households.hhgqtype==0) & (
 inc_100k_150k,TAZ_NODE,households,10000,inc_100k_150k,(households.hhgqtype==0) & (households.hh_income_2023 >= 100000) & (households.hh_income_2023 <= 149999)
 inc_150k_200k,TAZ_NODE,households,10000,inc_150k_200k,(households.hhgqtype==0) & (households.hh_income_2023 >= 150000) & (households.hh_income_2023 <= 199999)
 inc_200k_plus,TAZ_NODE,households,10000,inc_200k_plus,(households.hhgqtype==0) & (households.hh_income_2023 >= 200000)
+
+

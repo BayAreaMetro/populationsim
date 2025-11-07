@@ -77,3 +77,4 @@ Generated on: 2025-11-03 09:27:56
 *- 3,168,663 households analyzed in full*
 *- 7,688,448 persons analyzed in full*
 *- All statistics represent the complete synthetic population*
+

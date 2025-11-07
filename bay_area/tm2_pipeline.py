@@ -12,10 +12,11 @@ Available commands:
     full         Run the entire pipeline (default)
     status       Show status of all pipeline steps
     clean        Remove all output files for a fresh start
-    pums, crosswalk, geographic_rebuild, seed, controls, populationsim, postprocess, summary_analysis, analysis, validate_income
+    pums, seed, controls, populationsim, postprocess, summary_analysis, analysis, validate_income
                  Run individual pipeline steps
 
 Use --force to rerun steps even if outputs exist.
+Note: Crosswalk creation has been moved to tm2py-utils repository and should be run separately.
 """
 """
 TM2 Pipeline - Single workflow script for the entire Bay Area population synthesis
@@ -184,9 +185,8 @@ class TM2Pipeline:
         # Get command for this step
         command = self.config.get_command(step_name)
         
-        # Check for special steps that are handled internally (not via external commands)
-        special_steps = ['geographic_rebuild']
-        if not command and step_name not in special_steps:
+        # Check for unknown steps
+        if not command:
             self.log(f"Unknown step: {step_name}", "ERROR")
             return False
         
@@ -199,10 +199,6 @@ class TM2Pipeline:
             # Skip if in offline mode
             # offline_mode removed
             self.log("Downloading PUMS data...")
-        
-        # Special handling for geographic rebuild
-        elif step_name == 'geographic_rebuild':
-            return self.run_geographic_rebuild()
         
         # Special handling for PopulationSim with log monitoring
         elif step_name == 'populationsim':
@@ -405,7 +401,7 @@ class TM2Pipeline:
         
         try:
             data_dir = self.config.POPSIM_DATA_DIR
-            crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2.csv")
+            crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2_maz.csv")
             
             if not os.path.exists(crosswalk_file):
                 self.log(f"Crosswalk file not found: {crosswalk_file}", "ERROR")
@@ -500,7 +496,7 @@ class TM2Pipeline:
             required_files = [
                 'seed_households.csv',
                 'seed_persons.csv', 
-                'geo_cross_walk_tm2.csv',
+                'geo_cross_walk_tm2_maz.csv',
                 'maz_marginals_hhgq.csv',
                 'taz_marginals_hhgq.csv',
                 'county_marginals.csv'
@@ -653,11 +649,11 @@ class TM2Pipeline:
     def run_full_pipeline(self, start_step=None, end_step=None, force=False):
         """Run the complete pipeline or a subset"""
         # Default pipeline steps, synced with config
-        steps = ['crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'summary_analysis']
+        steps = ['seed', 'controls', 'populationsim', 'postprocess', 'summary_analysis']
 
         # If start_step is explicitly 'pums', include it
         if start_step == 'pums':
-            steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'summary_analysis']
+            steps = ['pums', 'seed', 'controls', 'populationsim', 'postprocess', 'summary_analysis']
 
         # Determine step range
         if start_step:
@@ -719,7 +715,7 @@ class TM2Pipeline:
         self.log("Pipeline Status Check")
         self.log("-" * 40)
         
-        steps = ['crosswalk', 'pums', 'geographic_rebuild', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
+        steps = ['pums', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
         for step in steps:
             if self.check_step_completion(step):
                 self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
@@ -732,7 +728,7 @@ class TM2Pipeline:
         if step_name:
             steps = [step_name]
         else:
-            steps = ['crosswalk', 'pums', 'seed', 'controls', 'populationsim']
+            steps = ['pums', 'seed', 'controls', 'populationsim']
             
         for step in steps:
             step_files = self.config.get_step_files(step)
@@ -751,7 +747,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
     parser.add_argument('command', nargs='?', default='full',
-                       choices=['status', 'pums', 'crosswalk', 'geographic_rebuild', 'seed', 'controls', 'populationsim',
+                       choices=['status', 'pums', 'seed', 'controls', 'populationsim',
                                 'postprocess', 'summary_analysis', 'analysis', 'validate_income', 'full', 'clean'],
                        help='Command to run')
     parser.add_argument('--force', action='store_true',
@@ -777,3 +773,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+

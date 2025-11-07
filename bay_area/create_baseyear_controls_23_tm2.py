@@ -67,7 +67,7 @@ maz_marginals.csv: MAZ-level controls (households, group quarters, etc.)
 taz_marginals.csv: TAZ-level controls (workers, age groups, children, household size, income, etc.)
 county_marginals.csv: County-level controls and region totals
 county_summary_2020_2023.csv: County scaling factors and validation
-geo_cross_walk_tm2.csv: Geographic crosswalk
+geo_cross_walk_tm2_maz.csv: Geographic crosswalk
 All files are compatible with populationsim expected format and column headers.
 7) STRUCTURE VALIDATION:
 
@@ -2735,7 +2735,7 @@ def add_hh_size_1_gq_control(taz_file, logger):
     logger.info(f"Loaded MAZ controls for GQ aggregation: {len(maz_df)} zones")
     
     # Load crosswalk to map MAZ to TAZ
-    crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, "geo_cross_walk_tm2.csv")
+    crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, "geo_cross_walk_tm2_maz.csv")
     if not os.path.exists(crosswalk_file):
         logger.error(f"Crosswalk file not found: {crosswalk_file}")
         return False
@@ -3174,7 +3174,7 @@ def create_hhgq_integrated_files(logger):
                 
                 # Try to use crosswalk to aggregate GQ from MAZ to TAZ
                 try:
-                    crosswalk_file = os.path.join(output_dir, "geo_cross_walk_tm2.csv")
+                    crosswalk_file = os.path.join(output_dir, "geo_cross_walk_tm2_maz.csv")
                     if os.path.exists(crosswalk_file):
                         crosswalk = pd.read_csv(crosswalk_file)
                         logger.info(f"Loaded crosswalk file with columns: {list(crosswalk.columns)}")
@@ -3987,7 +3987,7 @@ def apply_county_scaling_to_maz_hhgq(logger):
     logger.info(f"Loaded county targets: {len(county_targets_df)} counties")
     
     # Load crosswalk to map MAZ to county
-    crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, "geo_cross_walk_tm2.csv")
+    crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, "geo_cross_walk_tm2_maz.csv")
     if not os.path.exists(crosswalk_file):
         logger.error(f"Crosswalk file not found: {crosswalk_file}")
         return False
@@ -4111,7 +4111,7 @@ def validate_household_scaling_results(logger):
         taz_df = pd.read_csv(taz_file)
         
         # Load crosswalk for county aggregation
-        crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, "geo_cross_walk_tm2.csv")
+        crosswalk_file = os.path.join(PRIMARY_OUTPUT_DIR, "geo_cross_walk_tm2_maz.csv")
         crosswalk_df = pd.read_csv(crosswalk_file)
         
         logger.info("Loaded all required files for validation")
@@ -4486,3 +4486,6 @@ def generate_controls_summary_report(logger, validation_passed):
 if __name__ == '__main__':
 
     main()
+
+
+

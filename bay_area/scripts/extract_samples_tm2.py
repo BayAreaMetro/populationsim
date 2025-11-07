@@ -40,3 +40,6 @@ def sample_csv(in_path, out_path, n=10):
 sample_csv(house_file, out_dir / 'sample_synthetic_households.txt', n=10)
 sample_csv(person_file, out_dir / 'sample_synthetic_persons.txt', n=10)
 print('done')
+
+
+

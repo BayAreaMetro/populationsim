@@ -1,22 +1,45 @@
 # Detailed Geographic Crosswalk Generation Guide
 ## TM2 PopulationSim Geographic Processing and Spatial Integration
 
-**Document Version:** 1.0  
-**Date:** December 2024  
+**⚠️ MIGRATION NOTICE: Crosswalk generation has been moved to a standalone script.**
+
+**Document Version:** 2.0  
+**Date:** November 2025  
 **Author:** PopulationSim Bay Area Team
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Geographic Hierarchy and Data Sources](#geographic-hierarchy-and-data-sources)
-3. [Two-Phase Crosswalk Generation](#two-phase-crosswalk-generation)
-4. [Phase 1: Spatial Geographic Processing](#phase-1-spatial-geographic-processing)
-5. [Phase 2: Block Group Integration](#phase-2-block-group-integration)
-6. [Quality Assurance and Validation](#quality-assurance-and-validation)
-7. [Output Specifications](#output-specifications)
-8. [Technical Dependencies](#technical-dependencies)
+1. [Migration Overview](#migration-overview)
+2. [Overview](#overview)
+3. [Geographic Hierarchy and Data Sources](#geographic-hierarchy-and-data-sources)
+4. [Unified Crosswalk Generation Process](#unified-crosswalk-generation-process)
+5. [Basic Crosswalk Creation](#basic-crosswalk-creation)
+6. [Enhanced Crosswalk with Block Mappings](#enhanced-crosswalk-with-block-mappings)
+7. [Quality Assurance and Validation](#quality-assurance-and-validation)
+8. [Output Specifications](#output-specifications)
+9. [Technical Dependencies](#technical-dependencies)
+
+---
+
+## Migration Overview
+
+**Important Change:** The crosswalk generation process has been consolidated into a single standalone script that replaces the previous two-script approach:
+
+### Previous Approach (Deprecated)
+- ~~`create_tm2_crosswalk.py`~~ → Basic spatial crosswalk creation
+- ~~`build_complete_crosswalk.py`~~ → Enhanced crosswalk with block mappings
+
+### New Approach (Current)
+- **`standalone_tm2_crosswalk_creator.py`** → Unified script handling both basic and enhanced crosswalk creation
+
+### Benefits of the New Approach
+- **Standalone**: No dependencies on tm2_control_utils or unified_tm2_config
+- **Portable**: Designed to be moved to tm2py-utils repository
+- **Unified**: Single script handles entire crosswalk creation process
+- **Self-contained**: All geographic processing logic included
+- **Command-line driven**: Explicit input/output path specification
 
 ---
 
@@ -35,10 +58,10 @@ The crosswalk generation serves several critical functions:
 
 ### Key Outputs
 
-The process generates two primary deliverables:
+The unified process generates two primary deliverables:
 
-1. **Primary Crosswalk** (`geo_cross_walk_tm2.csv`): Complete MAZ→TAZ→County→PUMA spatial mappings
-2. **Enhanced Crosswalk** (`geo_cross_walk_tm2_enhanced.csv`): Extended mappings including block and block group relationships
+1. **Basic Crosswalk** (`geo_cross_walk_tm2_maz.csv`): Complete MAZ→TAZ→County→PUMA spatial mappings
+2. **Enhanced Crosswalk** (`geo_cross_walk_tm2_block10.csv`): Extended mappings including block and block group relationships
 
 ---
 
@@ -217,7 +240,7 @@ crosswalk_columns = [
 ```
 
 **Output Generation**:
-- **File**: `output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv`
+- **File**: `output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_maz.csv`
 - **Records**: ~39,586 MAZ zones with complete geographic assignments
 - **Validation**: Comprehensive checks for missing or invalid assignments
 
@@ -282,7 +305,7 @@ enhanced_columns = [
 
 **Backup Strategy**:
 - **Original Preservation**: `geo_cross_walk_tm2_original.csv`
-- **Enhanced Version**: `geo_cross_walk_tm2_enhanced.csv`
+- **Enhanced Version**: `geo_cross_walk_tm2_block10.csv`
 - **Validation Summary**: `bg_taz_mapping_summary.csv`
 
 ---
@@ -362,9 +385,9 @@ missing_bg_mappings = enhanced_crosswalk['GEOID_block group'].isna().sum()
 
 ## Output Specifications
 
-### Primary Crosswalk: `geo_cross_walk_tm2.csv`
+### Primary Crosswalk: `geo_cross_walk_tm2_maz.csv`
 
-**File Location**: `output_2023/populationsim_working_dir/data/geo_cross_walk_tm2.csv`
+**File Location**: `output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_maz.csv`
 
 **Schema**:
 | Column | Type | Description | Example |
@@ -382,9 +405,9 @@ missing_bg_mappings = enhanced_crosswalk['GEOID_block group'].isna().sum()
 - **File Size**: ~2.5 MB
 - **Coverage**: All Bay Area MAZ zones
 
-### Enhanced Crosswalk: `geo_cross_walk_tm2_enhanced.csv`
+### Enhanced Crosswalk: `geo_cross_walk_tm2_block10.csv`
 
-**File Location**: `output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_enhanced.csv`
+**File Location**: `output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_block10.csv`
 
 **Additional Schema**:
 | Column | Type | Description | Example |
@@ -490,7 +513,7 @@ SHAPEFILES = {
 }
 
 CROSSWALK_FILES = {
-    'popsim_crosswalk': Path("output_2023/.../geo_cross_walk_tm2.csv")
+    'popsim_crosswalk': Path("output_2023/.../geo_cross_walk_tm2_maz.csv")
 }
 ```
 
@@ -512,3 +535,4 @@ The TM2 geographic crosswalk generation provides the spatial foundation essentia
 - **Version Control**: Systematic tracking of boundary updates and methodology changes
 
 This documentation provides the complete technical reference for understanding, maintaining, and enhancing the TM2 geographic crosswalk generation system.
+

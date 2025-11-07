@@ -453,7 +453,7 @@ class TableauDataPreparer:
         # Try both original and updated crosswalk filenames and multiple likely locations
         crosswalk_files = [
             'geo_cross_walk_tm2_updated.csv',
-            'geo_cross_walk_tm2.csv'
+            'geo_cross_walk_tm2_maz.csv'
         ]
 
         # Candidate directories to search
@@ -673,3 +673,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+

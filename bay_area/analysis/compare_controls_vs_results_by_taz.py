@@ -46,3 +46,6 @@ for metric in metrics:
     plt.tight_layout()
     plt.savefig(charts_dir / f"scatter_{metric}.png")
     plt.close()
+
+
+
