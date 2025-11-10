@@ -1,5 +1,5 @@
 # PopulationSim TM2 Full Dataset Analysis
-Generated on: 2025-11-10 08:36:05
+Generated on: 2025-11-10 08:58:09
 *Based on complete datasets - all 3.2M households and 7.8M persons*
 
 ## Complete Household Analysis
