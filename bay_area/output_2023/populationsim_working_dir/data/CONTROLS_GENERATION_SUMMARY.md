@@ -1,5 +1,5 @@
 # PopulationSim Controls Generation Summary
-**Generated:** November 07, 2025 at 11:36 AM
+**Generated:** November 08, 2025 at 01:30 PM
 **Status:** ✅ SUCCESS
 
 ---
@@ -30,38 +30,38 @@ This control generation implements **clean household/group quarters separation**
 
 ## 🎯 Regional Totals & Targets
 
-**ACS 2023 Regional Target**: 3,031,788 households
+**ACS 2023 Regional Target**: 0 households
 
 ### MAZ Regional Totals
 | Control | Total | Description |
 |---------|-------|-------------|
-| `numhh` | 3,031,615.0 | Regular households (target match) |
-| `numhh_gq` | 3,168,236.0 | Total households + GQ |
-| `gq_type_univ` | 55,187.0 | University GQ persons |
-| `gq_type_noninst` | 81,222.0 | Non-institutional GQ persons |
-| **Accuracy** | -173.0 (-0.01%) | ✅ Target match |
+| `numhh` | 2,793,475.0 | Regular households (target match) |
+| `numhh_gq` | 2,918,556.0 | Total households + GQ |
+| `gq_type_univ` | 50,694.0 | University GQ persons |
+| `gq_type_noninst` | 74,387.0 | Non-institutional GQ persons |
+| **Accuracy** | +2,793,475.0 (+0.00%) | ✅ Target match |
 
 ### TAZ Regional Totals
 | Control Category | Total | Description |
 |------------------|-------|-------------|
-| Household Size | 3,033,657 | Sum of hh_size_* controls |
-| Worker Controls | 3,031,975 | Sum of hh_wrks_* controls |
-| Income Controls | 3,034,641 | Sum of inc_* controls |
-| **TAZ Accuracy** | +1,869 (+0.06%) | ✅ vs Regional Target |
+| Household Size | 3,039,985 | Sum of hh_size_* controls |
+| Worker Controls | 3,039,999 | Sum of hh_wrks_* controls |
+| Income Controls | 3,040,004 | Sum of inc_* controls |
+| **TAZ Accuracy** | +3,039,985 (+0.00%) | ✅ vs Regional Target |
 
 ## 🏘️ County Breakdown
 
 | County | 2020 Census | 2023 ACS Target | Scaling Factor | Status |
 |--------|-------------|-----------------|----------------|--------|
-| Alameda | 591,636 | 646,309 | 1.0924 | ✅ |
-| Contra Costa | 407,029 | 432,056 | 1.0615 | ✅ |
-| Marin | 104,167 | 112,359 | 1.0786 | ✅ |
-| Napa | 49,738 | 56,046 | 1.1268 | ✅ |
-| San Francisco | 371,851 | 418,143 | 1.1245 | ✅ |
-| San Mateo | 269,417 | 288,325 | 1.0702 | ✅ |
-| Santa Clara | 656,063 | 703,922 | 1.0729 | ✅ |
-| Solano | 155,924 | 165,626 | 1.0622 | ✅ |
-| Sonoma | 187,701 | 209,002 | 1.1135 | ✅ |
+| Alameda | 591,636 | 0 | 0.0000 | ✅ |
+| Contra Costa | 407,029 | 0 | 0.0000 | ✅ |
+| Marin | 104,167 | 0 | 0.0000 | ✅ |
+| Napa | 49,738 | 0 | 0.0000 | ✅ |
+| San Francisco | 371,851 | 0 | 0.0000 | ✅ |
+| San Mateo | 269,417 | 0 | 0.0000 | ✅ |
+| Santa Clara | 656,063 | 0 | 0.0000 | ✅ |
+| Solano | 155,924 | 0 | 0.0000 | ✅ |
+| Sonoma | 187,701 | 0 | 0.0000 | ✅ |
 
 ## 📊 Data Sources
 

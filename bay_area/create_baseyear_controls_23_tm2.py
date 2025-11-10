@@ -583,16 +583,16 @@ def get_regional_acs_totals(cf, logger, use_offline_fallback=True):
         # Define Bay Area county FIPS codes (9-county region)
         bay_area_counties = ['001', '013', '041', '055', '075', '081', '085', '095', '097']  # Alameda through Sonoma
         
-        # Get total households (B25001_001E) for each county and sum
-        logger.info("Fetching household totals (B25001) for Bay Area counties")
+        # Get total households (B25003_001E) for each county and sum
+        logger.info("Fetching household totals (B25003) for Bay Area counties")
         total_households = 0
-        hh_data = cf.get_census_data('acs1', ACS_EST_YEAR, 'B25001', 'county')
-        if 'B25001_001E' in hh_data.columns:
+        hh_data = cf.get_census_data('acs1', ACS_EST_YEAR, 'B25003', 'county')
+        if 'B25003_001E' in hh_data.columns:
             hh_data_reset = hh_data.reset_index()
             for _, row in hh_data_reset.iterrows():
                 county_fips = str(row['county']).zfill(3)
                 if county_fips in bay_area_counties:
-                    hh_count = int(row['B25001_001E'])
+                    hh_count = int(row['B25003_001E'])
                     total_households += hh_count
                     logger.info(f"County {county_fips}: {hh_count:,} households")
         

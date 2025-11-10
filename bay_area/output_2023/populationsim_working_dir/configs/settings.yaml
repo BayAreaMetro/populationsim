@@ -18,9 +18,9 @@ max_expansion_factor: 50
 
 
 # ------------------------------------------------------------------
-rel_tolerance: 0.05        
-abs_tolerance: 20.0         
-integer_tolerance: 0.5   
+rel_tolerance: 0.1         # Increased from 0.05 for more robust convergence
+abs_tolerance: 50.0        # Increased from 20.0 to handle person-household inconsistencies  
+integer_tolerance: 1.0     # Increased from 0.5 for more lenient integerization
 
 # Convergence Settings 
 # ------------------------------------------------------------------

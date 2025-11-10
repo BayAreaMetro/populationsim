@@ -22,7 +22,7 @@ dependencies:
   - wheel
   
   # Core scientific computing
-  - numpy
+  - numpy>=1.21.0
   - pandas
   
   # Geospatial (essential only)

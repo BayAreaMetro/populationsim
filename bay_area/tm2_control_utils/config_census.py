@@ -408,7 +408,7 @@ CONTROLS[ACS_EST_YEAR]['TAZ'].update(collections.OrderedDict([
                                [collections.OrderedDict([('workers_min',3),('workers_max',NWOR_MAX),
                                                          ('persons_min',0), ('persons_max',NPER_MAX)])],
                                'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),
-    # ACS5 total persons by age at tract level - DISAGGREGATION NEEDED (tract -> block group -> TAZ)
+    # ACS5 total persons by age at tract level - DISAGGREGATION NEEDED (detailed age data not available at block group)
     ('pers_age_00_19',        ('acs5', ACS_EST_YEAR,    'B01001',       'tract',
                                [collections.OrderedDict([('age_min',0),('age_max',19)])], 
                                'temp_hh_bg_for_tract_weights','tract_to_bg_disaggregation')),

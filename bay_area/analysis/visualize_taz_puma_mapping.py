@@ -38,16 +38,10 @@ class TAZPUMAVisualizer:
     def __init__(self):
         self.base_dir = Path("c:/GitHub/populationsim/bay_area")
         
-        # Use unified config if available, otherwise fallback to hardcoded
-        if UnifiedTM2Config:
-            config = UnifiedTM2Config()
-            gis_files = config.get_gis_files_with_fallback()
-            self.taz_shapefile = gis_files['taz_shapefile']
-            self.puma_shapefile = gis_files['puma_shapefile']
-        else:
-            self.shapefiles_dir = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles")
-            self.taz_shapefile = self.shapefiles_dir / "tazs_TM2_v2_2.shp"
-            self.puma_shapefile = self.shapefiles_dir / "tl_2022_06_puma20.shp"
+        # Use fallback to hardcoded paths since GIS files moved to tm2py-utils
+        self.shapefiles_dir = Path("C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles")
+        self.taz_shapefile = self.shapefiles_dir / "tazs_TM2_v2_2.shp"
+        self.puma_shapefile = self.shapefiles_dir / "tl_2022_06_puma20.shp"
         
         self.output_dir = self.base_dir / "output_2023" / "spatial_analysis"
         self.output_dir.mkdir(parents=True, exist_ok=True)

@@ -548,31 +548,6 @@ class UnifiedTM2Config:
             'cpi_conversion': self.BASE_DIR / "cpi_conversion.py"
         }
     
-    def get_gis_files_with_fallback(self):
-        """Get GIS file paths with network/local fallback logic"""
-        paths = {}
-        
-        # MAZ/TAZ definition file
-        if self.GIS_FILES['maz_taz_def_network'].exists():
-            paths['maz_taz_def'] = self.GIS_FILES['maz_taz_def_network']
-        else:
-            paths['maz_taz_def'] = self.GIS_FILES['maz_taz_def_local']
-        
-        # MAZ/TAZ all geography file  
-        if self.GIS_FILES['maz_taz_all_geog_network'].exists():
-            paths['maz_taz_all_geog'] = self.GIS_FILES['maz_taz_all_geog_network']
-        else:
-            paths['maz_taz_all_geog'] = self.GIS_FILES['maz_taz_all_geog_local']
-        
-        return paths
-    
-    def get_census_api_key_path(self):
-        """Get Census API key path with network/local fallback"""
-        if self.GIS_FILES['census_api_key_network'].exists():
-            return self.GIS_FILES['census_api_key_network']
-        else:
-            return self.GIS_FILES['census_api_key_local']
-    
     def get_cache_dir_with_fallback(self):
         """Get cache directory with fallback logic"""
         # Try network cache first
