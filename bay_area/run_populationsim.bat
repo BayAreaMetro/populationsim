@@ -13,12 +13,12 @@ set MODELTYPE=TM1
 :: for a forecast, copies marginals from         "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv"
 :: for past/current year, copies marginals from  "%TMPATH%\!YEAR!""
 set TMPATH=X:\travel-model-one-master\utilities\taz-data-baseyears
-set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\sensitivity_test\PBA50Plus_sensitivity_V3A_P10v1
+set URBANSIMPATH=\\tsclient\C\Users\ywang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim\PBA50\Final Blueprint runs\Final Blueprint (s24)\BAUS v2.25 - FINAL VERSION
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
 :: Note: This is equivalent to PBA50Plus_Final_Blueprint_v65 but it includes interim year output
-set BAUS_RUNNUM=PBA50Plus_sensitivity_V3A_P10v1
+set BAUS_RUNNUM=run182
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=FBP_20250828
+set OUTPUT_SUFFIX=STIP2026_RTP2021FBP_20251113
 
 :: assume argument is year
 set YEARS=%1
@@ -69,13 +69,15 @@ for %%Y in (!YEARS!) do (
     )
     if !FORECAST!==1 (
       rem copy "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"
-      copy /y "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_taz1_summary_!YEAR!.csv"     hh_gq\data\taz_summaries.csv
-      copy /y "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv" hh_gq\data\county_marginals.csv
+      copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv"     hh_gq\data\taz_summaries.csv
+      ::copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv" hh_gq\data\county_marginals.csv
+      copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" hh_gq\data\regional_marginals.csv
 
       rem Verify that the file copy MUST succeed or we'll run populationsim with the wrong input
-      fc /b "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_taz1_summary_!YEAR!.csv"       hh_gq\data\taz_summaries.csv > nul
+      fc /b "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv"       hh_gq\data\taz_summaries.csv > nul
       if errorlevel 1 goto error
-      fc /b  "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"  hh_gq\data\county_marginals.csv > nul
+      ::fc /b  "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"  hh_gq\data\county_marginals.csv > nul
+      fc /b  "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv"  hh_gq\data\regional_marginals.csv > nul
       if errorlevel 1 goto error
     )
   )
@@ -133,7 +135,7 @@ for %%Y in (!YEARS!) do (
   if !MODELTYPE!==TM1 (
     move /y "hh_gq\data\taz_summaries.csv"       !OUTPUT_DIR!
     move /y "hh_gq\data\taz_summaries_hhgq.csv"  !OUTPUT_DIR!
-    move /y "hh_gq\data\county_marginals.csv"    !OUTPUT_DIR!
+  ::  move /y "hh_gq\data\county_marginals.csv"    !OUTPUT_DIR!
     move /y "hh_gq\data\regional_marginals.csv"  !OUTPUT_DIR!
   )
   if !MODELTYPE!==TM2 (

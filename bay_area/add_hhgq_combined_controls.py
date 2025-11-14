@@ -51,33 +51,33 @@ if __name__ == '__main__':
         taz_controls_df.to_csv(taz_controls_output, index=False)
         print("Wrote {}".format(taz_controls_output))
 
-        # small update to county controls file
-        county_controls_file = pathlib.Path("hh_gq/data/county_marginals.csv")
-        county_controls_df   = pandas.read_csv(county_controls_file, index_col=0)
-        print(f"Read county controls from {county_controls_file}")
+        # # small update to county controls file
+        # county_controls_file = pathlib.Path("hh_gq/data/county_marginals.csv")
+        # county_controls_df   = pandas.read_csv(county_controls_file, index_col=0)
+        # print(f"Read county controls from {county_controls_file}")
+        # # print(county_controls_df)
+        # # for base years, COUNTY is present. for BAUS, county_name is present
+        # county_col = 'county_name'
+        # if county_controls_df.index.name == 'COUNTY':
+        #     county_col = 'COUNTY'
+
+        # # add COUNTY or county_name depending on which is mmissing
+        # geo_crosswalk_file = pathlib.Path("hh_gq/data/geo_cross_walk_tm1.csv")
+        # geo_crosswalk_df   = pandas.read_csv(geo_crosswalk_file)
+        # geo_crosswalk_df = geo_crosswalk_df[['COUNTY','county_name']].drop_duplicates().reset_index(drop=True)
+        # # print(geo_crosswalk_df)
+
+        # county_controls_df = pandas.merge(
+        #   left = county_controls_df,
+        #   right = geo_crosswalk_df,
+        #   left_index = True,
+        #   right_on = county_col,
+        #   how = 'left'
+        # )
+        # # how it has columns, COUNTY and county_name
         # print(county_controls_df)
-        # for base years, COUNTY is present. for BAUS, county_name is present
-        county_col = 'county_name'
-        if county_controls_df.index.name == 'COUNTY':
-            county_col = 'COUNTY'
-
-        # add COUNTY or county_name depending on which is mmissing
-        geo_crosswalk_file = pathlib.Path("hh_gq/data/geo_cross_walk_tm1.csv")
-        geo_crosswalk_df   = pandas.read_csv(geo_crosswalk_file)
-        geo_crosswalk_df = geo_crosswalk_df[['COUNTY','county_name']].drop_duplicates().reset_index(drop=True)
-        # print(geo_crosswalk_df)
-
-        county_controls_df = pandas.merge(
-          left = county_controls_df,
-          right = geo_crosswalk_df,
-          left_index = True,
-          right_on = county_col,
-          how = 'left'
-        )
-        # how it has columns, COUNTY and county_name
-        print(county_controls_df)
-        county_controls_df.to_csv(county_controls_file, index=False)
-        print(f"Wrote {county_controls_file}")
+        # county_controls_df.to_csv(county_controls_file, index=False)
+        # print(f"Wrote {county_controls_file}")
 
     elif args.model_type == 'TM2':
         maz_controls_file = pathlib.Path("hh_gq/data/maz_marginals.csv")
