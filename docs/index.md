@@ -22,23 +22,40 @@ This population synthesizer creates realistic household and person records for t
 
 <div class="nav-grid">
   <div class="nav-card">
-    <h3><a href="getting-started/">🚀 Getting Started</a></h3>
-    <p>Setup environment and run your first synthesis</p>
+    <h3>🚀 Getting Started</h3>
+    <ul>
+      <li><a href="getting-started/environment-setup.html">Environment Setup</a></li>
+      <li><a href="getting-started/how-to-run.html">How to Run</a></li>
+    </ul>
   </div>
   
   <div class="nav-card">
-    <h3><a href="process/">📊 Process Overview</a></h3>
-    <p>Understand the synthesis pipeline and data flow</p>
+    <h3>📊 Process</h3>
+    <ul>
+      <li><a href="process/overview.html">Process Overview</a></li>
+      <li><a href="process/file-flow.html">File Flow</a></li>
+    </ul>
   </div>
   
   <div class="nav-card">
-    <h3><a href="guides/">📖 Guides</a></h3>
-    <p>Step-by-step guides for each component</p>
+    <h3>📖 Guides</h3>
+    <ul>
+      <li><a href="guides/geo-crosswalk.html">Geographic Crosswalk</a></li>
+      <li><a href="guides/seed-population.html">Seed Population</a></li>
+      <li><a href="guides/control-generation.html">Control Generation</a></li>
+      <li><a href="guides/population-synthesis.html">Population Synthesis</a></li>
+      <li><a href="guides/income.html">Income Handling</a></li>
+      <li><a href="guides/group-quarters.html">Group Quarters</a></li>
+    </ul>
   </div>
   
   <div class="nav-card">
-    <h3><a href="outputs/">📈 Outputs</a></h3>
-    <p>Understanding input fields and output data</p>
+    <h3>📈 Outputs</h3>
+    <ul>
+      <li><a href="outputs/input-fields.html">Input Fields</a></li>
+      <li><a href="outputs/summaries.html">Output Summaries</a></li>
+      <li><a href="outputs/taz-summaries.html">TAZ Summaries</a></li>
+    </ul>
   </div>
 </div>
 
@@ -81,31 +98,16 @@ Marginal Controls → PopulationSim → Synthetic Population
 
 ---
 
-## Documentation Sections
+## Detailed Reference Documentation
 
-### [Getting Started](getting-started/)
-- [Environment Setup](getting-started/environment-setup.html)
-- [How to Run](getting-started/how-to-run.html)
+For advanced users and developers, comprehensive technical guides are available:
 
-### [Process Overview](process/)
-- [Overall Process](process/overview.html)
-- [File Flow](process/file-flow.html)
-
-### [Guides](guides/)
-- [Geographic Crosswalk](guides/geo-crosswalk.html)
-- [Seed Population](guides/seed-population.html)
-- [Control Generation](guides/control-generation.html)
-- [Population Synthesis](guides/population-synthesis.html)
-- [Income Handling](guides/income.html)
-- [Group Quarters Separation](guides/group-quarters.html)
-
-### [Outputs](outputs/)
-- [Input Fields Reference](outputs/input-fields.html)
-- [Output Summaries](outputs/summaries.html)
-- [TAZ-Level Outputs](outputs/taz-summaries.html)
-
-### [Detailed Reference](reference/)
-Complete technical documentation for advanced users and developers.
+- [TM2 Full Reference](reference/TM2_FULL_REFERENCE.html) - Complete technical reference
+- [Detailed Output Guide](reference/DETAILED_OUTPUT_GUIDE.html) - All output files and formats
+- [Detailed Synthesis Guide](reference/DETAILED_SYNTHESIS_GUIDE.html) - IPF algorithm details
+- [Detailed Input Data Guide](reference/DETAILED_INPUT_DATA_GUIDE.html) - Data sources and preparation
+- [Detailed Crosswalk Guide](reference/DETAILED_CROSSWALK_GUIDE.html) - Geographic relationships
+- [Detailed Control Generation Guide](reference/DETAILED_CONTROL_GENERATION_GUIDE.html) - Control marginals
 
 ---
 
