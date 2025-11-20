@@ -1,0 +1,10 @@
+source "https://rubygems.org"
+
+# GitHub Pages gem includes Jekyll and all supported plugins
+gem "github-pages", group: :jekyll_plugins
+
+# Theme
+gem "jekyll-theme-cayman"
+
+# Optional: Windows-specific gems
+gem "wdm", ">= 0.1.0" if Gem.win_platform?

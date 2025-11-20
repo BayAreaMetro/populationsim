@@ -1,0 +1,44 @@
+title: Bay Area PopulationSim Documentation
+description: TM2 Population Synthesizer for the San Francisco Bay Area
+theme: jekyll-theme-cayman
+baseurl: /populationsim
+url: https://bayareametro.github.io
+
+# Navigation structure
+navigation:
+  - title: Home
+    url: /
+  - title: Getting Started
+    url: /getting-started/
+  - title: Process Overview
+    url: /process/
+  - title: Guides
+    url: /guides/
+  - title: Outputs
+    url: /outputs/
+  - title: Reference
+    url: /reference/
+
+# Collections
+collections:
+  pages:
+    output: true
+    permalink: /:path/
+
+# Build settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  
+# Exclude files from the build
+exclude:
+  - README.md
+  - LICENSE.txt
+  - Gemfile
+  - Gemfile.lock
+  - "*.docx"
+  - "*.doc"
+  - "*.backup"
+  - sample_*.csv
+  - sample_*.txt
