@@ -2238,11 +2238,14 @@ def create_maz_data_files(logger):
                 missing_pop = maz_marginals_2023['total_pop'].isna()
                 if missing_pop.any():
                     logger.warning(f"Using HH-based estimate for {missing_pop.sum()} MAZs with missing population")
-                    if 'num_hh' in maz_marginals_2023.columns:
+                    if 'numhh' in maz_marginals_2023.columns:
                         maz_marginals_2023.loc[missing_pop, 'total_pop'] = (
-                            maz_marginals_2023.loc[missing_pop, 'num_hh'] * 2.5 + 
-                            maz_marginals_2023.loc[missing_pop, 'gq_pop']
+                            maz_marginals_2023.loc[missing_pop, 'numhh'] * 2.5
                         )
+                        # Add GQ if available
+                        if 'numhh_gq' in maz_marginals_2023.columns:
+                            gq_count = maz_marginals_2023.loc[missing_pop, 'numhh_gq'] - maz_marginals_2023.loc[missing_pop, 'numhh']
+                            maz_marginals_2023.loc[missing_pop, 'total_pop'] += gq_count.clip(lower=0)
                     else:
                         logger.error(f"Cannot estimate population - missing 'num_hh' column. Available: {list(maz_marginals_2023.columns)}")
                         return
@@ -2256,18 +2259,21 @@ def create_maz_data_files(logger):
         else:
             logger.warning("No existing maz_data.csv found, using HH-based population estimate")
             # Calculate total population from marginals (HH population + GQ population) as fallback
-            if 'num_hh' in maz_marginals_2023.columns:
-                maz_marginals_2023['total_pop'] = maz_marginals_2023['num_hh'] * 2.5  # Rough estimate for HH population
-                maz_marginals_2023['total_pop'] += maz_marginals_2023['gq_pop']  # Add GQ population
+            if 'numhh' in maz_marginals_2023.columns:
+                maz_marginals_2023['total_pop'] = maz_marginals_2023['numhh'] * 2.5  # Rough estimate for HH population
+                # Add GQ population if we can derive it
+                if 'numhh_gq' in maz_marginals_2023.columns:
+                    gq_count = (maz_marginals_2023['numhh_gq'] - maz_marginals_2023['numhh']).clip(lower=0)
+                    maz_marginals_2023['total_pop'] += gq_count
             else:
-                logger.error(f"Missing 'num_hh' column in MAZ marginals. Available columns: {list(maz_marginals_2023.columns)}")
+                logger.error(f"Missing 'numhh' column in MAZ marginals. Available columns: {list(maz_marginals_2023.columns)}")
                 return
         
-        # Round to integers
-        if 'num_hh' in maz_marginals_2023.columns:
-            maz_marginals_2023['num_hh'] = maz_marginals_2023['num_hh'].round().astype(int)
+        # Round to integers and rename for consistency
+        if 'numhh' in maz_marginals_2023.columns:
+            maz_marginals_2023['num_hh'] = maz_marginals_2023['numhh'].round().astype(int)
         else:
-            logger.error(f"Missing 'num_hh' column in maz_marginals_2023. Available columns: {list(maz_marginals_2023.columns)}")
+            logger.error(f"Missing 'numhh' column in maz_marginals_2023. Available columns: {list(maz_marginals_2023.columns)}")
             return
         
         maz_marginals_2023['total_pop'] = maz_marginals_2023['total_pop'].round().astype(int)
@@ -2285,14 +2291,25 @@ def create_maz_data_files(logger):
         # Merge the data - update HH and POP fields while keeping employment unchanged
         logger.info("Merging employment data with updated HH/POP data")
         
+        # Identify MAZ ID column in marginals file
+        if 'MAZ_NODE' in maz_marginals_2023.columns:
+            marginals_maz_col = 'MAZ_NODE'
+        elif 'MAZ' in maz_marginals_2023.columns:
+            marginals_maz_col = 'MAZ'
+        else:
+            logger.error(f"Cannot find MAZ ID column in marginals. Available: {list(maz_marginals_2023.columns)}")
+            return
+        
+        logger.info(f"Using MAZ ID columns: example={maz_id_col}, marginals={marginals_maz_col}")
+        
         # For maz_data.csv
         updated_maz_data = example_maz_data.copy()
         
         # Merge with marginals on MAZ ID
         merged_data = updated_maz_data.merge(
-            maz_marginals_2023[['MAZ', 'num_hh', 'total_pop']],
+            maz_marginals_2023[[marginals_maz_col, 'num_hh', 'total_pop']],
             left_on=maz_id_col,
-            right_on='MAZ',
+            right_on=marginals_maz_col,
             how='left'
         )
         
@@ -2304,7 +2321,7 @@ def create_maz_data_files(logger):
             merged_data['POP'] = merged_data['total_pop'].fillna(merged_data['POP'])
             
         # Clean up merge columns
-        merged_data = merged_data.drop(columns=['MAZ', 'num_hh', 'total_pop'], errors='ignore')
+        merged_data = merged_data.drop(columns=[marginals_maz_col, 'num_hh', 'total_pop'], errors='ignore')
         
         # Write updated maz_data.csv
         merged_data.to_csv(output_maz_data_file, index=False)
@@ -2324,9 +2341,9 @@ def create_maz_data_files(logger):
             
         # Merge with marginals on MAZ ID  
         merged_density = updated_maz_density.merge(
-            maz_marginals_2023[['MAZ', 'num_hh', 'total_pop']],
+            maz_marginals_2023[[marginals_maz_col, 'num_hh', 'total_pop']],
             left_on=maz_id_col_density,
-            right_on='MAZ',
+            right_on=marginals_maz_col,
             how='left'
         )
         
@@ -2338,11 +2355,40 @@ def create_maz_data_files(logger):
             merged_density['POP'] = merged_density['total_pop'].fillna(merged_density['POP'])
             
         # Clean up merge columns
-        merged_density = merged_density.drop(columns=['MAZ', 'num_hh', 'total_pop'], errors='ignore')
+        merged_density = merged_density.drop(columns=[marginals_maz_col, 'num_hh', 'total_pop'], errors='ignore')
         
         # Write updated maz_data_withDensity.csv
         merged_density.to_csv(output_maz_density_file, index=False)
         logger.info(f"Created {output_maz_density_file}")
+        
+        # Standardize column names to new naming convention (NODE/SEQ)
+        logger.info("Standardizing ID column names to NODE/SEQ convention...")
+        
+        for df, filename in [(merged_data, output_maz_data_file), (merged_density, output_maz_density_file)]:
+            rename_map = {}
+            
+            # MAZ_ORIGINAL -> MAZ_NODE
+            if 'MAZ_ORIGINAL' in df.columns:
+                rename_map['MAZ_ORIGINAL'] = 'MAZ_NODE'
+            
+            # TAZ_ORIGINAL -> TAZ_NODE  
+            if 'TAZ_ORIGINAL' in df.columns:
+                rename_map['TAZ_ORIGINAL'] = 'TAZ_NODE'
+            
+            # MAZ (or MAZ_x) -> MAZ_SEQ
+            if 'MAZ' in df.columns and 'MAZ_ORIGINAL' in df.columns:
+                rename_map['MAZ'] = 'MAZ_SEQ'
+            elif 'MAZ_x' in df.columns:
+                rename_map['MAZ_x'] = 'MAZ_SEQ'
+            
+            # TAZ -> TAZ_SEQ (only if we also have TAZ_ORIGINAL)
+            if 'TAZ' in df.columns and 'TAZ_ORIGINAL' in df.columns:
+                rename_map['TAZ'] = 'TAZ_SEQ'
+            
+            if rename_map:
+                df.rename(columns=rename_map, inplace=True)
+                df.to_csv(filename, index=False)
+                logger.info(f"  Renamed columns in {os.path.basename(filename)}: {rename_map}")
         
         # Log summary statistics
         logger.info("MAZ Data File Creation Summary:")

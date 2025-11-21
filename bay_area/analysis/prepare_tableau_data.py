@@ -202,6 +202,59 @@ class TableauDataPreparer:
         
         return output_path
         
+    def prepare_maz_shapefile(self):
+        """Prepare MAZ shapefile with standardized join fields."""
+        print(f"\n[MAP]  Processing MAZ shapefile...")
+        
+        # Find MAZ shapefile
+        maz_patterns = ['maz']
+        maz_shapefile = self.find_shapefile(maz_patterns)
+        
+        if not maz_shapefile:
+            print(f"   [ERROR] MAZ shapefile not found")
+            return None
+            
+        # Load shapefile
+        try:
+            maz_gdf = gpd.read_file(maz_shapefile)
+            print(f"   Loaded {len(maz_gdf):,} MAZ features")
+            print(f"   Original columns: {list(maz_gdf.columns)}")
+        except Exception as e:
+            print(f"   [ERROR] Error loading MAZ shapefile: {e}")
+            return None
+        
+        # Standardize MAZ ID field
+        if 'MAZ' in maz_gdf.columns:
+            maz_gdf['MAZ_ID'] = maz_gdf['MAZ'].astype(int)
+        elif 'MAZ_NODE' in maz_gdf.columns:
+            maz_gdf['MAZ_ID'] = maz_gdf['MAZ_NODE'].astype(int)
+        elif 'maz' in maz_gdf.columns:
+            maz_gdf['MAZ_ID'] = maz_gdf['maz'].astype(int)
+        else:
+            print(f"   [ERROR] No MAZ ID field found")
+            return None
+        
+        # Select key fields for Tableau
+        keep_cols = ['MAZ_ID', 'geometry']
+        
+        # Add useful fields if they exist
+        for col in ['TAZ', 'TAZ_NODE', 'taz', 'COUNTY', 'CountyID', 'county']:
+            if col in maz_gdf.columns:
+                keep_cols.append(col)
+        
+        final_gdf = maz_gdf[keep_cols].copy()
+        
+        print(f"   Final columns: {list(final_gdf.columns)}")
+        
+        # Save shapefile
+        output_path = os.path.join(self.output_dir, 'maz_boundaries_tableau.shp')
+        final_gdf.to_file(output_path)
+        
+        print(f"   [SUCCESS] MAZ shapefile saved: {output_path}")
+        print(f"   MAZ count: {len(final_gdf):,}")
+        
+        return output_path
+        
     def prepare_puma_shapefile(self):
         """Prepare PUMA shapefile with standardized join fields."""
         print(f"\n[MAP]  Processing PUMA shapefile...")
@@ -294,10 +347,20 @@ class TableauDataPreparer:
         """Prepare TAZ marginals with standardized join fields and 2015-2023 comparison."""
         print(f"\n[STATS] Processing TAZ marginals...")
         
-        # Load 2023 data
-        taz_file_2023 = os.path.join(self.data_dir, 'taz_marginals.csv')
-        if not os.path.exists(taz_file_2023):
-            print(f"   [ERROR] 2023 TAZ marginals not found: {taz_file_2023}")
+        # Load 2023 data - check multiple possible locations
+        taz_files_to_try = [
+            os.path.join(self.data_dir, 'taz_marginals.csv'),
+            os.path.join(self.data_dir, 'populationsim_working_dir', 'data', 'taz_marginals_hhgq.csv'),
+        ]
+        
+        taz_file_2023 = None
+        for filepath in taz_files_to_try:
+            if os.path.exists(filepath):
+                taz_file_2023 = filepath
+                break
+        
+        if not taz_file_2023:
+            print(f"   [ERROR] 2023 TAZ marginals not found in: {taz_files_to_try}")
             return None
             
         taz_2023 = pd.read_csv(taz_file_2023)
@@ -306,8 +369,11 @@ class TableauDataPreparer:
         # Standardize TAZ ID field for 2023
         if 'TAZ' in taz_2023.columns:
             taz_2023['TAZ_ID'] = taz_2023['TAZ'].astype(int)
+        elif 'TAZ_NODE' in taz_2023.columns:
+            taz_2023['TAZ_ID'] = taz_2023['TAZ_NODE'].astype(int)
         else:
-            print(f"   [ERROR] No TAZ field found in 2023 data")
+            print(f"   [ERROR] No TAZ or TAZ_NODE field found in 2023 data")
+            print(f"   Available columns: {list(taz_2023.columns)}")
             return None
         
         # Load 2015 data for comparison
@@ -405,9 +471,20 @@ class TableauDataPreparer:
         """Prepare MAZ marginals with standardized join fields."""
         print(f"\n[STATS] Processing MAZ marginals...")
         
-        maz_file = os.path.join(self.data_dir, 'maz_marginals.csv')
-        if not os.path.exists(maz_file):
-            print(f"   [ERROR] MAZ marginals not found: {maz_file}")
+        # Check multiple possible locations
+        maz_files_to_try = [
+            os.path.join(self.data_dir, 'maz_marginals.csv'),
+            os.path.join(self.data_dir, 'populationsim_working_dir', 'data', 'maz_marginals_hhgq.csv'),
+        ]
+        
+        maz_file = None
+        for filepath in maz_files_to_try:
+            if os.path.exists(filepath):
+                maz_file = filepath
+                break
+        
+        if not maz_file:
+            print(f"   [ERROR] MAZ marginals not found in: {maz_files_to_try}")
             return None
             
         # Load data
@@ -418,8 +495,11 @@ class TableauDataPreparer:
         # Standardize MAZ ID field
         if 'MAZ' in maz_df.columns:
             maz_df['MAZ_ID'] = maz_df['MAZ'].astype(int)
+        elif 'MAZ_NODE' in maz_df.columns:
+            maz_df['MAZ_ID'] = maz_df['MAZ_NODE'].astype(int)
         else:
-            print(f"   [ERROR] No MAZ field found")
+            print(f"   [ERROR] No MAZ or MAZ_NODE field found")
+            print(f"   Available columns: {list(maz_df.columns)}")
             return None
             
         # Ensure all numeric fields are proper types for Tableau
@@ -443,6 +523,81 @@ class TableauDataPreparer:
         
         print(f"   [SUCCESS] MAZ marginals saved: {output_path}")
         print(f"   MAZ ID range: {maz_df['MAZ_ID'].min()} - {maz_df['MAZ_ID'].max()}")
+        
+        return output_path
+        
+    def prepare_maz_data(self):
+        """Prepare comprehensive MAZ data with land use, employment, and enrollment."""
+        print(f"\n[DATA] Processing MAZ comprehensive data...")
+        
+        # Check for maz_data.csv
+        maz_data_files = [
+            os.path.join(self.data_dir, 'populationsim_working_dir', 'data', 'maz_data.csv'),
+            os.path.join(self.data_dir, 'maz_data.csv'),
+        ]
+        
+        maz_data_file = None
+        for filepath in maz_data_files:
+            if os.path.exists(filepath):
+                maz_data_file = filepath
+                break
+        
+        if not maz_data_file:
+            print(f"   [WARNING] maz_data.csv not found in: {maz_data_files}")
+            print(f"   Skipping comprehensive MAZ data preparation")
+            return None
+            
+        # Load data
+        maz_data = pd.read_csv(maz_data_file)
+        print(f"   Loaded {len(maz_data):,} MAZ records")
+        print(f"   Original columns: {len(maz_data.columns)} columns")
+        
+        # Standardize MAZ ID field
+        if 'MAZ_ORIGINAL' in maz_data.columns:
+            maz_data['MAZ_ID'] = maz_data['MAZ_ORIGINAL'].astype(int)
+        elif 'MAZ' in maz_data.columns:
+            maz_data['MAZ_ID'] = maz_data['MAZ'].astype(int)
+        elif 'MAZ_NODE' in maz_data.columns:
+            maz_data['MAZ_ID'] = maz_data['MAZ_NODE'].astype(int)
+        else:
+            print(f"   [ERROR] No MAZ ID field found")
+            return None
+        
+        # Add TAZ ID if available
+        if 'TAZ_ORIGINAL' in maz_data.columns:
+            maz_data['TAZ_ID'] = maz_data['TAZ_ORIGINAL'].astype(int)
+        elif 'TAZ' in maz_data.columns:
+            maz_data['TAZ_ID'] = maz_data['TAZ'].astype(int)
+        elif 'TAZ_NODE' in maz_data.columns:
+            maz_data['TAZ_ID'] = maz_data['TAZ_NODE'].astype(int)
+        
+        # Ensure all numeric fields are proper types
+        numeric_cols = []
+        for col in maz_data.columns:
+            if col not in ['MAZ_ORIGINAL', 'TAZ_ORIGINAL', 'DistName', 'CountyName', 'MAZ_ID', 'TAZ_ID']:
+                if pd.api.types.is_numeric_dtype(maz_data[col]):
+                    # Convert to int if possible, otherwise float
+                    try:
+                        if maz_data[col].notna().all() and (maz_data[col] % 1 == 0).all():
+                            maz_data[col] = maz_data[col].astype(int)
+                        else:
+                            maz_data[col] = maz_data[col].astype(float)
+                        numeric_cols.append(col)
+                    except:
+                        # Keep as is if conversion fails
+                        pass
+        
+        print(f"   Numeric columns: {len(numeric_cols)}")
+        print(f"   Final columns: {len(maz_data.columns)}")
+        
+        # Save to file
+        output_path = os.path.join(self.output_dir, 'maz_data_tableau.csv')
+        maz_data.to_csv(output_path, index=False)
+        
+        print(f"   [SUCCESS] MAZ data saved: {output_path}")
+        print(f"   MAZ ID range: {maz_data['MAZ_ID'].min()} - {maz_data['MAZ_ID'].max()}")
+        print(f"   Data categories: Demographics (HH, POP), Employment (22 sectors, emp_total),")
+        print(f"                    Enrollment (K-8, 9-12, college), Parking (6 types), Land Use (ACRES)")
         
         return output_path
         
@@ -631,9 +786,11 @@ PopulationSim Version: TM2
         
         # Process each data type
         results['taz_shapefile'] = self.prepare_taz_shapefile()
+        results['maz_shapefile'] = self.prepare_maz_shapefile()
         results['puma_shapefile'] = self.prepare_puma_shapefile()
         results['taz_marginals'] = self.prepare_taz_marginals()
         results['maz_marginals'] = self.prepare_maz_marginals()
+        results['maz_data'] = self.prepare_maz_data()
         results['geo_crosswalk'] = self.prepare_geo_crosswalk()
         
         # Create documentation

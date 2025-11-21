@@ -5,7 +5,7 @@ from pathlib import Path
 
 # User-editable: source and destination directories
 SOURCE_DIR = Path('output_2023') / 'populationsim_working_dir' / 'data'  # Land use files are in the data subdirectory
-DEST_DIR = Path(r'C:\Box\Modeling and Surveys\Development\Travel Model Two Conversion\Model Inputs\2023-tm22-dev-test\landuse')
+DEST_DIR = Path(r'C:\Box\Modeling and Surveys\Development\Travel Model Two Conversion\Model Inputs\2023-tm22-dev-version-05\landuse')
 
 # Files to copy
 FILES_TO_COPY = [
@@ -26,7 +26,7 @@ def copy_files(source_dir, dest_dir, files):
 
 # PopSyn files (postprocessed)
 POPSYN_SOURCE_DIR = Path('output_2023') / 'populationsim_working_dir' / 'output'
-POPSYN_DEST_DIR = Path(r'C:\Box\Modeling and Surveys\Development\Travel Model Two Conversion\Model Inputs\2023-tm22-dev-test\popsyn')
+POPSYN_DEST_DIR = Path(r'C:\Box\Modeling and Surveys\Development\Travel Model Two Conversion\Model Inputs\2023-tm22-dev-version-05\popsyn')
 POPSYN_FILES = [
     ('households_2023_tm2.csv', 'households.csv'),
     ('persons_2023_tm2.csv', 'persons.csv'),
