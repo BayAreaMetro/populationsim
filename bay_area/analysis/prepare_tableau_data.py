@@ -530,9 +530,12 @@ class TableauDataPreparer:
         """Prepare comprehensive MAZ data with land use, employment, and enrollment."""
         print(f"\n[DATA] Processing MAZ comprehensive data...")
         
-        # Check for maz_data.csv
+        # Check for maz_data_withDensity.csv (preferred) or maz_data.csv
         maz_data_files = [
+            r"C:\Box\Modeling and Surveys\Development\Travel Model Two Conversion\Model Inputs\2023-tm22-dev-version-05\landuse\maz_data_withDensity.csv",
+            os.path.join(self.data_dir, 'populationsim_working_dir', 'data', 'maz_data_withDensity.csv'),
             os.path.join(self.data_dir, 'populationsim_working_dir', 'data', 'maz_data.csv'),
+            os.path.join(self.data_dir, 'maz_data_withDensity.csv'),
             os.path.join(self.data_dir, 'maz_data.csv'),
         ]
         
@@ -543,33 +546,36 @@ class TableauDataPreparer:
                 break
         
         if not maz_data_file:
-            print(f"   [WARNING] maz_data.csv not found in: {maz_data_files}")
+            print(f"   [WARNING] maz_data_withDensity.csv or maz_data.csv not found in: {maz_data_files}")
             print(f"   Skipping comprehensive MAZ data preparation")
             return None
+        
+        print(f"   Using: {maz_data_file}")
             
         # Load data
         maz_data = pd.read_csv(maz_data_file)
         print(f"   Loaded {len(maz_data):,} MAZ records")
         print(f"   Original columns: {len(maz_data.columns)} columns")
         
-        # Standardize MAZ ID field
-        if 'MAZ_ORIGINAL' in maz_data.columns:
+        # Standardize MAZ ID field (prioritize NODE naming)
+        if 'MAZ_NODE' in maz_data.columns:
+            maz_data['MAZ_ID'] = maz_data['MAZ_NODE'].astype(int)
+        elif 'MAZ_ORIGINAL' in maz_data.columns:
             maz_data['MAZ_ID'] = maz_data['MAZ_ORIGINAL'].astype(int)
         elif 'MAZ' in maz_data.columns:
             maz_data['MAZ_ID'] = maz_data['MAZ'].astype(int)
-        elif 'MAZ_NODE' in maz_data.columns:
-            maz_data['MAZ_ID'] = maz_data['MAZ_NODE'].astype(int)
         else:
             print(f"   [ERROR] No MAZ ID field found")
+            print(f"   Available columns: {list(maz_data.columns)}")
             return None
         
-        # Add TAZ ID if available
-        if 'TAZ_ORIGINAL' in maz_data.columns:
+        # Add TAZ ID if available (prioritize NODE naming)
+        if 'TAZ_NODE' in maz_data.columns:
+            maz_data['TAZ_ID'] = maz_data['TAZ_NODE'].astype(int)
+        elif 'TAZ_ORIGINAL' in maz_data.columns:
             maz_data['TAZ_ID'] = maz_data['TAZ_ORIGINAL'].astype(int)
         elif 'TAZ' in maz_data.columns:
             maz_data['TAZ_ID'] = maz_data['TAZ'].astype(int)
-        elif 'TAZ_NODE' in maz_data.columns:
-            maz_data['TAZ_ID'] = maz_data['TAZ_NODE'].astype(int)
         
         # Ensure all numeric fields are proper types
         numeric_cols = []
