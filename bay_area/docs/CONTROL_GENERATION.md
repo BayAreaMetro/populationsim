@@ -163,10 +163,60 @@ This ensures the control structure exactly matches the seed population GQ encodi
 
 ## Inputs
 
-- ACS 2023 5-year and 1-year estimates (tract, block group, county)
-- 2020 Decennial Census data (block level)
-- Geographic crosswalks (from the crosswalk step)
-- Configuration in `unified_tm2_config.py` and `tm2_control_utils/config_census.py`
+### Census Data Sources
+
+- **ACS 2023 5-year estimates**: Tract and block group level demographic data
+- **ACS 2023 1-year estimates**: County-level household totals for scaling targets
+- **2020 Decennial Census data (DHC)**: Block-level household and group quarters counts
+- **Geographic crosswalks**: MAZ-TAZ definitions and 2020-to-2010 Census block interpolation weights
+
+### MAZ Control Data Source Details
+
+**Source**: MAZ controls originate from **Santa Clara County VTA (Valley Transportation Authority)** and MTC's MAZ/TAZ geography system, which defines approximately 39,587 MAZs for the 9-county Bay Area.
+
+**Geographic Foundation**:
+- MAZ/TAZ system is built on **2010 Census block boundaries**
+- MAZ definitions provided in `blocks_mazs_tazs.csv` (TM2 version 2.2+)
+- Each MAZ is a union of one or more 2010 Census blocks
+
+**Data Interpolation Process**:
+
+1. **2020 Census Data Collection**: Download DHC (Demographic and Housing Characteristics) block-level counts from 2020 Census:
+   - Table H1: Occupied housing units (households)
+   - Table P5: Group quarters population by type
+
+2. **Geographic Interpolation (2020→2010 blocks)**: 
+   - Uses NHGIS (National Historical Geographic Information System) block-to-block crosswalk
+   - Applies areal interpolation weights when 2020 block boundaries differ from 2010 blocks
+   - Maintains population conservation (total 2020 counts = total interpolated counts)
+   - Formula: `est_2010_block = sum(2020_block_value × interpolation_weight)` for all intersecting 2020 blocks
+
+3. **Aggregation to MAZ**:
+   - Sum interpolated 2010-geography blocks to MAZ using `blocks_mazs_tazs.csv` crosswalk
+   - Direct aggregation (no further interpolation needed since MAZs are defined as unions of 2010 blocks)
+
+4. **County Scaling**:
+   - Scale MAZ totals to match ACS 2023 1-year county household targets
+   - Ensures consistency between 2020 Census base + growth and current ACS estimates
+
+**Specific Census Tables Used for MAZ Controls**:
+
+| Control Variable | Census Table | Universe | Geographic Level |
+|-----------------|--------------|----------|------------------|
+| `num_hh` | 2020 DHC H1_002N | Occupied housing units | Block (interpolated to 2010 blocks) |
+| `pers_gq_university` | 2020 DHC P5_008N | Persons in college/university GQ | Block (interpolated to 2010 blocks) |
+| `pers_gq_noninstitutional` | 2020 DHC P5_009N + P5_011N + P5_012N | Persons in military + other noninstitutional GQ | Block (interpolated to 2010 blocks) |
+
+**Why Interpolation is Necessary**:
+- Census block boundaries changed between 2010 and 2020 Censuses
+- TM2 MAZ/TAZ system was built on 2010 Census geography and cannot be easily remapped
+- Interpolation allows use of latest 2020 Census data while maintaining compatibility with TM2 geography
+- Areal interpolation assumes uniform population density within blocks (reasonable at small block scale)
+
+### Configuration Files
+
+- `unified_tm2_config.py`: File paths and execution settings
+- `tm2_control_utils/config_census.py`: Control variable definitions and Census table specifications
 
 ## Outputs
 

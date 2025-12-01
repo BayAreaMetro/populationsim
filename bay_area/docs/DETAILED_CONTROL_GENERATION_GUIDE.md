@@ -91,11 +91,82 @@ census_data = get_census_data(
 ```
 
 #### Step 2: Geographic Interpolation
+
 Since Census geographies don't perfectly align with MAZ/TAZ boundaries, the system uses sophisticated interpolation:
 
 - **Block-to-MAZ Aggregation**: Uses geographic crosswalks to aggregate 2020 Census blocks to MAZ zones
 - **Tract-to-TAZ Interpolation**: Employs areal interpolation weights to distribute tract-level data to TAZ zones
 - **Temporal Interpolation**: For geographic boundary changes between 2010 and 2020, uses NHGIS crosswalks
+
+##### Detailed 2020-to-2010 Block Interpolation Process
+
+**Background**: The TM2 MAZ/TAZ system was designed by Santa Clara County VTA and MTC based on **2010 Census block boundaries**. However, the latest demographic data comes from the **2020 Decennial Census**, which has different block boundaries due to:
+- Population shifts requiring block splits
+- Geographic corrections and boundary adjustments
+- Annexations and jurisdiction changes
+
+**Interpolation Methodology**:
+
+1. **Source Data**: 
+   - 2020 DHC (Demographic and Housing Characteristics) File at block level
+   - NHGIS block-to-block crosswalk (2020 blocks → 2010 blocks)
+   - Crosswalk includes areal interpolation weights for split/merged blocks
+
+2. **Interpolation Formula**:
+   ```
+   For each 2010 block:
+       est_2010 = Σ (value_2020_block × weight_2020_to_2010)
+   
+   Where:
+       - value_2020_block = household count or GQ count from 2020 Census
+       - weight_2020_to_2010 = interpolation weight from NHGIS crosswalk
+       - Sum is over all 2020 blocks that intersect the 2010 block
+   ```
+
+3. **Weight Calculation** (performed by NHGIS):
+   - Based on geographic overlap area between 2020 and 2010 blocks
+   - Assumes uniform population density within source blocks
+   - Weights sum to 1.0 for each 2020 block's distribution across 2010 blocks
+
+4. **Specific Census Tables Interpolated**:
+
+| Table | Description | Variables | Universe |
+|-------|-------------|-----------|----------|
+| H1 | Housing Units | H1_001N (Total), H1_002N (Occupied) | Housing units |
+| P5 | Group Quarters Population | P5_008N (University), P5_009N (Military), P5_011N/012N (Other noninst.) | Persons in group quarters |
+| H13 | Household Size (if used) | H13_001N through H13_008N | Households |
+
+5. **Validation**:
+   - Population conservation: Total 2020 Census = Total interpolated to 2010
+   - Check for negative values (none should exist)
+   - Compare county totals pre/post interpolation (should match exactly)
+
+6. **Aggregation to MAZ**:
+   - After interpolation to 2010 blocks, aggregate using `blocks_mazs_tazs.csv`
+   - Simple summation: `MAZ_value = Σ block_value` for all blocks in MAZ
+   - No further interpolation needed (MAZs are defined as unions of 2010 blocks)
+
+**Data Flow**:
+```
+2020 Census (2020 blocks)
+    ↓ [NHGIS interpolation weights]
+2020 estimates on 2010 blocks
+    ↓ [blocks_mazs_tazs.csv aggregation]
+MAZ controls (2020 data, 2010 geography)
+    ↓ [County scaling to ACS 2023]
+Final MAZ controls (scaled to match ACS 2023 county targets)
+```
+
+**Geographic File Sources**:
+- **MAZ Definitions**: `blocks_mazs_tazs.csv` (from Santa Clara County VTA / MTC TM2 geography)
+- **Full Geography**: `mazs_tazs_all_geog.csv` (MAZ-TAZ-PUMA-County linkages)
+- **NHGIS Crosswalk**: `nhgis_blk2020_blk2010_<state>.csv` (from IPUMS NHGIS project)
+
+**Why This Approach**:
+- Allows use of latest Census data while maintaining TM2 geographic compatibility
+- Preserves fine-scale geographic detail (block-level precision)
+- Areal interpolation is reasonable at Census block scale (blocks are small and relatively homogeneous)
+- Alternative would require complete remapping of 39,587 MAZs to 2020 geography (infeasible)
 
 #### Step 3: Data Validation and Quality Control
 Each data source undergoes rigorous validation:
