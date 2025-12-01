@@ -100,7 +100,7 @@ Since Census geographies don't perfectly align with MAZ/TAZ boundaries, the syst
 
 ##### Detailed 2020-to-2010 Block Interpolation Process
 
-**Background**: The TM2 MAZ/TAZ system was designed by Santa Clara County VTA and MTC based on **2010 Census block boundaries**. However, the latest demographic data comes from the **2020 Decennial Census**, which has different block boundaries due to:
+**Background**: The TM2 MAZ/TAZ system was designed based on **2010 Census block boundaries**. However, the latest demographic data comes from the **2020 Decennial Census**, which has different block boundaries due to:
 - Population shifts requiring block splits
 - Geographic corrections and boundary adjustments
 - Annexations and jurisdiction changes
@@ -158,7 +158,7 @@ Final MAZ controls (scaled to match ACS 2023 county targets)
 ```
 
 **Geographic File Sources**:
-- **MAZ Definitions**: `blocks_mazs_tazs.csv` (from Santa Clara County VTA / MTC TM2 geography)
+- **MAZ Definitions**: `blocks_mazs_tazs.csv` (from MTC TM2 geography)
 - **Full Geography**: `mazs_tazs_all_geog.csv` (MAZ-TAZ-PUMA-County linkages)
 - **NHGIS Crosswalk**: `nhgis_blk2020_blk2010_<state>.csv` (from IPUMS NHGIS project)
 
@@ -182,6 +182,41 @@ Each data source undergoes rigorous validation:
 ### MAZ (Micro Analysis Zone) Level
 
 MAZs represent the finest geographic resolution in the model, with approximately 39,586 zones covering the 9-county Bay Area.
+
+#### Housing Units vs. Households for MAZ Controls
+
+**Critical Distinction:**
+
+The Census publishes two related but different counts in Table H1:
+- **H1_001N**: Total housing units (all structures, occupied + vacant)
+- **H1_002N**: Occupied housing units = **Households**
+
+**For PopulationSim MAZ controls, we use H1_002N (Households):**
+
+```python
+num_hh = H1_002N  # Occupied housing units = Households
+```
+
+**Why we DON'T use H1_001N (Total housing units):**
+
+1. **Vacant units have no people**: Can't synthesize household characteristics (size, income, workers) for empty units
+2. **PopulationSim needs occupied units**: The algorithm matches household attributes to people living in them
+3. **Travel modeling requirement**: TM2 models travel behavior of people in occupied housing, not empty buildings
+4. **Data availability**: Household characteristics (size, income, workers) only exist for occupied units
+
+**Regional Example (Bay Area 2020):**
+```
+Total housing units (H1_001N):     2,995,998
+Occupied units/Households (H1_002N): 2,762,143  ← Used for num_hh control
+Vacant units (difference):            233,855   ← Excluded from synthesis
+Vacancy rate:                         7.8%
+```
+
+**What This Means:**
+- The `num_hh` control represents **households** (people living in units)
+- This does NOT include ~48K vacant units
+- Vacant units are intentionally excluded from population synthesis
+- Group quarters persons (university, military) are handled separately (see GQ section)
 
 #### MAZ Control Generation Process:
 

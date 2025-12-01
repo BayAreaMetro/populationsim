@@ -2,6 +2,43 @@
 
 This step generates the baseyear control files required for the Bay Area PopulationSim model, using ACS 2023 and 2020 Decennial Census data. Controls are produced at the MAZ, TAZ, and county levels, and are used to guide the synthetic population generation process.
 
+## Housing Units vs. Households: Key Distinction
+
+**Understanding the Difference:**
+
+**Housing Unit** = A physical structure or portion thereof intended for occupancy
+- Includes: Houses, apartments, condos, mobile homes
+- Can be: Occupied OR Vacant
+- Census Table: **H1_001N** (Total housing units)
+
+**Household** = An occupied housing unit with people living in it
+- Must have: At least one person living there
+- Excludes: Vacant units, seasonal homes, group quarters
+- Census Table: **H1_002N** (Occupied housing units) = **Households**
+
+**What We Use for PopulationSim Controls:**
+
+```
+num_hh = H1_002N (Occupied housing units) = HOUSEHOLDS
+```
+
+We use **H1_002N (households)**, NOT H1_001N (total housing units), because:
+- ✅ PopulationSim creates synthetic **people living in housing**
+- ✅ Vacant units have no household characteristics to match
+- ✅ Travel models need households with travelers, not empty buildings
+- ❌ Vacant units (H1_001N - H1_002N) are excluded from synthesis
+
+**Example (San Francisco 2020):**
+- H1_001N: 401,568 housing units (total structures)
+- H1_002N: 361,837 occupied units = **361,837 households** ← WE USE THIS
+- Vacant: 39,731 units (not included in controls)
+
+**Group Quarters Distinction:**
+- Group quarters (GQ) are NOT housing units or households in the traditional sense
+- GQ persons live in institutional/non-institutional settings (dorms, military barracks, etc.)
+- We include GQ persons as **person-level controls** (pers_gq_university, pers_gq_noninstitutional)
+- See Group Quarters section below for details
+
 ## What This Step Does
 
 - **`create_baseyear_controls_23_tm2.py`**:
@@ -172,7 +209,7 @@ This ensures the control structure exactly matches the seed population GQ encodi
 
 ### MAZ Control Data Source Details
 
-**Source**: MAZ controls originate from **Santa Clara County VTA (Valley Transportation Authority)** and MTC's MAZ/TAZ geography system, which defines approximately 39,587 MAZs for the 9-county Bay Area.
+**Source**: MAZ controls are based on MTC's MAZ/TAZ geography system, which defines approximately 39,587 MAZs for the 9-county Bay Area.
 
 **Geographic Foundation**:
 - MAZ/TAZ system is built on **2010 Census block boundaries**
@@ -201,11 +238,13 @@ This ensures the control structure exactly matches the seed population GQ encodi
 
 **Specific Census Tables Used for MAZ Controls**:
 
-| Control Variable | Census Table | Universe | Geographic Level |
-|-----------------|--------------|----------|------------------|
-| `num_hh` | 2020 DHC H1_002N | Occupied housing units | Block (interpolated to 2010 blocks) |
-| `pers_gq_university` | 2020 DHC P5_008N | Persons in college/university GQ | Block (interpolated to 2010 blocks) |
-| `pers_gq_noninstitutional` | 2020 DHC P5_009N + P5_011N + P5_012N | Persons in military + other noninstitutional GQ | Block (interpolated to 2010 blocks) |
+| Control Variable | Census Table | Description | Universe | Geographic Level |
+|-----------------|--------------|-------------|----------|------------------|
+| `num_hh` | 2020 DHC H1_002N | **Occupied housing units (= Households)** | Households (NOT total housing units) | Block (interpolated to 2010 blocks) |
+| `pers_gq_university` | 2020 DHC P5_008N | Persons in college/university GQ | Persons in group quarters | Block (interpolated to 2010 blocks) |
+| `pers_gq_noninstitutional` | 2020 DHC P5_009N + P5_011N + P5_012N | Persons in military + other noninstitutional GQ | Persons in group quarters | Block (interpolated to 2010 blocks) |
+
+**Important**: We use **H1_002N (Occupied)**, NOT H1_001N (Total housing units). See "Housing Units vs. Households" section above for why.
 
 **Why Interpolation is Necessary**:
 - Census block boundaries changed between 2010 and 2020 Censuses
