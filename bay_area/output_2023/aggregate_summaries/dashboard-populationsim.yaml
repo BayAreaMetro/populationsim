@@ -1,0 +1,51 @@
+header:
+  tab: PopulationSim Comparison
+  title: PopulationSim Multi-Year Summary
+  description: Comparison of 2015 vs 2023 synthetic populations
+  
+layout:
+  household_demographics:
+  - type: bar
+    title: Households by Size - Share
+    props:
+      dataset: household_size_regional.csv
+      x: household_size
+      y: share
+      groupBy: dataset
+    description: 'Share: households by household size across model years'
+  - type: bar
+    title: Households by Size - Total
+    props:
+      dataset: household_size_regional.csv
+      x: household_size
+      y: households
+      groupBy: dataset  
+    description: 'Total: households by household size across model years'
+    
+  geographic_distribution:
+  - type: bar
+    title: Households by County - Share
+    props:
+      dataset: households_by_county.csv
+      x: county_name
+      y: share
+      groupBy: dataset
+    description: 'Share: household distribution across Bay Area counties'
+  - type: bar
+    title: Households by County - Total
+    props:
+      dataset: households_by_county.csv
+      x: county_name
+      y: households
+      groupBy: dataset
+    description: 'Total: household counts by county across model years'
+    
+  economic_characteristics:
+  - type: bar
+    title: Households by Income - Share
+    props:
+      dataset: households_by_income.csv
+      x: income_category
+      y: share
+      groupBy: dataset
+    description: 'Share: household income distribution across model years'
