@@ -1,4 +1,4 @@
-county_id,households,county_name,share,dataset,includes_gq
+COUNTY,households,county_name,share,dataset,includes_gq
 1,371859.0,San Francisco,0.1331169958564154,ACS_Controls_households_only,No
 2,269383.0,San Mateo,0.09643293747035503,ACS_Controls_households_only,No
 3,656068.0,Santa Clara,0.23485730138984598,ACS_Controls_households_only,No

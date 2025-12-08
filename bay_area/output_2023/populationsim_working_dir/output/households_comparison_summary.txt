@@ -1,109 +1,109 @@
 Comparing: C:\GitHub\populationsim\bay_area\example_2015_outputs\hh_persons_model\households.csv vs C:\GitHub\populationsim\bay_area\output_2023\populationsim_working_dir\output\households_2023_tm2.csv
 
 Column presence:
-  BLD: Both
+  BLD: Both - Units in structure (1=Mobile, 2=Detached house, 3=Attached, 4-9=Apartments, 10=Boat/RV, -9=GQ)
   HHID: Both
-  HHINCADJ: Both
-  HHT: Both
+  HHINCADJ: Both - Household income (2010 dollars)
+  HHT: Both - Household type (1=Married couple, 2-3=Other family, 4-7=Nonfamily, -9=GQ)
   MAZ: Only in old
   MAZ_NODE: Only in new
   MAZ_ORIGINAL: Only in new
   MAZ_SEQ: Only in new
-  MTCCountyID: Both
-  NP: Both
-  NWRKRS_ESR: Both
+  MTCCountyID: Both - County ID (1=SF, 2=San Mateo, 3=Santa Clara, 4=Alameda, 5=Contra Costa, 6=Solano, 7=Napa, 8=Sonoma, 9=Marin)
+  NP: Both - Number of persons in household
+  NWRKRS_ESR: Both - Number of workers (0-20)
   ORIG_MAZ: Only in old
   ORIG_TAZ: Only in old
   TAZ: Only in old
   TAZ_NODE: Only in new
   TAZ_ORIGINAL: Only in new
   TAZ_SEQ: Only in new
-  TEN: Only in new
-  TYPE: Both
-  VEH: Both
+  TEN: Only in new - Tenure (1=Owned with mortgage, 2=Owned free and clear, 3=Rented, 4=Occupied without rent)
+  TYPE: Both - Unit type (1=Housing unit, 2=Institutional GQ, 3=Noninstitutional GQ)
+  VEH: Both - Number of vehicles (0-6, -9=GQ)
 
-=== BLD ===
-  Value           Old      New      Diff     %Diff
-  -9                 83728   115587    31859    38.05
-  1                  70035    56208   -13827   -19.74
-  10                  2498     3283      785    31.43
-  2                1417205  1416029    -1176    -0.08
-  3                 267916   262262    -5654    -2.11
-  4                  98803    88575   -10228   -10.35
-  5                 172253   171119    -1134    -0.66
-  6                 167064   156196   -10868    -6.51
-  7                 142380   147386     5006     3.52
-  8                 146292   165763    19471    13.31
-  9                 199853   336485   136632    68.37
+=== BLD - Units in structure (1=Mobile, 2=Detached house, 3=Attached, 4-9=Apartments, 10=Boat/RV, -9=GQ) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  2                1417205   51.20%  1416029   48.51%    -1176    -0.08  One-family detached
+  3                 267916    9.68%   262262    8.98%    -5654    -2.11  One-family attached
+  9                 199853    7.22%   336485   11.53%   136632    68.37  50+ Apartments
+  5                 172253    6.22%   171119    5.86%    -1134    -0.66  3-4 Apartments
+  6                 167064    6.04%   156196    5.35%   -10868    -6.51  5-9 Apartments
+  8                 146292    5.29%   165763    5.68%    19471    13.31  20-49 Apartments
+  7                 142380    5.14%   147386    5.05%     5006     3.52  10-19 Apartments
+  4                  98803    3.57%    88575    3.03%   -10228   -10.35  2 Apartments
+  -9                 83728    3.02%   115587    3.96%    31859    38.05  N/A (GQ)
+  1                  70035    2.53%    56208    1.93%   -13827   -19.74  Mobile home/trailer
+  10                  2498    0.09%     3283    0.11%      785    31.43  Boat/RV/van
 
-=== HHINCADJ ===
+=== HHINCADJ - Household income (2010 dollars) ===
   Stat      Old         New         Diff        %Diff
   mean       93584.54  124993.18   31408.64      33.56
   median     66135.77   89199.00   23063.23      34.87
   min       -21382.11       0.00   21382.11    -100.00
   max      1517212.48 1715388.00  198175.52      13.06
 
-=== HHT ===
-  Value           Old      New      Diff     %Diff
-  -9                 83728   115587    31859    38.05
-  1                1142602  1359899   217297    19.02
-  2                 193224   163934   -29290   -15.16
-  3                 503999   302661  -201338   -39.95
-  4                 302952   341223    38271    12.63
-  5                 101317   152558    51241    50.57
-  6                 372748   366218    -6530    -1.75
-  7                  67457   116813    49356    73.17
+=== HHT - Household type (1=Married couple, 2-3=Other family, 4-7=Nonfamily, -9=GQ) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  1                1142602   41.28%  1359899   46.59%   217297    19.02  Married couple family
+  3                 503999   18.21%   302661   10.37%  -201338   -39.95  Other family, female householder
+  6                 372748   13.47%   366218   12.55%    -6530    -1.75  Nonfamily, female alone
+  4                 302952   10.94%   341223   11.69%    38271    12.63  Nonfamily, male alone
+  2                 193224    6.98%   163934    5.62%   -29290   -15.16  Other family, male householder
+  5                 101317    3.66%   152558    5.23%    51241    50.57  Nonfamily, male not alone
+  -9                 83728    3.02%   115587    3.96%    31859    38.05  N/A (GQ)
+  7                  67457    2.44%   116813    4.00%    49356    73.17  Nonfamily, female not alone
 
-=== NP ===
-  Value           Old      New      Diff     %Diff
-  1                 759428   823028    63600     8.37
-  10                  7735    10109     2374    30.69
-  11                  2317     7962     5645   243.63
-  12                  1017     5169     4152   408.26
-  13                  1089     1879      790    72.54
-  14                   137      824      687   501.46
-  15                   375       49     -326   -86.93
-  16                     0      627      627      nan
-  18                    38      107       69   181.58
-  2                 840401   882560    42159     5.02
-  20                     0      255      255      nan
-  3                 465128   478658    13530     2.91
-  4                 307897   430501   122604    39.82
-  5                 188394   181796    -6598    -3.50
-  6                 111705    58844   -52861   -47.32
-  7                  45273    13076   -32197   -71.12
-  8                  24730    11925   -12805   -51.78
-  9                  12363    11524     -839    -6.79
+=== NP - Number of persons in household ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  2                 840401   30.36%   882560   30.24%    42159     5.02  
+  1                 759428   27.44%   823028   28.20%    63600     8.37  
+  3                 465128   16.80%   478658   16.40%    13530     2.91  
+  4                 307897   11.12%   430501   14.75%   122604    39.82  
+  5                 188394    6.81%   181796    6.23%    -6598    -3.50  
+  6                 111705    4.04%    58844    2.02%   -52861   -47.32  
+  7                  45273    1.64%    13076    0.45%   -32197   -71.12  
+  8                  24730    0.89%    11925    0.41%   -12805   -51.78  
+  9                  12363    0.45%    11524    0.39%     -839    -6.79  
+  10                  7735    0.28%    10109    0.35%     2374    30.69  
+  11                  2317    0.08%     7962    0.27%     5645   243.63  
+  13                  1089    0.04%     1879    0.06%      790    72.54  
+  12                  1017    0.04%     5169    0.18%     4152   408.26  
+  15                   375    0.01%       49    0.00%     -326   -86.93  
+  14                   137    0.00%      824    0.03%      687   501.46  
+  18                    38    0.00%      107    0.00%       69   181.58  
+  16                     0    0.00%      627    0.02%      627      nan  
+  20                     0    0.00%      255    0.01%      255      nan  
 
-=== NWRKRS_ESR ===
-  Value           Old      New      Diff     %Diff
-  0                 673873   683446     9573     1.42
-  1                1046653  1059300    12647     1.21
-  10                    51      410      359   703.92
-  2                 813531   900766    87235    10.72
-  3                 174350   158444   -15906    -9.12
-  4                  46024    54481     8457    18.38
-  5                   9787    32284    22497   229.87
-  6                   3047    16183    13136   431.11
-  7                    219     7180     6961  3178.54
-  8                    492     5866     5374  1092.28
-  9                      0      533      533      nan
+=== NWRKRS_ESR - Number of workers (0-20) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  1                1046653   37.81%  1059300   36.29%    12647     1.21  
+  2                 813531   29.39%   900766   30.86%    87235    10.72  
+  0                 673873   24.34%   683446   23.41%     9573     1.42  
+  3                 174350    6.30%   158444    5.43%   -15906    -9.12  
+  4                  46024    1.66%    54481    1.87%     8457    18.38  
+  5                   9787    0.35%    32284    1.11%    22497   229.87  
+  6                   3047    0.11%    16183    0.55%    13136   431.11  
+  8                    492    0.02%     5866    0.20%     5374  1092.28  
+  7                    219    0.01%     7180    0.25%     6961  3178.54  
+  10                    51    0.00%      410    0.01%      359   703.92  
+  9                      0    0.00%      533    0.02%      533      nan  
 
-=== TYPE ===
-  Value           Old      New      Diff     %Diff
-  1                2684299  2803306   119007     4.43
-  3                  83728   115587    31859    38.05
+=== TYPE - Unit type (1=Housing unit, 2=Institutional GQ, 3=Noninstitutional GQ) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  1                2684299   96.98%  2803306   96.04%   119007     4.43  Housing unit
+  3                  83728    3.02%   115587    3.96%    31859    38.05  Noninstitutional GQ
 
-=== VEH ===
-  Value           Old      New      Diff     %Diff
-  -9                 83728   115587    31859    38.05
-  0                 274665   291383    16718     6.09
-  1                 880707   898959    18252     2.07
-  2                 951040   962910    11870     1.25
-  3                 371535   404967    33432     9.00
-  4                 148534   156301     7767     5.23
-  5                  40291    51963    11672    28.97
-  6                  17527    36823    19296   110.09
+=== VEH - Number of vehicles (0-6, -9=GQ) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  2                 951040   34.36%   962910   32.99%    11870     1.25  
+  1                 880707   31.82%   898959   30.80%    18252     2.07  
+  3                 371535   13.42%   404967   13.87%    33432     9.00  
+  0                 274665    9.92%   291383    9.98%    16718     6.09  
+  4                 148534    5.37%   156301    5.35%     7767     5.23  
+  -9                 83728    3.02%   115587    3.96%    31859    38.05  
+  5                  40291    1.46%    51963    1.78%    11672    28.97  
+  6                  17527    0.63%    36823    1.26%    19296   110.09  
 
 
 ---

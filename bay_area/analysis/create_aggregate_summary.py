@@ -181,15 +181,16 @@ class PopulationSimSummaryGenerator:
         working_data = hh_data.copy()
         print(f"    Processing {len(working_data):,} records")
         
-        # Standardize size categories to match across years (1-7+)
+        # Standardize size categories to match across years (1-6+)
         working_data['household_size'] = working_data[size_col].fillna(0).astype(int)
-        working_data['household_size'] = working_data['household_size'].clip(lower=1, upper=7)
+        # Aggregate 6 and higher into 6+ to match ACS controls
+        working_data['household_size'] = working_data['household_size'].clip(lower=1, upper=6)
         
         # Create summary
         summary = working_data.groupby('household_size').size().reset_index(name='households')
         
-        # Ensure all size categories 1-7 exist
-        all_sizes = pd.DataFrame({'household_size': range(1, 8)})
+        # Ensure all size categories 1-6 exist
+        all_sizes = pd.DataFrame({'household_size': range(1, 7)})
         summary = all_sizes.merge(summary, on='household_size', how='left')
         summary['households'] = summary['households'].fillna(0).astype(int)
         
@@ -197,9 +198,9 @@ class PopulationSimSummaryGenerator:
         summary['share'] = summary['households'] / summary['households'].sum()
         summary['dataset'] = dataset_name
         
-        # Convert size to string, with 7+ label
+        # Convert size to string, with 6+ label for size 6
         summary['household_size'] = summary['household_size'].astype(str)
-        summary.loc[summary['household_size'] == '7', 'household_size'] = '7+'
+        summary.loc[summary['household_size'] == '6', 'household_size'] = '6+'
         
         return summary
         
@@ -215,10 +216,19 @@ class PopulationSimSummaryGenerator:
             working_data = self.filter_households_only(hh_data, dataset_name)
         
         # Determine which crosswalk to use based on available columns
+        # First check if we already have a county column - if so, use it directly
+        county_col = self.get_county_column(working_data)
+        
         crosswalk = None
         merge_col = None
         
-        if 'MAZ_NODE' in working_data.columns and self.maz_crosswalk is not None:
+        if county_col is not None:
+            # Use existing county column
+            print(f"    Using existing county column: {county_col}")
+            summary = working_data.groupby(county_col).size().reset_index(name='households')
+            summary.rename(columns={county_col: 'COUNTY'}, inplace=True)
+            summary['county_name'] = summary['COUNTY'].map(self.COUNTY_NAMES)
+        elif 'MAZ_NODE' in working_data.columns and self.maz_crosswalk is not None:
             print(f"    Using TM2 MAZ crosswalk for county identification")
             crosswalk = self.maz_crosswalk
             merge_col = 'MAZ_NODE'
@@ -227,7 +237,7 @@ class PopulationSimSummaryGenerator:
             crosswalk = self.maz_crosswalk_2010
             merge_col = 'MAZ'
         
-        if crosswalk is not None and merge_col is not None:
+        elif crosswalk is not None and merge_col is not None:
             # Merge with crosswalk to get county
             crosswalk_cols = [merge_col, 'COUNTY'] if 'COUNTY' in crosswalk.columns else [merge_col, 'county']
             county_col_name = crosswalk_cols[1]
@@ -240,22 +250,12 @@ class PopulationSimSummaryGenerator:
             
             # Create summary by county
             summary = working_data.groupby(county_col_name).size().reset_index(name='households')
-            summary['county_name'] = summary[county_col_name].map(self.COUNTY_NAMES)
-            
+            summary.rename(columns={county_col_name: 'COUNTY'}, inplace=True)
+            summary['county_name'] = summary['COUNTY'].map(self.COUNTY_NAMES)
         else:
-            # Fallback to direct county column
-            county_col = self.get_county_column(working_data)
-            if county_col is None:
-                print(f"    No county information available")
-                return None
-            
-            print(f"    Using direct county column: {county_col}")
-            summary = working_data.groupby(county_col).size().reset_index(name='households')
-            
-            if county_col in ['COUNTY', 'MTCCountyID', 'county']:
-                summary['county_name'] = summary[county_col].map(self.COUNTY_NAMES)
-            else:
-                summary['county_name'] = summary[county_col].astype(str)
+            # No county information available
+            print(f"    No county information available")
+            return None
         
         # Remove records with missing county
         summary = summary[summary['county_name'].notna()]
@@ -327,6 +327,76 @@ class PopulationSimSummaryGenerator:
         summary['base_year'] = '2010 dollars'
         
         print(f"    Created {len(summary)} income categories, {summary['households'].sum():,.0f} total households")
+        
+        return summary
+    
+    def create_workers_summary(self, hh_data: pd.DataFrame, dataset_name: str) -> pd.DataFrame:
+        """Create household by workers summary"""
+        print(f"  Creating workers summary for {dataset_name}")
+        
+        # Find workers column
+        workers_col = None
+        if 'NWRKRS_ESR' in hh_data.columns:
+            workers_col = 'NWRKRS_ESR'
+        elif 'hh_workers_from_esr' in hh_data.columns:
+            workers_col = 'hh_workers_from_esr'
+        
+        if workers_col is None:
+            print(f"    No workers column found")
+            return None
+        
+        # Filter to households only
+        households_only = self.filter_households_only(hh_data, dataset_name)
+        working_data = households_only.copy()
+        
+        # Categorize workers: 0, 1, 2, 3+
+        working_data['workers_category'] = working_data[workers_col].fillna(0).astype(int)
+        working_data['workers_category'] = working_data['workers_category'].clip(lower=0, upper=3)
+        
+        # Create summary
+        summary = working_data.groupby('workers_category').size().reset_index(name='households')
+        
+        # Ensure all categories exist
+        all_workers = pd.DataFrame({'workers_category': range(0, 4)})
+        summary = all_workers.merge(summary, on='workers_category', how='left')
+        summary['households'] = summary['households'].fillna(0).astype(int)
+        
+        # Calculate share
+        summary['share'] = summary['households'] / summary['households'].sum()
+        summary['dataset'] = dataset_name
+        
+        # Label categories
+        summary['workers_category'] = summary['workers_category'].astype(str)
+        summary.loc[summary['workers_category'] == '3', 'workers_category'] = '3+'
+        
+        print(f"    Created workers summary: {summary['households'].sum():,.0f} total households")
+        
+        return summary
+    
+    def create_age_summary(self, pers_data: pd.DataFrame, dataset_name: str) -> pd.DataFrame:
+        """Create person by age summary"""
+        print(f"  Creating age summary for {dataset_name}")
+        
+        if 'AGEP' not in pers_data.columns:
+            print(f"    No age column found")
+            return None
+        
+        working_data = pers_data.copy()
+        
+        # Create age categories to match ACS: 0-19, 20-34, 35-64, 65+
+        working_data['age_category'] = pd.cut(
+            working_data['AGEP'].fillna(0),
+            bins=[0, 20, 35, 65, 999],
+            labels=['0-19', '20-34', '35-64', '65+'],
+            right=False
+        )
+        
+        # Create summary
+        summary = working_data.groupby('age_category', observed=False).size().reset_index(name='persons')
+        summary['share'] = summary['persons'] / summary['persons'].sum()
+        summary['dataset'] = dataset_name
+        
+        print(f"    Created age summary: {summary['persons'].sum():,.0f} total persons")
         
         return summary
         
@@ -413,20 +483,15 @@ class PopulationSimSummaryGenerator:
             print("    No household size data could be aggregated")
             return None
         
-        # Create standardized size summary (1-7+)
-        # Note: ACS controls use 6+ as highest category, map to our 7+ for consistency
+        # Create standardized size summary (1-6+)
         size_summary = []
         for size_str in ['1', '2', '3', '4', '5', '6']:
             households = size_data.get(size_str, 0)
-            if size_str == '6' and '6' in size_data:
-                # This is the 6+ category, label it as 7+
-                size_summary.append({'household_size': '7+', 'households': int(households)})
+            # Map 6 to '6+' for display (since ACS has hh_size_6_plus)
+            if size_str == '6':
+                size_summary.append({'household_size': '6+', 'households': int(households)})
             else:
                 size_summary.append({'household_size': size_str, 'households': int(households)})
-        
-        # Add size 7+ if we have it separately (not 6+)
-        if '7' in size_data and '6' not in size_data:
-            size_summary.append({'household_size': '7+', 'households': int(size_data['7'])})
         
         # Convert to DataFrame and add share
         df = pd.DataFrame(size_summary)
@@ -559,8 +624,8 @@ class PopulationSimSummaryGenerator:
         # Households only (numhh column)
         if 'numhh' in maz_with_county.columns:
             county_hh = maz_with_county.groupby(county_col_name)['numhh'].sum().reset_index()
-            county_hh.columns = ['county_id', 'households']
-            county_hh['county_name'] = county_hh['county_id'].map(self.COUNTY_NAMES)
+            county_hh.columns = ['COUNTY', 'households']
+            county_hh['county_name'] = county_hh['COUNTY'].map(self.COUNTY_NAMES)
             county_hh['share'] = county_hh['households'] / county_hh['households'].sum()
             county_hh['dataset'] = 'ACS_Controls_households_only'
             county_hh['includes_gq'] = 'No'
@@ -570,8 +635,8 @@ class PopulationSimSummaryGenerator:
         # With GQ (numhh_gq column)
         if 'numhh_gq' in maz_with_county.columns:
             county_all = maz_with_county.groupby(county_col_name)['numhh_gq'].sum().reset_index()
-            county_all.columns = ['county_id', 'households']
-            county_all['county_name'] = county_all['county_id'].map(self.COUNTY_NAMES)
+            county_all.columns = ['COUNTY', 'households']
+            county_all['county_name'] = county_all['COUNTY'].map(self.COUNTY_NAMES)
             county_all['share'] = county_all['households'] / county_all['households'].sum()
             county_all['dataset'] = 'ACS_Controls_with_gq'
             county_all['includes_gq'] = 'Yes'
@@ -583,6 +648,86 @@ class PopulationSimSummaryGenerator:
         
         combined = pd.concat(summaries, ignore_index=True)
         return combined
+    
+    def create_acs_workers_summary(self, controls: dict) -> Optional[pd.DataFrame]:
+        """Create ACS workers summary from TAZ controls"""
+        print(f"  Creating ACS workers summary from TAZ controls")
+        
+        if 'taz' not in controls:
+            print(f"    No TAZ controls available")
+            return None
+        
+        taz_controls = controls['taz']
+        
+        # Look for worker columns: hh_wrks_0, hh_wrks_1, hh_wrks_2, hh_wrks_3_plus
+        worker_cols = ['hh_wrks_0', 'hh_wrks_1', 'hh_wrks_2', 'hh_wrks_3_plus']
+        
+        if not all(col in taz_controls.columns for col in worker_cols):
+            print(f"    Missing worker columns in TAZ controls")
+            return None
+        
+        print(f"    Found worker columns: {worker_cols}")
+        
+        # Aggregate across all TAZs
+        workers_data = {
+            '0': taz_controls['hh_wrks_0'].sum(),
+            '1': taz_controls['hh_wrks_1'].sum(),
+            '2': taz_controls['hh_wrks_2'].sum(),
+            '3+': taz_controls['hh_wrks_3_plus'].sum(),
+        }
+        
+        # Create summary
+        summary = pd.DataFrame([
+            {'workers_category': cat, 'households': int(hh)}
+            for cat, hh in workers_data.items()
+        ])
+        
+        summary['share'] = summary['households'] / summary['households'].sum()
+        summary['dataset'] = 'ACS_Controls'
+        
+        print(f"    Created workers summary: {summary['households'].sum():,.0f} total households")
+        
+        return summary
+    
+    def create_acs_age_summary(self, controls: dict) -> Optional[pd.DataFrame]:
+        """Create ACS age summary from TAZ controls"""
+        print(f"  Creating ACS age summary from TAZ controls")
+        
+        if 'taz' not in controls:
+            print(f"    No TAZ controls available")
+            return None
+        
+        taz_controls = controls['taz']
+        
+        # Look for age columns: pers_age_00_19, pers_age_20_34, pers_age_35_64, pers_age_65_plus
+        age_cols = ['pers_age_00_19', 'pers_age_20_34', 'pers_age_35_64', 'pers_age_65_plus']
+        
+        if not all(col in taz_controls.columns for col in age_cols):
+            print(f"    Missing age columns in TAZ controls")
+            return None
+        
+        print(f"    Found age columns: {age_cols}")
+        
+        # Aggregate across all TAZs
+        age_data = {
+            '0-19': taz_controls['pers_age_00_19'].sum(),
+            '20-34': taz_controls['pers_age_20_34'].sum(),
+            '35-64': taz_controls['pers_age_35_64'].sum(),
+            '65+': taz_controls['pers_age_65_plus'].sum(),
+        }
+        
+        # Create summary
+        summary = pd.DataFrame([
+            {'age_category': cat, 'persons': int(pers)}
+            for cat, pers in age_data.items()
+        ])
+        
+        summary['share'] = summary['persons'] / summary['persons'].sum()
+        summary['dataset'] = 'ACS_Controls'
+        
+        print(f"    Created age summary: {summary['persons'].sum():,.0f} total persons")
+        
+        return summary
         
     def generate_all_summaries(self, use_samples: bool = False):
         """Generate comprehensive summaries for dashboard"""
@@ -629,6 +774,24 @@ class PopulationSimSummaryGenerator:
             income_summary = self.create_income_summary(df, dataset_name)
             if income_summary is not None:
                 self.summaries[f'households_by_income_{year}'] = income_summary
+            
+            # Workers distribution
+            workers_summary = self.create_workers_summary(df, dataset_name)
+            if workers_summary is not None:
+                self.summaries[f'households_by_workers_{year}'] = workers_summary
+        
+        # Generate person-level summaries
+        for data_key, df in data.items():
+            if 'persons' not in data_key:
+                continue
+                
+            year = data_key.split('_')[1]
+            dataset_name = f"PopSim_{year}"
+            
+            # Age distribution
+            age_summary = self.create_age_summary(df, dataset_name)
+            if age_summary is not None:
+                self.summaries[f'persons_by_age_{year}'] = age_summary
         
         # Add ACS control summaries
         if controls:
@@ -646,6 +809,16 @@ class PopulationSimSummaryGenerator:
             acs_income_summary = self.create_acs_income_summary(controls)
             if acs_income_summary is not None:
                 self.summaries['households_by_income_acs'] = acs_income_summary
+            
+            # ACS workers controls from TAZ marginals
+            acs_workers_summary = self.create_acs_workers_summary(controls)
+            if acs_workers_summary is not None:
+                self.summaries['households_by_workers_acs'] = acs_workers_summary
+            
+            # ACS age controls from TAZ marginals
+            acs_age_summary = self.create_acs_age_summary(controls)
+            if acs_age_summary is not None:
+                self.summaries['persons_by_age_acs'] = acs_age_summary
         
         print(f"\\nGenerated {len(self.summaries)} summary datasets")
         
@@ -662,22 +835,20 @@ class PopulationSimSummaryGenerator:
             print(f"Saved {name}: {len(df)} rows -> {output_path.name}")
         
         # Create combined files for dashboard (tm2py-utils pattern)
-        summary_types = ['household_size', 'households_by_county', 'households_by_income']
+        summary_types = {
+            'household_size': 'household_size_regional.csv',
+            'households_by_county': 'households_by_county.csv',
+            'households_by_income': 'households_by_income.csv',
+            'households_by_workers': 'households_by_workers.csv',
+            'persons_by_age': 'persons_by_age.csv',
+        }
         
-        for summary_type in summary_types:
+        for summary_type, output_name in summary_types.items():
             matching_summaries = [df for name, df in self.summaries.items() 
                                 if summary_type in name]
             
             if matching_summaries:
                 combined = pd.concat(matching_summaries, ignore_index=True)
-                
-                # Use tm2py-utils naming convention
-                if summary_type == 'household_size':
-                    output_name = "household_size_regional.csv"
-                elif summary_type == 'households_by_county':
-                    output_name = "households_by_county.csv"
-                elif summary_type == 'households_by_income':
-                    output_name = "households_by_income.csv"
                 
                 output_path = self.output_dir / output_name
                 combined.to_csv(output_path, index=False)
