@@ -154,7 +154,7 @@ class PUMACountyMapper:
         else:
             # Use TM2 config to get crosswalk paths
             crosswalk_paths = [
-                config.CROSSWALK_FILES['popsim_crosswalk']  # Use the definitive crosswalk location
+                config.CROSSWALK_FILES['main']  # Use the definitive crosswalk location
             ]
         
         for crosswalk_path in crosswalk_paths:

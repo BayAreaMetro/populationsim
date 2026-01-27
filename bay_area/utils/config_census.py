@@ -161,9 +161,10 @@ PRIMARY_OUTPUT_DIR = None  # Will be set on first use
 def get_geo_crosswalk_path():
     """Get geographic crosswalk path from unified config."""
     config = get_unified_config()
-    return str(config.CROSSWALK_FILES['popsim_crosswalk'])
+    return str(config.CROSSWALK_FILES['main'])
 
-GEO_CROSSWALK_TM2_PATH = None  # Will be set on first use
+# Initialize the path
+GEO_CROSSWALK_TM2_PATH = get_geo_crosswalk_path()
 
 # Define variables that may not be set but are used by legacy scripts
 MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location (now CSV)
@@ -174,7 +175,8 @@ def get_maz_taz_all_geog_file():
         globals()['PRIMARY_OUTPUT_DIR'] = get_primary_output_dir()
     return f"{PRIMARY_OUTPUT_DIR}/geo_cross_walk_tm2_block10.csv"
 
-MAZ_TAZ_ALL_GEOG_FILE = None  # Will be set on first use
+# Initialize the path
+MAZ_TAZ_ALL_GEOG_FILE = get_maz_taz_all_geog_file()
 
 
 def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):

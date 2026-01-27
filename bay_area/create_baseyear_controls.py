@@ -104,8 +104,8 @@ def verify_input_files():
     logger.info("Checking file accessibility (TM2 config)")
 
     required_files = [
-        ("Regular crosswalk", str(config.CROSSWALK_FILES['popsim_crosswalk'])),
-        ("Enhanced crosswalk", str(config.CROSSWALK_FILES['enhanced_crosswalk'])),
+        ("Regular crosswalk", str(config.CROSSWALK_FILES['main'])),
+        ("Enhanced crosswalk", str(config.CROSSWALK_FILES['enhanced'])),
     ]
 
     missing_files = []
@@ -250,7 +250,7 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     import os
     
     config = TM2Config()
-    geo_crosswalk_file = str(config.CROSSWALK_FILES['enhanced_crosswalk'])
+    geo_crosswalk_file = str(config.CROSSWALK_FILES['enhanced'])
     if not os.path.exists(geo_crosswalk_file):
         logger.error(f"Crosswalk file not found: {geo_crosswalk_file}")
         return control_df
@@ -258,12 +258,13 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     try:
         crosswalk_df = pd.read_csv(geo_crosswalk_file)
         
-        # Import county mapping from config (1-9 system to FIPS codes)
-        from tm2_config import config
+        # Import county mapping from TM2Config (1-9 system to FIPS codes)
+        from tm2_config import TM2Config
+        tm2_config = TM2Config()
         
         # Create county to FIPS mapping from config
         county_to_fips_mapping = {}
-        for county_id, county_info in config.BAY_AREA_COUNTIES.items():
+        for county_id, county_info in tm2_config.BAY_AREA_COUNTIES.items():
             county_to_fips_mapping[county_id] = county_info['fips_str']  # 3-digit FIPS string
         
         # Create county mapping - COUNTY column should already be 1-9 system from crosswalk
@@ -895,10 +896,13 @@ def apply_county_household_scaling_to_workers(control_dfs, county_scaling_factor
         
     logger.info(f"Found {len(occupation_cols)} person occupation categories: {occupation_cols}")
     
-    # Apply scaling by county - config already imported at top of file
+    # Apply scaling by county - get BAY_AREA_COUNTIES from TM2Config
+    from tm2_config import TM2Config
+    tm2_config = TM2Config()
+    
     # Create mapping from county ID (1-9) to FIPS
     county_id_to_fips = {}
-    for county_id, county_info in config.BAY_AREA_COUNTIES.items():
+    for county_id, county_info in tm2_config.BAY_AREA_COUNTIES.items():
         county_id_to_fips[county_id] = county_info['fips_str']
     
     scaled_county_df = county_df.copy()
@@ -2546,8 +2550,10 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         logger.info(f"Converting COUNTY codes from full FIPS to crosswalk format")
         logger.info(f"Original COUNTY values: {sorted(out_df['COUNTY'].unique())}")
         
-        # Use FIPS-to-sequential mapping - config and utils already imported at top
-        fips_to_sequential = utils.get_fips_to_sequential_mapping()
+        # Use FIPS-to-sequential mapping from TM2Config
+        from tm2_config import TM2Config
+        tm2_config = TM2Config()
+        fips_to_sequential = tm2_config.get_fips_to_sequential_mapping()
 
         # Log the type and contents of out_df['COUNTY'] before applying conversion
         logger.info(f"[DEBUG] out_df['COUNTY'] type: {type(out_df['COUNTY'])}")

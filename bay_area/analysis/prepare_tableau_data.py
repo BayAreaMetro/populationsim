@@ -628,8 +628,8 @@ class TableauDataPreparer:
         if UnifiedTM2Config:
             try:
                 cfg = TM2Config()
-                if hasattr(cfg, 'CROSSWALK_FILES') and 'popsim_crosswalk' in cfg.CROSSWALK_FILES:
-                    cw_path = str(cfg.CROSSWALK_FILES['popsim_crosswalk'])
+                if hasattr(cfg, 'CROSSWALK_FILES') and 'main' in cfg.CROSSWALK_FILES:
+                    cw_path = str(cfg.CROSSWALK_FILES['main'])
                     candidate_dirs.insert(0, os.path.dirname(cw_path))
             except Exception:
                 pass

@@ -59,3 +59,12 @@ MainProcess,33232,1_194_635_264,1_194_635_264,1_191_833_600,pipeline.run_model w
 MainProcess,33232,1_761_804_288,1_761_804_288,1_711_190_016,pipeline.run_model write_synthetic_population finished,0,2025/11/08 20:48:24.707462
 MainProcess,33232,1_761_808_384,1_761_808_384,1_711_194_112,pipeline.run after write_synthetic_population,0,2025/11/08 20:48:24.797321
 MainProcess,33232,1_761_808_384,1_761_808_384,1_711_194_112,pipeline.run after run_models,0,2025/11/08 20:48:24.845446
+MainProcess,34316,87_932_928,87_932_928,60_567_552,pipeline.run before preload_injectables,0,2026/01/27 14:33:28.220323
+MainProcess,34316,88_215_552,88_215_552,60_567_552,pipeline.run after preload_injectables,0,2026/01/27 14:33:28.229784
+MainProcess,34316,88_244_224,88_244_224,60_571_648,pipeline.run_model input_pre_processor start,0,2026/01/27 14:33:28.247733
+MainProcess,34316,1_319_215_104,1_319_215_104,1_295_896_576,pipeline.run_model input_pre_processor finished,0,2026/01/27 14:33:36.661469
+MainProcess,34316,1_351_045_120,1_351_045_120,1_328_013_312,pipeline.run after input_pre_processor,0,2026/01/27 14:33:40.109715
+MainProcess,34316,1_351_118_848,1_351_118_848,1_328_021_504,pipeline.run_model setup_data_structures start,0,2026/01/27 14:33:40.140808
+MainProcess,34316,1_362_063_360,1_362_063_360,1_338_597_376,pipeline.run_model setup_data_structures finished,0,2026/01/27 14:33:43.384400
+MainProcess,34316,1_366_913_024,1_366_913_024,1_344_450_560,pipeline.run after setup_data_structures,0,2026/01/27 14:33:46.301759
+MainProcess,34316,1_367_920_640,1_367_920_640,1_344_450_560,pipeline.run_model initial_seed_balancing start,0,2026/01/27 14:33:46.334771
