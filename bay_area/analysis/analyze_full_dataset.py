@@ -13,7 +13,7 @@ from pathlib import Path
 import logging
 from collections import defaultdict
 import gc
-from unified_tm2_config import UnifiedTM2Config
+from tm2_config import TM2Config
 
 
 # Set up logging
@@ -310,7 +310,7 @@ def generate_optimized_summary(config):
     print(f"\nOK Full dataset analysis complete! Summary written to: {output_file}")
 
 if __name__ == "__main__":
-    config = UnifiedTM2Config()
+    config = TM2Config()
     generate_optimized_summary(config)
 
 

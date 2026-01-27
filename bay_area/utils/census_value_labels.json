@@ -1,0 +1,144 @@
+{
+  "SEX": {
+    "1": "Male",
+    "2": "Female"
+  },
+  "SCHL": {
+    "-9": "N/A (less than 3 years old)",
+    "1": "No schooling completed",
+    "2": "Nursery school, preschool",
+    "3": "Kindergarten",
+    "4": "Grade 1",
+    "5": "Grade 2",
+    "6": "Grade 3",
+    "7": "Grade 4",
+    "8": "Grade 5",
+    "9": "Grade 6",
+    "10": "Grade 7",
+    "11": "Grade 8",
+    "12": "Grade 9",
+    "13": "Grade 10",
+    "14": "Grade 11",
+    "15": "12th grade - no diploma",
+    "16": "Regular high school diploma",
+    "17": "GED or alternative credential",
+    "18": "Some college, but less than 1 year",
+    "19": "1 or more years of college credit, no degree",
+    "20": "Associate's degree",
+    "21": "Bachelor's degree",
+    "22": "Master's degree",
+    "23": "Professional degree beyond a bachelor's degree",
+    "24": "Doctoral degree"
+  },
+  "OCCP": {
+    "-999": "N/A (under 16/not in labor force)",
+    "999": "N/A (under 16/not in labor force)",
+    "1": "Management",
+    "2": "Professional",
+    "3": "Services",
+    "4": "Retail",
+    "5": "Manual",
+    "6": "Military"
+  },
+  "WKW": {
+    "-9": "N/A (under 16/did not work)",
+    "1": "50 to 52 weeks",
+    "2": "48 to 49 weeks",
+    "3": "40 to 47 weeks",
+    "4": "27 to 39 weeks",
+    "5": "14 to 26 weeks",
+    "6": "13 weeks or less"
+  },
+  "EMPLOYED": {
+    "0": "Unemployed",
+    "1": "Employed"
+  },
+  "ESR": {
+    "0": "N/A (under 16)",
+    "1": "Civilian employed, at work",
+    "2": "Civilian employed, with job but not at work",
+    "3": "Unemployed",
+    "4": "Armed forces, at work",
+    "5": "Armed forces, with job but not at work",
+    "6": "Not in labor force"
+  },
+  "SCHG": {
+    "-9": "N/A (not attending school)",
+    "1": "Nursery school, preschool",
+    "2": "Kindergarten",
+    "3": "Grade 1",
+    "4": "Grade 2",
+    "5": "Grade 3",
+    "6": "Grade 4",
+    "7": "Grade 5",
+    "8": "Grade 6",
+    "9": "Grade 7",
+    "10": "Grade 8",
+    "11": "Grade 9",
+    "12": "Grade 10",
+    "13": "Grade 11",
+    "14": "Grade 12",
+    "15": "College undergraduate years",
+    "16": "Graduate or professional school"
+  },
+  "HHT": {
+    "1": "Married-couple family household",
+    "2": "Other family household, Male householder, no wife present",
+    "3": "Other family household, Female householder, no husband present",
+    "4": "Nonfamily household, Male householder, Living alone",
+    "5": "Nonfamily household, Male householder, Not living alone",
+    "6": "Nonfamily household, Female householder, Living alone",
+    "7": "Nonfamily household, Female householder, Not living alone",
+    "-9": "N/A (group quarters)"
+  },
+  "BLD": {
+    "1": "Mobile home or trailer",
+    "2": "One-family house detached",
+    "3": "One-family house attached",
+    "4": "2 Apartments",
+    "5": "3-4 Apartments",
+    "6": "5-9 Apartments",
+    "7": "10-19 Apartments",
+    "8": "20-49 Apartments",
+    "9": "50 or more apartments",
+    "10": "Boat, RV, van, etc.",
+    "-9": "N/A (group quarters)"
+  },
+  "TYPE": {
+    "1": "Housing unit",
+    "2": "Institutional group quarters",
+    "3": "Noninstitutional group quarters"
+  },
+  "MTCCountyID": {
+    "1": "San Francisco",
+    "2": "San Mateo",
+    "3": "Santa Clara",
+    "4": "Alameda",
+    "5": "Contra Costa",
+    "6": "Solano",
+    "7": "Napa",
+    "8": "Sonoma",
+    "9": "Marin"
+  },
+  "TEN": {
+    "1": "Owned with mortgage or loan",
+    "2": "Owned free and clear",
+    "3": "Rented",
+    "4": "Occupied without payment of rent",
+    "-9": "N/A (group quarters)"
+  },
+  "VEH": {
+    "0": "No vehicles",
+    "1": "1 vehicle",
+    "2": "2 vehicles",
+    "3": "3 vehicles",
+    "4": "4 vehicles",
+    "5": "5 vehicles",
+    "6": "6+ vehicles",
+    "-9": "N/A (group quarters)"
+  },
+  "hhgqtype": {
+    "1": "Household",
+    "2": "Group quarters"
+  }
+}

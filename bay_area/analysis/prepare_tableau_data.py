@@ -29,7 +29,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 try:
-    from unified_tm2_config import UnifiedTM2Config
+    from tm2_config import TM2Config
 except ImportError:
     print("[WARNING]  Warning: unified_tm2_config not found, using fallback paths")
     UnifiedTM2Config = None
@@ -56,7 +56,7 @@ class TableauDataPreparer:
         
         # Use unified config if available. Support multiple possible attribute namings
         if UnifiedTM2Config and not shapefile_dir:
-            config = UnifiedTM2Config()
+            config = TM2Config()
             # Try multiple attribute/call patterns used across versions of the config
             ext = None
             if hasattr(config, 'external_paths'):
@@ -627,7 +627,7 @@ class TableauDataPreparer:
         # If unified config is available, prefer the configured crosswalk location
         if UnifiedTM2Config:
             try:
-                cfg = UnifiedTM2Config()
+                cfg = TM2Config()
                 if hasattr(cfg, 'CROSSWALK_FILES') and 'popsim_crosswalk' in cfg.CROSSWALK_FILES:
                     cw_path = str(cfg.CROSSWALK_FILES['popsim_crosswalk'])
                     candidate_dirs.insert(0, os.path.dirname(cw_path))

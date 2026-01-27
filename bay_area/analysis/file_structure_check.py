@@ -1,7 +1,7 @@
 
 import sys
 sys.path.append('.')
-from unified_tm2_config import UnifiedTM2Config
+from tm2_config import TM2Config
 import pandas as pd
 
 config = UnifiedTM2Config(year=2023)

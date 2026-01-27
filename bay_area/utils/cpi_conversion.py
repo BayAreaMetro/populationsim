@@ -7,7 +7,10 @@ Converts income values between different base years using Consumer Price Index
 
 import numpy as np
 import pandas as pd
-from unified_tm2_config import UnifiedTM2Config
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from tm2_config import TM2Config
 
 def convert_2023_to_2010_dollars(income_2023):
     """

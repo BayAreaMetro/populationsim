@@ -1,0 +1,3 @@
+census>=0.8.19
+pandas>=1.3.0
+requests>=2.25.0

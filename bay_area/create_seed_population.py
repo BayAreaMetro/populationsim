@@ -47,9 +47,13 @@ from urllib3.exceptions import InsecureRequestWarning
 warnings.filterwarnings('ignore', category=InsecureRequestWarning)
 
 # Import our utilities
-from cpi_conversion import convert_2023_to_2010_dollars
+from tm2_config import TM2Config
+from utils.cpi_conversion import convert_2023_to_2010_dollars
 from analysis.pums_downloader import PUMSDownloader
 from analysis.data_validation import PopulationSimValidator, DataQualityReporter
+
+# Initialize config at module level
+config = TM2Config()
 
 # Harmonize key person variables to match legacy coding
 def harmonize_person_variables(df):
@@ -100,8 +104,8 @@ class SeedPopulationConfig:
         if self.bay_area_pumas is None:
             # Try to read PUMAs dynamically from the crosswalk file
             try:
-                from unified_tm2_config import config as unified_config
-                crosswalk_file = unified_config.CROSSWALK_FILES['main_crosswalk']
+                from tm2_config import config as unified_config
+                crosswalk_file = unified_config.CROSSWALK_FILES['main']
                 if crosswalk_file.exists():
                     import pandas as pd
                     crosswalk_df = pd.read_csv(crosswalk_file)
@@ -122,10 +126,11 @@ class SeedPopulationConfig:
     
     def _use_hardcoded_pumas(self):
         """Get Bay Area PUMAs from unified configuration"""
-        from unified_tm2_config import config
-        puma_config = config.get_puma_configuration()
-        self.bay_area_pumas = puma_config['bay_area_pumas']
-        logger.info(f"Using {puma_config['total_pumas']} Bay Area PUMAs from unified configuration")
+        from tm2_config import config
+        from utils.tm2_utils import TM2Utils
+        utils = TM2Utils(config)
+        self.bay_area_pumas = utils.load_pumas_from_crosswalk()
+        logger.info(f"Using {len(self.bay_area_pumas)} Bay Area PUMAs from configuration")
 
 class PUMACountyMapper:
     """Handles PUMA to County mapping for Bay Area"""
@@ -147,19 +152,10 @@ class PUMACountyMapper:
         if crosswalk_file:
             crosswalk_paths = [Path(crosswalk_file)]
         else:
-            # Use unified config to get crosswalk paths
-            try:
-                from unified_tm2_config import config as unified_config
-                crosswalk_paths = [
-                    unified_config.CROSSWALK_FILES['popsim_crosswalk']  # Use the definitive crosswalk location
-                ]
-            except:
-                # Fallback to hardcoded paths if config fails
-                crosswalk_paths = [
-                    Path("output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_maz.csv"),  # Fresh crosswalk only
-                    Path("output_2023/geo_cross_walk_tm2_maz.csv"),
-                    Path("geo_cross_walk_tm2_maz.csv")
-                ]
+            # Use TM2 config to get crosswalk paths
+            crosswalk_paths = [
+                config.CROSSWALK_FILES['popsim_crosswalk']  # Use the definitive crosswalk location
+            ]
         
         for crosswalk_path in crosswalk_paths:
             if crosswalk_path.exists():
@@ -734,15 +730,12 @@ class SeedPopulationCreator:
             logger.info(f"   Chunk size: {self.config.chunk_size:,}")
             logger.info("=" * 80)
             
-            # Use unified configuration for all file paths
-            from unified_tm2_config import config as unified_config
-            
-            # Define file paths from unified config
-            h_raw = unified_config.SEED_FILES['households_raw']
-            p_raw = unified_config.SEED_FILES['persons_raw']
+            # Define file paths from config
+            h_raw = config.SEED_FILES['households_raw']
+            p_raw = config.SEED_FILES['persons_raw']
             # Final seed files - write directly to PopulationSim data directory
-            h_final = unified_config.SEED_FILES['households'] 
-            p_final = unified_config.SEED_FILES['persons']
+            h_final = config.SEED_FILES['households'] 
+            p_final = config.SEED_FILES['persons']
             
             # Step 1: Check for existing final seed files
             step_time = datetime.now()
@@ -1051,12 +1044,8 @@ class SeedPopulationCreator:
             
             # Files are saved directly to final location - no copying needed
             
-            # Use unified configuration for PopulationSim data directory
-            from unified_tm2_config import UnifiedTM2Config
-            unified_config = UnifiedTM2Config()
-            
-            seed_h = unified_config.SEED_FILES['households']
-            seed_p = unified_config.SEED_FILES['persons']
+            seed_h = config.SEED_FILES['households']
+            seed_p = config.SEED_FILES['persons']
             
             
             # Step 5: Generate validation report

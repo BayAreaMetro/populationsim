@@ -6,11 +6,11 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from unified_tm2_config import UnifiedTM2Config
+from tm2_config import TM2Config
 
 try:
     print("Creating config...")
-    config = UnifiedTM2Config(year=2023)
+    config = TM2Config(year=2023)
     
     print("Config created successfully")
     print(f"Has VALUE_LABELS attribute: {hasattr(config, 'VALUE_LABELS')}")

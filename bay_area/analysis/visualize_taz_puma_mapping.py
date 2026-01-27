@@ -27,7 +27,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 try:
-    from unified_tm2_config import UnifiedTM2Config
+    from tm2_config import TM2Config
 except ImportError:
     print("[WARNING]  Warning: unified_tm2_config not found, using fallback paths")
     UnifiedTM2Config = None

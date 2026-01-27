@@ -10,10 +10,10 @@ from pathlib import Path
 import logging
 logging.basicConfig(level=logging.INFO)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from unified_tm2_config import UnifiedTM2Config
+from tm2_config import TM2Config
 
 # --- CONFIG ---
-config = UnifiedTM2Config()
+config = TM2Config()
 summary_file = config.POPSIM_OUTPUT_DIR / "final_summary_TAZ_NODE.csv"
 sumdf = pd.read_csv(summary_file)
 

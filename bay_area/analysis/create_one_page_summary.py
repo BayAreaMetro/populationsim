@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-from unified_tm2_config import UnifiedTM2Config
+from tm2_config import TM2Config
 
 def create_one_page_summary():
     """Create executive summary of PopulationSim results"""
@@ -24,7 +24,7 @@ def create_one_page_summary():
     print("CREATING ONE-PAGE EXECUTIVE SUMMARY")
     print("="*80)
     
-    config = UnifiedTM2Config()
+    config = TM2Config()
     
     # Load key data files
     households_file = config.OUTPUT_DIR / "populationsim_working_dir" / "output" / "households_2023_tm2.csv"

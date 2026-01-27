@@ -4,7 +4,7 @@ This step generates the synthetic seed population (households and persons) for t
 
 ## What This Step Does
 
-- **`create_seed_population_tm2_refactored.py`**:
+- **`create_seed_population.py`**:
   - Loads and filters PUMS household and person data for the Bay Area.
   - Harmonizes key variables and recodes fields to match legacy and TM2 requirements.
   - Links persons to households using unique IDs.
@@ -29,7 +29,7 @@ This step generates the synthetic seed population (households and persons) for t
 From the `bay_area` directory, run:
 
 ```sh
-python create_seed_population_tm2_refactored.py
+python create_seed_population.py
 ```
 
 This will generate the seed population files in the configured output directory.

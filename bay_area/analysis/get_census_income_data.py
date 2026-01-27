@@ -11,13 +11,13 @@ import sys
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from unified_tm2_config import UnifiedTM2Config
-from tm2_control_utils.config_census import INCOME_BIN_MAPPING
+from tm2_config import TM2Config
+from utils.config_census import INCOME_BIN_MAPPING
 
 def get_bay_area_income_from_census():
     # Canonical bin mapping and ACS variable mapping
     bins = INCOME_BIN_MAPPING
-    config = UnifiedTM2Config()
+    config = TM2Config()
     # Use canonical config for counties
     county_fips = [info['fips_str'] for info in config.BAY_AREA_COUNTIES.values()]
     county_names = {info['fips_str']: info['name'] for info in config.BAY_AREA_COUNTIES.values()}

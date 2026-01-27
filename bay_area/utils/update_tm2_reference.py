@@ -11,8 +11,22 @@ This script:
 
 import pandas as pd
 import re
+import sys
 from pathlib import Path
 from datetime import datetime
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+# Import centralized county configuration (single source of truth)
+try:
+    from utils.config_census import get_county_names_list
+    COUNTY_NAMES = get_county_names_list()
+except ImportError as e:
+    # Fallback if import fails
+    print(f"[WARNING] Could not import centralized county names: {e}")
+    COUNTY_NAMES = ["San Francisco", "San Mateo", "Santa Clara", "Alameda", 
+                    "Contra Costa", "Solano", "Napa", "Sonoma", "Marin"]
 
 # Base paths
 BASE_DIR = Path(__file__).parent
@@ -135,8 +149,8 @@ def main():
     # Update county summary sections (final_summary_COUNTY_*.csv)
     print("\nUpdating county detail sections...")
     county_dir = OUTPUT_DIR / "populationsim_working_dir" / "output"
-    county_names = ["San Francisco", "San Mateo", "Santa Clara", "Alameda", 
-                    "Contra Costa", "Solano", "Napa", "Sonoma", "Marin"]
+    # Use centralized county names from config_census.py
+    county_names = COUNTY_NAMES
     
     for county_num in range(1, 10):
         county_file = county_dir / f"final_summary_COUNTY_{county_num}.csv"

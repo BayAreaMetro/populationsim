@@ -1,0 +1,20 @@
+# ACS Data Fetcher
+
+A standalone tool for fetching Census data. Get your free API key at:
+https://api.census.gov/data/key_signup.html
+
+## Quick Start
+
+1. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+2. Create `api-key.txt` in the project root and paste your Census API key
+
+3. Run the example:
+   ```
+   python examples/fetch_commute_data.py
+   ```
+
+See README.md for full documentation.

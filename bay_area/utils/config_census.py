@@ -142,16 +142,39 @@ EXAMPLE_MAZ_DENSITY_FILE = "example_controls_2015/maz_data_withDensity_2015.csv"
 
 # Default output directory (can be overridden in main script)
 # Use unified configuration for PopulationSim-compatible output directory
-from unified_tm2_config import UnifiedTM2Config
-unified_config = UnifiedTM2Config()
-PRIMARY_OUTPUT_DIR = str(unified_config.POPSIM_DATA_DIR)
+# NOTE: Import moved inside function to avoid circular import
+def get_unified_config():
+    """Get config instance (lazy import to avoid circular dependency)."""
+    from tm2_config import TM2Config
+    return TM2Config()
+
+def get_primary_output_dir():
+    """Get primary output directory from unified config."""
+    config = get_unified_config()
+    return str(config.POPSIM_DATA_DIR)
+
+# For backwards compatibility, create lazy-loaded variables
+# These will be evaluated when first accessed
+PRIMARY_OUTPUT_DIR = None  # Will be set on first use
 
 # Geographic crosswalk file location (single source of truth)
-GEO_CROSSWALK_TM2_PATH = str(unified_config.CROSSWALK_FILES['popsim_crosswalk'])
+def get_geo_crosswalk_path():
+    """Get geographic crosswalk path from unified config."""
+    config = get_unified_config()
+    return str(config.CROSSWALK_FILES['popsim_crosswalk'])
+
+GEO_CROSSWALK_TM2_PATH = None  # Will be set on first use
 
 # Define variables that may not be set but are used by legacy scripts
 MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location (now CSV)
-MAZ_TAZ_ALL_GEOG_FILE = f"{PRIMARY_OUTPUT_DIR}/geo_cross_walk_tm2_block10.csv"  # Use canonical, up-to-date geography file
+
+def get_maz_taz_all_geog_file():
+    """Get MAZ/TAZ all geography file path."""
+    if PRIMARY_OUTPUT_DIR is None:
+        globals()['PRIMARY_OUTPUT_DIR'] = get_primary_output_dir()
+    return f"{PRIMARY_OUTPUT_DIR}/geo_cross_walk_tm2_block10.csv"
+
+MAZ_TAZ_ALL_GEOG_FILE = None  # Will be set on first use
 
 
 def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
@@ -170,7 +193,7 @@ def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):
     global MAZ_TAZ_ALL_GEOG_FILE
     import os
     import pandas as pd
-    from tm2_control_utils.geog_utils import add_aggregate_geography_colums
+    from utils.geog_utils import add_aggregate_geography_colums
     
     # Use default blocks file if not specified
     if blocks_file_path is None:
@@ -872,6 +895,35 @@ def get_crosswalk_to_fips_mapping():
 def get_default_county_fips():
     """Return default county FIPS code for missing mappings (San Francisco)."""
     return '075'
+
+def get_sequential_county_mapping():
+    """Return TM2-style sequential county mapping (1-9) with full county info.
+    
+    Returns:
+        dict: Sequential county ID (1-9) mapped to county details including:
+            - name: County name
+            - fips_int: FIPS code as integer (without leading zeros)
+            - fips_str: FIPS code as 3-digit string (with leading zeros)
+    
+    This mapping preserves the TM2 convention where counties are numbered 1-9
+    based on their order in the model (not alphabetical).
+    """
+    return {
+        1: {'name': 'San Francisco', 'fips_int': 75, 'fips_str': '075'},
+        2: {'name': 'San Mateo', 'fips_int': 81, 'fips_str': '081'},
+        3: {'name': 'Santa Clara', 'fips_int': 85, 'fips_str': '085'},
+        4: {'name': 'Alameda', 'fips_int': 1, 'fips_str': '001'},
+        5: {'name': 'Contra Costa', 'fips_int': 13, 'fips_str': '013'},
+        6: {'name': 'Solano', 'fips_int': 95, 'fips_str': '095'},
+        7: {'name': 'Napa', 'fips_int': 55, 'fips_str': '055'},
+        8: {'name': 'Sonoma', 'fips_int': 97, 'fips_str': '097'},
+        9: {'name': 'Marin', 'fips_int': 41, 'fips_str': '041'}
+    }
+
+def get_county_names_list():
+    """Return list of county names in TM2 sequential order (1-9)."""
+    mapping = get_sequential_county_mapping()
+    return [mapping[i]['name'] for i in range(1, 10)]
 
 CENSUS_DEFINITIONS = {
     # 2020 PL 94-171 Redistricting Data (block-level)
