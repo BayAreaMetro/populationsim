@@ -1036,9 +1036,15 @@ def aggregate_to_control_geo(control_table_df, control_name, control_geography, 
     control_geo_lower = control_geography.lower().replace('_', ' ')
     
     # Get column names from config
+    # For synthetic geographies (MAZ, TAZ, COUNTY, REGION), check uppercase first
+    if control_geography.upper() in GEOGRAPHY_ID_COLUMNS:
+        synth_config = GEOGRAPHY_ID_COLUMNS[control_geography.upper()]
+    else:
+        synth_config = GEOGRAPHY_ID_COLUMNS.get(control_geo_lower, {})
+    
     census_geoid_col = GEOGRAPHY_ID_COLUMNS.get(census_geo_lower, {}).get('census', f'GEOID_{census_geo_lower}')
     census_mapping_col = GEOGRAPHY_ID_COLUMNS.get(census_geo_lower, {}).get('mapping', f'{census_geo_lower}2020ge')
-    synth_mapping_col = GEOGRAPHY_ID_COLUMNS.get(control_geo_lower, {}).get('mapping', control_geography)
+    synth_mapping_col = synth_config.get('mapping', control_geography)
     
     logger.info(f"Column mapping: census_geoid='{census_geoid_col}', census_mapping='{census_mapping_col}', synth_mapping='{synth_mapping_col}'")
     

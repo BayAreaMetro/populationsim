@@ -68,3 +68,9 @@ MainProcess,34316,1_351_118_848,1_351_118_848,1_328_021_504,pipeline.run_model s
 MainProcess,34316,1_362_063_360,1_362_063_360,1_338_597_376,pipeline.run_model setup_data_structures finished,0,2026/01/27 14:33:43.384400
 MainProcess,34316,1_366_913_024,1_366_913_024,1_344_450_560,pipeline.run after setup_data_structures,0,2026/01/27 14:33:46.301759
 MainProcess,34316,1_367_920_640,1_367_920_640,1_344_450_560,pipeline.run_model initial_seed_balancing start,0,2026/01/27 14:33:46.334771
+MainProcess,34316,1_373_097_984,1_373_097_984,1_350_422_528,pipeline.run_model initial_seed_balancing finished,0,2026/01/27 14:38:26.640893
+MainProcess,34316,1_374_056_448,1_374_056_448,1_350_438_912,pipeline.run after initial_seed_balancing,0,2026/01/27 14:38:26.706766
+MainProcess,34316,1_374_056_448,1_374_056_448,1_350_438_912,pipeline.run_model meta_control_factoring start,0,2026/01/27 14:38:26.744161
+MainProcess,26480,88_068_096,88_068_096,60_698_624,pipeline.run before preload_injectables,0,2026/01/27 14:51:22.360180
+MainProcess,26480,88_354_816,88_354_816,60_706_816,pipeline.run after preload_injectables,0,2026/01/27 14:51:22.397450
+MainProcess,26480,88_379_392,88_379_392,60_706_816,pipeline.run_model input_pre_processor start,0,2026/01/27 14:51:22.465327

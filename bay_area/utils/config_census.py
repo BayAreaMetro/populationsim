@@ -1212,8 +1212,11 @@ GEOGRAPHY_ID_COLUMNS = {
     'county': {
         'census': 'GEOID_county',
         'crosswalk': 'cty2020ge',
-        'mapping': 'GEOID_county',  # Use GEOID_county to match maz_taz_def_df
+        'mapping': 'GEOID_county',  # Census GEOID for joining tract data
         'components': ['state', 'county'],
+    },
+    'COUNTY': {  # Synthetic geography for PopulationSim (sequential 1-9 IDs)
+        'mapping': 'COUNTY',  # Use sequential COUNTY column (1-9) from crosswalk
     },
     'maz': {
         'mapping': 'MAZ_NODE',  # Updated for tm2 naming convention

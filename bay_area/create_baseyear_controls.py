@@ -6,18 +6,53 @@ ACS 2023 data with simplified controls to reflect current Census data availabili
 
 """
 
-
+# Standard library imports
 import argparse
 import collections
 import logging
-import numpy
 import os
-import pandas as pd
 import shutil
 import sys
 import traceback
+from datetime import datetime
 from pathlib import Path
+
+# Third-party imports
+import numpy
+import pandas as pd
+
+# Local imports
+from tm2_config import TM2Config
 from utils.config_census import *
+from utils import config_census as config
+from utils.config_census import (
+    get_bay_area_county_codes,
+    get_county_name_mapping,
+    get_control_categories_for_geography,
+    get_controls_in_category,
+    get_all_expected_controls_for_geography,
+    get_missing_controls_for_geography,
+    get_default_county_fips,
+    COUNTY_TARGETS_FILE,
+    ACS_EST_YEAR,
+    CONTROLS,
+    PRIMARY_OUTPUT_DIR,
+    INCOME_BIN_MAPPING,
+    MAZ_MARGINALS_FILE,
+    TAZ_MARGINALS_FILE,
+    COUNTY_MARGINALS_FILE
+)
+from utils.census_fetcher import CensusFetcher
+from utils.geog_utils import prepare_geography_dfs, add_aggregate_geography_colums, interpolate_est
+from utils.controls import (
+    create_control_table,
+    census_col_is_in_control,
+    match_control_to_geography,
+    integerize_control,
+    aggregate_to_control_geo,
+    add_geoid_column,
+    write_distribution_weights_debug
+)
 
 
 
@@ -75,31 +110,11 @@ Automated validation step compares output file columns, types, and names to refe
 Ensures outputs match expected structure, except for documented changes.
 """
 
-import collections
-import logging
-import os
-import sys
-import shutil
-from pathlib import Path
-import numpy
-import pandas as pd
-import traceback
-
-from utils.config_census import *
-from utils import config_census as config
-from utils.config_census import (get_bay_area_county_codes, get_county_name_mapping, 
-                                    get_control_categories_for_geography, get_controls_in_category,
-                                    get_all_expected_controls_for_geography, get_missing_controls_for_geography)
-from utils.census_fetcher import CensusFetcher
-from utils.geog_utils import prepare_geography_dfs, add_aggregate_geography_colums, interpolate_est
-from utils.controls import create_control_table, census_col_is_in_control, match_control_to_geography, integerize_control, aggregate_to_control_geo, add_geoid_column
-
 
 def verify_input_files():
     """Verify that all required input files are accessible."""
     logger = logging.getLogger()
     
-    from tm2_config import TM2Config
     config = TM2Config()
     logger.info("Checking file accessibility (TM2 config)")
 
@@ -107,7 +122,6 @@ def verify_input_files():
         ("Regular crosswalk", str(config.CROSSWALK_FILES['main'])),
         ("Enhanced crosswalk", str(config.CROSSWALK_FILES['enhanced'])),
     ]
-
     missing_files = []
     for desc, filepath in required_files:
         if not os.path.exists(filepath):
@@ -246,8 +260,6 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
         control_df = control_df.reset_index()
     
     # Get county mapping from the crosswalk file (same approach as the validation function)
-    from tm2_config import TM2Config
-    import os
     
     config = TM2Config()
     geo_crosswalk_file = str(config.CROSSWALK_FILES['enhanced'])
@@ -259,7 +271,6 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
         crosswalk_df = pd.read_csv(geo_crosswalk_file)
         
         # Import county mapping from TM2Config (1-9 system to FIPS codes)
-        from tm2_config import TM2Config
         tm2_config = TM2Config()
         
         # Create county to FIPS mapping from config
@@ -289,7 +300,6 @@ def apply_county_scaling(control_df, control_name, county_targets, maz_taz_def_d
     if missing_counties > 0:
         logger.warning(f"Found {missing_counties} MAZ zones without county mapping - will use scale factor 1.0")
         # Fill missing county mappings with default from config instead of hardcoding
-        from utils.config_census import get_default_county_fips
         default_county = get_default_county_fips()
         scaled_df['county_fips'] = scaled_df['county_fips'].fillna(default_county)
     
@@ -351,7 +361,6 @@ def get_county_targets(cf, logger, use_offline_fallback=True):
     Returns a dictionary with county FIPS codes as keys and target DataFrames as values.
     """
     # Removed: from utils import config (no such module)
-    from utils.config_census import COUNTY_TARGETS_FILE, ACS_EST_YEAR, CONTROLS, PRIMARY_OUTPUT_DIR
     
     # Check for county targets cache file in primary output directory
     possible_cache_files = [
@@ -554,7 +563,6 @@ def get_regional_acs_totals(cf, logger, use_offline_fallback=True):
     
     Returns a dictionary with regional totals for households and population.
     """
-    from utils.config_census import ACS_EST_YEAR, PRIMARY_OUTPUT_DIR
     
     # Check for regional totals cache file
     regional_totals_file = os.path.join(PRIMARY_OUTPUT_DIR, "regional_acs_totals_2023.csv")
@@ -652,7 +660,6 @@ def verify_category_totals_vs_acs(control_dfs, regional_totals, logger):
     Returns:
         Dictionary with verification results and scaling factors needed
     """
-    from utils.config_census import get_control_categories_for_geography
     
     verification_results = {
         'household_categories': {},
@@ -765,7 +772,6 @@ def verify_post_scaling_totals(control_dfs, regional_totals, logger):
         regional_totals: Dictionary with regional ACS totals
         logger: Logger instance
     """
-    from utils.config_census import get_control_categories_for_geography
     
     logger.info("\nPOST-SCALING VERIFICATION vs ACS 1-YEAR TOTALS:")
     logger.info("=" * 60)
@@ -816,8 +822,6 @@ def load_county_household_scaling_factors(logger):
     Returns:
         dict: County FIPS (3-digit string) -> scaling factor
     """
-    import os
-    from utils.config_census import PRIMARY_OUTPUT_DIR
     
     # Correct path - file is directly in populationsim_working_dir/data, not nested
     county_summary_file = os.path.join(PRIMARY_OUTPUT_DIR, 'county_summary_2020_2023.csv')
@@ -827,7 +831,6 @@ def load_county_household_scaling_factors(logger):
         return {}
         
     try:
-        import pandas as pd
         summary_df = pd.read_csv(county_summary_file)
         
         # Convert FIPS to 3-digit string format and create scaling factor mapping
@@ -897,7 +900,6 @@ def apply_county_household_scaling_to_workers(control_dfs, county_scaling_factor
     logger.info(f"Found {len(occupation_cols)} person occupation categories: {occupation_cols}")
     
     # Apply scaling by county - get BAY_AREA_COUNTIES from TM2Config
-    from tm2_config import TM2Config
     tm2_config = TM2Config()
     
     # Create mapping from county ID (1-9) to FIPS
@@ -1005,7 +1007,6 @@ def process_control(
 
     # Special handling for income controls: use config-driven, multi-variable aggregation from INCOME_BIN_MAPPING
     # Dynamically generate income_bin_controls from INCOME_BIN_MAPPING for config-driven logic
-    from utils.config_census import INCOME_BIN_MAPPING
     income_bin_controls = [b['control'] for b in INCOME_BIN_MAPPING]
     if control_name in income_bin_controls:
         # Find the bin definition for this control
@@ -1059,7 +1060,6 @@ def process_control(
 
     # Step 2.5: Write distribution weights debug file for household size controls
     if len(control_def) > 6:  # Has scaling parameters
-        from utils.controls import write_distribution_weights_debug
         write_distribution_weights_debug(
             control_name, control_table_df, 
             control_def[5] if len(control_def) > 5 else None,  # scale_numerator
@@ -1578,7 +1578,6 @@ def validate_maz_controls(maz_marginals_file, county_targets, logger):
     
     # Read MAZ marginals file
     try:
-        import pandas as pd
         maz_df = pd.read_csv(maz_marginals_file)
         logger.info(f"Loaded MAZ marginals file with {len(maz_df)} rows and {len(maz_df.columns)} columns")
         logger.info(f"Available MAZ columns: {list(maz_df.columns)}")
@@ -2152,7 +2151,6 @@ def create_county_summary(county_targets, cf, logger, final_control_dfs=None):
             
     except Exception as e:
         logger.error(f"Error creating county summary: {e}")
-        import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
         return pd.DataFrame()  # Return empty DataFrame on error
     
@@ -2551,7 +2549,6 @@ def write_outputs(control_geo, out_df, crosswalk_df):
         logger.info(f"Original COUNTY values: {sorted(out_df['COUNTY'].unique())}")
         
         # Use FIPS-to-sequential mapping from TM2Config
-        from tm2_config import TM2Config
         tm2_config = TM2Config()
         fips_to_sequential = tm2_config.get_fips_to_sequential_mapping()
 
@@ -2766,7 +2763,6 @@ def add_hh_size_1_gq_control(taz_file, logger):
     Add hh_size_1_gq control to TAZ file by combining size-1 households with GQ persons.
     This creates the integrated control used by PopulationSim.
     """
-    from utils.config_census import PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE
     
     logger.info("=" * 60)
     logger.info("ADDING HH_SIZE_1_GQ CONTROL TO TAZ")
@@ -2866,7 +2862,6 @@ def create_maz_hhgq_controls(maz_file, logger):
     """
     Create MAZ HHGQ controls with person-level GQ controls and proper column filtering.
     """
-    from utils.census_fetcher import CensusFetcher
     
     logger.info("=" * 60)
     logger.info("CREATING MAZ HHGQ CONTROLS")
@@ -3023,8 +3018,6 @@ def create_hhgq_integrated_files(logger):
     logger.info("CREATING HHGQ-INTEGRATED CONTROL FILES")
     logger.info("=" * 60)
     
-    from utils.config_census import PRIMARY_OUTPUT_DIR, MAZ_MARGINALS_FILE, TAZ_MARGINALS_FILE, COUNTY_MARGINALS_FILE
-    import shutil
     
     try:
         # Define input file paths - marginals are in PRIMARY_OUTPUT_DIR where main generation writes them
@@ -3321,7 +3314,6 @@ def enforce_hierarchical_consistency_in_controls(logger):
     Enforce hierarchical consistency between MAZ and TAZ controls.
     Ensures MAZ totals equal the sum of corresponding TAZ categories within each MAZ.
     """
-    import pandas as pd
     logger.info("Enforcing hierarchical consistency between MAZ and TAZ controls...")
     
     # Define file paths
@@ -3445,7 +3437,6 @@ def enforce_hierarchical_consistency_in_controls(logger):
 
 
 def main():
-    import argparse
     
     parser = argparse.ArgumentParser(description='Generate baseyear controls for TM2 PopulationSim')
     # Removed --output_dir argument - now using unified config
@@ -4145,7 +4136,6 @@ def validate_household_scaling_results(logger):
     logger.info("COMPREHENSIVE HOUSEHOLD SCALING VALIDATION")
     logger.info("=" * 80)
     
-    from utils.config_census import PRIMARY_OUTPUT_DIR
     
     try:
         # Load county targets (ACS 1-year non-GQ household targets)
@@ -4308,7 +4298,6 @@ def validate_household_scaling_results(logger):
         
     except Exception as e:
         logger.error(f"Validation failed with error: {e}")
-        import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         return False
 
@@ -4321,7 +4310,6 @@ def generate_controls_summary_report(logger, validation_passed):
         logger: Logger instance for status messages
         validation_passed: Boolean indicating if all validations passed
     """
-    from datetime import datetime
     
     logger.info("Creating controls generation summary report...")
     
@@ -4530,7 +4518,6 @@ def generate_controls_summary_report(logger, validation_passed):
         
     except Exception as e:
         logger.error(f"Failed to generate summary report: {e}")
-        import traceback
         logger.error(f"Summary generation traceback: {traceback.format_exc()}")
 
 
