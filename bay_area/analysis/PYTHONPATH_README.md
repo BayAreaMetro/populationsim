@@ -3,7 +3,7 @@
 Many analysis and utility scripts in this project import modules from the local `tm2_control_utils` package (and others) using lines like:
 
 ```python
-from tm2_control_utils.config_census import INCOME_BIN_MAPPING
+from utils.config_census import INCOME_BIN_MAPPING
 ```
 
 ## How to Run Analysis Scripts

@@ -21,8 +21,8 @@ from pathlib import Path
 import logging
 import urllib3
 
-# Import unified config
-from unified_tm2_config import UnifiedTM2Config
+# Import config
+from tm2_config import TM2Config
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -278,7 +278,7 @@ def main():
     """Main execution function using unified config"""
     
     # Initialize unified config
-    config = UnifiedTM2Config()
+    config = TM2Config()
     
     logger.info("="*80)
     logger.info("🚀 Starting PUMS Download with Unified Config")

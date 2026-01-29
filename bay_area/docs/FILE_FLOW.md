@@ -66,7 +66,7 @@ mazs_tazs_all_geog.csv
 ### Step 3: Seed Population
 ```
 PUMS Data + Crosswalk → Pipeline → Seed Files
-households_2023_raw.csv → create_seed_population_tm2_refactored.py → seed_households.csv
+households_2023_raw.csv → create_seed_population.py → seed_households.csv
 persons_2023_raw.csv                                               → seed_persons.csv
 geo_cross_walk_tm2_updated.csv
 ```
@@ -88,7 +88,7 @@ geo_cross_walk_tm2_updated.csv
 ### Step 4: Marginal Controls
 ```
 Census API + Config → Pipeline → Control Files
-ACS Tables → create_baseyear_controls_23_tm2.py → maz_marginals.csv
+ACS Tables → create_baseyear_controls.py → maz_marginals.csv
 controls.csv                                    → taz_marginals.csv
 settings.yaml                                   → county_marginals.csv
 ```

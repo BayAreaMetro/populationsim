@@ -261,8 +261,8 @@ pandoc docs/TM2_FULL_REFERENCE.md -o docs/TM2_FULL_REFERENCE.pdf
 12. References and pointers
 
 - Primary control definitions: `tm2_control_utils/config_census.py`
-- Seed generation: `create_seed_population.py`, `create_seed_population_tm2_refactored.py`
-- Baseyear control generation: `create_baseyear_controls.py` and `create_baseyear_controls_23_tm2.py`
+- Seed generation: `create_seed_population.py`, `create_seed_population.py`
+- Baseyear control generation: `create_baseyear_controls.py` and `create_baseyear_controls.py`
 - Analysis scripts: `analysis/analyze_taz_controls_vs_results.py`, `analysis/analyze_county_results.py`, `analysis/compare_synthetic_populations.py`
 - Outputs: `output_2023/populationsim_working_dir/data/` and `.../output/`
 - Samples and embedded snippets already saved: `docs/sample_synthetic_households.csv`, `docs/sample_synthetic_persons.csv` and `docs/TM2_OUTPUTS.docx` (previous export)

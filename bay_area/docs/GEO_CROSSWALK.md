@@ -95,7 +95,7 @@ python standalone_tm2_crosswalk_creator.py \
 ## Notes
 
 - **Migration Required**: Update your workflow to use the new standalone script
-- The enhanced crosswalk is a critical input for generating controls in `create_baseyear_controls_23_tm2.py`
+- The enhanced crosswalk is a critical input for generating controls in `create_baseyear_controls.py`
 - If you update any source geography files, you must re-run this step
 - The standalone script is designed to be self-contained and portable
 - For more details on configuration and file paths, see [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) and [HOW_TO_RUN.md](HOW_TO_RUN.md)

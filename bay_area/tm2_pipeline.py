@@ -35,7 +35,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from unified_tm2_config import UnifiedTM2Config
+from tm2_config import TM2Config
+from utils.tm2_utils import TM2Utils
 
 
 class TM2Pipeline:
@@ -43,8 +44,9 @@ class TM2Pipeline:
     
 
     def __init__(self, verbose=True):
-        self.config = UnifiedTM2Config()
-        self.config.ensure_directories()
+        self.config = TM2Config()
+        self.utils = TM2Utils(self.config)
+        self.utils.create_directories()
         self.verbose = verbose
         
 
@@ -215,7 +217,7 @@ class TM2Pipeline:
             if result:
                 # Check for county income summary output
                 # UnifiedTM2Config already imported at top
-                config = UnifiedTM2Config()
+                config = TM2Config()
                 output_file = config.POPSIM_OUTPUT_DIR / 'bay_area_income_acs_2023.csv'
                 if not output_file.exists():
                     self.log(

@@ -22,12 +22,12 @@ from pathlib import Path
 
 # Add the parent directory to path to import unified config
 sys.path.append(str(Path(__file__).parent.parent))
-from unified_tm2_config import UnifiedTM2Config
+from tm2_config import TM2Config
 
 
 class SyntheticPopulationAnalyzer:
     def __init__(self, year=2023, model_type="TM2"):
-        self.config = UnifiedTM2Config(year=year, model_type=model_type)
+        self.config = TM2Config(year=year, model_type=model_type)
         self.year = year
         self.model_type = model_type
         

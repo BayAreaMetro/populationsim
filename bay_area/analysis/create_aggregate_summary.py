@@ -30,14 +30,14 @@ import warnings
 from typing import Dict, List, Tuple, Optional
 warnings.filterwarnings('ignore')
 
-from unified_tm2_config import UnifiedTM2Config
+from tm2_config import TM2Config
 from cpi_conversion import convert_2023_to_2010_dollars
 
 class PopulationSimSummaryGenerator:
     """Generate dashboard summaries leveraging existing analysis patterns"""
     
     def __init__(self):
-        self.config = UnifiedTM2Config()
+        self.config = TM2Config()
         self.output_dir = Path("output_2023/aggregate_summaries")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         

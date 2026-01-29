@@ -43,7 +43,7 @@ This file documents the canonical input (seed) and synthetic output CSV field na
   - hhgqtype: group quarters indicator to match household GQ handling
 
 Notes
-- Seed files are created programmatically; field names and exact columns depend on the seed script used (`create_seed_population_tm2_refactored.py` vs `create_seed_population.py`). The fields above are the canonical expected names; check your seed CSV header for exact names.
+- Seed files are created programmatically; field names and exact columns depend on the seed script used (`create_seed_population.py` vs `create_seed_population.py`). The fields above are the canonical expected names; check your seed CSV header for exact names.
 
 2) Final synthetic files (PopulationSim outputs)
 

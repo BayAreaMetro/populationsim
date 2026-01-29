@@ -123,9 +123,9 @@ if __name__ == '__main__':
       # print(geocrosswalk_df.head())
     if args.model_type == 'TM2':
       # TM2 uses the unified crosswalk from the pipeline
-      from unified_tm2_config import UnifiedTM2Config
-      config = UnifiedTM2Config()
-      geocrosswalk_df = pandas.read_csv(config.CROSSWALK_FILES['popsim_crosswalk'])
+      from tm2_config import TM2Config
+      config = TM2Config()
+      geocrosswalk_df = pandas.read_csv(config.CROSSWALK_FILES['main'])
       logging.info("Read TM2 crosswalk with {:,} rows".format(len(geocrosswalk_df)))
 
     # (a) Create control vs result summary, summary_melt.csv

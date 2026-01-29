@@ -57,7 +57,11 @@ def load_taz_data():
     
     print("[INFO] Loading TAZ data...")
     
-    taz_file = Path("output_2023/populationsim_working_dir/output/final_summary_TAZ_NODE.csv")
+    # Get the bay_area directory (parent of analysis directory)
+    script_dir = Path(__file__).parent
+    bay_area_dir = script_dir.parent
+    
+    taz_file = bay_area_dir / "output_2023" / "populationsim_working_dir" / "output" / "final_summary_TAZ_NODE.csv"
     if not taz_file.exists():
         print(f"Error: Could not find {taz_file}")
         return None
@@ -532,8 +536,10 @@ def create_interactive_taz_analysis():
     if df is None:
         return
     
-    # Create output directory
-    output_dir = Path("output_2023/charts/interactive_taz")
+    # Create output directory (use absolute path)
+    script_dir = Path(__file__).parent
+    bay_area_dir = script_dir.parent
+    output_dir = bay_area_dir / "output_2023" / "charts" / "interactive_taz"
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Get control variables
@@ -559,7 +565,7 @@ def create_interactive_taz_analysis():
     print(f"\n[SUCCESS] Interactive analysis complete!")
     print(f"[INFO] Generated {len(results)} interactive charts")
     print(f"[DASHBOARD] Dashboard: {dashboard_file}")
-    print(f"📁 All files saved to: {output_dir}")
+    print(f"[INFO] All files saved to: {output_dir}")
 
 def create_summary_index(results, dashboard_file, output_dir):
     """Create an HTML index page with links to all charts"""
@@ -655,7 +661,7 @@ def create_summary_index(results, dashboard_file, output_dir):
     with open(index_file, 'w') as f:
         f.write(html_content)
     
-    print(f"📄 Summary index: {index_file}")
+    print(f"[INFO] Summary index: {index_file}")
 
 if __name__ == '__main__':
     create_interactive_taz_analysis()

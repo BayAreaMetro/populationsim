@@ -41,7 +41,7 @@ We use **H1_002N (households)**, NOT H1_001N (total housing units), because:
 
 ## What This Step Does
 
-- **`create_baseyear_controls_23_tm2.py`**:
+- **`create_baseyear_controls.py`**:
   - Downloads and caches Census data (ACS 2023, Decennial 2020).
   - Interpolates geographies as needed to match the MAZ/TAZ system.
   - Processes and scales controls at MAZ, TAZ, and county levels, using config-driven definitions.
@@ -283,7 +283,7 @@ This ensures the control structure exactly matches the seed population GQ encodi
 From the `bay_area` directory, run:
 
 ```sh
-python create_baseyear_controls_23_tm2.py
+python create_baseyear_controls.py
 ```
 
 This will generate all control and summary files in the configured output directory.

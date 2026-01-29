@@ -44,7 +44,7 @@ The existing PopulationSim implementation mixes regular households with group qu
 Document the approach, rationale, and implementation plan in `docs/household_gq_separation.md`
 
 ### Step 2: Control Generation - Add numhh Target
-- Modify `create_baseyear_controls_23_tm2.py` to create `numhh` control at MAZ level
+- Modify `create_baseyear_controls.py` to create `numhh` control at MAZ level
 - Ensure `numhh` represents only regular households (`hhgqtype==0`)
 - Validate that `numhh + gq_persons = numhh_gq`
 

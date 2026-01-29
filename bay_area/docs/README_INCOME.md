@@ -6,13 +6,13 @@ This document describes how household income fields and dollar-years are handled
 
 ## 1. Seed Population (`seed_households.csv`, `seed_persons.csv`)
 - **Fields:** Both `hh_income_2010` (2010 dollars) and `hh_income_2023` (2023 dollars) are present.
-- **How they're created:** The seed generation script (`create_seed_population_tm2_refactored.py`) computes both fields for each household. The 2023$ value is typically the original ACS/PUMS value, and the 2010$ value is calculated using a CPI conversion.
+- **How they're created:** The seed generation script (`create_seed_population.py`) computes both fields for each household. The 2023$ value is typically the original ACS/PUMS value, and the 2010$ value is calculated using a CPI conversion.
 - **Purpose:** This dual-field approach allows flexibility for control generation and synthesis in either dollar-year.
 
 ## 2. Controls (`controls.csv`)
 - **Income bin expressions:** All income bin controls use the `households.hh_income_2023` field in their expressions (e.g., `(households.hh_income_2023 >= 45000) & (households.hh_income_2023 <= 59999)`).
 - **Bin boundaries:** The bins themselves are defined in 2023 dollars, matching the latest ACS binning and public reporting.
-- **How they're created:** The control generation script (`create_baseyear_controls_23_tm2.py`) and config (`config_census.py`) use the 2023$ bins and generate expressions referencing `hh_income_2023`.
+- **How they're created:** The control generation script (`create_baseyear_controls.py`) and config (`config_census.py`) use the 2023$ bins and generate expressions referencing `hh_income_2023`.
 
 ## 3. Control Generation Outputs (`taz_marginals.csv`, `maz_marginals.csv`, etc.)
 - **Income bins:** All marginal files report household counts in bins defined by 2023$ boundaries, using the `hh_income_2023` field for bin assignment.
