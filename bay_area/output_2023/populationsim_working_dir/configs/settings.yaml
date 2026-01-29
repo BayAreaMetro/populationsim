@@ -18,16 +18,16 @@ max_expansion_factor: 50
 
 
 # ------------------------------------------------------------------
-rel_tolerance: 0.1         # Increased from 0.05 for more robust convergence
-abs_tolerance: 50.0        # Increased from 20.0 to handle person-household inconsistencies  
-integer_tolerance: 1.0     # Increased from 0.5 for more lenient integerization
+rel_tolerance: 0.2         # Loosened from 0.1 to allow faster convergence (±20% tolerance)
+abs_tolerance: 100.0       # Loosened from 50.0 to reduce iteration count for difficult zones
+integer_tolerance: 2.0     # Loosened from 1.0 for more lenient integerization
 
 # Convergence Settings 
 # ------------------------------------------------------------------
 MAX_BALANCE_ITERATIONS_SIMULTANEOUS: 500    
 MAX_BALANCE_ITERATIONS_SEQUENTIAL: 100000
-MAX_DELTA: 1.0e-9                         
-MAX_GAMMA: 1.0e-5                                            
+MAX_DELTA: 1.0e-8          # Loosened from 1.0e-9 - less strict delta threshold
+MAX_GAMMA: 1.0e-4          # Loosened from 1.0e-5 - less strict gamma threshold                                            
 
 
 # Geographic Settings

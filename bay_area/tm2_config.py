@@ -139,6 +139,26 @@ class TM2Config:
             'POSTPROCESS': os.getenv('FORCE_POSTPROCESS', 'True').lower() == 'true',
         }
         
+        # Analysis scripts configuration
+        self.ANALYSIS_FILES = {
+            'main_scripts': {
+                'maz_household_comparison': self.BASE_DIR / 'analysis' / 'MAZ_hh_comparison.py',
+                'full_dataset': self.BASE_DIR / 'analysis' / 'analyze_full_dataset.py',
+                'compare_controls_vs_results_by_taz': self.BASE_DIR / 'analysis' / 'compare_controls_vs_results_by_taz.py',
+                'synthetic_population_analysis': self.BASE_DIR / 'analysis' / 'analyze_syn_pop_model.py',
+            },
+            'validation_scripts': {
+                'maz_household_summary': self.BASE_DIR / 'analysis' / 'maz_household_summary.py',
+                'compare_synthetic_populations': self.BASE_DIR / 'analysis' / 'compare_synthetic_populations.py',
+                'data_validation': self.BASE_DIR / 'analysis' / 'data_validation.py',
+            },
+            'visualization_scripts': {
+                'taz_controls_analysis': self.BASE_DIR / 'analysis' / 'analyze_taz_controls_vs_results.py',
+                'county_analysis': self.BASE_DIR / 'analysis' / 'analyze_county_results.py',
+                'interactive_taz_analysis': self.BASE_DIR / 'analysis' / 'create_interactive_taz_analysis.py',
+            }
+        }
+        
         # Load data (counties, PUMAs, value labels)
         self.BAY_AREA_COUNTIES = get_sequential_county_mapping() if COUNTY_MAPPING_AVAILABLE else {}
         self._load_value_labels()

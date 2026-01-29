@@ -27,7 +27,7 @@ from tm2_config import TM2Config
 
 class SyntheticPopulationAnalyzer:
     def __init__(self, year=2023, model_type="TM2"):
-        self.config = UnifiedTM2Config(year=year, model_type=model_type)
+        self.config = TM2Config(year=year, model_type=model_type)
         self.year = year
         self.model_type = model_type
         

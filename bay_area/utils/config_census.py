@@ -145,6 +145,12 @@ EXAMPLE_MAZ_DENSITY_FILE = "example_controls_2015/maz_data_withDensity_2015.csv"
 # NOTE: Import moved inside function to avoid circular import
 def get_unified_config():
     """Get config instance (lazy import to avoid circular dependency)."""
+    import sys
+    import os
+    # Add parent directory to path if not already there
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
     from tm2_config import TM2Config
     return TM2Config()
 
@@ -163,20 +169,35 @@ def get_geo_crosswalk_path():
     config = get_unified_config()
     return str(config.CROSSWALK_FILES['main'])
 
-# Initialize the path
-GEO_CROSSWALK_TM2_PATH = get_geo_crosswalk_path()
+# Lazy-loaded variable (will be set on first use to avoid circular import)
+GEO_CROSSWALK_TM2_PATH = None
+
+def get_geo_crosswalk_tm2_path():
+    """Get GEO_CROSSWALK_TM2_PATH (lazy-loaded)."""
+    global GEO_CROSSWALK_TM2_PATH
+    if GEO_CROSSWALK_TM2_PATH is None:
+        GEO_CROSSWALK_TM2_PATH = get_geo_crosswalk_path()
+    return GEO_CROSSWALK_TM2_PATH
 
 # Define variables that may not be set but are used by legacy scripts
 MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location (now CSV)
 
 def get_maz_taz_all_geog_file():
     """Get MAZ/TAZ all geography file path."""
+    global PRIMARY_OUTPUT_DIR
     if PRIMARY_OUTPUT_DIR is None:
-        globals()['PRIMARY_OUTPUT_DIR'] = get_primary_output_dir()
+        PRIMARY_OUTPUT_DIR = get_primary_output_dir()
     return f"{PRIMARY_OUTPUT_DIR}/geo_cross_walk_tm2_block10.csv"
 
-# Initialize the path
-MAZ_TAZ_ALL_GEOG_FILE = get_maz_taz_all_geog_file()
+# Lazy-loaded variable (will be set on first use to avoid circular import)
+MAZ_TAZ_ALL_GEOG_FILE = None
+
+def get_maz_taz_all_geog_file_path():
+    """Get MAZ_TAZ_ALL_GEOG_FILE (lazy-loaded)."""
+    global MAZ_TAZ_ALL_GEOG_FILE
+    if MAZ_TAZ_ALL_GEOG_FILE is None:
+        MAZ_TAZ_ALL_GEOG_FILE = get_maz_taz_all_geog_file()
+    return MAZ_TAZ_ALL_GEOG_FILE
 
 
 def rebuild_maz_taz_all_geog_file(blocks_file_path=None, output_path=None):

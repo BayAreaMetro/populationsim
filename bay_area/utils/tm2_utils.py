@@ -231,6 +231,12 @@ class TM2Utils:
                 "--directory", str(self.config.POPSIM_OUTPUT_DIR),
                 "--year", str(self.config.YEAR)
             ] + self.config.get_test_puma_args(),
+            'summary_analysis': [
+                "python",
+                str(self.config.BASE_DIR / "run_all_summaries.py"),
+                "--year", str(self.config.YEAR),
+                "--model_type", self.config.MODEL_TYPE
+            ] + self.config.get_test_puma_args(),
         }
     
     def get_workflow_status(self):
