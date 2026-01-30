@@ -159,9 +159,11 @@ def get_primary_output_dir():
     config = get_unified_config()
     return str(config.POPSIM_DATA_DIR)
 
-# For backwards compatibility, create lazy-loaded variables
-# These will be evaluated when first accessed
-PRIMARY_OUTPUT_DIR = None  # Will be set on first use
+# Set PRIMARY_OUTPUT_DIR directly - hardcoded to avoid circular import at module load
+# This matches the value from TM2Config.POPSIM_DATA_DIR
+import os as _os
+PRIMARY_OUTPUT_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 
+                                   "output_2023", "populationsim_working_dir", "data")
 
 # Geographic crosswalk file location (single source of truth)
 def get_geo_crosswalk_path():
@@ -169,14 +171,33 @@ def get_geo_crosswalk_path():
     config = get_unified_config()
     return str(config.CROSSWALK_FILES['main'])
 
-# Lazy-loaded variable (will be set on first use to avoid circular import)
+# Lazy-load crosswalk paths to avoid circular imports
+_GEO_CROSSWALK_TM2_PATH = None
+_MAZ_TAZ_ALL_GEOG_FILE = None
+
+@property
+def GEO_CROSSWALK_TM2_PATH():
+    global _GEO_CROSSWALK_TM2_PATH
+    if _GEO_CROSSWALK_TM2_PATH is None:
+        _config = get_unified_config()
+        _GEO_CROSSWALK_TM2_PATH = str(_config.CROSSWALK_FILES['main'])
+    return _GEO_CROSSWALK_TM2_PATH
+
+# Actually, let's use a simpler approach - direct assignment but delayed
+def _initialize_paths():
+    """Initialize paths that require config access."""
+    global GEO_CROSSWALK_TM2_PATH, MAZ_TAZ_ALL_GEOG_FILE
+    if GEO_CROSSWALK_TM2_PATH is None:
+        _config = get_unified_config()
+        GEO_CROSSWALK_TM2_PATH = str(_config.CROSSWALK_FILES['main'])
+        MAZ_TAZ_ALL_GEOG_FILE = f"{get_primary_output_dir()}/geo_cross_walk_tm2_block10.csv"
+
 GEO_CROSSWALK_TM2_PATH = None
+MAZ_TAZ_ALL_GEOG_FILE = None
 
 def get_geo_crosswalk_tm2_path():
-    """Get GEO_CROSSWALK_TM2_PATH (lazy-loaded)."""
-    global GEO_CROSSWALK_TM2_PATH
-    if GEO_CROSSWALK_TM2_PATH is None:
-        GEO_CROSSWALK_TM2_PATH = get_geo_crosswalk_path()
+    """Get GEO_CROSSWALK_TM2_PATH."""
+    _initialize_paths()
     return GEO_CROSSWALK_TM2_PATH
 
 # Define variables that may not be set but are used by legacy scripts
@@ -184,19 +205,12 @@ MAZ_TAZ_DEF_FILE = NETWORK_MAZ_TAZ_DEF_FILE  # Default to network location (now 
 
 def get_maz_taz_all_geog_file():
     """Get MAZ/TAZ all geography file path."""
-    global PRIMARY_OUTPUT_DIR
-    if PRIMARY_OUTPUT_DIR is None:
-        PRIMARY_OUTPUT_DIR = get_primary_output_dir()
-    return f"{PRIMARY_OUTPUT_DIR}/geo_cross_walk_tm2_block10.csv"
-
-# Lazy-loaded variable (will be set on first use to avoid circular import)
-MAZ_TAZ_ALL_GEOG_FILE = None
+    _initialize_paths()
+    return MAZ_TAZ_ALL_GEOG_FILE
 
 def get_maz_taz_all_geog_file_path():
-    """Get MAZ_TAZ_ALL_GEOG_FILE (lazy-loaded)."""
-    global MAZ_TAZ_ALL_GEOG_FILE
-    if MAZ_TAZ_ALL_GEOG_FILE is None:
-        MAZ_TAZ_ALL_GEOG_FILE = get_maz_taz_all_geog_file()
+    """Get MAZ_TAZ_ALL_GEOG_FILE."""
+    _initialize_paths()
     return MAZ_TAZ_ALL_GEOG_FILE
 
 
@@ -1199,6 +1213,10 @@ CENSUS_DEFINITIONS = {
         ["variable"],
         ["B25001_001E"]
     ],
+    "B25003": [  # Occupied housing units (tenure) - Total households by occupancy
+        ["variable"],
+        ["B25003_001E"]
+    ],
     "B01003": [  # Total population
         ["variable"],
         ["B01003_001E"]
@@ -1222,7 +1240,7 @@ GEOGRAPHY_ID_COLUMNS = {
         'census': 'GEOID_block group',
         'crosswalk': 'bg2020ge',
         'mapping': 'GEOID_block group',  # Use GEOID_block group to match maz_taz_def_df
-        'components': ['state', 'county', 'tract', 'block group'],
+        'components': [],  # GEOID_block group is pre-computed in crosswalk
     },
     'tract': {
         'census': 'GEOID_tract',

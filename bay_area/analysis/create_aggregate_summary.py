@@ -59,7 +59,7 @@ class PopulationSimSummaryGenerator:
         
         # Load 2010 PUMA crosswalk (for 2015 data)
         self.maz_crosswalk_2010 = None
-        crosswalk_2010_file = Path(r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\mazs_tazs_county_tract_PUMA10.csv")
+        crosswalk_2010_file = Path(r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\mazs_tazs_county_tract_PUMA_2.6.csv")
         if crosswalk_2010_file.exists():
             try:
                 self.maz_crosswalk_2010 = pd.read_csv(crosswalk_2010_file)

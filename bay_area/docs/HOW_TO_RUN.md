@@ -36,9 +36,25 @@ C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.
 C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py controls --force
 C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py populationsim --force
 C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py postprocess --force
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py analysis --force
 ```
 
-### 3. Prerequisites: Crosswalk Files
+**Expected Runtime**: ~6 hours for full Bay Area synthesis (populationsim step is the longest)
+
+### 3. Run Analysis and Validation
+```bash
+# Run comprehensive analysis suite (10 scripts)
+python run_all_summaries.py
+
+# Or run specific categories
+python run_all_summaries.py --category core
+python run_all_summaries.py --category validation
+python run_all_summaries.py --category visualization
+```
+
+**Outputs**: Charts and validation reports in `output_2023/charts/`
+
+### 4. Prerequisites: Crosswalk Files
 **IMPORTANT**: The pipeline now requires pre-generated geographic crosswalk files. These are created using the standalone crosswalk creator in the tm2py-utils repository:
 
 ```bash
@@ -208,10 +224,11 @@ ls output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_*.csv
 
 ## Performance Tips
 
-- **Full run**: ~2-4 hours depending on machine
-- **Use --fast flag**: For testing (relaxed tolerances)
-- **Single PUMA test**: Set `TEST_PUMA=7501` environment variable
+- **Full run**: ~6 hours for Bay Area (2.9M households, 7.6M persons)
+- **PopulationSim step**: ~4-5 hours (longest step)
+- **Convergence settings**: rel_tolerance=0.2, abs_tolerance=100 (optimized for speed/quality balance)
 - **Parallel processing**: Pipeline uses all available CPU cores
+- **Memory**: Recommend 16GB+ RAM for full Bay Area run
 
 ## Getting Help
 

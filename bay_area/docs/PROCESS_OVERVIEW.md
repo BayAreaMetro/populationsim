@@ -46,7 +46,9 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 **What happens**:
 - Creates MAZ-to-TAZ-to-PUMA-to-County relationships
 - Resolves conflicts (TAZs split across PUMAs)
-- Converts FIPS county codes to sequential 1-9 system
+- Uses sequential county IDs (1-9) for all processing:
+  - 1 = San Francisco, 2 = San Mateo, 3 = Santa Clara, 4 = Alameda
+  - 5 = Contra Costa, 6 = Solano, 7 = Napa, 8 = Sonoma, 9 = Marin
 - Validates all geographic relationships
 
 ### Step 3: Seed Population Generation  
@@ -73,14 +75,15 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 - Geographic crosswalk
 - Control specifications (`controls.csv`)
 **Output**:
-- `maz_marginals.csv` (MAZ-level targets)
-- `taz_marginals.csv` (TAZ-level targets)  
-- `county_marginals.csv` (County-level targets)
+- `controls_maz.csv` (MAZ-level targets: 4 household variables)
+- `controls_taz.csv` (TAZ-level targets: 28 variables)  
+- `controls_county.csv` (County-level targets: 5 occupation variables)
 
 **What happens**:
 - Downloads Census data for all control variables
 - Aggregates to appropriate geographic levels
-- Handles Group Quarters controls separately
+- Uses sequential COUNTY IDs (1-9) in all control files
+- Handles Group Quarters controls separately at person level
 - Creates age-income cross-tabulations
 - Ensures control totals are consistent across geographies
 
@@ -93,14 +96,33 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 **Output**:
 - `synthetic_households.csv` (final synthetic households)
 - `synthetic_persons.csv` (final synthetic persons)
-- County summary tables
+- County, TAZ, and MAZ summary tables
 
 **What happens**:
-- **Balancing**: Adjusts seed population weights to match controls
+- **Balancing**: Adjusts seed population weights to match controls using IPF
 - **Integerization**: Converts fractional weights to whole households
 - **Assignment**: Places households into specific MAZs
-- Uses iterative proportional fitting (IPF) algorithm
-- Handles multiple geographic levels simultaneously
+- Operates hierarchically: County → TAZ → MAZ levels
+- Converges to tolerances (rel_tolerance=0.2, abs_tolerance=100)
+- Typical runtime: ~6 hours for full Bay Area
+
+### Step 6: Postprocessing and Analysis
+**Purpose**: Convert to TM2 format and validate results
+**Input**:
+- `synthetic_households.csv`, `synthetic_persons.csv`
+**Output**:
+- `households_2023_tm2.csv` (2.9M households in TM2 format)
+- `persons_2023_tm2.csv` (7.6M persons in TM2 format)
+- Analysis charts and validation reports
+
+**What happens**:
+- Recodes fields to TM2 specifications
+- Runs comprehensive analysis suite (10 scripts):
+  - Core analysis: MAZ/TAZ comparisons, full dataset analysis
+  - Visualizations: County charts, TAZ charts, interactive dashboards
+  - Validation: Data quality checks, population comparisons
+- Generates interactive Plotly dashboards for exploration
+- Output location: `output_2023/charts/`
 
 ## Key Algorithms
 
@@ -143,10 +165,11 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 - **Household composition**: Realistic household sizes and types
 
 ### Key Metrics
-- **Convergence**: IPF algorithm convergence to target tolerances
-- **Assignment rates**: Percentage of households successfully assigned
-- **Control fit**: How closely synthetic matches target marginals
-- **Geographic coverage**: All MAZs receive appropriate population
+- **Convergence**: IPF algorithm reaches target tolerances (±20% relative, ±100 absolute)
+- **Assignment rates**: 100% of households successfully assigned to MAZs
+- **Control fit**: Synthetic population matches controls within specified tolerances
+- **Geographic coverage**: All 39,587 MAZs receive appropriate population
+- **Scale**: 2.9M households, 7.6M persons across 9 counties
 
 ## Technology Stack
 
@@ -168,16 +191,31 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 
 ## Quality Assurance
 
-### Automated Validation
-- Control total verification
-- Geographic consistency checks
+### Automated Validation (run_all_summaries.py)
+The pipeline includes 10 automated analysis scripts:
+
+**Core Analysis:**
+- MAZ household comparison against controls
+- Full dataset statistical analysis
+- TAZ-level control vs result comparison
+- Synthetic population cross-tabulations
+
+**Visualizations:**
+- County-level summary charts
+- TAZ control analysis charts  
+- Interactive Plotly dashboards (28 variables)
+
+**Validation:**
+- MAZ household summaries
+- Synthetic vs seed population comparisons
+- Data quality and consistency checks
+
+### Key Validation Metrics
+- Control total verification (within ±20% tolerance)
+- Geographic consistency (all households in valid MAZs)
 - Data type and range validation
 - Cross-tabulation comparisons with Census
-
-### Manual Review
-- County-level summary comparisons
-- Age/income distribution review
-- Household size and composition analysis
-- Geographic distribution patterns
+- Age/income distribution alignment
+- Household size and composition realism
 
 

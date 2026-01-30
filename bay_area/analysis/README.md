@@ -2,6 +2,37 @@
 
 This folder contains analysis, debugging, validation, and utility files that are not part of the core TM2 PopulationSim workflow.
 
+## 🎉 NEW: Comprehensive Analysis Framework (January 2026)
+
+Run all analysis scripts with a single command:
+```bash
+python run_all_summaries.py
+```
+
+This executes 10 analysis scripts organized into three categories:
+
+### Core Analysis Scripts
+- `MAZ_hh_comparison.py` - Compare MAZ household results vs controls
+- `analyze_full_dataset.py` - Full dataset analysis and validation
+- `compare_controls_vs_results_by_taz.py` - TAZ-level control comparison
+- `analyze_syn_pop_model.py` - Synthetic population cross-tabulations
+
+### Visualization Scripts
+- `analyze_taz_controls_vs_results.py` - TAZ control charts
+- `analyze_county_results.py` - County-level summary charts
+- `create_interactive_taz_analysis.py` - Interactive Plotly dashboards (28 charts)
+
+### Validation Scripts
+- `maz_household_summary.py` - MAZ household validation
+- `compare_synthetic_populations.py` - Compare synthetic populations
+- `data_validation.py` - General data quality checks
+
+**Output Location**: `output_2023/charts/`
+
+**See**: `docs/RECENT_UPDATES.md` for details on the analysis framework
+
+---
+
 ## Data Analysis Files
 - `analyze_puma_data_mismatch.py` - Analyzes mismatches between PUMA data
 - `analyze_zero_weight_zones.py` - Analyzes zones with zero weights

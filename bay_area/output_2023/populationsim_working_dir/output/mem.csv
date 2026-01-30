@@ -131,3 +131,16 @@ MainProcess,42304,1_193_541_632,1_193_541_632,1_189_679_104,pipeline.run_model w
 MainProcess,42304,1_377_148_928,1_377_148_928,1_352_986_624,pipeline.run_model write_synthetic_population finished,0,2026/01/28 22:38:18.843818
 MainProcess,42304,1_380_216_832,1_380_216_832,1_355_898_880,pipeline.run after write_synthetic_population,0,2026/01/28 22:38:18.952035
 MainProcess,42304,1_380_220_928,1_380_220_928,1_355_902_976,pipeline.run after run_models,0,2026/01/28 22:38:18.996963
+MainProcess,28172,87_371_776,87_371_776,60_579_840,pipeline.run before preload_injectables,0,2026/01/29 12:44:33.221086
+MainProcess,28172,87_650_304,87_650_304,60_579_840,pipeline.run after preload_injectables,0,2026/01/29 12:44:33.236090
+MainProcess,28172,87_674_880,87_674_880,60_579_840,pipeline.run_model input_pre_processor start,0,2026/01/29 12:44:33.251084
+MainProcess,28172,1_319_694_336,1_319_694_336,1_296_961_536,pipeline.run_model input_pre_processor finished,0,2026/01/29 12:44:41.992330
+MainProcess,28172,1_350_987_776,1_350_987_776,1_327_751_168,pipeline.run after input_pre_processor,0,2026/01/29 12:44:45.770428
+MainProcess,28172,1_351_069_696,1_351_069_696,1_327_751_168,pipeline.run_model setup_data_structures start,0,2026/01/29 12:44:45.797800
+MainProcess,31924,87_289_856,87_289_856,60_497_920,pipeline.run before preload_injectables,0,2026/01/30 08:07:01.312840
+MainProcess,31924,87_572_480,87_572_480,60_497_920,pipeline.run after preload_injectables,0,2026/01/30 08:07:01.329794
+MainProcess,31924,87_597_056,87_597_056,60_497_920,pipeline.run_model input_pre_processor start,0,2026/01/30 08:07:01.345801
+MainProcess,31924,1_321_263_104,1_321_263_104,1_298_497_536,pipeline.run_model input_pre_processor finished,0,2026/01/30 08:07:19.915066
+MainProcess,31924,1_347_461_120,1_347_461_120,1_324_814_336,pipeline.run after input_pre_processor,0,2026/01/30 08:07:25.217733
+MainProcess,31924,1_347_624_960,1_347_624_960,1_324_814_336,pipeline.run_model setup_data_structures start,0,2026/01/30 08:07:25.267787
+MainProcess,31924,1_359_257_600,1_359_257_600,1_336_070_144,pipeline.run_model setup_data_structures finished,0,2026/01/30 08:07:31.343232

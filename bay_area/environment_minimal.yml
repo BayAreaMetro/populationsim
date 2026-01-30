@@ -46,5 +46,6 @@ dependencies:
     - psutil
     - census  # US Census API access for control generation
     - beautifulsoup4  # HTML/XML parsing for geography utilities
+    - plotly  # Interactive dashboards for analysis
 
 

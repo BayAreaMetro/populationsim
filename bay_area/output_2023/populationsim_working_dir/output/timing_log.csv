@@ -38,3 +38,5 @@ MainProcess,expand_households,1.7,0.0
 MainProcess,summarize,3258.9,54.3
 MainProcess,write_tables,7.5,0.1
 MainProcess,write_synthetic_population,105.8,1.8
+MainProcess,input_pre_processor,12.5,0.2
+MainProcess,input_pre_processor,23.9,0.4

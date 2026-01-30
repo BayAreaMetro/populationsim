@@ -479,7 +479,7 @@ TARGET_DIR = r"C:\Box\Modeling and Surveys\Development\Travel Model Two Conversi
 JOBS_FILE = os.path.join(TARGET_DIR, "jobs_maz_2023_v1.csv")
 MAZ_DATA_FILE = os.path.join(TARGET_DIR, "maz_data.csv")
 MAZ_DENSITY_FILE = os.path.join(TARGET_DIR, "maz_data_withDensity.csv")
-COORD_FILE = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\mazs_tazs_county_tract_PUMA_2.5.csv"
+COORD_FILE = r"C:\GitHub\tm2py-utils\tm2py_utils\inputs\maz_taz\mazs_tazs_county_tract_PUMA_2.6.csv"
 OUTPUT_MAZ_DATA = os.path.join(TARGET_DIR, "maz_data_UPDATED.csv")
 OUTPUT_MAZ_DENSITY = os.path.join(TARGET_DIR, "maz_data_withDensity_UPDATED.csv")
 

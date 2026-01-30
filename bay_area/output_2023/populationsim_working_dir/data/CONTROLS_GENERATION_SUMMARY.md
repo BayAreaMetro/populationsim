@@ -1,6 +1,6 @@
 # PopulationSim Controls Generation Summary
-**Generated:** January 27, 2026 at 02:50 PM
-**Status:** ✅ SUCCESS
+**Generated:** January 30, 2026 at 08:06 AM
+**Status:** ❌ VALIDATION ISSUES
 
 ---
 
@@ -23,45 +23,45 @@ This control generation implements **clean household/group quarters separation**
 
 | File | Purpose | Geography | Key Controls |
 |------|---------|-----------|--------------|
-| `maz_marginals_hhgq.csv` | Population synthesis targets | MAZ (39,586 zones) | numhh, numhh_gq, GQ types |
-| `taz_marginals_hhgq.csv` | Household/person distributions | TAZ (4,734 zones) | Household size, income, workers, age |
+| `maz_marginals_hhgq.csv` | Population synthesis targets | MAZ (41,434 zones) | numhh, numhh_gq, GQ types |
+| `taz_marginals_hhgq.csv` | Household/person distributions | TAZ (5,117 zones) | Household size, income, workers, age |
 | `county_marginals.csv` | Regional totals | County (9 counties) | Occupation controls |
 | `controls.csv` | PopulationSim expressions | All levels | Targeting expressions |
 
 ## 🎯 Regional Totals & Targets
 
-**ACS 2023 Regional Target**: 0 households
+**ACS 2023 Regional Target**: 2,830,712 households
 
 ### MAZ Regional Totals
 | Control | Total | Description |
 |---------|-------|-------------|
-| `numhh` | 2,793,475.0 | Regular households (target match) |
-| `numhh_gq` | 2,918,556.0 | Total households + GQ |
-| `gq_type_univ` | 50,694.0 | University GQ persons |
-| `gq_type_noninst` | 74,387.0 | Non-institutional GQ persons |
-| **Accuracy** | +2,793,475.0 (+0.00%) | ✅ Target match |
+| `numhh` | 2,830,328.0 | Regular households (target match) |
+| `numhh_gq` | 2,957,345.0 | Total households + GQ |
+| `gq_type_univ` | 51,581.0 | University GQ persons |
+| `gq_type_noninst` | 75,242.0 | Non-institutional GQ persons |
+| **Accuracy** | -384.0 (-0.01%) | ✅ Target match |
 
 ### TAZ Regional Totals
 | Control Category | Total | Description |
 |------------------|-------|-------------|
-| Household Size | 3,039,985 | Sum of hh_size_* controls |
-| Worker Controls | 3,039,999 | Sum of hh_wrks_* controls |
-| Income Controls | 3,040,004 | Sum of inc_* controls |
-| **TAZ Accuracy** | +3,039,985 (+0.00%) | ✅ vs Regional Target |
+| Household Size | 3,996,878 | Sum of hh_size_* controls |
+| Worker Controls | 3,996,898 | Sum of hh_wrks_* controls |
+| Income Controls | 3,996,917 | Sum of inc_* controls |
+| **TAZ Accuracy** | +1,166,166 (+41.20%) | ❌ vs Regional Target |
 
 ## 🏘️ County Breakdown
 
 | County | 2020 Census | 2023 ACS Target | Scaling Factor | Status |
 |--------|-------------|-----------------|----------------|--------|
-| Alameda | 591,636 | 0 | 0.0000 | ✅ |
-| Contra Costa | 407,029 | 0 | 0.0000 | ✅ |
-| Marin | 104,167 | 0 | 0.0000 | ✅ |
-| Napa | 49,738 | 0 | 0.0000 | ✅ |
-| San Francisco | 371,851 | 0 | 0.0000 | ✅ |
-| San Mateo | 269,417 | 0 | 0.0000 | ✅ |
-| Santa Clara | 656,063 | 0 | 0.0000 | ✅ |
-| Solano | 155,924 | 0 | 0.0000 | ✅ |
-| Sonoma | 187,701 | 0 | 0.0000 | ✅ |
+| Alameda | 591,636 | 608,534 | 1.0286 | ✅ |
+| Contra Costa | 407,029 | 416,172 | 1.0225 | ✅ |
+| Marin | 104,167 | 101,608 | 0.9754 | ✅ |
+| Napa | 49,738 | 51,167 | 1.0287 | ✅ |
+| San Francisco | 371,851 | 372,027 | 1.0005 | ✅ |
+| San Mateo | 269,417 | 265,124 | 0.9841 | ✅ |
+| Santa Clara | 656,063 | 665,549 | 1.0145 | ✅ |
+| Solano | 155,924 | 157,766 | 1.0118 | ✅ |
+| Sonoma | 187,701 | 192,765 | 1.0270 | ✅ |
 
 ## 📊 Data Sources
 
@@ -91,13 +91,11 @@ This control generation implements **clean household/group quarters separation**
 
 ## ✅ Validation Results
 
-**Overall Status**: ✅ ALL VALIDATIONS PASSED
+**Overall Status**: ❌ VALIDATION ISSUES DETECTED
 
-### Checks Completed
-- ✅ Regional household totals match ACS targets (±1%)
-- ✅ TAZ controls sum to regional household target (±1%)
-- ✅ County scaling factors applied correctly
-- ✅ File structure matches PopulationSim requirements
+### Issues Detected
+- ❌ Some validations failed - see log for details
+- ⚠️ Manual review required before PopulationSim run
 
 ---
 
