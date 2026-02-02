@@ -154,7 +154,7 @@ INCOME_BIN_MAPPING = [
 **Source**: TM2py-utils repository  
 **File**: `mazs_TM2_2_5.shp`  
 **Location**: `C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/`  
-**Zone Count**: ~39,586 MAZ zones  
+**Zone Count**: ~41,434 MAZ zones  
 **Coordinate System**: NAD83 / California Albers (EPSG:3310)
 
 **Key Attributes**:
@@ -168,7 +168,7 @@ INCOME_BIN_MAPPING = [
 **Source**: TM2py-utils repository  
 **File**: `tazs_TM2_2_5.shp`  
 **Location**: `C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/`  
-**Zone Count**: ~4,734 TAZ zones  
+**Zone Count**: ~5,117 TAZ zones  
 **Purpose**: Aggregated transportation analysis units
 
 ### Census Geographic Boundaries
@@ -379,12 +379,12 @@ inc_lt_20k,TAZ_NODE,households,10000,inc_lt_20k,(households.hh_income_2023 >= 0)
 #### Generated Control Files
 
 **MAZ Controls** (`maz_marginals_hhgq.csv`):
-- Total households by MAZ zone (~39,586 records)
+- Total households by MAZ zone (~41,434 records)
 - Group quarters by type (university, non-institutional)
 - Source: ACS block group data aggregated to MAZ
 
 **TAZ Controls** (`taz_marginals_hhgq.csv`):
-- Household demographics by TAZ zone (~4,734 records)  
+- Household demographics by TAZ zone (~5,117 records)  
 - Age, income, size, worker categories
 - Source: ACS tract data aggregated to TAZ
 

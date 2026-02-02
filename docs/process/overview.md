@@ -18,8 +18,8 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 ### 2. Geographic Framework
 - **Region**: 9-county San Francisco Bay Area
 - **Counties**: Sequential numbering 1-9 (SF=1, San Mateo=2, Santa Clara=3, Alameda=4, Contra Costa=5, Solano=6, Napa=7, Sonoma=8, Marin=9)
-- **Zones**: 4735 Zones, 39587 MAZs
-- **PUMAs**: 104 Public Use Microdata Areas covering the region
+- **Zones**: 5,117 TAZs, 41,434 MAZs
+- **PUMAs**: 62 Public Use Microdata Areas covering the region
 
 ## Step-by-Step Process
 
@@ -27,12 +27,12 @@ PUMS Data → Geographic Crosswalk → Seed Population → Marginal Controls →
 **Purpose**: Obtain raw household and person microdata from US Census
 **Input**: Census API or cached files
 **Output**: 
-- `households_2023_raw.csv` (~175k Bay Area households)
-- `persons_2023_raw.csv` (~400k Bay Area persons)
+- `households_2023_raw.csv` (~150k Bay Area households)
+- `persons_2023_raw.csv` (~375k Bay Area persons)
 
 **What happens**:
 - Downloads 2023 5-year American Community Survey PUMS data
-- Filters to Bay Area PUMAs only
+- Filters to 62 Bay Area PUMAs
 - Adds inflation adjustment (2023 to 2010 dollars)
 - Adds unique identifiers and crosswalk fields
 

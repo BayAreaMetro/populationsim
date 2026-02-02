@@ -112,8 +112,8 @@ crosswalk: geo_cross_walk_tm2_maz.csv # Geographic relationships
 **Control Data Integration**:
 ```yaml
 # Control totals by geography
-MAZ_NODE: maz_marginals_hhgq.csv    # ~39,586 MAZ zones
-TAZ_NODE: taz_marginals_hhgq.csv    # ~4,734 TAZ zones  
+MAZ_NODE: maz_marginals_hhgq.csv    # ~41,434 MAZ zones
+TAZ_NODE: taz_marginals_hhgq.csv    # ~5,117 TAZ zones  
 COUNTY: county_marginals.csv       # 9 Bay Area counties
 ```
 
@@ -657,7 +657,7 @@ The TM2 population synthesis and post-processing system represents a sophisticat
 - **Statistical Accuracy**: Achieves >95% control matching accuracy across multiple geographic scales
 - **Computational Efficiency**: Processes complete Bay Area synthesis in 70-110 minutes
 - **Data Quality**: Produces TM2-compatible outputs with comprehensive validation
-- **Scalability**: Handles 39,586 MAZ zones and 32 demographic control categories
+- **Scalability**: Handles 41,434 MAZ zones and 32 demographic control categories
 
 **Technical Innovations**:
 - **Hierarchical Balancing**: Multi-geography optimization ensuring spatial consistency

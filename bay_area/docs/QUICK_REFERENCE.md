@@ -1,7 +1,7 @@
 # TM2 PopulationSim Quick Reference Guide
 
 ## Overview
-TM2 PopulationSim generates a synthetic population of 2.9M households and 7.6M persons for the San Francisco Bay Area, matched to Census controls at County, TAZ, and MAZ levels.
+TM2 PopulationSim generates a synthetic population of 2,958,470 households and 7,563,557 persons for the San Francisco Bay Area, matched to Census controls at County, TAZ, and MAZ levels using 2023 5-Year ACS PUMS data.
 
 ## Quick Commands
 
@@ -12,12 +12,13 @@ conda activate popsim
 python tm2_pipeline.py full --force
 ```
 
-**Runtime**: ~6 hours total
-- Seed population: ~30 min
-- Controls generation: ~30 min  
-- PopulationSim synthesis: ~4-5 hours
-- Postprocessing: ~15 min
-- Analysis: ~7 min
+**Runtime**: ~2-3 hours total
+- PUMS processing: ~5-10 min
+- Seed population: ~5 min
+- Controls generation: ~15 min  
+- PopulationSim synthesis: ~45-90 min
+- Postprocessing: ~10 min
+- Summary analysis: ~15-20 min
 
 ### Run Analysis Only
 ```bash
@@ -48,8 +49,8 @@ python tm2_pipeline.py status
 ```
 9 Counties
   → 62 PUMAs  
-    → 4,734 TAZs
-      → 39,586 MAZs (finest level)
+    → 5,117 TAZs
+      → 41,434 MAZs (finest level)
 ```
 
 ## Control Variables
@@ -189,7 +190,7 @@ python tm2_pipeline.py analysis --force    # Rerun analysis only
 
 ### Runtime Too Long (> 8 hours)
 **Issue**: Convergence taking too long
-**Solution**: Settings are already optimized (~6 hours). If much longer, check:
+**Solution**: Settings are already optimized (~2-3 hours). If much longer, check:
 - Memory available (need 16GB+)
 - No other heavy processes running
 - Check logs for stuck iterations
@@ -277,7 +278,7 @@ pip install populationsim activitysim
 ### Common Questions
 
 **Q: How long should synthesis take?**
-A: ~6 hours for full Bay Area (2.9M households)
+A: ~2-3 hours for full Bay Area (2.96M households)
 
 **Q: What if R² is low for a variable?**
 A: Check control file has valid data, variable is in settings, and seed has variation

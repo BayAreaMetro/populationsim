@@ -61,11 +61,13 @@ These files will be output to your PopulationSim `data/` directory. See [Geograp
 # Run complete pipeline (recommended)
 python tm2_pipeline.py full --force
 
-# Estimated runtime: 2-4 hours
-# - Seed population: ~30 min
+# Estimated runtime: 2-3 hours total
+# - PUMS data processing: ~5-10 min
+# - Seed population: ~5 min
 # - Control generation: ~15 min
-# - Population synthesis: ~2-3 hours
+# - Population synthesis (IPF): ~45-90 min
 # - Post-processing: ~10 min
+# - Summary analysis: ~15-20 min
 ```
 
 ---
@@ -75,20 +77,29 @@ python tm2_pipeline.py full --force
 You can run pipeline steps individually for debugging or iterative development:
 
 ```bash
-# Step 1: Create seed population from PUMS data
+# Step 1: Download and process PUMS data
+python tm2_pipeline.py pums --force
+
+# Step 2: Create seed population from PUMS data
 python tm2_pipeline.py seed --force
 
-# Step 2: Generate control totals
+# Step 3: Generate control totals from Census data
 python tm2_pipeline.py controls --force
 
-# Step 3: Run population synthesis (longest step)
+# Step 4: Run population synthesis (longest step)
 python tm2_pipeline.py populationsim --force
 
-# Step 4: Post-process and format outputs
+# Step 5: Post-process and format outputs for TM2
 python tm2_pipeline.py postprocess --force
 
-# Run specific analysis after synthesis
-python tm2_pipeline.py analyze --force
+# Step 6: Generate summary reports and visualizations
+python tm2_pipeline.py summary_analysis --force
+
+# Step 7: Run detailed analysis scripts
+python tm2_pipeline.py analysis --force
+
+# Step 8: Validate income distributions
+python tm2_pipeline.py validate_income --force
 ```
 
 ### Step Status Checking
@@ -111,26 +122,41 @@ python tm2_pipeline.py status
 ### Full Pipeline
 
 ```bash
-python tm2_pipeline.py full [--force] [--verbose]
+python tm2_pipeline.py full [--force]
 ```
 
 **Options**:
 - `--force` - Rerun steps even if already completed
-- `--verbose` - Show detailed logging output
+
+### Check Status
+
+```bash
+python tm2_pipeline.py status
+```
+
+Shows completion status of all pipeline steps.
 
 ### Individual Steps
 
 ```bash
-python tm2_pipeline.py <step> [--force] [--verbose]
+python tm2_pipeline.py <step> [--force]
 ```
 
 **Available steps**:
-- `seed` - Create seed population
-- `controls` - Generate control totals
-- `populationsim` - Run synthesis
-- `postprocess` - Format outputs
-- `analyze` - Run analysis scripts
-- `full` - Run all steps
+
+| Command | Description | Typical Runtime |
+|---------|-------------|-----------------|
+| `status` | Show current pipeline status | Instant |
+| `pums` | Download/process PUMS data | 5-10 min |
+| `seed` | Create seed population | 2-5 min |
+| `controls` | Generate control totals | 10-15 min |
+| `populationsim` | Run IPF synthesis | 45-90 min |
+| `postprocess` | Format outputs for TM2 | 5-10 min |
+| `summary_analysis` | Generate summary reports | 15-20 min |
+| `analysis` | Run detailed analysis scripts | 10-15 min |
+| `validate_income` | Validate income distributions | 2-5 min |
+| `full` | Run complete pipeline | 2-3 hours |
+| `clean` | Remove all outputs (fresh start) | Instant |
 
 ---
 

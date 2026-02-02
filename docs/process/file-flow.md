@@ -35,15 +35,15 @@ Census API → download_2023_5year_pums.py → households_2023_raw.csv
 ```
 
 **Process**:
-1. Queries Census API for Bay Area PUMAs (104 PUMAs)
+1. Queries Census API for Bay Area PUMAs (62 PUMAs)
 2. Downloads household and person records
 3. Applies inflation adjustment (2023→2010 dollars)
 4. Saves raw microdata files
 
 **Key Files**:
 - Input: Census API
-- Output: `output_2023/PUMS_2023_5Year/households_2023_raw.csv` (~175k records)
-- Output: `output_2023/PUMS_2023_5Year/persons_2023_raw.csv` (~400k records)
+- Output: `output_2023/PUMS_2023_5Year/households_2023_raw.csv` (~150k records)
+- Output: `output_2023/PUMS_2023_5Year/persons_2023_raw.csv` (~375k records)
 
 ### Step 2: Geographic Crosswalk
 ```
@@ -176,7 +176,7 @@ bay_area/
 ### Critical Dependencies
 1. **Geographic Consistency**: All files must use same geographic definitions
 2. **County Mapping**: 1-9 sequential system throughout pipeline
-3. **PUMA Definitions**: Consistent Bay Area PUMA list (104 PUMAs)
+3. **PUMA Definitions**: Consistent Bay Area PUMA list (62 PUMAs)
 4. **Control Variables**: Matching between controls.csv and marginal files
 
 ### Data Transformations

@@ -2,13 +2,7 @@
 
 Executive summary
 
-
-
-*Document updated: 2025-11-19 14:28:20 with data from model run dated 2025-11-10*
-
-
-
-*Document updated: 2025-11-19 14:27:12 with data from model run dated 2025-11-10*
+*Document updated: 2026-02-02 with data from model run dated 2026-02-02*
 
 This single consolidated reference documents the inputs, outputs, processing steps, aggregate summaries, and theoretical underpinnings of the 2023 TM2 synthetic population workflow based on PopulationSim. It is intended as the canonical briefing for modelers, data engineers, and reviewers who need a single place to understand: what data feed the pipeline, what files are produced and where to find them, how marginal controls are defined and applied, and what the main statistical algorithms are that guarantee marginal consistency.
 
@@ -20,59 +14,61 @@ This integrated executive summary combines the short, modeler-focused one-page s
 
 ### Snapshot: canonical totals (complete synthetic population)
 
-- Total households (all geographies): **3,032,138**
+- Total households (all geographies): **2,958,470**
 
-- Total persons: **7,642,976**
+- Total persons: **7,563,557**
 
-- Average household size: **2.52** persons
+- Average household size: **2.56** persons
 
-- Average household income: **$124,024**
+- Average household income: **$125,414** (2010$)
 
 - Average age: **39.9 years**
 
+- Geographic coverage: **41,434 MAZs**, **5,117 TAZs**, **62 PUMAs**, **9 counties**
+
 Key county totals (households):
 
-- San Francisco: 418,196 (13.8%)
+- San Francisco: 395,703 (13.4%)
 
-- San Mateo: 288,250 (9.5%)
+- San Mateo: 271,045 (9.2%)
 
-- Santa Clara: 704,160 (23.2%)
+- Santa Clara: 697,753 (23.6%)
 
-- Alameda: 646,592 (21.3%)
+- Alameda: 653,053 (22.1%)
 
-- Contra Costa: 431,991 (14.2%)
+- Contra Costa: 423,092 (14.3%)
 
-- Solano: 165,589 (5.5%)
+- Solano: 160,036 (5.4%)
 
-- Napa: 56,033 (1.8%)
+- Napa: 54,183 (1.8%)
 
-- Sonoma: 208,981 (6.9%)
+- Sonoma: 199,451 (6.7%)
 
-- Marin: 112,346 (3.7%)
+- Marin: 104,154 (3.5%)
 
-Household size distribution (selected):
+Household size distribution:
 
-- 1 person: 899,396 (29.7%)
+- 1 person: 836,351 (28.3%)
 
-- 2 persons: 934,694 (30.8%)
+- 2 persons: 903,194 (30.5%)
 
-- 3 persons: 488,574 (16.1%)
+- 3 persons: 478,951 (16.2%)
 
-- 4 persons: 423,747 (14.0%)
+- 4 persons: 429,791 (14.5%)
 
-- 5+ persons: 257,294 (8.5%)
+- 5 persons: 185,286 (6.3%)
 
-Person age groups (selected totals):
+- 6+ persons: 124,897 (4.2%)
 
-- 0–19 (aggregated 0–4 + 5–17): ~1,536,551 (~20.1%)
+Person age groups:
 
-- 20–34: 1,745,985 (22.8%)
+- 0–19: 1,522,857 (20.1%)
 
-- 35–64: 3,103,775 (~40.6%)
+- 20–34: 1,720,340 (22.7%)
 
-- 65+: 1,256,209 (~16.4%)
+- 35–64: 3,075,779 (40.7%)
 
-(For exact, column-level counts see `output_2023/FULL_DATASET_ANALYSIS.md`.)
+- 65+: 1,244,581 (16.5%)
 
 ---
 
@@ -621,13 +617,14 @@ hh_size_6_plus,2500.0,2522.485756263781,2521.9645016730697,2519.0,2521.964501673
 | hh_size_6_plus         |            2500 |                             2522.49  |                 2521.96  |                    2519 |                   2521.96  |                      2485 |                   2521.96  |                      2472 |
 ```csv
 variable,total_control,total_result,total_diff,total_diff_pct,mae,rmse,mape,r_squared,perfect_matches,perfect_pct,taz_count
-numhh_gq,3032012.0,3032146,134.0,0.004419507574508281,0.028438030560271648,1.459411235566984,0.0010244036045110572,0.9999885650036583,4710,99.95755517826825,4712
-hh_gq_university,52288.0,50802,-1486.0,-2.841952264381885,1.034804753820034,14.765038663114288,4.919743033221721,0.994980653630686,4553,96.62563667232598,4712
-hh_gq_noninstitutional,76791.0,73764,-3027.0,-3.9418681876782435,2.4267826825127337,11.86092119579686,8.412914357934476,0.9730913672362441,3189,67.67826825127334,4712
-hh_size_1,1043229.0,1023945,-19284.0,-1.8484915584210178,41.684634974533104,121.57735595280637,21.163147969939555,0.9181221028345171,144,3.0560271646859083,4712
-hh_size_2,972432.0,934422,-38010.0,-3.9087566020040474,40.0606960950764,124.33003651421681,19.78459708452401,0.5699461242316931,81,1.7190152801358234,4712
-hh_wrks_0,610138.0,640123,29985.0,4.914461974176334,20.064728353140918,32.17656417073793,23.01606715702099,0.9064976897039876,123,2.6103565365025467,4712
-pers_age_00_19,1693504.0,1699288,5784.0,0.3415403801821549,48.946519524618,89.83677662647395,20.326388501727763,0.9009780813061613,50,1.061120543293718,4712
+numhh,2830328.0,2847491,17163.0,0.61,6.54,50.08,37.72,0.9848,2991,60.73,4925
+numhh_gq,2957345.0,2958534,1189.0,0.04,0.24,12.19,0.01,0.9992,4919,99.88,4925
+hh_gq_university,51581.0,44249,-7332.0,-14.21,2.72,49.48,13.61,0.8887,4720,95.84,4925
+hh_gq_noninstitutional,75242.0,66794,-8448.0,-11.23,3.98,14.40,20.79,0.9511,3067,62.27,4925
+hh_size_1,985683.0,725206,-260477.0,-26.43,69.78,163.78,33.18,0.4801,129,2.62,4925
+hh_size_2,1241147.0,902409,-338738.0,-27.29,87.24,206.01,29.77,0.3112,61,1.24,4925
+hh_wrks_0,788304.0,602086,-186218.0,-23.62,50.35,92.49,31.52,0.5359,73,1.48,4925
+pers_age_00_19,1685880.0,1672647,-13233.0,-0.78,63.38,111.30,30.79,0.8820,51,1.04,4925
 ```
 
 ## Charts (visual outputs)

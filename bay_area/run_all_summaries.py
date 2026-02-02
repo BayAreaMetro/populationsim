@@ -69,17 +69,17 @@ def run_script(script_path, script_name, args=None):
         elapsed = time.time() - start_time
         
         if result.returncode == 0:
-            log(f"✅ {script_name} completed successfully in {elapsed:.1f}s")
+            log(f"[OK] {script_name} completed successfully in {elapsed:.1f}s")
             return True
         else:
-            log(f"❌ {script_name} failed with code {result.returncode}", "ERROR")
+            log(f"[FAIL] {script_name} failed with code {result.returncode}", "ERROR")
             if result.stderr:
                 log(f"Error output: {result.stderr[:500]}", "ERROR")
             return False
             
     except Exception as e:
         elapsed = time.time() - start_time
-        log(f"❌ {script_name} crashed: {e}", "ERROR")
+        log(f"[FAIL] {script_name} crashed: {e}", "ERROR")
         return False
 
 def main():
@@ -120,7 +120,7 @@ def main():
     
     missing_files = [f for f in required_files if not f.exists()]
     if missing_files:
-        log("❌ Required synthesis output files missing:", "ERROR")
+        log("[FAIL] Required synthesis output files missing:", "ERROR")
         for f in missing_files:
             log(f"   - {f}", "ERROR")
         log("Run population synthesis first!")
@@ -178,7 +178,7 @@ def main():
             else:
                 failed_scripts.append(script_name)
                 if not args.skip_errors:
-                    log(f"❌ Stopping due to failure in {script_name}", "ERROR")
+                    log(f"[FAIL] Stopping due to failure in {script_name}", "ERROR")
                     break
     
     # Final summary
@@ -195,10 +195,10 @@ def main():
             log(f"  - {script}")
     
     if successful_scripts == total_scripts:
-        log("🎉 All analysis summaries completed successfully!")
+        log("[SUCCESS] All analysis summaries completed successfully!")
         return True
     else:
-        log(f"⚠️  {len(failed_scripts)} scripts failed")
+        log(f"[WARNING] {len(failed_scripts)} scripts failed")
         return False
 
 if __name__ == "__main__":

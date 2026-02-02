@@ -209,7 +209,7 @@ This ensures the control structure exactly matches the seed population GQ encodi
 
 ### MAZ Control Data Source Details
 
-**Source**: MAZ controls are based on MTC's MAZ/TAZ geography system, which defines approximately 39,587 MAZs for the 9-county Bay Area.
+**Source**: MAZ controls are based on MTC's MAZ/TAZ geography system, which defines 41,434 MAZs across 5,117 TAZs for the 9-county Bay Area.
 
 **Geographic Foundation**:
 - MAZ/TAZ system is built on **2010 Census block boundaries**

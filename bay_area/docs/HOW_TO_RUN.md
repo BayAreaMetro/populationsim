@@ -29,17 +29,35 @@ conda install -c conda-forge dask
 ### 2. Run Full Pipeline
 ```bash
 # Run complete pipeline (recommended)
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py full --force
+python tm2_pipeline.py full --force
 
-# Or run individual steps
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py seed --force  
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py controls --force
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py populationsim --force
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py postprocess --force
-C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe tm2_pipeline.py analysis --force
+# Or run individual steps in order:
+python tm2_pipeline.py pums --force           # Download/process PUMS data
+python tm2_pipeline.py seed --force           # Create seed population
+python tm2_pipeline.py controls --force       # Generate control totals
+python tm2_pipeline.py populationsim --force  # Run IPF synthesis (longest step)
+python tm2_pipeline.py postprocess --force    # Format outputs for TM2
+python tm2_pipeline.py summary_analysis --force  # Generate summary reports
+python tm2_pipeline.py analysis --force       # Run detailed analysis
+python tm2_pipeline.py validate_income --force   # Validate income distributions
 ```
 
-**Expected Runtime**: ~6 hours for full Bay Area synthesis (populationsim step is the longest)
+**All Available Commands**:
+| Command | Description | Typical Runtime |
+|---------|-------------|-----------------|
+| `status` | Show current pipeline status | Instant |
+| `pums` | Download/process PUMS data | 5-10 min |
+| `seed` | Create seed population | 2-5 min |
+| `controls` | Generate control totals | 10-15 min |
+| `populationsim` | Run IPF synthesis | 45-90 min |
+| `postprocess` | Format outputs for TM2 | 5-10 min |
+| `summary_analysis` | Generate summary reports | 15-20 min |
+| `analysis` | Run detailed analysis scripts | 10-15 min |
+| `validate_income` | Validate income distributions | 2-5 min |
+| `full` | Run complete pipeline | 2-3 hours |
+| `clean` | Remove all outputs (fresh start) | Instant |
+
+**Expected Runtime**: ~2-3 hours for full Bay Area synthesis
 
 ### 3. Run Analysis and Validation
 ```bash
@@ -224,8 +242,9 @@ ls output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_*.csv
 
 ## Performance Tips
 
-- **Full run**: ~6 hours for Bay Area (2.9M households, 7.6M persons)
-- **PopulationSim step**: ~4-5 hours (longest step)
+- **Full run**: ~2-3 hours for Bay Area (2.96M households, 7.56M persons)
+- **PopulationSim step**: ~45-90 min (longest step)
+- **Summary analysis**: ~15-20 min (10 analysis scripts)
 - **Convergence settings**: rel_tolerance=0.2, abs_tolerance=100 (optimized for speed/quality balance)
 - **Parallel processing**: Pipeline uses all available CPU cores
 - **Memory**: Recommend 16GB+ RAM for full Bay Area run

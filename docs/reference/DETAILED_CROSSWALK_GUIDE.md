@@ -78,9 +78,9 @@ Block Group (12-digit GEOID)
     ↓
 Census Tract (11-digit GEOID)
     ↓
-MAZ (~39,586 zones)
+MAZ (~41,434 zones)
     ↓
-TAZ (~4,734 zones)
+TAZ (~5,117 zones)
     ↓
 County (9 Bay Area counties)
     ↓
@@ -93,7 +93,7 @@ PUMA (~104 zones)
 - **Source**: TM2py-utils repository
 - **File**: `mazs_TM2_2_5.shp`
 - **Location**: `C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz/shapefiles/`
-- **Content**: Polygon geometries for ~39,586 MAZ zones with TAZ assignments
+- **Content**: Polygon geometries for ~41,434 MAZ zones with TAZ assignments
 - **Key Fields**: `MAZ_NODE`, `TAZ_NODE`, spatial geometry
 
 #### 2. PUMA Spatial Data
@@ -241,7 +241,7 @@ crosswalk_columns = [
 
 **Output Generation**:
 - **File**: `output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_maz.csv`
-- **Records**: ~39,586 MAZ zones with complete geographic assignments
+- **Records**: ~41,434 MAZ zones with complete geographic assignments
 - **Validation**: Comprehensive checks for missing or invalid assignments
 
 ---
@@ -318,7 +318,7 @@ enhanced_columns = [
 
 **Coverage Checks**:
 - **Complete Assignment**: Verify 100% of TAZs receive PUMA assignments
-- **Bay Area Filtering**: Confirm only Bay Area PUMAs included (typically ~104 PUMAs)
+- **Bay Area Filtering**: Confirm only Bay Area PUMAs included (62 PUMAs for 2020 vintage)
 - **Intersection Quality**: Monitor single vs. multiple intersection rates
 
 **Quality Metrics**:
@@ -400,7 +400,7 @@ missing_bg_mappings = enhanced_crosswalk['GEOID_block group'].isna().sum()
 | `COUNTYFP10` | String | FIPS county code | "001" |
 
 **Quality Metrics**:
-- **Record Count**: ~39,586 MAZ zones
+- **Record Count**: ~41,434 MAZ zones
 - **Completeness**: 100% non-null assignments
 - **File Size**: ~2.5 MB
 - **Coverage**: All Bay Area MAZ zones
@@ -439,11 +439,11 @@ missing_bg_mappings = enhanced_crosswalk['GEOID_block group'].isna().sum()
 **Console Output**: Comprehensive processing statistics
 ```
 TM2 CROSSWALK CREATION COMPLETE
-- Final crosswalk: 39,586 MAZ zones
-- Unique TAZs: 4,734
+- Final crosswalk: 41,434 MAZ zones
+- Unique TAZs: 5,117
 - Unique PUMAs: 104
 - Counties: 9
-- Enhanced crosswalk: 39,586 records
+- Enhanced crosswalk: 41,434 records
 - Block groups: 1,547 unique
 ```
 

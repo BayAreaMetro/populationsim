@@ -29,8 +29,8 @@ Controls are statistical targets that specify how many people or households in e
 
 The Bay Area PopulationSim model operates on a three-tier geographic hierarchy, each serving different modeling purposes:
 
-1. **MAZ (Micro Analysis Zones)**: ~39,586 zones - Fine-grained geography for detailed local analysis
-2. **TAZ (Traffic Analysis Zones)**: ~4,734 zones - Transportation modeling units for travel demand
+1. **MAZ (Micro Analysis Zones)**: ~41,434 zones - Fine-grained geography for detailed local analysis
+2. **TAZ (Traffic Analysis Zones)**: ~5,117 zones - Transportation modeling units for travel demand
 3. **COUNTY**: 9 zones - Regional units for labor market and economic analysis
 
 ### Multi-Year Data Integration
@@ -166,7 +166,7 @@ Final MAZ controls (scaled to match ACS 2023 county targets)
 - Allows use of latest Census data while maintaining TM2 geographic compatibility
 - Preserves fine-scale geographic detail (block-level precision)
 - Areal interpolation is reasonable at Census block scale (blocks are small and relatively homogeneous)
-- Alternative would require complete remapping of 39,587 MAZs to 2020 geography (infeasible)
+- Alternative would require complete remapping of 41,434 MAZs to 2020 geography (infeasible)
 
 #### Step 3: Data Validation and Quality Control
 Each data source undergoes rigorous validation:
@@ -181,7 +181,7 @@ Each data source undergoes rigorous validation:
 
 ### MAZ (Micro Analysis Zone) Level
 
-MAZs represent the finest geographic resolution in the model, with approximately 39,586 zones covering the 9-county Bay Area.
+MAZs represent the finest geographic resolution in the model, with approximately 41,434 zones covering the 9-county Bay Area.
 
 #### Housing Units vs. Households for MAZ Controls
 
@@ -239,7 +239,7 @@ Group quarters represent persons living in institutional or communal arrangement
 
 ### TAZ (Traffic Analysis Zone) Level
 
-TAZs serve as the primary geography for transportation modeling, with approximately 4,734 zones.
+TAZs serve as the primary geography for transportation modeling, with approximately 5,117 zones.
 
 #### TAZ Control Generation Process:
 

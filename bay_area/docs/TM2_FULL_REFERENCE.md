@@ -2,13 +2,7 @@
 
 Executive summary
 
-
-
-*Document updated: 2025-11-19 14:28:20 with data from model run dated 2025-11-10*
-
-
-
-*Document updated: 2025-11-19 14:27:12 with data from model run dated 2025-11-10*
+*Document updated: 2026-02-02 with data from model run dated 2026-02-02*
 
 This single consolidated reference documents the inputs, outputs, processing steps, aggregate summaries, and theoretical underpinnings of the 2023 TM2 synthetic population workflow based on PopulationSim. It is intended as the canonical briefing for modelers, data engineers, and reviewers who need a single place to understand: what data feed the pipeline, what files are produced and where to find them, how marginal controls are defined and applied, and what the main statistical algorithms are that guarantee marginal consistency.
 
@@ -20,59 +14,61 @@ This integrated executive summary combines the short, modeler-focused one-page s
 
 ### Snapshot: canonical totals (complete synthetic population)
 
-- Total households (all geographies): **3,032,138**
+- Total households (all geographies): **2,958,470**
 
-- Total persons: **7,642,976**
+- Total persons: **7,563,557**
 
-- Average household size: **2.52** persons
+- Average household size: **2.56** persons
 
-- Average household income: **$124,024**
+- Average household income: **$125,414** (2010$)
 
 - Average age: **39.9 years**
 
+- Geographic coverage: **41,434 MAZs**, **5,117 TAZs**, **62 PUMAs**, **9 counties**
+
 Key county totals (households):
 
-- San Francisco: 418,196 (13.8%)
+- San Francisco: 395,703 (13.4%)
 
-- San Mateo: 288,250 (9.5%)
+- San Mateo: 271,045 (9.2%)
 
-- Santa Clara: 704,160 (23.2%)
+- Santa Clara: 697,753 (23.6%)
 
-- Alameda: 646,592 (21.3%)
+- Alameda: 653,053 (22.1%)
 
-- Contra Costa: 431,991 (14.2%)
+- Contra Costa: 423,092 (14.3%)
 
-- Solano: 165,589 (5.5%)
+- Solano: 160,036 (5.4%)
 
-- Napa: 56,033 (1.8%)
+- Napa: 54,183 (1.8%)
 
-- Sonoma: 208,981 (6.9%)
+- Sonoma: 199,451 (6.7%)
 
-- Marin: 112,346 (3.7%)
+- Marin: 104,154 (3.5%)
 
-Household size distribution (selected):
+Household size distribution:
 
-- 1 person: 899,396 (29.7%)
+- 1 person: 836,351 (28.3%)
 
-- 2 persons: 934,694 (30.8%)
+- 2 persons: 903,194 (30.5%)
 
-- 3 persons: 488,574 (16.1%)
+- 3 persons: 478,951 (16.2%)
 
-- 4 persons: 423,747 (14.0%)
+- 4 persons: 429,791 (14.5%)
 
-- 5+ persons: 257,294 (8.5%)
+- 5 persons: 185,286 (6.3%)
 
-Person age groups (selected totals):
+- 6+ persons: 124,897 (4.2%)
 
-- 0–19 (aggregated 0–4 + 5–17): ~1,536,551 (~20.1%)
+Person age groups:
 
-- 20–34: 1,745,985 (22.8%)
+- 0–19: 1,522,857 (20.1%)
 
-- 35–64: 3,103,775 (~40.6%)
+- 20–34: 1,720,340 (22.7%)
 
-- 65+: 1,256,209 (~16.4%)
+- 35–64: 3,075,779 (40.7%)
 
-(For exact, column-level counts see `output_2023/FULL_DATASET_ANALYSIS.md`.)
+- 65+: 1,244,581 (16.5%)
 
 ---
 

@@ -255,7 +255,7 @@ python -c "from tm2_config import TM2Config; print('No circular import - success
 ### 📊 Pipeline Outputs
 - **Households**: 2,918,893 synthetic households
 - **Persons**: 7,603,274 synthetic persons
-- **Geographies**: 9 counties, 62 PUMAs, 4,734 TAZs, 39,586 MAZs
+- **Geographies**: 9 counties, 62 PUMAs, 5,117 TAZs, 41,434 MAZs
 - **Control Variables**: 37 total (5 county-level, 28 TAZ-level, 4 MAZ-level)
 
 ### 🎯 Quality Metrics

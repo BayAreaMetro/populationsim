@@ -36,18 +36,19 @@
 - **[Household/GQ Separation](household_gq_separation.md)** - Group quarters methodology
 - **[File Flow](FILE_FLOW.md)** - Data flow through pipeline
 
-## Current Status (January 2026)
+## Current Status (February 2026)
 
 ### ✅ Fully Operational
-- **Scale**: 2.9M households, 7.6M persons
-- **Geography**: 9 counties, 4,734 TAZs, 39,586 MAZs
-- **Runtime**: ~6 hours for full synthesis
+- **Scale**: 2,958,470 households, 7,563,557 persons
+- **Geography**: 9 counties, 62 PUMAs, 5,117 TAZs, 41,434 MAZs
+- **Data Source**: 2023 5-Year ACS PUMS
+- **Runtime**: ~2-3 hours for full synthesis
 - **Quality**: All controls within ±20% tolerance
 - **Analysis**: 10 automated validation scripts
 
 ### Recent Improvements
 - County ID system: Sequential 1-9 (not FIPS)
-- Optimized convergence: 6 hours (was 16+ hours)
+- Optimized convergence: 2-3 hours (was 6+ hours)
 - Interactive dashboards: 28 Plotly visualizations
 - Comprehensive analysis: Core, validation, visualization scripts
 
@@ -57,8 +58,8 @@
 ```
 9 Counties (1-9 sequential)
   → 62 PUMAs
-    → 4,734 TAZs
-      → 39,586 MAZs
+    → 5,117 TAZs
+      → 41,434 MAZs
 ```
 
 ### Control Levels
@@ -116,7 +117,7 @@ bay_area/
 
 ### Common Issues
 - **NaN errors**: Check COUNTY IDs are 1-9 (not FIPS)
-- **Long runtime**: Normal is ~6 hours; check memory/CPU
+- **Long runtime**: Normal is ~2-3 hours; check memory/CPU
 - **Missing charts**: Install plotly (`pip install plotly`)
 - **Import errors**: Activate environment (`conda activate popsim`)
 

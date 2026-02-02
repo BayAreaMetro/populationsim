@@ -29,8 +29,8 @@ Controls are statistical targets that specify how many people or households in e
 
 The Bay Area PopulationSim model operates on a three-tier geographic hierarchy, each serving different modeling purposes:
 
-1. **MAZ (Micro Analysis Zones)**: ~39,586 zones - Fine-grained geography for detailed local analysis
-2. **TAZ (Traffic Analysis Zones)**: ~4,734 zones - Transportation modeling units for travel demand
+1. **MAZ (Micro Analysis Zones)**: ~41,434 zones - Fine-grained geography for detailed local analysis
+2. **TAZ (Traffic Analysis Zones)**: ~5,117 zones - Transportation modeling units for travel demand
 3. **COUNTY**: 9 zones - Regional units for labor market and economic analysis
 
 ### Multi-Year Data Integration
@@ -110,7 +110,7 @@ Each data source undergoes rigorous validation:
 
 ### MAZ (Micro Analysis Zone) Level
 
-MAZs represent the finest geographic resolution in the model, with approximately 39,586 zones covering the 9-county Bay Area.
+MAZs represent the finest geographic resolution in the model, with approximately 41,434 zones covering the 9-county Bay Area.
 
 #### MAZ Control Generation Process:
 
@@ -133,7 +133,7 @@ Group quarters represent persons living in institutional or communal arrangement
 
 ### TAZ (Traffic Analysis Zone) Level
 
-TAZs serve as the primary geography for transportation modeling, with approximately 4,734 zones.
+TAZs serve as the primary geography for transportation modeling, with approximately 5,117 zones.
 
 #### TAZ Control Generation Process:
 

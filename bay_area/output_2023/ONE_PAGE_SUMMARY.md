@@ -1,41 +1,47 @@
 # PopulationSim 2023 Executive Summary
 *Bay Area TM2 Synthetic Population*
 
-**Generated:** 2025-11-19 14:52:03  
+**Generated:** 2026-02-02  
 **Model Year:** 2023  
-**Geography:** 9-County Bay Area
+**Geography:** 9-County Bay Area  
+**Data Source:** 2023 5-Year American Community Survey PUMS
 
 ## Key Results
 
 **Population Scale:**
-- **Total Households:** 2,918,893
-- **Total Persons:** 7,603,274
-- **Average Household Size:** 2.60 persons
+- **Total Households:** 2,958,470
+- **Total Persons:** 7,563,557
+- **Average Household Size:** 2.56 persons
 
 **Geographic Distribution:**
-- **San Francisco:** 395,698 households (13.6%)
-- **San Mateo:** 275,352 households (9.4%)
-- **Santa Clara:** 687,199 households (23.5%)
-- **Alameda:** 634,945 households (21.8%)
-- **Contra Costa:** 413,706 households (14.2%)
-- **Solano:** 158,276 households (5.4%)
-- **Napa:** 52,718 households (1.8%)
-- **Sonoma:** 194,237 households (6.7%)
-- **Marin:** 106,762 households (3.7%)
+- **San Francisco:** 395,703 households (13.4%)
+- **San Mateo:** 271,045 households (9.2%)
+- **Santa Clara:** 697,753 households (23.6%)
+- **Alameda:** 653,053 households (22.1%)
+- **Contra Costa:** 423,092 households (14.3%)
+- **Solano:** 160,036 households (5.4%)
+- **Napa:** 54,183 households (1.8%)
+- **Sonoma:** 199,451 households (6.7%)
+- **Marin:** 104,154 households (3.5%)
+
+**Geographic Zones:**
+- **MAZs:** 41,434
+- **TAZs:** 5,117
+- **PUMAs:** 62
 
 **Demographics:**
-- **Age 0-17:** 1,525,212 (20.1%)
-- **Age 18-64:** 4,829,142 (63.5%)
-- **Age 65+:** 1,248,920 (16.4%)
+- **Age 0-19:** 1,522,857 (20.1%)
+- **Age 20-64:** 4,796,119 (63.4%)
+- **Age 65+:** 1,244,581 (16.5%)
 
 **Economic Indicators:**
-- **Mean Household Income:** $124,993 (2010$)
-- **Median Household Income:** $89,199 (2010$)
-- **Employment Rate:** 62.6% (ages 16+)
+- **Mean Household Income:** $125,414 (2010$)
+- **Median Household Income:** $89,930 (2010$)
+- **Employment Rate:** 51.4% (all persons)
 
 
 **Performance Metrics:**
-- Counties within ±1% of targets: 9/9
+- Counties within ï¿½1% of targets: 9/9
 - Regional accuracy: -0.05%
 - Best performing county: San Mateo
 
@@ -56,15 +62,16 @@
 
 ## Key Findings
 
-1. **Population Distribution:** Santa Clara County represents the largest share (23.5%) of regional households
-2. **Demographic Balance:** Working-age population (18-64) comprises 63.5% of total population
-3. **Economic Profile:** Mean household income of $124,993 reflects Bay Area's high-income profile
+1. **Population Distribution:** Santa Clara County represents the largest share (23.6%) of regional households
+2. **Demographic Balance:** Working-age population (20-64) comprises 63.4% of total population
+3. **Economic Profile:** Mean household income of $125,414 (2010$) reflects Bay Area's high-income profile
 4. **Synthesis Quality:** Strong performance across all geographic levels with excellent control matching
 
 ---
 
 **Data Sources:**
-- 2019 American Community Survey (ACS) PUMS
+- 2023 5-Year American Community Survey (ACS) PUMS
+- 2020 Decennial Census (DHC tables)
 - Regional demographic controls and projections
 - Geographic crosswalks and zone definitions
 

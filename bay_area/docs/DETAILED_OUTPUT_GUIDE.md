@@ -48,7 +48,7 @@ PopulationSim Engine → Raw Outputs → Post-Processing → Final TM2 Outputs
 ### Critical Success Metrics
 
 **Data Volume**: ~1.4M households, ~3.2M persons for complete Bay Area  
-**Geographic Coverage**: 39,586 MAZ zones, 4,734 TAZ zones, 9 counties  
+**Geographic Coverage**: 41,434 MAZ zones, 5,117 TAZ zones, 9 counties  
 **Quality Standards**: >95% control matching accuracy, <5% demographic deviation  
 **Format Compliance**: TM2 schema requirements, ActivitySim compatibility
 
@@ -72,9 +72,9 @@ Contains household-level characteristics including location, income, size, and s
 |--------|------|-------------|--------------|---------|-------------------|
 | `HHID` | Integer | Unique household ID | 1 - 1,400,000 | HouseholdDataManager | Primary key, must be unique across all households |
 | `TAZ_NODE` | Integer | TAZ of residence | 1 - 1,454 | HouseholdDataManager | Traffic Analysis Zone (1454 zones in Bay Area) |
-| `MAZ_NODE` | Integer | MAZ of residence | 1 - 39,586 | HouseholdDataManager | Micro Analysis Zone (more detailed than TAZ) |
-| `MAZ_SEQ` | Integer | Sequential MAZ ID | 1 - 39,586 | HouseholdDataManager | Index mapping |
-| `TAZ_SEQ` | Integer | Sequential TAZ ID | 1 - 4,734 | HouseholdDataManager | Index mapping |
+| `MAZ_NODE` | Integer | MAZ of residence | 1 - 41,434 | HouseholdDataManager | Micro Analysis Zone (more detailed than TAZ) |
+| `MAZ_SEQ` | Integer | Sequential MAZ ID | 1 - 41,434 | HouseholdDataManager | Index mapping |
+| `TAZ_SEQ` | Integer | Sequential TAZ ID | 1 - 5,117 | HouseholdDataManager | Index mapping |
 | `TAZ_ORIGINAL` | Integer | Pre-remapping TAZ | Historical | HouseholdDataManager | Version control |
 | `MAZ_ORIGINAL` | Integer | Pre-remapping MAZ | Historical | HouseholdDataManager | Version control |
 | `MTCCountyID` | Integer | County of residence | 1 - 9 | HouseholdDataManager | MTC county identifier code |
@@ -296,7 +296,7 @@ Current school attendance level:
 #### TAZ-Level Summary
 
 **File**: `final_summary_TAZ_NODE.csv`  
-**Record Count**: ~4,734 TAZ zones  
+**Record Count**: ~5,117 TAZ zones  
 **Purpose**: TAZ-level control matching and convergence statistics
 
 **Key Metrics**:
@@ -419,7 +419,7 @@ Current school attendance level:
 
 **Specifications**:
 - Coordinate System: NAD83 California Albers
-- Zone Count: 4,734 TAZ zones
+- Zone Count: 5,117 TAZ zones
 - Join Field: `TAZ_ID` (Integer)
 - Attributes: Zone identifiers, area, perimeter
 

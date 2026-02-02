@@ -14,7 +14,7 @@ This population synthesizer creates realistic household and person records for t
 ### Key Features
 
 - **Geographic Resolution**: County → TAZ → MAZ (Micro Analysis Zones)
-- **Population**: ~2.5M households, ~7.5M persons across 4,735 TAZs
+- **Population**: 2,958,470 households, 7,563,557 persons across 5,117 TAZs
 - **Data Source**: 2023 5-year American Community Survey PUMS
 - **Controls**: Household size, workers, income, age, occupation, group quarters
 
@@ -75,10 +75,10 @@ Marginal Controls → PopulationSim → Synthetic Population
 ### Geographic Framework
 
 - **Region**: 9-county San Francisco Bay Area
-- **Counties**: SF, San Mateo, Santa Clara, Alameda, Contra Costa, Solano, Napa, Sonoma, Marin
-- **TAZs**: 4,735 Traffic Analysis Zones
-- **MAZs**: 39,587 Micro Analysis Zones
-- **PUMAs**: 104 Public Use Microdata Areas
+- **Counties**: San Francisco, San Mateo, Santa Clara, Alameda, Contra Costa, Solano, Napa, Sonoma, Marin
+- **TAZs**: 5,117 Traffic Analysis Zones
+- **MAZs**: 41,434 Micro Analysis Zones
+- **PUMAs**: 62 Public Use Microdata Areas
 
 ### Exact Controls Used
 
