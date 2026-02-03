@@ -2950,7 +2950,7 @@ def create_maz_hhgq_controls(maz_file, logger):
         logger.warning("No non-institutional GQ data - using zeros")
     
     # Filter to only include columns defined in controls.csv
-    required_maz_columns = ['MAZ_NODE', 'numhh', 'numhh_gq', 'gq_type_univ', 'gq_type_noninst']
+    required_maz_columns = ['MAZ_NODE', 'numhh', 'numhh_gq', 'total_pop', 'gq_type_univ', 'gq_type_noninst']
     
     # Map MAZ to MAZ_NODE for output consistency
     if 'MAZ' in maz_df.columns and 'MAZ_NODE' not in maz_df.columns:
@@ -3049,7 +3049,8 @@ def create_hhgq_integrated_files(logger):
         
         # Process MAZ controls  
         # First, check if we have the HHGQ file with old person-level GQ structure
-        maz_hhgq_file = maz_input.replace('.csv', '_hhgq.csv')
+        # Use the input file directly if it already has _hhgq suffix, otherwise add it
+        maz_hhgq_file = maz_input if '_hhgq.csv' in maz_input else maz_input.replace('.csv', '_hhgq.csv')
         
         if os.path.exists(maz_hhgq_file):
             logger.info(f"Processing MAZ HHGQ controls: {maz_hhgq_file}")
@@ -3161,7 +3162,7 @@ def create_hhgq_integrated_files(logger):
         
         # Filter to only include columns used as PopulationSim controls
         # Based on controls.csv: numhh, numhh_gq, gq_type_univ, gq_type_noninst are the MAZ controls used
-        required_columns = ['MAZ_NODE', 'numhh', 'numhh_gq']
+        required_columns = ['MAZ_NODE', 'numhh', 'numhh_gq', 'total_pop']
         optional_control_columns = ['gq_type_univ', 'gq_type_noninst']
         
         # Keep only required columns plus any optional control columns that exist
@@ -3464,6 +3465,145 @@ def enforce_hierarchical_consistency_in_controls(logger):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return False
 
+
+def create_maz_data_files_from_marginals(logger):
+    """
+    Create maz_data.csv and maz_data_withDensity.csv from the 2023 marginals.
+    
+    Takes 2023 Census-based HH and POP from marginals and merges with
+    employment/other data from example 2015 files. New MAZs get 0 for employment.
+    """
+    import pandas as pd
+    import os
+    
+    logger.info("=" * 80)
+    logger.info("CREATING MAZ_DATA FILES FROM 2023 MARGINALS")
+    logger.info("=" * 80)
+    
+    # File paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    marginals_file = os.path.join(PRIMARY_OUTPUT_DIR, "maz_marginals_hhgq.csv")
+    example_maz_data = os.path.join(script_dir, "example_controls_2015", "maz_data_2015.csv")
+    example_maz_density = os.path.join(script_dir, "example_controls_2015", "maz_data_withDensity_2015.csv")
+    output_maz_data = os.path.join(PRIMARY_OUTPUT_DIR, "maz_data.csv")
+    output_maz_density = os.path.join(PRIMARY_OUTPUT_DIR, "maz_data_withDensity.csv")
+    
+    # Check inputs
+    if not os.path.exists(marginals_file):
+        logger.error(f"Marginals file not found: {marginals_file}")
+        return False
+    if not os.path.exists(example_maz_data):
+        logger.error(f"Example maz_data file not found: {example_maz_data}")
+        return False
+        
+    try:
+        # Read 2023 marginals
+        marginals = pd.read_csv(marginals_file)
+        logger.info(f"Read marginals: {len(marginals)} zones, columns: {list(marginals.columns)}")
+        
+        # Get MAZ, HH, and POP columns from marginals
+        maz_col = 'MAZ_NODE' if 'MAZ_NODE' in marginals.columns else 'MAZ'
+        hh_col = 'numhh' if 'numhh' in marginals.columns else 'num_hh'
+        
+        if 'total_pop' not in marginals.columns:
+            logger.error(f"No total_pop in marginals. Available: {list(marginals.columns)}")
+            return False
+        
+        logger.info(f"Marginals: {maz_col}={marginals[maz_col].nunique()} MAZs, HH={marginals[hh_col].sum():,.0f}, POP={marginals['total_pop'].sum():,.0f}")
+        
+        # Read example file (has employment and other fields)
+        example_df = pd.read_csv(example_maz_data)
+        logger.info(f"Read example: {len(example_df)} zones")
+        
+        # Example file uses MAZ_ORIGINAL
+        example_maz_col = 'MAZ_ORIGINAL' if 'MAZ_ORIGINAL' in example_df.columns else 'MAZ'
+        
+        # Create simple lookup from marginals
+        lookup = marginals[[maz_col, hh_col, 'total_pop']].copy()
+        lookup['_MAZ'] = lookup[maz_col].astype(int)
+        lookup['HH_NEW'] = lookup[hh_col].round().astype(int)
+        lookup['POP_NEW'] = lookup['total_pop'].round().astype(int)
+        lookup = lookup[['_MAZ', 'HH_NEW', 'POP_NEW']]
+        
+        # Prepare example for merge
+        example_df['_MAZ'] = example_df[example_maz_col].astype(int)
+        
+        # Outer merge - include all MAZs from both sources
+        merged = lookup.merge(example_df, on='_MAZ', how='left')
+        
+        # Count stats
+        mazs_from_2015 = example_df['_MAZ'].nunique()
+        mazs_from_2023 = lookup['_MAZ'].nunique()
+        new_mazs = merged[example_maz_col].isna().sum()
+        logger.info(f"Merge: 2015 had {mazs_from_2015}, 2023 has {mazs_from_2023}, NEW={new_mazs}")
+        
+        # For new MAZs, set MAZ_ORIGINAL to the MAZ value
+        if new_mazs > 0:
+            merged.loc[merged[example_maz_col].isna(), example_maz_col] = merged.loc[merged[example_maz_col].isna(), '_MAZ']
+            logger.info(f"Filled MAZ_ORIGINAL for {new_mazs} new zones")
+        
+        # Fill NaN numeric columns with 0 (employment, enrollment, etc for new MAZs)
+        for col in merged.columns:
+            if col not in ['_MAZ', 'HH_NEW', 'POP_NEW', example_maz_col] and merged[col].dtype in ['float64', 'int64']:
+                merged[col] = merged[col].fillna(0)
+        
+        # Fill string columns for new MAZs
+        for col in ['DistName', 'CountyName']:
+            if col in merged.columns:
+                merged[col] = merged[col].fillna('Unknown')
+        
+        # Update HH and POP with 2023 values
+        old_hh = merged['HH'].sum() if 'HH' in merged.columns else 0
+        old_pop = merged['POP'].sum() if 'POP' in merged.columns else 0
+        merged['HH'] = merged['HH_NEW'].fillna(0).astype(int)
+        merged['POP'] = merged['POP_NEW'].fillna(0).astype(int)
+        logger.info(f"HH: {old_hh:,.0f} -> {merged['HH'].sum():,.0f}")
+        logger.info(f"POP: {old_pop:,.0f} -> {merged['POP'].sum():,.0f}")
+        
+        # Clean up temp columns
+        merged = merged.drop(columns=['_MAZ', 'HH_NEW', 'POP_NEW'], errors='ignore')
+        
+        # Ensure MAZ_ORIGINAL is first column
+        cols = [example_maz_col] + [c for c in merged.columns if c != example_maz_col]
+        merged = merged[cols]
+        
+        merged.to_csv(output_maz_data, index=False)
+        logger.info(f"Saved: {output_maz_data} ({len(merged)} zones)")
+        
+        # Process density file similarly
+        if os.path.exists(example_maz_density):
+            density_df = pd.read_csv(example_maz_density)
+            density_maz_col = 'MAZ_ORIGINAL' if 'MAZ_ORIGINAL' in density_df.columns else 'MAZ'
+            density_df['_MAZ'] = density_df[density_maz_col].astype(int)
+            
+            merged_d = lookup.merge(density_df, on='_MAZ', how='left')
+            new_d = merged_d[density_maz_col].isna().sum()
+            if new_d > 0:
+                merged_d.loc[merged_d[density_maz_col].isna(), density_maz_col] = merged_d.loc[merged_d[density_maz_col].isna(), '_MAZ']
+            
+            for col in merged_d.columns:
+                if col not in ['_MAZ', 'HH_NEW', 'POP_NEW', density_maz_col] and merged_d[col].dtype in ['float64', 'int64']:
+                    merged_d[col] = merged_d[col].fillna(0)
+            for col in ['DistName', 'CountyName']:
+                if col in merged_d.columns:
+                    merged_d[col] = merged_d[col].fillna('Unknown')
+            
+            merged_d['HH'] = merged_d['HH_NEW'].fillna(0).astype(int)
+            merged_d['POP'] = merged_d['POP_NEW'].fillna(0).astype(int)
+            merged_d = merged_d.drop(columns=['_MAZ', 'HH_NEW', 'POP_NEW'], errors='ignore')
+            cols = [density_maz_col] + [c for c in merged_d.columns if c != density_maz_col]
+            merged_d = merged_d[cols]
+            merged_d.to_csv(output_maz_density, index=False)
+            logger.info(f"Saved: {output_maz_density} ({len(merged_d)} zones)")
+        
+        logger.info("MAZ data files created with 2023 Census HH and POP")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error creating maz_data files: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False
 
 def main():
     
@@ -3773,7 +3913,7 @@ def main():
 
     # Create MAZ data files with updated household and population data
     logger.info("Creating maz_data.csv and maz_data_withDensity.csv files")
-    create_maz_data_files(logger)
+    # create_maz_data_files(logger)  # Disabled - using create_maz_data_files_from_marginals instead
 
     # GROUP QUARTERS INTEGRATION COMPLETED INLINE
     logger.info("Group quarters integration completed during controls generation")
@@ -3856,7 +3996,7 @@ def main():
             hhgq_df['hh_gq_military'] = 0
             
             # Filter to only include columns used as PopulationSim controls (apply same filtering as main creation)
-            required_columns = ['MAZ_NODE', 'numhh', 'numhh_gq']
+            required_columns = ['MAZ_NODE', 'numhh', 'numhh_gq', 'total_pop']
             optional_control_columns = ['gq_type_univ', 'gq_type_noninst', 'gq_type_all', 'hh_gq_other_nonins']
             
             # Keep only required columns plus any optional control columns that exist
@@ -3931,6 +4071,12 @@ def main():
     validation_passed = validate_household_scaling_results(logger)
     
     # GENERATE COMPREHENSIVE SUMMARY REPORT
+
+    # CREATE MAZ_DATA FILES FROM 2023 MARGINALS (Final Step)
+    maz_data_success = create_maz_data_files_from_marginals(logger)
+    if not maz_data_success:
+        logger.warning("Failed to create maz_data files - manual intervention may be needed")
+
     logger.info("\n" + "=" * 80)
     logger.info("GENERATING CONTROLS SUMMARY REPORT")
     logger.info("=" * 80)
@@ -4145,7 +4291,7 @@ def apply_county_scaling_to_maz_hhgq(logger):
     logger.info(f"  Regional scaling factor: {scaled_numhh/original_numhh:.4f}")
     
     # Save the scaled data back (now including both numhh and numhh_gq)
-    output_columns = ['MAZ_NODE', 'numhh', 'numhh_gq'] + [col for col in gq_columns if col in maz_with_county.columns]
+    output_columns = ['MAZ_NODE', 'numhh', 'numhh_gq', 'total_pop'] + [col for col in gq_columns if col in maz_with_county.columns]
     maz_with_county[output_columns].to_csv(maz_hhgq_file, index=False)
     logger.info(f"Saved scaled MAZ HHGQ file: {maz_hhgq_file}")
     
