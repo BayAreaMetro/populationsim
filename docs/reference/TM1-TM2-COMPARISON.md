@@ -150,14 +150,14 @@ MAZ_NODE,TAZ_NODE,COUNTY,county_name,PUMA,...
 
 | Control | Description |
 |---------|-------------|
-| `inc_lt_20k` | Income <$20k (**2023$**) |
-| `inc_20k_45k` | Income $20-45k (**2023$**) |
-| `inc_45k_60k` | Income $45-60k (**2023$**) |
-| `inc_60k_75k` | Income $60-75k (**2023$**) |
-| `inc_75k_100k` | Income $75-100k (**2023$**) |
-| `inc_100k_150k` | Income $100-150k (**2023$**) |
-| `inc_150k_200k` | Income $150-200k (**2023$**) |
-| `inc_200k_plus` | Income >$200k (**2023$**) |
+| `inc_lt_20k` | Income <$20k (**2010$**) |
+| `inc_20k_45k` | Income $20-45k (**2010$**) |
+| `inc_45k_60k` | Income $45-60k (**2010$**) |
+| `inc_60k_75k` | Income $60-75k (**2010$**) |
+| `inc_75k_100k` | Income $75-100k (**2010$**) |
+| `inc_100k_150k` | Income $100-150k (**2010$**) |
+| `inc_150k_200k` | Income $150-200k (**2010$**) |
+| `inc_200k_plus` | Income >$200k (**2010$**) |
 | `hh_wrks_0` through `hh_wrks_3_plus` | Workers in household |
 | `pers_age_00_19` | Persons age 0-19 |
 | `pers_age_20_34` | Persons age 20-34 |
@@ -183,7 +183,7 @@ MAZ_NODE,TAZ_NODE,COUNTY,county_name,PUMA,...
 | Aspect | TM1 | TM2 |
 |--------|-----|-----|
 | **Finest Geography** | TAZ | MAZ |
-| **Income Bins** | 4 bins ($30k, $60k, $100k) in 2000$ | 8 bins (aligned to ACS B19001) in 2023$ |
+| **Income Bins** | 4 bins ($30k, $60k, $100k) in 2000$ | 8 bins (aligned to ACS B19001) in 2010$ |
 | **Age Bins** | 0-4, 5-19, 20-44, 45-64, 65+ | 0-19, 20-34, 35-64, 65+ |
 | **Household Size** | At TAZ | At TAZ (moved from MAZ) |
 | **Children** | Not controlled | `hh_kids_yes/no` at TAZ |
@@ -388,31 +388,7 @@ Both models use PUMS data, but with different processing:
 
 ---
 
-## 7. Questions for Stakeholders
-
-Before proceeding with refactoring, these questions need answers:
-
-### Geography
-1. **TM1 TAZ Definition:** What is the source of TM1's ~1,454 TAZs? Are they a subset of TM2's TAZs, or an entirely different geography?
-2. **Cross-Model Consistency:** Should TM1 TAZs be compatible with TM2 TAZ aggregation (i.e., some MAZs aggregate to each TAZ)?
-
-### Controls
-3. **TM1 Income Bins:** Should TM1 income bins remain in 2000 dollars, or be updated to 2023 dollars with different breakpoints?
-4. **TM1 Age Bins:** The current 0-4, 5-19, 20-44, 45-64, 65+ bins differ from TM2. Is this intentional?
-5. **Children Control:** Should TM1 add `hh_kids_yes/no` controls like TM2?
-6. **Occupation Controls:** TM1 has occupation controls commented out. Should they be enabled?
-
-### Outputs
-7. **Person Type:** TM1 uses a full 8-category person type. TM2 uses a simpler classification. Which should be standardized?
-8. **Poverty Calculations:** TM1 adds poverty income fields. Should TM2 also include these?
-
-### Process
-9. **Unified Codebase:** Is the goal a single codebase with `--model_type TM1|TM2` switch, or separate branches?
-10. **Testing:** What validation metrics should be used to verify TM1 output matches historical expectations?
-
----
-
-## 8. Refactoring Tradeoff Analysis
+## 7. Refactoring Tradeoff Analysis
 
 ### 8.1 When Unification is Worth It
 
@@ -446,40 +422,54 @@ Before proceeding with refactoring, these questions need answers:
 
 ### 8.3 Code Sharing Assessment
 
-**Shareable components (~40-50%):**
-- Census API fetching (`census_fetcher.py`)
-- ACS table definitions (`CENSUS_DEFINITIONS`)
-- PUMS download and processing (with dollar-year adjustments)
-- Some postprocessing logic
+**Honest Assessment: TM2 is More Complex, Not Better**
 
-**Non-shareable components (~50-60%):**
-- Control generation (TAZ-only vs MAZ→TAZ→COUNTY hierarchy)
-- Geographic crosswalks (completely different structures)
-- Control variable sets (different income bins, age bins)
-- Output column mappings (different dollar years, person type definitions)
+After detailed code review, TM2's code is **more complex**, not **better**. Almost all the "improvements" exist because TM2 has harder problems to solve (MAZ hierarchy, multi-level controls, 2020→2010 Census geography crosswalking).
 
-### 8.4 Recommendation: Lighter-Weight Approach
+**Components Analysis:**
 
-Rather than full refactoring, a more pragmatic approach:
+| TM2 Component | Worth Porting? | Why/Why Not |
+|---------------|----------------|-------------|
+| `census_fetcher.py` rate limiting | **Maybe** | 100ms delay between requests. Nice but trivial to add inline if needed |
+| Error types (`CensusApiException`) | **No** | Over-engineering for a script that runs once per model year |
+| Cached file parsing (`_parse_acs1_format`, etc.) | **No** | Adds 150+ lines of complexity. TM1's simple `read_csv` with skiprows works fine |
+| `analysis/` folder (25+ scripts) | **No** | These are TM2-specific validation scripts for MAZ-level results |
+| Pipeline orchestration (`tm2_pipeline.py`) | **No** | Adds complexity TM1 doesn't need |
+| `geog_utils.py` | **No** | 2020→2010 census geography crosswalking—TM1 already has what it needs |
+| ACS table definitions | **No** | TM1 and TM2 use different income/age bins—can't share definitions |
 
-1. **Extract shared utilities** into a common module both branches can use:
-   - Census API client
-   - CPI conversion factors  
-   - PUMS download/processing
+**What TM1 would gain from porting TM2 code:**
+- More lines of code to maintain
+- More dependencies
+- More abstraction layers
 
-2. **Keep TM1 and TM2 as separate control generation paths** but using shared utilities
+...without any improvement in output quality.
 
-3. **Don't try to unify what's fundamentally different** (geography, control variables)
+**The ONLY thing worth sharing:** If TM2 has fixed a specific Census API bug (e.g., handling `"N/A"` values or malformed responses), copy that 5-line fix. Otherwise, leave TM1 alone—it's simpler and works.
 
-**Benefit:** ~30-40% of unification benefit for ~20% of the effort.
+### 8.4 Recommendation: Leave TM1 Alone
+
+**Don't port TM2 code to TM1.**
+
+TM2's additional complexity exists to solve TM2-specific problems that TM1 doesn't have:
+- MAZ-level synthesis hierarchy
+- Multi-level control consistency
+- 2020→2010 Census geography mapping
+- More granular income/age bins requiring more complex ACS processing
+
+TM1's approach is **simpler and battle-tested**. The best refactoring is no refactoring.
+
+**Exception:** If you discover a specific Census API bug fix in TM2 (e.g., handling malformed responses), copy that targeted fix to TM1. These are typically 5-10 line changes, not architectural refactors.
 
 ### 8.5 Bottom Line
 
-Unless TM1 has at least 3+ years of active use ahead AND the current 2023 data quality is problematic, **full unification is likely not worth the investment**. The geographic and control differences are substantial enough that much of the code cannot be meaningfully shared.
+**TM1 should be left alone.** The geographic and control differences mean TM2's code complexity would provide no value to TM1. TM2 is more complex because it solves more complex problems (MAZ hierarchy, multi-level controls, more granular bins). TM1 is simpler, battle-tested, and works.
+
+Refactoring TM1 to "look like" TM2 would be adding complexity without improving output quality or maintainability.
 
 ---
 
-## 9. Proposed Exploration Tasks
+## 8. Proposed Exploration Tasks
 
 ### Phase 1: Deep Dive (This Document)
 - [x] Document geographic differences
@@ -509,7 +499,7 @@ Unless TM1 has at least 3+ years of active use ahead AND the current 2023 data q
 
 ---
 
-## 10. Files to Review
+## 9. Files to Review
 
 ### TM1 (master branch)
 - `bay_area/create_baseyear_controls.py` - Control generation logic
@@ -531,7 +521,7 @@ Unless TM1 has at least 3+ years of active use ahead AND the current 2023 data q
 
 ### B19001 - Household Income (TM2 Mapping)
 
-| Control | ACS Variables | 2023$ Range |
+| Control | ACS Variables | 2010$ Range |
 |---------|---------------|-------------|
 | `inc_lt_20k` | B19001_002E, 003E, 004E | $0-19,999 |
 | `inc_20k_45k` | B19001_005E, 006E, 007E, 008E, 009E | $20,000-44,999 |
