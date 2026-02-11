@@ -89,6 +89,12 @@
 ├─📂 Reference (/reference/)
 │   │   Detailed Technical Documentation (350-550 lines each)
 │   │
+│   ├─ 📄 TM1 vs TM2 Comparison (TM1-TM2-COMPARISON.md) ⭐ NEW
+│   │   • Geographic structure differences
+│   │   • Control variable comparison
+│   │   • Output format differences
+│   │   • Refactoring tradeoff analysis
+│   │
 │   ├─ 📄 TM2 Full Reference (TM2_FULL_REFERENCE.md)
 │   ├─ 📄 Detailed Output Guide (DETAILED_OUTPUT_GUIDE.md)
 │   ├─ 📄 Detailed Synthesis Guide (DETAILED_SYNTHESIS_GUIDE.md)

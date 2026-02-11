@@ -57,6 +57,14 @@ This population synthesizer creates realistic household and person records for t
       <li><a href="outputs/taz-summaries.html">TAZ Summaries</a></li>
     </ul>
   </div>
+  
+  <div class="nav-card">
+    <h3>📚 Reference</h3>
+    <ul>
+      <li><a href="reference/TM1-TM2-COMPARISON.html">TM1 vs TM2 Comparison</a></li>
+      <li><a href="reference/TM2_FULL_REFERENCE.html">TM2 Full Reference</a></li>
+    </ul>
+  </div>
 </div>
 
 ---
