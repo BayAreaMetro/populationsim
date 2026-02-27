@@ -1,119 +1,77 @@
-# PopulationSim Regular Households vs Group Quarters Separation Project
+# Group Quarters Handling in the PopulationSim Pipeline
 
 ## Overview
 
-This document outlines a comprehensive approach to properly separate regular households from group quarters (GQ) population throughout the PopulationSim pipeline, ensuring accurate demographic controls and synthesis results.
+The pipeline uses a **single unified process** for both regular households and non-institutional
+group quarters (GQ) persons. Because person totals in TM2 include both household persons and
+non-institutional GQ persons, running them through a single PopulationSim pass is simpler and
+keeps control totals internally consistent.
 
-## Background
-
-### Current Issue
-The existing PopulationSim implementation mixes regular households with group quarters in household-level controls, leading to:
-- Inconsistent control totals where household size categories don't sum properly
-- Group quarters persons being counted as "1-person households" 
-- Difficulty in separating regular household demographics from institutional populations
-- Confusion in downstream analysis and validation
-
-### ACS Definition Context
-- **Household**: "All the people who occupy a housing unit" (excludes GQ)
-- **Group Quarters**: Dormitories, nursing homes, military barracks, correctional facilities, etc.
-- **Key Principle**: GQ populations should be tracked separately from conventional households
-
-## Proposed Solution Architecture
-
-### Core Principles
-1. **Separate Control Targets**: Create distinct control totals for regular households (`numhh`) vs total including GQ (`numhh_gq`)
-2. **Clean Household Controls**: All household-level demographic controls (size, income, workers, children) apply only to regular households (`hhgqtype==0`)
-3. **Separate GQ Tracking**: Group quarters population controlled and synthesized independently
-4. **Proper Factoring**: Household size categories sum to regular household total, not GQ-inclusive total
-5. **Separate Summaries**: Downstream analysis treats regular households and GQ as distinct populations
-
-### Geographic Control Structure
-- **MAZ Level**: 
-  - `numhh_gq` (total household records including GQ)
-  - `numhh` (regular households only - NEW)
-  - GQ person counts by type (university, non-institutional)
-- **TAZ Level**: 
-  - All household demographic controls (size, income, workers, children) for regular households only
-  - Person-level controls (age, occupation) for all population
-- **County Level**: 
-  - Employment/occupation controls for all working population
-
-## Implementation Plan (10 Steps)
-
-### Step 1: Documentation ✓
-Document the approach, rationale, and implementation plan in `docs/household_gq_separation.md`
-
-### Step 2: Control Generation - Add numhh Target
-- Modify `create_baseyear_controls.py` to create `numhh` control at MAZ level
-- Ensure `numhh` represents only regular households (`hhgqtype==0`)
-- Validate that `numhh + gq_persons = numhh_gq`
-
-### Step 3: Control Generation - Update TAZ Household Controls  
-- Add `& (households.hhgqtype==0)` to all household-level control expressions
-- Ensure factoring targets sum to `numhh` not `numhh_gq`
-- Update required column lists and validation
-
-### Step 4: Update controls.csv Configuration
-- Add new `numhh` target with proper expression
-- Update all household-level target expressions to exclude GQ
-- Validate expression syntax and logic
-
-### Step 5: MAZ Marginals File Updates
-- Generate updated `maz_marginals_hhgq.csv` with `numhh` column
-- Ensure GQ person counts are accurate and separate
-- Validate control totals balance correctly
-
-### Step 6: TAZ Marginals File Updates  
-- Regenerate `taz_marginals_hhgq.csv` with clean household controls
-- Remove `hh_size_1_gq` concept, use pure `hh_size_1` for regular households
-- Ensure all household categories sum to proper totals
-
-### Step 7: PopulationSim Configuration Testing
-- Test synthesis with updated control files
-- Validate that factoring works correctly
-- Check that household size categories sum properly
-- Verify GQ population is handled appropriately
-
-### Step 8: Update Summary Scripts
-- Modify scripts in `run_all_summaries.py` to handle separated populations
-- Create separate summaries for regular households vs GQ
-- Update validation and comparison scripts
-
-### Step 9: Update Analysis and Visualization
-- Modify `create_marginal_controls_visualizations.py` for new structure
-- Update validation dashboards and reports
-- Ensure documentation reflects new approach
-
-### Step 10: Testing and Validation
-- Run full synthesis with new controls
-- Compare results against Census/ACS benchmarks
-- Validate that regular household demographics are accurate
-- Confirm GQ population tracking is correct
-
-## Expected Benefits
-
-1. **Accurate Control Totals**: Household size categories will sum to correct regular household totals
-2. **Clean Demographics**: Household income, size, worker distributions will reflect actual households, not GQ-contaminated data
-3. **Separate GQ Analysis**: Group quarters population can be analyzed independently
-4. **Better Validation**: Easier to validate against Census/ACS household vs GQ statistics
-5. **Clearer Documentation**: Unambiguous separation between population types
-
-## Risk Mitigation
-
-- **Backwards Compatibility**: Maintain `numhh_gq` for existing validation scripts
-- **Incremental Testing**: Test each step independently before proceeding
-- **Documentation**: Clear documentation of changes for future maintenance
-- **Validation**: Extensive validation against known benchmarks at each step
-
-## Next Steps
-
-1. **Get Approval**: Review this approach with project stakeholders
-2. **Begin Step 2**: Implement `numhh` control generation in MAZ controls
-3. **Iterative Development**: Complete each step with validation before proceeding
+A single PopulationSim run means:
+- All person records come out of one synthesis step
+- Control totals are internally consistent by construction
+- The `hhgqtype` field on each record already carries the information needed to distinguish
+  regular households from GQ in any downstream analysis
 
 ---
 
-*Document created: October 29, 2025*  
-*Author: PopulationSim Bay Area Team*  
-*Status: Step 1 Complete - Awaiting approval to proceed*
+## `hhgqtype` Values
+
+| `hhgqtype` | Meaning |
+|---|---|
+| `0` | Regular household (`TYPEHUGQ == 1`) |
+| `1` | University / college GQ (noninstitutional, identified by college enrollment `SCHG 15–16`) |
+| `2` | Military barracks, group homes, and other noninstitutional GQ |
+
+Institutional GQ (`TYPEHUGQ == 2`: nursing homes, correctional facilities, etc.) are **excluded
+from the seed entirely** and never synthesized.
+
+---
+
+## Implementation Details
+
+### 1. Seed Population (`create_seed_population.py`)
+
+**Household-level pass** — `_create_group_quarters_type()`:
+
+1. All records with `TYPEHUGQ == 2` (institutional GQ) are dropped.
+2. All remaining noninstitutional GQ records (`TYPEHUGQ == 3`) are assigned `hhgqtype = 2`
+   as a placeholder.
+3. Regular housing units (`TYPEHUGQ == 1`) are assigned `hhgqtype = 0`.
+
+**Person-level refinement** — done during person processing:
+
+- Persons in a GQ household who are enrolled in college (`SCHG` 15 or 16) are reclassified to
+  `hhgqtype = 1` (university GQ).
+- All other noninstitutional GQ persons remain `hhgqtype = 2`.
+
+This two-pass design is necessary because university GQ identification requires person-level
+enrollment data that is not available at the household record level.
+
+### 2. Controls (`create_baseyear_controls.py`)
+
+Three GQ-related controls are generated:
+
+| Control | Geography | Covers |
+|---|---|---|
+| `numhh_gq` | MAZ | All synthesized household records, including noninstitutional GQ units |
+| `numhh` | MAZ | Regular households only (`hhgqtype == 0`) |
+| `gq_pop_region` | Region | Non-institutional GQ persons (soft constraint; ~85% of ACS total to exclude institutional) |
+
+Household-level demographic controls (size, income, workers, children) are computed against
+`numhh` (regular households only). Person-level controls (age, occupation) apply to the full
+synthesized population, including GQ persons.
+
+### 3. Post-processing (`postprocess_recode.py`)
+
+Both synthetic households and synthetic persons come out of a single PopulationSim run.
+`postprocess_recode.py` recodes and renames columns and writes:
+
+- `synthetic_households_recoded.csv` — all household-type records (including GQ units)
+- `synthetic_persons_recoded.csv` — all persons; `hhgqtype` is preserved so downstream
+  tools can filter to regular-household persons or GQ persons as needed
+
+---
+
+*Last updated: February 2026*
 
