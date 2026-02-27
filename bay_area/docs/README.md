@@ -33,7 +33,7 @@
 
 ### Specialized Guides
 - **[Income Documentation](README_INCOME.md)** - Income field handling
-- **[Household/GQ Separation](household_gq_separation.md)** - Group quarters methodology
+- **[Group Quarters](group_quarters.md)** - Group quarters methodology
 - **[File Flow](FILE_FLOW.md)** - Data flow through pipeline
 
 ## Current Status (February 2026)

@@ -1,28 +1,13 @@
 # Group Quarters Handling in the PopulationSim Pipeline
 
-## Decision Summary
+## Overview
 
-A proposal was drafted in October 2025 to implement a fully separated GQ/household pipeline
-(10-step plan). After review, the team decided **not to proceed** with that approach. Instead
-the pipeline uses a **single unified process** for both regular households and non-institutional
-group quarters (GQ) persons.
+The pipeline uses a **single unified process** for both regular households and non-institutional
+group quarters (GQ) persons. Because person totals in TM2 include both household persons and
+non-institutional GQ persons, running them through a single PopulationSim pass is simpler and
+keeps control totals internally consistent.
 
-This document explains the rationale for that decision and how GQ are currently handled.
-
----
-
-## Why a Unified Process
-
-The core reason the 10-step separation plan was not adopted is that **person totals in TM2
-already include both household persons and non-institutional GQ persons**. Splitting synthesis
-into two separate passes would have created:
-
-- Redundant complexity with no modeling benefit — both populations flow through the same
-  PopulationSim machinery
-- Synchronization problems when joining the two output streams
-- An additional failure point every run
-
-Keeping everything in a single PopulationSim run means:
+A single PopulationSim run means:
 - All person records come out of one synthesis step
 - Control totals are internally consistent by construction
 - The `hhgqtype` field on each record already carries the information needed to distinguish
@@ -81,18 +66,5 @@ TM1 functionality is a known open issue.
 
 ---
 
-## What Happened to the October 2025 Separation Proposal
-
-The 10-step plan ("Status: Step 1 Complete - Awaiting approval to proceed") was:
-
-1. Documented (Step 1) ✓
-2. Reviewed with stakeholders
-3. **Not approved for implementation** — the unified approach was chosen instead
-
-The old proposal document is preserved in version control history if needed for reference.
-
----
-
-*Last updated: February 2026*  
-*Decision: Unified single-process pipeline adopted; separation proposal superseded*
+*Last updated: February 2026*
 
