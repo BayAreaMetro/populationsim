@@ -15,38 +15,57 @@ A single PopulationSim run means:
 
 ---
 
-## How GQ is Currently Handled
-
-### Seed Population (`create_seed_population.py`)
-
-PUMS records are read as a single file. The `_create_group_quarters_type()` method assigns
-`hhgqtype` values:
+## `hhgqtype` Values
 
 | `hhgqtype` | Meaning |
 |---|---|
 | `0` | Regular household (`TYPEHUGQ == 1`) |
-| `2` | Non-institutional GQ (university, student housing, etc.) |
+| `1` | University / college GQ (noninstitutional, identified by college enrollment `SCHG 15–16`) |
+| `2` | Military barracks, group homes, and other noninstitutional GQ |
 
-Institutional GQ (military, nursing homes, correctional) are **excluded** from the seed
-entirely so that PopulationSim does not synthesize them.
+Institutional GQ (`TYPEHUGQ == 2`: nursing homes, correctional facilities, etc.) are **excluded
+from the seed entirely** and never synthesized.
 
-### Controls (`create_baseyear_controls.py`)
+---
 
-- `numhh_gq` — total household-record count including non-institutional GQ units (MAZ-level
-  marginal control)
-- `numhh` — regular households only (`hhgqtype == 0`), used where HH-specific demographic
-  controls (size, income, workers, children) are needed
-- `gq_pop_region` — regional non-institutional GQ person total (used as a soft constraint)
+## Implementation Details
 
-Household-level demographic controls (size, income, workers, children) in the TAZ controls
-file apply to regular households; person-level controls (age, occupation) apply to the full
-synthesized population including GQ persons.
+### 1. Seed Population (`create_seed_population.py`)
 
-### Post-processing (`postprocess_recode.py`)
+**Household-level pass** — `_create_group_quarters_type()`:
+
+1. All records with `TYPEHUGQ == 2` (institutional GQ) are dropped.
+2. All remaining noninstitutional GQ records (`TYPEHUGQ == 3`) are assigned `hhgqtype = 2`
+   as a placeholder.
+3. Regular housing units (`TYPEHUGQ == 1`) are assigned `hhgqtype = 0`.
+
+**Person-level refinement** — done during person processing:
+
+- Persons in a GQ household who are enrolled in college (`SCHG` 15 or 16) are reclassified to
+  `hhgqtype = 1` (university GQ).
+- All other noninstitutional GQ persons remain `hhgqtype = 2`.
+
+This two-pass design is necessary because university GQ identification requires person-level
+enrollment data that is not available at the household record level.
+
+### 2. Controls (`create_baseyear_controls.py`)
+
+Three GQ-related controls are generated:
+
+| Control | Geography | Covers |
+|---|---|---|
+| `numhh_gq` | MAZ | All synthesized household records, including noninstitutional GQ units |
+| `numhh` | MAZ | Regular households only (`hhgqtype == 0`) |
+| `gq_pop_region` | Region | Non-institutional GQ persons (soft constraint; ~85% of ACS total to exclude institutional) |
+
+Household-level demographic controls (size, income, workers, children) are computed against
+`numhh` (regular households only). Person-level controls (age, occupation) apply to the full
+synthesized population, including GQ persons.
+
+### 3. Post-processing (`postprocess_recode.py`)
 
 Both synthetic households and synthetic persons come out of a single PopulationSim run.
-`postprocess_recode.py` recodes and renames columns for the target model (TM1 or TM2) and
-writes:
+`postprocess_recode.py` recodes and renames columns and writes:
 
 - `synthetic_households_recoded.csv` — all household-type records (including GQ units)
 - `synthetic_persons_recoded.csv` — all persons; `hhgqtype` is preserved so downstream
@@ -54,17 +73,6 @@ writes:
 
 ---
 
-## TM1 vs TM2 Compatibility
-
-The current `tm2` branch uses the unified approach described above and is **not backward
-compatible** with the old TM1 separated pipeline (which used a separate `hh_gq/` directory
-structure). The `postprocess_recode.py` script retains a `TM1` output-column mapping but the
-input data path assumptions differ between the two model versions.
-
-Reconciling the two branches so `tm2` changes can be merged into `develop` without breaking
-TM1 functionality is a known open issue.
-
----
-
 *Last updated: February 2026*
+
 
