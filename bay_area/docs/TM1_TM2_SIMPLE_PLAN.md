@@ -39,90 +39,77 @@ We have two branches that have diverged:
 
 ---
 
-## What Is Missing from `tm2`
+## Gaps Checklist
 
-| Gap | What's missing | Fix |
-|-----|---------------|-----|
-| G1 | `add_hhgq_combined_controls.py` | Cherry-pick from `master` |
-| G2 | `hh_gq/configs_TM1/` directory | Cherry-pick from `master` |
-| G3 | `geo_cross_walk_tm1.csv` | Cherry-pick from `master` |
-| G4 | PUMA vintage mismatch (PUMS uses 2020 codes; TM1 crosswalk uses 2000 codes) | **Team decision required** — see options below |
-| G5 | `tm2_pipeline.py` has no `--model_type` argument | Write new code |
-| G6 | `run_all_summaries.py` will crash on TM1 (hardcoded TM2 filenames) | Small fixes required |
+- [x] **G1** `add_hhgq_combined_controls.py` — cherry-picked from `master` *(commit fd124cd)*
+- [x] **G2** `hh_gq/configs_TM1/` directory — cherry-picked from `master` *(commit fd124cd)*
+- [x] **G3** `geo_cross_walk_tm1.csv` — cherry-picked from `master` *(commit fd124cd)*
+- [ ] **G4** PUMA vintage mismatch — team decision required (see below)
+- [ ] **G5** `tm2_pipeline.py` has no `--model_type` argument — needs new code
+- [ ] **G6** `run_all_summaries.py` hardcodes TM2 filenames — small fixes needed
 
 ---
 
 ## G4 — The One Design Decision
 
-The `tm2` branch PUMS uses 2020-vintage PUMA codes. The TM1 crosswalk from `master` uses 2000-vintage PUMA codes. These are incompatible, and the mismatch is not just a format difference — **PUMA is the `seed_geography` in the TM1 PopulationSim config** (`geographies: [COUNTY, PUMA, TAZ]`, `seed_geography: PUMA`). PopulationSim uses PUMA codes to match each seed household to eligible TAZs; a vintage mismatch means households cannot be placed.
+The `tm2` branch PUMS uses 2020-vintage PUMA codes. The TM1 crosswalk from `master` uses 2000-vintage PUMA codes. These are incompatible, and the mismatch is not just a format difference — **PUMA is the `seed_geography`** in the TM1 PopulationSim config (`geographies: [COUNTY, PUMA, TAZ]`, `seed_geography: PUMA`). PopulationSim matches seed households to TAZs by PUMA code; a vintage mismatch means households cannot be placed.
 
-Note: `master` itself already has a latent mismatch — its crosswalk uses 2000-vintage codes but the 2017–2021 PUMS it reads uses 2010-vintage codes. This may not have caused obvious failures if Bay Area boundaries changed little, but the shift to 2020-vintage PUMAs on the `tm2` branch is more substantial.
-
-**Three options:**
+Note: `master` itself already has a latent mismatch — its crosswalk uses 2000-vintage codes but its 2017–2021 PUMS uses 2010-vintage codes. The shift to 2020-vintage PUMAs on the `tm2` branch is more substantial.
 
 | Option | What it means | Best for |
 |--------|--------------|----------|
-| **A — Download older PUMS** | Add a 2017–2021 PUMS download step for TM1 (uses 2010-vintage PUMA codes, matching the TM1 crosswalk) | Any base year including 2015; most accurate |
-| **B — Rebuild crosswalk** | Create a new TM1 crosswalk using 2020 PUMA boundaries (GIS work); keep using the 2019–2023 PUMS | 2023 base year only — **not valid for 2015** |
+| **A — Download older PUMS** | Use 2017–2021 PUMS for TM1 (2010-vintage PUMA codes, matching the crosswalk) | Any base year including 2015; most accurate |
+| **B — Rebuild crosswalk** | Create new TM1 crosswalk from 2020 PUMA boundaries (GIS work); keep 2019–2023 PUMS | 2023 base year only — **not valid for 2015** |
 
-**This decision gates Phase 3 and 4 below.**
-
----
-
-## Implementation Phases
-
-### ✅ Phase 1 — Cherry-pick files from `master`  (complete)
-
-```bash
-git checkout master -- bay_area/hh_gq/configs_TM1
-git checkout master -- bay_area/hh_gq/data/geo_cross_walk_tm1.csv
-git checkout master -- bay_area/hh_gq/data/geo_cross_walk_tm2.csv
-```
-
-Verify PUMA codes in `geo_cross_walk_tm1.csv` look like 2000-vintage short codes (e.g. `7503`, `02204`).
+**This decision must be made before Phase 4 can begin.**
 
 ---
 
-### ✅ Phase 2 — Port `add_hhgq_combined_controls.py`  (complete)
+## Implementation Checklist
 
-```bash
-git checkout master -- bay_area/add_hhgq_combined_controls.py
-```
+### ✅ Phase 1 — Cherry-pick files from `master`
 
-Test: `python add_hhgq_combined_controls.py --model_type TM1` using a real `taz_summaries.csv` from `travel-model-one`.
+- [x] `git checkout master -- bay_area/hh_gq/configs_TM1`
+- [x] `git checkout master -- bay_area/hh_gq/data/geo_cross_walk_tm1.csv`
+- [x] `git checkout master -- bay_area/hh_gq/data/geo_cross_walk_tm2.csv`
+- [x] Verified PUMA codes in `geo_cross_walk_tm1.csv` are 2000-vintage short format (e.g. `7503`)
 
----
+### ✅ Phase 2 — Port `add_hhgq_combined_controls.py`
 
-### Phase 3 — Make the PUMA vintage decision (G4)
+- [x] `git checkout master -- bay_area/add_hhgq_combined_controls.py`
+- [x] Tested: `python add_hhgq_combined_controls.py --model_type TM1` with 2023 TAZ controls
+- [x] Verified `numhh_gq = TOTHH + gq_tot_pop` and `hh_size_1_gq = hh_size_1 + gq_tot_pop` correct
 
-Team discussion. Pick Option A or B above. This determines how `create_seed_population.py` is called for TM1.
+### Phase 3 — Make the PUMA vintage decision *(blocked — team decision)*
 
----
+- [ ] Team picks Option A or B above
+- [ ] Decision recorded here: **_____**
 
-### Phase 4 — Wire `--model_type` into `tm2_pipeline.py`
+### Phase 4 — Wire `--model_type` into `tm2_pipeline.py` *(blocked on Phase 3)*
 
-Add `--model_type TM1|TM2` argument. Key logic changes:
+- [ ] Add `--model_type TM1|TM2` argument to `tm2_pipeline.py`
+- [ ] TM1 path: skip `create_baseyear_controls.py`; validate `taz_summaries.csv` exists
+- [ ] TM1 path: call `add_hhgq_combined_controls.py --model_type TM1`
+- [ ] TM1 path: use `hh_gq/configs_TM1` for PopulationSim
+- [ ] Pass `--model_type` through to `postprocess_recode.py`
+- [ ] Pass `--model_type` through to `run_all_summaries.py`
+- [ ] Fix `run_all_summaries.py` to skip MAZ-only scripts when `--model_type TM1`
+- [ ] Handle seed population PUMA vintage per Phase 3 decision
 
-- **TM1:** skip `create_baseyear_controls.py`; validate `taz_summaries.csv` exists; call `add_hhgq_combined_controls.py --model_type TM1`; use `configs_TM1`
-- **TM2:** existing path unchanged
-- Pass `--model_type` through to `postprocess_recode.py` and `run_all_summaries.py`
-- Fix `run_all_summaries.py` to skip MAZ-only scripts when `--model_type TM1`
+### Phase 5 — Fix Python compatibility bugs in `master` *(independent, separate branch)*
 
----
+- [ ] `df.append()` → `pd.concat()` (pandas 2.0)
+- [ ] `.iteritems()` → `.items()` (Python 3)
+- [ ] `logging.warn(` → `logging.warning(` (Python 3.12)
+- [ ] Add `timeout=30` to Census API requests
+- [ ] Add 100 ms rate limiting to Census API loop
 
-### Phase 5 — Fix Python compatibility bugs in `master`  (independent of phases 1–4)
+### Phase 6 — End-to-end TM1 test run *(blocked on Phase 4)*
 
-These are bugs in `master` (not `tm2`) that should be patched on a separate branch:
-
-- `df.append()` → `pd.concat()` (removed in pandas 2.0)
-- `.iteritems()` → `.items()` (removed in Python 3)
-- `logging.warn(` → `logging.warning(` (removed in Python 3.12)
-- Add `timeout=30` and 100 ms rate limiting to Census API calls
-
----
-
-### Phase 6 — End-to-end TM1 test run
-
-1. Copy `TAZ1454 2023 Popsim Vars.csv` from `travel-model-one` → `hh_gq/data/taz_summaries.csv`
-2. Run `python tm2_pipeline.py full --model_type TM1 --year 2023`
-3. Validate: household totals match controls; `hinccat1`, `HINC`, `UNITTYPE`, `VEHICL` populated correctly; no MAZ-script crashes in summaries
+- [ ] Copy `TAZ1454 2023 Popsim Vars.csv` from `travel-model-one` → `hh_gq/data/taz_summaries.csv`
+- [ ] Run `python tm2_pipeline.py full --model_type TM1 --year 2023` without errors
+- [ ] Verify `hh_gq/data/taz_summaries_hhgq.csv` has `numhh_gq` and `hh_size_1_gq`
+- [ ] Verify PopulationSim runs with `configs_TM1` without error
+- [ ] Verify `hinccat1`, `HINC`, `UNITTYPE`, `VEHICL` populated in output households
+- [ ] Verify regional household total ≈ sum from `taz_summaries.csv`
+- [ ] Verify `run_all_summaries.py` skips MAZ scripts gracefully
