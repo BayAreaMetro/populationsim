@@ -54,7 +54,9 @@ We have two branches that have diverged:
 
 ## G4 — The One Design Decision
 
-The `tm2` branch PUMS uses 2020-vintage PUMA codes. The TM1 crosswalk from `master` uses 2000-vintage PUMA codes. These are incompatible.
+The `tm2` branch PUMS uses 2020-vintage PUMA codes. The TM1 crosswalk from `master` uses 2000-vintage PUMA codes. These are incompatible, and the mismatch is not just a format difference — **PUMA is the `seed_geography` in the TM1 PopulationSim config** (`geographies: [COUNTY, PUMA, TAZ]`, `seed_geography: PUMA`). PopulationSim uses PUMA codes to match each seed household to eligible TAZs; a vintage mismatch means households cannot be placed.
+
+Note: `master` itself already has a latent mismatch — its crosswalk uses 2000-vintage codes but the 2017–2021 PUMS it reads uses 2010-vintage codes. This may not have caused obvious failures if Bay Area boundaries changed little, but the shift to 2020-vintage PUMAs on the `tm2` branch is more substantial.
 
 **Three options:**
 
@@ -69,7 +71,7 @@ The `tm2` branch PUMS uses 2020-vintage PUMA codes. The TM1 crosswalk from `mast
 
 ## Implementation Phases
 
-### Phase 1 — Cherry-pick files from `master`  (three git commands)
+### ✅ Phase 1 — Cherry-pick files from `master`  (complete)
 
 ```bash
 git checkout master -- bay_area/hh_gq/configs_TM1
@@ -81,7 +83,7 @@ Verify PUMA codes in `geo_cross_walk_tm1.csv` look like 2000-vintage short codes
 
 ---
 
-### Phase 2 — Port `add_hhgq_combined_controls.py`
+### ✅ Phase 2 — Port `add_hhgq_combined_controls.py`  (complete)
 
 ```bash
 git checkout master -- bay_area/add_hhgq_combined_controls.py

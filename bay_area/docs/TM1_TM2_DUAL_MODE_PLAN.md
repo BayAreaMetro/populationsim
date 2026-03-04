@@ -370,8 +370,33 @@ uses 2020-vintage PUMA codes. See G4.
 
 **Status:** Critical design decision required.
 
-The 2000-vintage PUMAs in `geo_cross_walk_tm1.csv` will not match the 2020-vintage PUMA codes in the
-2019–2023 PUMS used by `create_seed_population.py`.
+#### Why PUMA vintage matters
+
+PUMA is not merely a filter used by `create_seed_population.py` — it is the **`seed_geography`** in the TM1 PopulationSim config:
+
+```yaml
+# hh_gq/configs_TM1/settings.yaml
+geographies: [COUNTY, PUMA, TAZ]
+seed_geography: PUMA
+```
+
+PopulationSim uses PUMA codes to match each seed household to its set of eligible TAZs during balancing. If the PUMA code in a seed household record does not match any PUMA code in `geo_cross_walk_tm1.csv`, that household cannot be placed and will be dropped or cause errors.
+
+#### Where each PUMA code comes from
+
+| Component | PUMA vintage | Source / evidence |
+|-----------|-------------|-------------------|
+| `geo_cross_walk_tm1.csv` | **2000** | Built from `mazs_TM2_v2_2_intersect_puma2000.dbf`; code comments in `create_baseyear_controls.py` say `# NOTE these are PUMA 2000` and doc says "joins MAZs and TAZs to the **2000 PUMAs** (used in the 2007–2011 PUMS)" |
+| `master` PUMS (`create_seed_population.py`, 2017–2021) | **2010** | `PUMA` column in 2017–2021 PUMS follows 2010 Census PUMA definitions |
+| `tm2` branch PUMS (2019–2023) | **2020** | `PUMA` column in 2019–2023 PUMS follows 2020 Census PUMA definitions |
+
+#### Master already has a latent mismatch
+
+The `master` branch crosswalk uses 2000-vintage PUMAs, but the PUMS it reads (2017–2021) uses 2010-vintage PUMA codes. These are **not the same**. Whether this has caused silent errors in past runs, or whether Bay Area PUMA boundary changes between 2000 and 2010 were small enough not to matter in practice, is unknown. The `tm2` branch introduces an additional shift to 2020-vintage PUMAs, which redefined boundaries more substantially.
+
+The 2000-vintage short codes (e.g. `7503`, `101`, `8512`) are immediately distinguishable from 2010/2020 five-digit codes (e.g. `01101`, `07503`). PopulationSim would fail to match any seed household to the crosswalk if the vintage codes do not align.
+
+The 2000-vintage PUMAs in `geo_cross_walk_tm1.csv` will not match the 2020-vintage PUMA codes in the 2019–2023 PUMS used by `create_seed_population.py` on the `tm2` branch.
 
 **Options (choose one):**
 
@@ -856,7 +881,7 @@ Estimated effort: 4–6 hours. Risk: low.
 
 ---
 
-### Phase 1 — Git Cherry-Picks (no code writing)
+### ✅ Phase 1 — Git Cherry-Picks (complete)
 
 These files exist in `master` and just need to be brought into the `tm2` branch.
 
@@ -872,7 +897,7 @@ After: verify both crosswalk files look correct; check PUMA codes in `geo_cross_
 
 ---
 
-### Phase 2 — Port `add_hhgq_combined_controls.py`
+### ✅ Phase 2 — Port `add_hhgq_combined_controls.py`  (complete)
 
 This script exists on `master` handling both TM1 and TM2. Port it to the `tm2` branch.
 
