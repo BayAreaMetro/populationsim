@@ -31,6 +31,11 @@
 - **[TM2 Input Fields](TM2_INPUT_FIELDS.md)** - Input data specifications
 - **[TM2 Output Summaries TAZ](TM2_OUTPUT_SUMMARIES_TAZ.md)** - TAZ-level outputs
 
+### TM1 + TM2 Dual-Mode
+- **[TM1/TM2 Simple Plan](TM1_TM2_SIMPLE_PLAN.md)** - Start here: plain-language overview of the situation, gaps, and implementation phases
+- **[TM1/TM2 Dual-Mode Plan](TM1_TM2_DUAL_MODE_PLAN.md)** - Full reference: step-by-step pipeline for both modes, gap analysis, input/output specs, branch differences, Python bug list, porting checklist
+- **[Census Vintage Considerations](CENSUS_VINTAGE_UPGRADE_CONSIDERATIONS.md)** - Implications of upgrading Census/PUMS vintages
+
 ### Specialized Guides
 - **[Income Documentation](README_INCOME.md)** - Income field handling
 - **[Group Quarters](group_quarters.md)** - Group quarters methodology
