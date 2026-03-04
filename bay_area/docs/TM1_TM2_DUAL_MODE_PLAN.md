@@ -8,6 +8,32 @@ to make the `tm2` branch code support TM1 synthesis as well as TM2.
 
 ---
 
+## Gaps Checklist
+
+| # | Gap | Status |
+|---|-----|--------|
+| G1 | `add_hhgq_combined_controls.py` — cherry-pick from `master` | ✅ done (commit `fd124cd`) |
+| G2 | `hh_gq/configs_TM1/` directory — cherry-pick from `master` | ✅ done (commit `fd124cd`) |
+| G3 | `geo_cross_walk_tm1.csv` — cherry-pick from `master` | ✅ done (commit `fd124cd`) |
+| G4 | PUMA vintage mismatch — [team decision required](#g4--puma-vintage-mismatch-seed-population) | ⏸ blocked |
+| G5 | `tm2_pipeline.py` has no `--model_type` argument | ☐ not started |
+| G6 | `run_all_summaries.py` hardcodes TM2 filenames | ☐ not started |
+
+## Implementation Checklist
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | Git cherry-picks — configs, crosswalks | ✅ complete |
+| 2 | Port `add_hhgq_combined_controls.py` | ✅ complete |
+| 3 | PUMA vintage design decision (G4) | ⏸ blocked — team decision |
+| 4 | Wire `--model_type` into `tm2_pipeline.py` | ⏸ blocked on Phase 3 |
+| 5 | Fix Python 3.x bugs in `master` | ☐ independent, not started |
+| 6 | End-to-end TM1 test run | ⏸ blocked on Phase 4 |
+
+> Phase 3 decision: **Option A** (download 2017–2021 PUMS for TM1) or **Option B** (rebuild TM1 crosswalk with 2020 PUMAs). See [§4 G4](#g4--puma-vintage-mismatch-seed-population) and [§11 Phase 3](#phase-3--design-decision-puma-vintage-g4) for full detail.
+
+---
+
 ## 1. Repository Ownership
 
 The pipeline spans **two repositories**:
