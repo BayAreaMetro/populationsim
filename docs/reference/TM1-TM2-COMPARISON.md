@@ -5,7 +5,20 @@ parent: Reference
 nav_order: 7
 ---
 
-# TM1 vs TM2 PopulationSim Exploration Plan
+# TM1 vs TM2 — Moved
+
+> **This document is superseded.**  
+> The current, actively maintained reference is:
+>
+> **[TM1 + TM2 Dual-Mode Pipeline Plan](https://github.com/BayAreaMetro/populationsim/blob/tm2/bay_area/docs/TM1_TM2_DUAL_MODE_PLAN.md)**
+>
+> That document covers the gap analysis, implementation checklist (with live checkmarks), step-by-step pipeline detail for both modes, PUMA vintage decision, and the Phase 7 roadmap for porting TM1 control generation from R to Python.
+
+The original content below is preserved for historical reference only and should not be treated as current.
+
+---
+
+# TM1 vs TM2 PopulationSim Exploration Plan *(archived)*
 
 **Created:** February 11, 2026  
 **Purpose:** Enumerate differences between TM1 and TM2 population synthesis approaches to inform potential refactoring
