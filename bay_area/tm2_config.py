@@ -48,7 +48,7 @@ class TM2Config:
             'census_cache': self.BASE_DIR / "data_cache" / "census",
             'network_census_cache': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls"),
             'network_census_api': Path("M:/Data/Census/API/new_key"),
-            'pums_current': Path("M:/Data/Census/PUMS_2023_5Year_Crosswalked"),
+            'pums_current': Path("M:/Data/Census/PUMS_2021_5Year_Crosswalked") if model_type == "TM1" else Path("M:/Data/Census/PUMS_2023_5Year_Crosswalked"),
             'pums_cached': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23")
         }
         
@@ -60,13 +60,13 @@ class TM2Config:
             'persons_processed': f"persons_{self.YEAR}_{self.MODEL_TYPE.lower()}.csv",
             'seed_households': "seed_households.csv",
             'seed_persons': "seed_persons.csv",
-            'pums_households': "bay_area_households_2019_2023_crosswalked.csv",
-            'pums_persons': "bay_area_persons_2019_2023_crosswalked.csv",
+            'pums_households': "bay_area_households_2017_2021_crosswalked.csv" if model_type == "TM1" else "bay_area_households_2019_2023_crosswalked.csv",
+            'pums_persons': "bay_area_persons_2017_2021_crosswalked.csv" if model_type == "TM1" else "bay_area_persons_2019_2023_crosswalked.csv",
             'maz_marginals': "maz_marginals_hhgq.csv",
             'taz_marginals': "taz_marginals_hhgq.csv",
             'county_marginals': "county_marginals.csv",
             'maz_data': "maz_data.csv",
-            'geo_crosswalk_base': f"geo_cross_walk_{self.MODEL_TYPE.lower()}_maz.csv",
+            'geo_crosswalk_base': f"geo_cross_walk_{self.MODEL_TYPE.lower()}.csv" if model_type == "TM1" else f"geo_cross_walk_{self.MODEL_TYPE.lower()}_maz.csv",
             'settings_yaml': "settings.yaml",
             'logging_yaml': "logging.yaml",
             'controls_csv': "controls.csv",

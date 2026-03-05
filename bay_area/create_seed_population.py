@@ -412,54 +412,88 @@ class HouseholdProcessor:
         return df
 
     def _create_income_fields(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create income fields in both 2023 and 2010 dollars from HINCP using proper ADJINC adjustment"""
+        """Create income fields in model-appropriate dollars from HINCP using proper ADJINC adjustment.
+
+        TM1 (2017-2021 PUMS): ADJINC → 2021 dollars → hh_income_2021 → 2000 dollars → hh_income_2000
+        TM2 (2019-2023 PUMS): ADJINC → 2023 dollars → hh_income_2023 → 2010 dollars → hh_income_2010
+        """
         if 'HINCP' not in df.columns:
             logger.warning("HINCP column not found - cannot create income fields")
             return df
-        
+
         if 'ADJINC' not in df.columns:
             logger.error("ADJINC column not found - cannot properly adjust PUMS income!")
             logger.error("HINCP values are in survey year dollars and must be adjusted with ADJINC")
             return df
-        
-         # Step 1: Apply ADJINC to get income in 2023 dollars
-        logger.info("   Applying ADJINC factor to convert survey year income to 2023 dollars...")
-        # Allow negative incomes (old pipeline behavior)
+
+        model_type = config.MODEL_TYPE
         valid_mask = df['HINCP'].notnull() & df['ADJINC'].notnull()
-        df['hh_income_2023'] = 0.0
-        df.loc[valid_mask, 'hh_income_2023'] = (df.loc[valid_mask, 'ADJINC'] / 1_000_000) * df.loc[valid_mask, 'HINCP']
-        
-        # Step 2: Convert 2023 dollars to 2010 dollars for PopulationSim controls  
-        # Note: 2023 ACS data requires 2023→2010 conversion, not 2021→2010
-        # CPI 2023 ≈ 310.0, CPI 2010 = 218.056
-        # TO DO - put this magic number in the configuration  
-        cpi_2023_to_2010 = 218.056 / 310.0
-        df['hh_income_2010'] = df['hh_income_2023'] * cpi_2023_to_2010
-        
-        # Log conversion summary
-        valid_income_count = valid_mask.sum()
-        if valid_income_count > 0:
-            # Show ADJINC factor distribution
-            adjinc_factors = (df.loc[valid_mask, 'ADJINC'] / 1_000_000).describe()
-            logger.info(f"   ADJINC factors: min={adjinc_factors['min']:.6f}, max={adjinc_factors['max']:.6f}, mean={adjinc_factors['mean']:.6f}")
-            
-            median_2023 = df.loc[valid_mask, 'hh_income_2023'].median()
-            median_2010 = df.loc[valid_mask, 'hh_income_2010'].median()
-            
-            logger.info(f"   Created income fields for {valid_income_count:,} households")
-            logger.info(f"   Median income: 2023=${median_2023:,.0f} → 2010=${median_2010:,.0f}")
-            logger.info(f"   CPI conversion: 2023→2010 factor = {cpi_2023_to_2010:.4f}")
-            
-            # Validate against expected Bay Area medians (rough check)
-            if median_2010 < 70000:
-                logger.warning(f"     2010$ median (${median_2010:,.0f}) seems low for Bay Area")
-            elif median_2010 > 100000:
-                logger.warning(f"   2010$ median (${median_2010:,.0f}) seems high for Bay Area")
+
+        if model_type == "TM1":
+            # Step 1: Apply ADJINC to get income in 2021 dollars (2017-2021 PUMS reference year)
+            logger.info("   [TM1] Applying ADJINC factor to convert survey year income to 2021 dollars...")
+            df['hh_income_2021'] = 0.0
+            df.loc[valid_mask, 'hh_income_2021'] = (
+                (df.loc[valid_mask, 'ADJINC'] / 1_000_000) * df.loc[valid_mask, 'HINCP']
+            )
+
+            # Step 2: Convert 2021 dollars to 2000 dollars for TM1 PopulationSim controls
+            # CPI-U annual average: 2021 ≈ 258.8, 2000 ≈ 172.2
+            cpi_2021_to_2000 = 172.2 / 258.8
+            df['hh_income_2000'] = df['hh_income_2021'] * cpi_2021_to_2000
+
+            # Log conversion summary
+            valid_income_count = valid_mask.sum()
+            if valid_income_count > 0:
+                adjinc_factors = (df.loc[valid_mask, 'ADJINC'] / 1_000_000).describe()
+                logger.info(f"   ADJINC factors: min={adjinc_factors['min']:.6f}, max={adjinc_factors['max']:.6f}, mean={adjinc_factors['mean']:.6f}")
+                median_2021 = df.loc[valid_mask, 'hh_income_2021'].median()
+                median_2000 = df.loc[valid_mask, 'hh_income_2000'].median()
+                logger.info(f"   Created income fields for {valid_income_count:,} households")
+                logger.info(f"   Median income: 2021=${median_2021:,.0f} → 2000=${median_2000:,.0f}")
+                logger.info(f"   CPI conversion: 2021→2000 factor = {cpi_2021_to_2000:.4f}")
             else:
-                logger.info(f"   ✓ 2010$ median (${median_2010:,.0f}) appears reasonable for Bay Area")
-        else:
-            logger.warning("   No valid income data found")
-        
+                logger.warning("   No valid income data found")
+
+        else:  # TM2 default
+            # Step 1: Apply ADJINC to get income in 2023 dollars (2019-2023 PUMS reference year)
+            logger.info("   Applying ADJINC factor to convert survey year income to 2023 dollars...")
+            # Allow negative incomes (old pipeline behavior)
+            df['hh_income_2023'] = 0.0
+            df.loc[valid_mask, 'hh_income_2023'] = (
+                (df.loc[valid_mask, 'ADJINC'] / 1_000_000) * df.loc[valid_mask, 'HINCP']
+            )
+
+            # Step 2: Convert 2023 dollars to 2010 dollars for PopulationSim controls
+            # CPI-U annual average: 2023 ≈ 310.0, 2010 = 218.056
+            # TO DO - put this magic number in the configuration
+            cpi_2023_to_2010 = 218.056 / 310.0
+            df['hh_income_2010'] = df['hh_income_2023'] * cpi_2023_to_2010
+
+            # Log conversion summary
+            valid_income_count = valid_mask.sum()
+            if valid_income_count > 0:
+                # Show ADJINC factor distribution
+                adjinc_factors = (df.loc[valid_mask, 'ADJINC'] / 1_000_000).describe()
+                logger.info(f"   ADJINC factors: min={adjinc_factors['min']:.6f}, max={adjinc_factors['max']:.6f}, mean={adjinc_factors['mean']:.6f}")
+
+                median_2023 = df.loc[valid_mask, 'hh_income_2023'].median()
+                median_2010 = df.loc[valid_mask, 'hh_income_2010'].median()
+
+                logger.info(f"   Created income fields for {valid_income_count:,} households")
+                logger.info(f"   Median income: 2023=${median_2023:,.0f} → 2010=${median_2010:,.0f}")
+                logger.info(f"   CPI conversion: 2023→2010 factor = {cpi_2023_to_2010:.4f}")
+
+                # Validate against expected Bay Area medians (rough check)
+                if median_2010 < 70000:
+                    logger.warning(f"     2010$ median (${median_2010:,.0f}) seems low for Bay Area")
+                elif median_2010 > 100000:
+                    logger.warning(f"   2010$ median (${median_2010:,.0f}) seems high for Bay Area")
+                else:
+                    logger.info(f"   ✓ 2010$ median (${median_2010:,.0f}) appears reasonable for Bay Area")
+            else:
+                logger.warning("   No valid income data found")
+
         return df
 
 class PersonProcessor:
@@ -1120,8 +1154,8 @@ class SeedPopulationCreator:
     
     def _finalize_household_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Final processing for household data"""
-        # Convert income fields to integers
-        income_fields = ['hh_income_2010', 'hh_income_2023']
+        # Convert income fields to integers (only those present; TM1 adds hh_income_2000)
+        income_fields = ['hh_income_2010', 'hh_income_2023', 'hh_income_2000', 'hh_income_2021']
         for field in income_fields:
             if field in df.columns:
                 df[field] = df[field].fillna(0).round().astype(int)
@@ -1279,14 +1313,43 @@ class SeedPopulationCreator:
 
 def main():
     """Main execution function"""
-    config = SeedPopulationConfig()
-    creator = SeedPopulationCreator(config)
+    import argparse
+    import tm2_config as _tm2_config_module
+
+    parser = argparse.ArgumentParser(
+        description="Create seed population for PopulationSim"
+    )
+    parser.add_argument(
+        "--model_type",
+        choices=["TM1", "TM2"],
+        default="TM2",
+        help=(
+            "Model type: TM1 uses 2010-vintage PUMAs and 2017-2021 PUMS "
+            "(produces hh_income_2000); TM2 uses 2020-vintage PUMAs and "
+            "2019-2023 PUMS (produces hh_income_2010). Default: TM2"
+        ),
+    )
+    args = parser.parse_args()
+
+    # Re-initialize the module-level TM2Config so all code in this module
+    # and in tm2_config that uses the global config picks up model_type.
+    global config
+    config = TM2Config(model_type=args.model_type)
+    # Also patch the tm2_config module's own singleton so that imports like
+    #   from tm2_config import config as unified_config
+    # (used in SeedPopulationConfig.__post_init__) get the new instance.
+    _tm2_config_module.config = config
+
+    logger.info(f"[CONFIG] model_type={args.model_type}")
+
+    seed_config = SeedPopulationConfig()
+    creator = SeedPopulationCreator(seed_config)
     success = creator.create_seed_population()
-    
+
     if not success:
         logger.error("Seed population creation failed!")
         return 1
-    
+
     return 0
 
 if __name__ == "__main__":

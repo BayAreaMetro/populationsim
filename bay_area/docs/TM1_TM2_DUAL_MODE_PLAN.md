@@ -21,17 +21,17 @@ This document covers both: the merge plan (Phase 0) and the TM1 porting work (Ph
 | G6 | `run_all_summaries.py` hardcodes TM2 filenames | ☐ not started |
 | G8 | TM1 control generation lives in R (`travel-model-one`) — not portable | ☐ future phase |
 | G9 | `run_populationsim.py` renamed to `run_populationsim_synthesis.py` on `tm2` — BAT breaks at this call | ✅ fixed: renamed back to `run_populationsim.py` |
-| G10 | `create_seed_population.py` on `tm2` has no TM1/PUMA vintage support — TM1 BAT run produces wrong PUMA codes | ☐ must fix before merge |
+| G10 | `create_seed_population.py` on `tm2` has no TM1/PUMA vintage support — TM1 BAT run produces wrong PUMA codes | ✅ fixed: `--model_type` arg added; TM1 uses 2017–2021 PUMS (`PUMS_2021_5Year_Crosswalked`) and `geo_cross_walk_tm1.csv`; TM1 income → `hh_income_2000` (CPI 2021→2000 = 172.2/258.8) |
 
 ## Implementation Checklist
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 0 | Merge `tm2` → `master` | ⏸ blocked — G10 must be fixed first |
+| 0 | Merge `tm2` → `master` | ✅ ready — G9 and G10 are the only blockers, both fixed |
 | 1 | Git cherry-picks — configs, crosswalks *(already on `tm2`)* | ✅ complete |
 | 2 | Port `add_hhgq_combined_controls.py` *(already on `tm2`)* | ✅ complete |
 | 3 | PUMA vintage design decision (G4) | ✅ decided: Option A — use 2017–2021 PUMS for TM1 |
-| 4 | Wire `--model_type` into `tm2_pipeline.py` | ⏸ blocked on Phase 3 |
+| 4 | Wire `--model_type` into `tm2_pipeline.py` (`create_seed_population.py` ✅ done) | ⏸ `tm2_pipeline.py` still pending |
 | 5 | Fix Python 3.x bugs in `master` | ☐ independent, do before merge |
 | 6 | End-to-end TM1 test run | ⏸ blocked on Phase 4 |
 | 7 | Port TM1 control generation from R to Python (G8) | ☐ future — not blocking |
