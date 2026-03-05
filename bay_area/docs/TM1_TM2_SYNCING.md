@@ -1,6 +1,12 @@
-﻿# TM1 + TM2 Dual-Mode Pipeline
+﻿# TM1 + TM2 Syncing
 
-The `tm2` branch is the single active branch — it runs both **TM1** (existing BAT-based workflow) and **TM2** (Python pipeline) from the same codebase.
+This document tracks the two-phase process for syncing TM1 and TM2 population synthesis onto a shared codebase and eventually into a single modernized pipeline.
+
+**What was done:** The `tm2` branch now contains both the TM1 BAT-based workflow and the TM2 Python pipeline in one place. Merging `master` into `tm2` is complete. Both workflows are code-complete and ready to test.
+
+**Phase 1 (current):** Run and validate both TM1 and TM2 on the `tm2` branch. Confirm each produces results matching the respective prior reference runs. Once both pass, merge `tm2` into `master` — making `master` the single production branch for both model types.
+
+**Phase 2 (after merge to master):** Modernize TM1 — replace the R script dependency and manual file copies with a Python pipeline, so TM1 runs end-to-end from a single command like TM2 already does.
 
 ---
 
@@ -29,7 +35,7 @@ TM1 runs exactly as it always did: via `run_populationsim.bat`. No Python pipeli
 ### Run
 
 ```bat
-:: Edit run_populationsim.bat — top lines:
+:: Edit run_populationsim.bat -- top lines:
 set MODELTYPE=TM1
 set TMPATH=X:\travel-model-one-master\utilities\taz-data-baseyears
 set BAUS_RUNNUM=run182
@@ -135,20 +141,20 @@ output_2023/charts/               (analysis charts and dashboards)
 
 ---
 
-## 4. Testing Plan
+## Phase 1: Test on tm2 Branch, then Merge to Master
 
-Goal: verify that this codebase produces **identical results** to the historical runs on each branch.
+Both workflows are code-complete on the `tm2` branch. The gate to merging into `master` is a passing test run for each.
 
-### TM1 test
+### Step 1 — Test TM1 on the tm2 branch
 
-Reference: a known-good run from `master` branch (e.g. `STIP2026_RTP2021FBP_20251113` output).
+Reference: the most recent known-good TM1 run on `master` (e.g. `STIP2026_RTP2021FBP_20251113`).
 
 ```bat
-:: Step 1 - delete existing seed to force rebuild
+:: Force a clean rebuild of the seed population
 del hh_gq\data\seed_households.csv
 del hh_gq\data\seed_persons.csv
 
-:: Step 2 - set MODELTYPE=TM1 in run_populationsim.bat, then:
+:: Set MODELTYPE=TM1 in run_populationsim.bat, then:
 run_populationsim.bat 2023
 ```
 
@@ -163,11 +169,11 @@ run_populationsim.bat 2023
 | `HINC` range | `synthetic_households_recode.csv` | No zeros for regular HH (`UNITTYPE==1`) |
 | `hinccat1` | `synthetic_households_recode.csv` | 1-4 only |
 | `UNITTYPE` | `synthetic_households_recode.csv` | 1 (HH) or 3 (GQ) only |
-| Output vs reference | `diff` against master run | Row counts match; distribution statistics match |
+| Output vs reference | diff against master run | Row counts and distribution statistics match |
 
-### TM2 test
+### Step 2 — Test TM2 on the tm2 branch
 
-Reference: last successful `output_2023` run before dual-mode changes.
+Reference: last successful `output_2023` run before TM1+TM2 syncing work began.
 
 ```bash
 python tm2_pipeline.py full --force
@@ -183,11 +189,23 @@ python tm2_pipeline.py full --force
 | `HHINCADJ` populated | No zeros for regular HH |
 | Income distribution | Median ~$95k-$120k (2010 dollars) |
 
+### Step 3 — Merge tm2 into master
+
+Once both tests pass:
+
+```bash
+git checkout master
+git merge tm2 --no-ff -m "Sync TM1 + TM2: add TM2 Python pipeline and dual-mode scripts to master"
+git push origin master
+```
+
+From this point, `master` is the single production branch for both TM1 and TM2 runs.
+
 ---
 
-## 5. Next Phase: Modernize TM1
+## Phase 2: Modernize TM1
 
-TM1 currently depends on R scripts in a separate repo to produce TAZ controls. The goal of this phase is to make TM1 fully self-contained in Python: one command, no R, no manual file copies.
+After the merge to master, the next goal is to make TM1 fully self-contained in Python — one command, no R scripts, no manual file copies — matching what TM2 already does.
 
 ### What needs to be replaced
 
@@ -202,37 +220,35 @@ TM1 currently depends on R scripts in a separate repo to produce TAZ controls. T
 
 | # | Task | Effort |
 |---|------|--------|
-| 5.1 | Add `--model_type TM1` to `tm2_pipeline.py` -- route to `configs_TM1`, skip MAZ controls, call `add_hhgq_combined_controls.py --model_type TM1` | Medium |
-| 5.2 | Validate `taz_summaries.csv` exists or error with helpful message pointing to `travel-model-one` | Small |
-| 5.3 | Port R ACS pulls to Python: B19001 (income), B25009 (HH size), B08202 (workers), B01001 (age) | Medium |
-| 5.4 | Port CPI deflation: convert ACS nominal income -> 2000 dollars using BLS CPI | Small |
-| 5.5 | Port income rebinning: ACS categories -> HHINCQ1-4 ($30k/$60k/$100k thresholds in 2000$) | Small |
-| 5.6 | Port GQ pull: Decennial PCT19 -> `gq_type_univ`, `gq_type_mil`, `gq_type_othnon` by TAZ | Medium |
-| 5.7 | Aggregate block-group / tract data to TAZ using TM1 TAZ-block crosswalk | Medium |
-| 5.8 | Write `hh_gq/data/taz_summaries.csv` in same format `add_hhgq_combined_controls.py` expects | Small |
-| 5.9 | Update `run_all_summaries.py` to skip MAZ-only scripts when `--model_type TM1` | Small |
-| 5.10 | End-to-end test: compare Python-produced TM1 controls to R-produced controls for 2023 | Validation |
+| 2.1 | Add `--model_type TM1` to `tm2_pipeline.py` -- route to `configs_TM1`, skip MAZ controls, call `add_hhgq_combined_controls.py --model_type TM1` | Medium |
+| 2.2 | Validate `taz_summaries.csv` exists or error with helpful message pointing to `travel-model-one` | Small |
+| 2.3 | Port R ACS pulls to Python: B19001 (income), B25009 (HH size), B08202 (workers), B01001 (age) | Medium |
+| 2.4 | Port CPI deflation: convert ACS nominal income -> 2000 dollars using BLS CPI | Small |
+| 2.5 | Port income rebinning: ACS categories -> HHINCQ1-4 ($30k/$60k/$100k thresholds in 2000$) | Small |
+| 2.6 | Port GQ pull: Decennial PCT19 -> `gq_type_univ`, `gq_type_mil`, `gq_type_othnon` by TAZ | Medium |
+| 2.7 | Aggregate block-group / tract data to TAZ using TM1 TAZ-block crosswalk | Medium |
+| 2.8 | Write `hh_gq/data/taz_summaries.csv` in same format `add_hhgq_combined_controls.py` expects | Small |
+| 2.9 | Update `run_all_summaries.py` to skip MAZ-only scripts when `--model_type TM1` | Small |
+| 2.10 | End-to-end test: compare Python-produced TM1 controls to R-produced controls for 2023 | Validation |
 
 **End state:** `python tm2_pipeline.py full --model_type TM1 --year 2023` -- single command, no R dependency, no manual file copy, same outputs as current BAT workflow.
 
-**Prerequisite:** Phase 4 tests passing before starting Phase 5.
-
 ---
 
-## 6. File Inventory
+## Appendix: File Inventory
 
 ### Scripts (all in `bay_area/`)
 
 | File | TM1 | TM2 | Notes |
 |------|-----|-----|-------|
 | `run_populationsim.bat` | Yes (entry point) | Yes (MODELTYPE=TM2, not the normal path) | BAT is the TM1 user-facing entry point |
-| `create_seed_population.py` | Yes `--model_type TM1` | Yes `--model_type TM2` | Dual-mode since commit `aece8f1` |
-| `add_hhgq_combined_controls.py` | Yes `--model_type TM1` | Yes `--model_type TM2` | Brought from master |
+| `create_seed_population.py` | Yes `--model_type TM1` | Yes `--model_type TM2` | Dual-mode |
+| `add_hhgq_combined_controls.py` | Yes `--model_type TM1` | Yes `--model_type TM2` | |
 | `run_populationsim.py` | Yes | Yes | Config dir determines geography |
-| `postprocess_recode.py` | Yes `--model_type TM1` | Yes `--model_type TM2` | Full dual-mode |
-| `tm2_pipeline.py` | No (Phase 5) | Yes | Phase 5 adds TM1 support |
+| `postprocess_recode.py` | Yes `--model_type TM1` | Yes `--model_type TM2` | |
+| `tm2_pipeline.py` | No (Phase 2) | Yes | Phase 2 adds TM1 support |
 | `create_baseyear_controls.py` | No | Yes | Census API -> MAZ/TAZ controls |
-| `run_all_summaries.py` | No (Phase 5) | Yes | Phase 5 adds TM1 support |
+| `run_all_summaries.py` | No (Phase 2) | Yes | Phase 2 adds TM1 support |
 
 ### Config directories
 
