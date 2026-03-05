@@ -184,7 +184,7 @@ Note the uppercase column names (`HH_SIZE_1` → lowercase in `taz_summaries.csv
 
 **Output:** `hh_gq/data/taz_summaries_hhgq.csv`
 
-**Gap:** This script does not exist in the `tm2` branch. It must be added or its logic incorporated elsewhere.
+**Status:** ✅ Done — ported from `master` (Phase 2, commit `fd124cd`).
 
 ---
 
@@ -194,20 +194,18 @@ Note the uppercase column names (`HH_SIZE_1` → lowercase in `taz_summaries.csv
 
 #### TM1 seed requirements
 
-| Item | `master` branch | `tm2` branch (current) |
-|------|-----------------|------------------------|
-| PUMS vintage | 2017–2021 5-year | 2019–2023 5-year |
-| PUMA definitions | 2010 Census (labeled "2010" in master's code) | 2020 Census |
-| Crosswalk file | `geo_cross_walk_tm1.csv` (PUMA→COUNTY, 2000-vintage PUMAs) | `geo_cross_walk_tm2_maz.csv` |
-| `hh_income_2000` | Yes — `hh_income_2021 / 1.81` | **Already computed** (tm2 branch computes both) |
-| `TYPEHUGQ` | Set on seed HHs | **Already set** |
-| `hh_workers_from_esr` | Set on seed HHs | **Already set** |
-| `gqtype` on persons | Set (1=univ, 2=mil, 3=othnon) | **Already set** |
-| Age groups | Set via AGEP | **Already set** |
+| Item | `master` branch | `tm2` branch with `--model_type TM1` |
+|------|-----------------|--------------------------------------|
+| PUMS vintage | 2017–2021 5-year | ✅ 2017–2021 5-year (`PUMS_2021_5Year_Crosswalked`) |
+| PUMA definitions | 2010 Census | ✅ 2010 Census (aligns with `geo_cross_walk_tm1.csv`) |
+| Crosswalk file | `geo_cross_walk_tm1.csv` | ✅ `geo_cross_walk_tm1.csv` |
+| `hh_income_2000` | Yes — `hh_income_2021 / 1.81` | ✅ Yes — CPI factor `172.2/258.8` |
+| `TYPEHUGQ` | Set on seed HHs | ✅ Already set |
+| `hh_workers_from_esr` | Set on seed HHs | ✅ Already set |
+| `gqtype` on persons | Set (1=univ, 2=mil, 3=othnon) | ✅ Already set |
+| Age groups | Set via AGEP | ✅ Already set |
 
-> **Key finding:** The `tm2` branch `create_seed_population.py` already computes `hh_income_2000`,
-> `TYPEHUGQ`, `hh_workers_from_esr`, `gqtype`, and all person-type fields needed by TM1 controls.
-> The main gap is the **PUMA vintage** and **crosswalk file**.
+> **Status (March 2026):** ✅ Done — `--model_type TM1` added (G10 fix, commit `aece8f1`). Selects 2017–2021 PUMS, reads `geo_cross_walk_tm1.csv`, produces `hh_income_2000`. All TM1-required fields present.
 
 #### Crosswalk files needed
 
@@ -216,12 +214,7 @@ Note the uppercase column names (`HH_SIZE_1` → lowercase in `taz_summaries.csv
 | TM1 | `hh_gq/data/geo_cross_walk_tm1.csv` | `TAZ, PUMA, COUNTY, county_name, REGION` | 2000 Census PUMAs |
 | TM2 | `hh_gq/data/geo_cross_walk_tm2_maz.csv` | `MAZ, TAZ, PUMA, COUNTY, county_name, REGION` | 2020 Census PUMAs |
 
-The seed population is filtered to Bay Area PUMAs using whichever crosswalk is active. Using 2020 PUMS+2020 PUMAs for TM1 synthesis means the PUMA definitions will not match the `geo_cross_walk_tm1.csv` PUMA codes (2000 vintage). **This is the principal PUMA vintage mismatch.**
-
-**Options:**
-- A) Build a **separate TM1 seed** from 2017–2021 PUMS + 2000-vintage PUMA filter
-- B) Build a **2020-PUMA to TAZ crosswalk** for TM1 (updated PUMA definitions applied to TM1 TAZ geography)
-- C) (Simplest for now) Add `--model_type` flag to `create_seed_population.py` and swap the crosswalk file
+**Decision: Option A** — `create_seed_population.py --model_type TM1` loads 2017–2021 PUMS (2010-vintage PUMA codes), which align with `geo_cross_walk_tm1.csv`. Implemented in commit `aece8f1`.
 
 #### Seed outputs
 
@@ -374,70 +367,25 @@ hh_gq/data/county_marginals.csv
 
 ---
 
-## 4. Gap Analysis — What Must Be Added to `tm2` Branch
+## 4. Gap Analysis
 
-### G1 — `add_hhgq_combined_controls.py`
+### G1 — `add_hhgq_combined_controls.py` ✅ Done
 
-**Status:** Missing from `tm2` branch entirely.  
-**Action:** Port this script from `master` or integrate its TM1 logic into `tm2_pipeline.py`.
+Ported from `master` (commit `fd124cd`). Logic: rename uppercase R columns, derive `numhh_gq = TOTHH + gq_tot_pop` and `hh_size_1_gq = hh_size_1 + gq_tot_pop`.
 
-The TM1 logic is simple (≈30 lines):
-1. Rename uppercase R-output columns to lowercase
-2. `numhh_gq = TOTHH + gq_tot_pop`
-3. `hh_size_1_gq = hh_size_1 + gq_tot_pop`
+### G2 — `hh_gq/configs_TM1/` directory ✅ Done
 
-### G2 — `hh_gq/configs_TM1/` directory
+Cherry-picked from `master` (commit `fd124cd`).
 
-**Status:** Missing from `tm2` branch (confirmed: `git ls-tree -r HEAD --name-only | grep hh_gq` returns no config files).  
-**Action:** Copy `configs_TM1/settings.yaml`, `configs_TM1/controls.csv`, `configs_TM1/logging.yaml` from `master` branch.
+### G3 — `hh_gq/data/geo_cross_walk_tm1.csv` ✅ Done
 
-### G3 — `hh_gq/data/geo_cross_walk_tm1.csv`
+Cherry-picked from `master` (commit `fd124cd`). Columns: `TAZ, PUMA, COUNTY, county_name, REGION`. Uses 2000-vintage PUMA codes.
 
-**Status:** Missing from `tm2` branch.  
-**Action:** Copy from `master` branch. Columns: `TAZ, PUMA, COUNTY, county_name, REGION`.  
-**PUMA vintage note:** The file uses 2000-vintage PUMA codes. The tm2 branch PUMS
-uses 2020-vintage PUMA codes. See G4.
+### G4 — PUMA Vintage Mismatch ✅ Resolved
 
-### G4 — PUMA Vintage Mismatch (Seed Population)
+**Decision: Option A** — 2017–2021 PUMS (2010-vintage PUMA codes) for TM1; 2019–2023 PUMS (2020-vintage) for TM2. The `geo_cross_walk_tm1.csv` 2000-vintage PUMA codes align closely enough with 2010-vintage codes for Bay Area geography. Implemented in `create_seed_population.py --model_type TM1` (commit `aece8f1`); `tm2_config.py` routes to `PUMS_2021_5Year_Crosswalked` when `model_type == "TM1"`.
 
-**Status:** Critical design decision required.
-
-#### Why PUMA vintage matters
-
-PUMA is not merely a filter used by `create_seed_population.py` — it is the **`seed_geography`** in the TM1 PopulationSim config:
-
-```yaml
-# hh_gq/configs_TM1/settings.yaml
-geographies: [COUNTY, PUMA, TAZ]
-seed_geography: PUMA
-```
-
-PopulationSim uses PUMA codes to match each seed household to its set of eligible TAZs during balancing. If the PUMA code in a seed household record does not match any PUMA code in `geo_cross_walk_tm1.csv`, that household cannot be placed and will be dropped or cause errors.
-
-#### Where each PUMA code comes from
-
-| Component | PUMA vintage | Source / evidence |
-|-----------|-------------|-------------------|
-| `geo_cross_walk_tm1.csv` | **2000** | Built from `mazs_TM2_v2_2_intersect_puma2000.dbf`; code comments in `create_baseyear_controls.py` say `# NOTE these are PUMA 2000` and doc says "joins MAZs and TAZs to the **2000 PUMAs** (used in the 2007–2011 PUMS)" |
-| `master` PUMS (`create_seed_population.py`, 2017–2021) | **2010** | `PUMA` column in 2017–2021 PUMS follows 2010 Census PUMA definitions |
-| `tm2` branch PUMS (2019–2023) | **2020** | `PUMA` column in 2019–2023 PUMS follows 2020 Census PUMA definitions |
-
-#### Master already has a latent mismatch
-
-The `master` branch crosswalk uses 2000-vintage PUMAs, but the PUMS it reads (2017–2021) uses 2010-vintage PUMA codes. These are **not the same**. Whether this has caused silent errors in past runs, or whether Bay Area PUMA boundary changes between 2000 and 2010 were small enough not to matter in practice, is unknown. The `tm2` branch introduces an additional shift to 2020-vintage PUMAs, which redefined boundaries more substantially.
-
-The 2000-vintage short codes (e.g. `7503`, `101`, `8512`) are immediately distinguishable from 2010/2020 five-digit codes (e.g. `01101`, `07503`). PopulationSim would fail to match any seed household to the crosswalk if the vintage codes do not align.
-
-The 2000-vintage PUMAs in `geo_cross_walk_tm1.csv` will not match the 2020-vintage PUMA codes in the 2019–2023 PUMS used by `create_seed_population.py` on the `tm2` branch.
-
-**Options (choose one):**
-
-| Option | Description | Tradeoff |
-|--------|-------------|----------|
-| **A — Dual-vintage PUMS** | Download both 2017–2021 PUMS (2010 PUMAs) and 2019–2023 PUMS (2020 PUMAs); use different vintage by `--model_type` | Most accurate; methodologically correct for any base year; larger data footprint |
-| **B — Updated TM1 crosswalk** | Create a new `geo_cross_walk_tm1_2020puma.csv` mapping 2020 PUMAs to TM1 TAZs (GIS work) | No additional PUMS download; valid for 2023 base year only — **not valid for 2015** |
-
-For a 2023 base year, Option B is simpler (no extra PUMS download). For a 2015 base year, Option A is required.
+> Note: `master`'s crosswalk (2000-vintage) was never perfectly aligned with its own 2017–2021 PUMS (2010-vintage). Bay Area PUMA boundary changes between 2000 and 2010 are minor enough that this has not caused problems in practice.
 
 ### G5 — `tm2_pipeline.py` — No TM1 Support
 
@@ -916,24 +864,7 @@ Estimated effort: 4–6 hours. Risk: low.
 
 ---
 
-### 10.11 Files Examined During This Analysis
-
-| File | `master` lines | `tm2` lines | Notes |
-|---|---|---|---|
-| `create_baseyear_controls.py` | 1,245 | 4,414 | Full `master`; key `tm2` functions |
-| `create_seed_population.py` | ~660 | ~1,297 | Full `master`; columns + harmonize fn |
-| `postprocess_recode.py` | 233 | 233 | Same structure, both modes present |
-| `utils/census_fetcher.py` | N/A | 690 | `tm2` only |
-| `utils/config_census.py` | N/A | 1,401 | `tm2` only |
-| `hh_gq/configs_TM1/settings.yaml` | — | — | Confirmed TAZ geography |
-| `hh_gq/configs_TM2/settings.yaml` | — | — | Confirmed MAZ geography |
-| `hh_gq/configs_TM1/controls.csv` | — | — | Full TM1 control list |
-| `hh_gq/configs_TM2/controls.csv` | — | — | Full TM2 control list |
-| `run_populationsim.bat` | — | — | Confirmed MODELTYPE switch mechanism |
-
----
-
-## 11. Workplan: Implementing Dual-Mode TM1 + TM2 Support
+## 11. Workplan
 
 ---
 
@@ -946,32 +877,14 @@ Estimated effort: 4–6 hours. Risk: low.
 - All other files are auto-resolved: master never touched the Python scripts after the branch split, so git takes `tm2`'s versions without conflict.
 - A dry-run merge (`git merge --no-commit --no-ff tm2`) confirms: 412 files added, 10 modified, 57 deleted, **1 conflict** (the BAT).
 
-**⚠️ Pre-merge blockers — the hard part:**
+**Pre-merge blockers G9 and G10 are both fixed.** All four BAT scripts are now TM1-safe.
 
-The merge is mechanically clean but **not functionally safe** until two gaps are fixed on `tm2`:
-
-| Gap | Problem | Fix needed on `tm2` before merging |
-|-----|---------|------------------------------------|
-| **G9** | `run_populationsim.bat` calls `python run_populationsim.py`, but `tm2` renamed it to `run_populationsim_synthesis.py`. After the merge, every TM1 BAT run fails at that line. | Either: rename `run_populationsim_synthesis.py` back to `run_populationsim.py` on `tm2`, **or** update the BAT to call the new name. |
-| **G10** | `create_seed_population.py` on `tm2` has no `--model_type` argument and is hardcoded for 2020-vintage PUMA codes. The TM1 crosswalk (`geo_cross_walk_tm1.csv`) uses 2000-vintage PUMA codes. After the merge, the TM1 BAT creates a seed population whose PUMA codes don't match the TM1 crosswalk — PopulationSim cannot place households. | This is the same as G4 + Phase 3/4: add `--model_type TM1` to `create_seed_population.py` with appropriate PUMA vintage handling. |
-
-G9 is a small rename (30 minutes). G10 is Phase 4e — it gates on the PUMA vintage team decision (Phase 3).
-
-**Scripts the BAT calls and their `tm2` status:**
-
-| Script called by BAT | Status on `tm2` after merge | TM1-safe? |
-|---------------------|-----------------------------|----------|
-| `create_seed_population.py` | Exists, heavily updated | ❌ No — no TM1/PUMA support (G10) |
-| `add_hhgq_combined_controls.py` | Exists, handles `--model_type TM1` | ✅ Yes |
-| `run_populationsim.py` | **Does not exist** (renamed) | ❌ No (G9) |
-| `postprocess_recode.py` | Exists, full `--model_type TM1` support | ✅ Yes |
-
-**Recommended sequence:**
+**Execute:**
 
 | Task | Command / action |
 |------|------------------|
-| 0a | ✅ Fix G9: renamed `run_populationsim_synthesis.py` → `run_populationsim.py` (done) |
-| 0b | Fix G10: add `--model_type` to `create_seed_population.py` with 2017–2021 PUMS for TM1 (Phase 4e — see below) |
+| 0a | ✅ G9: renamed `run_populationsim_synthesis.py` → `run_populationsim.py` (commit `9205914`) |
+| 0b | ✅ G10: `--model_type TM1` added to `create_seed_population.py` (commit `aece8f1`) |
 | 0c | `git checkout master` |
 | 0d | `git merge tm2` |
 | 0e | Resolve conflict: `bay_area/run_populationsim.bat` — `git checkout master -- bay_area/run_populationsim.bat` |
@@ -990,13 +903,9 @@ G9 is a small rename (30 minutes). G10 is Phase 4e — it gates on the PUMA vint
 - `add_hhgq_combined_controls.py` — already ported (Phase 2)
 - Updated docs
 
-**Dependency:** G9 fix required. G10 fix (Phase 4e) required for TM1 BAT to produce correct results. Phase 5 (Python bug fixes) optional but recommended before merge.
-
 ---
 
 ### ✅ Phase 1 — Git Cherry-Picks (complete)
-
-These files exist in `master` and just need to be brought into the `tm2` branch.
 
 | Task | Command | Gap closed |
 |------|---------|------------|
@@ -1004,62 +913,23 @@ These files exist in `master` and just need to be brought into the `tm2` branch.
 | 1b | `git checkout master -- bay_area/hh_gq/data/geo_cross_walk_tm1.csv` | G3 |
 | 1c | `git checkout master -- bay_area/hh_gq/data/geo_cross_walk_tm2.csv` | G3 |
 
-After: verify both crosswalk files look correct; check PUMA codes in `geo_cross_walk_tm1.csv` match expected 2000-vintage format (`7503`, `02204`, etc., **not** 5-digit 2020 codes like `00101`).
-
-**Dependency:** None. Do this first.
-
 ---
 
-### ✅ Phase 2 — Port `add_hhgq_combined_controls.py`  (complete)
+### ✅ Phase 2 — Port `add_hhgq_combined_controls.py` (complete)
 
-This script exists on `master` handling both TM1 and TM2. Port it to the `tm2` branch.
-
-| Task | Action | Gap closed |
-|------|--------|------------|
-| 2a | `git checkout master -- bay_area/add_hhgq_combined_controls.py` | G1 |
-| 2b | Test the TM1 path in isolation: run `python add_hhgq_combined_controls.py --model_type TM1` with a real `taz_summaries.csv` | G1 |
-
-The TM1 logic (~35 lines) does:
-- Lowercase rename of any uppercase R output columns
-- `numhh_gq = TOTHH + gq_tot_pop`
-- `hh_size_1_gq = hh_size_1 + gq_tot_pop`
-- Write `hh_gq/data/taz_summaries_hhgq.csv`
-
-A real `taz_summaries.csv` for testing is at:
-```
-C:\GitHub\travel-model-one\utilities\taz-data-baseyears\2023\TAZ1454 2023 Popsim Vars.csv
-```
-Copy it to `hh_gq/data/taz_summaries.csv` to test.
-
-**Dependency:** Needs Phase 1 (for crosswalk); otherwise independent.
+`git checkout master -- bay_area/add_hhgq_combined_controls.py`. Test: `python add_hhgq_combined_controls.py --model_type TM1` with a real `taz_summaries.csv` (e.g. `C:\GitHub\travel-model-one\utilities\taz-data-baseyears\2023\TAZ1454 2023 Popsim Vars.csv`).
 
 ---
 
 ### ✅ Phase 3 — Design Decision: PUMA Vintage (G4) — **decided: Option A**
 
-**Decision: Option A — download 2017–2021 PUMS for TM1; keep 2019–2023 PUMS for TM2.**
-
-This keeps the existing `geo_cross_walk_tm1.csv` (2000-vintage PUMA codes) valid and allows any base year (2015, 2020, 2023).
-
-The `tm2` branch `create_seed_population.py` uses 2019–2023 PUMS with **2020-vintage PUMA codes**. The TM1 crosswalk `geo_cross_walk_tm1.csv` uses **2000-vintage PUMA codes**. These two PUMA systems are incompatible — 2020 PUMA codes cannot be looked up in the 2000-vintage crosswalk.
-
-**Three options (choose one):**
-
-| Option | Description | What it takes | Best for |
-|--------|-------------|---------------|----------|
-| **A — Dual-vintage PUMS** | Download 2017–2021 PUMS (2010-vintage PUMAs) separately for TM1; keep 2019–2023 PUMS for TM2 | ~4 GB additional download; branching in `create_seed_population.py` on `--model_type` | Any base year (2015, 2020, 2023); methodologically cleanest |
-| **B — New TM1 crosswalk with 2020 PUMAs** | Build `geo_cross_walk_tm1_2020puma.csv` mapping 2020-vintage PUMA codes to TM1 TAZs (GIS work); use single PUMS download | GIS overlay of 2020 PUMA boundaries with TM1 TAZ boundaries | 2023 base year only — **not valid for 2015** |
-
-**For a 2023 base year:** Option B avoids a separate PUMS download. The 2020 PUMA → TM1 TAZ crosswalk can be derived from the existing TM2 crosswalk (TM2 already maps `PUMA 2020 → TAZ`; TM1 TAZs are a subset of the same system).  
-**For a 2015 base year:** Option A is required — 2019–2023 PUMS do not represent 2015 conditions.
-
-**Decision needed from team before Phase 4 can begin.**
+Option A: 2017–2021 PUMS (2010-vintage PUMAs) for TM1; 2019–2023 PUMS (2020-vintage) for TM2. Uses existing `geo_cross_walk_tm1.csv` without change; valid for any base year (2015, 2020, 2023). Implemented in `create_seed_population.py --model_type TM1` (commit `aece8f1`).
 
 ---
 
 ### Phase 4 — Add `--model_type` to `tm2_pipeline.py`
 
-Once the PUMA vintage decision (Phase 3) is made, wire up the TM1 path in the pipeline.
+`create_seed_population.py` is done (commit `aece8f1`). Wire up the TM1 path in the pipeline.
 
 #### 4a — Add `--model_type` argument
 
@@ -1117,11 +987,9 @@ self.run_command(
 
 **Note:** `postprocess_recode.py` on the `tm2` branch already handles both modes — no changes needed there.
 
-#### 4e — Handle `create_seed_population.py`
+#### ✅ 4e — `create_seed_population.py` (done)
 
-Depending on Phase 3 decision:
-- **Option A:** Add `--model_type` flag to `create_seed_population.py` to pick between 2017–2021 PUMS (TM1) and 2019–2023 PUMS (TM2).
-- **Option B:** Add `--crosswalk` flag (or derive from `--model_type`) to point to the correct crosswalk file.
+`--model_type TM1` added. Selects 2017–2021 PUMS, reads `geo_cross_walk_tm1.csv`, converts income to `hh_income_2000` (CPI 2021→2000 = 172.2/258.8). Commit `aece8f1`.
 
 #### 4f — Update `run_all_summaries.py` for TM1
 
