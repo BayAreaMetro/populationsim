@@ -1,10 +1,11 @@
 # TM1 + TM2 Dual-Mode Pipeline Plan
 
+**Strategy (updated March 2026):** There are two sequential goals:
 
+1. **Merge `tm2` into `master`** — bring the modernized Python pipeline to master without breaking existing TM1 production runs.
+2. **Add TM1 support to the Python pipeline** — so `tm2_pipeline.py` can run TM1 synthesis, replacing the BAT file long-term.
 
-This document specifies every step in the population synthesis pipeline for both TM1 and TM2,
-documents the exact inputs and outputs at each step, and identifies the gaps that must be closed
-to make the `tm2` branch code support TM1 synthesis as well as TM2.
+This document covers both: the merge plan (Phase 0) and the TM1 porting work (Phases 1–7).
 
 ---
 
@@ -24,11 +25,12 @@ to make the `tm2` branch code support TM1 synthesis as well as TM2.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Git cherry-picks — configs, crosswalks | ✅ complete |
-| 2 | Port `add_hhgq_combined_controls.py` | ✅ complete |
+| 0 | Merge `tm2` → `master` | ☐ not started |
+| 1 | Git cherry-picks — configs, crosswalks *(already on `tm2`)* | ✅ complete |
+| 2 | Port `add_hhgq_combined_controls.py` *(already on `tm2`)* | ✅ complete |
 | 3 | PUMA vintage design decision (G4) | ⏸ blocked — team decision |
 | 4 | Wire `--model_type` into `tm2_pipeline.py` | ⏸ blocked on Phase 3 |
-| 5 | Fix Python 3.x bugs in `master` | ☐ independent, not started |
+| 5 | Fix Python 3.x bugs in `master` | ☐ independent, do before merge |
 | 6 | End-to-end TM1 test run | ⏸ blocked on Phase 4 |
 | 7 | Port TM1 control generation from R to Python (G8) | ☐ future — not blocking |
 
@@ -50,8 +52,8 @@ The pipeline spans **two repositories**:
 
 | Branch | Focus | Entry point | Status |
 |--------|-------|-------------|--------|
-| `master` | **TM1-default**, but also runs TM2 (older vintage) via `set MODELTYPE=TM2` | `run_populationsim.bat` (BAT file) | Active production use for TM1 |
-| `tm2` | **TM2-only** currently; goal of this plan is to add TM1 support | `tm2_pipeline.py` (Python) | Modernized 2023 vintage; missing TM1 configs + scripts |
+| `master` | **TM1-default** production runs via BAT; no Python pipeline | `run_populationsim.bat` | Active TM1 production use |
+| `tm2` | **TM2-only** Python pipeline; modernized 2023 vintage | `tm2_pipeline.py` | Goal: merge into master, then add TM1 support |
 
 ---
 
@@ -930,6 +932,42 @@ Estimated effort: 4–6 hours. Risk: low.
 ---
 
 ## 11. Workplan: Implementing Dual-Mode TM1 + TM2 Support
+
+---
+
+### Phase 0 — Merge `tm2` into `master`
+
+**Goal:** Master gets the full modernized Python pipeline (`tm2_pipeline.py`, all analysis scripts, new docs, updated `create_baseyear_controls.py`, `create_seed_population.py`, `postprocess_recode.py`) without disrupting existing TM1 production runs.
+
+**Why it is safe:**
+- `run_populationsim.bat` continues to work exactly as before — nothing in `tm2` removes the scripts it calls.
+- The Python pipeline (`tm2_pipeline.py`) is additive; it lives alongside the BAT.
+- Only **one merge conflict** exists: `run_populationsim.bat` was deleted on `tm2` but modified on `master`. Resolution: **keep the master version** (do not delete it).
+
+**Steps:**
+
+| Task | Command / action |
+|------|------------------|
+| 0a | `git checkout master` |
+| 0b | `git merge tm2` |
+| 0c | Conflict: `bay_area/run_populationsim.bat` — choose **keep master version** (`git checkout master -- bay_area/run_populationsim.bat`) |
+| 0d | `git add bay_area/run_populationsim.bat` |
+| 0e | `git commit -m "Merge tm2 into master: add Python pipeline alongside existing BAT"` |
+| 0f | Smoke-test TM1 BAT: run a single year with `set MODELTYPE=TM1`; verify no regressions |
+| 0g | Smoke-test TM2 Python: `python tm2_pipeline.py full --year 2023`; verify no regressions |
+
+**What master gains from the merge:**
+- `tm2_pipeline.py` — modern Python orchestration
+- `run_all_summaries.py` — post-synthesis summary runner
+- `create_baseyear_controls.py` — updated Census API pulls, Python 3 compatible
+- `create_seed_population.py` — 2023 vintage, cleaner income/GQ handling
+- `postprocess_recode.py` — handles both `--model_type TM1` and `TM2`
+- `analysis/` — all new analysis scripts
+- `hh_gq/configs_TM1/` — already ported (Phase 1)
+- `add_hhgq_combined_controls.py` — already ported (Phase 2)
+- Updated docs
+
+**Dependency:** Optionally do Phase 5 (Python bug fixes) first so master is clean before merging.
 
 ---
 
