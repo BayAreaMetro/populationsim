@@ -1,0 +1,157 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Times New Roman;}{\f1 Courier New;}}
+{\colortbl ;\red0\green0\blue0;}
+\viewkind4\uc1\pard\fs28\b TM2 PopulationSim Process Overview\b0\par
+\par
+\fs24\b What is PopulationSim?\b0\par
+PopulationSim is a synthetic population generator that creates realistic household and person records for transportation modeling. The TM2 (Travel Model 2) pipeline synthesizes a population for the 9-county San Francisco Bay Area.\par
+\par
+\b Overall Process Flow\b0\par
+\fs20 PUMS Data \u8594? Geographic Crosswalk \u8594? Seed Population \u8594? Marginal Controls \u8594? PopulationSim \u8594? Synthetic Population\par
+\fs24\par
+\b 1. Data Inputs\b0\par
+- PUMS (Public Use Microdata Sample): Real anonymized household/person records from US Census\par
+- Geographic Definitions: MAZ (Micro Analysis Zones), TAZ (Traffic Analysis Zones), PUMA (Public Use Microdata Areas)\par
+- Marginal Controls: Target totals by geography (households by income, persons by age, etc.)\par
+\par
+\b 2. Geographic Framework\b0\par
+- Region: 9-county San Francisco Bay Area\par
+- Counties: Sequential numbering 1-9 (SF=1, San Mateo=2, Santa Clara=3, Alameda=4, Contra Costa=5, Solano=6, Napa=7, Sonoma=8, Marin=9)\par
+- Zones: 4735 Zones, 39587 MAZs\par
+- PUMAs: 104 Public Use Microdata Areas covering the region\par
+\par
+\b Step-by-Step Process\b0\par
+\par
+\b Step 1: PUMS Data Download\b0\par
+\b Purpose:\b0 Obtain raw household and person microdata from US Census\par
+\b Input:\b0 Census API or cached files\par
+\b Output:\b0\par
+- households_2023_raw.csv (~175k Bay Area households)\par
+- persons_2023_raw.csv (~400k Bay Area persons)\par
+\par
+What happens:\par
+- Downloads 2023 5-year American Community Survey PUMS data\par
+- Filters to Bay Area PUMAs only\par
+- Adds inflation adjustment (2023 to 2010 dollars)\par
+- Adds unique identifiers and crosswalk fields\par
+\par
+\b Step 2: Geographic Crosswalk Creation\b0\par
+\b Purpose:\b0 Link geographic zones (MAZ-TAZ-PUMA-County) for population synthesis\par
+\b Input:\b0 TM2 zone definition files (blocks_mazs_tazs.csv, mazs_tazs_all_geog.csv) and County mapping configuration\par
+\b Output:\b0 geo_cross_walk_tm2_updated.csv\par
+\par
+What happens:\par
+- Creates MAZ-to-TAZ-to-PUMA-to-County relationships\par
+- Resolves conflicts (TAZs split across PUMAs)\par
+- Converts FIPS county codes to sequential 1-9 system\par
+- Validates all geographic relationships\par
+\par
+\b Step 3: Seed Population Generation\b0\par
+\b Purpose:\b0 Process PUMS data into PopulationSim-ready format\par
+\b Input:\b0 Raw PUMS households/persons files, geographic crosswalk, income inflation factors\par
+\b Output:\b0\par
+- seed_households.csv (households with geographic assignments)\par
+- seed_persons.csv (persons linked to households)\par
+\par
+What happens:\par
+- Assigns households to PUMAs based on their original PUMA\par
+- Links persons to households via unique household IDs\par
+- Applies income inflation from 2023 to 2010 dollars\par
+- Creates PopulationSim-compatible field names and formats\par
+- Handles Group Quarters (GQ) population specially\par
+\par
+\b Step 4: Marginal Controls Generation\b0\par
+\b Purpose:\b0 Create target totals that synthetic population must match\par
+\b Input:\b0 Census API data (ACS tables), geographic crosswalk, control specifications (controls.csv)\par
+\b Output:\b0\par
+- maz_marginals.csv (MAZ-level targets)\par
+- taz_marginals.csv (TAZ-level targets)\par
+- county_marginals.csv (County-level targets)\par
+\par
+What happens:\par
+- Downloads Census data for all control variables\par
+- Aggregates to appropriate geographic levels\par
+- Handles Group Quarters controls separately\par
+- Creates age-income cross-tabulations\par
+- Ensures control totals are consistent across geographies\par
+\par
+\b Step 5: PopulationSim Synthesis\b0\par
+\b Purpose:\b0 Generate synthetic population matching marginal controls\par
+\b Input:\b0 Seed households and persons, marginal controls at all geographic levels, PopulationSim configuration files\par
+\b Output:\b0\par
+- synthetic_households.csv (final synthetic households)\par
+- synthetic_persons.csv (final synthetic persons)\par
+- County summary tables\par
+\par
+What happens:\par
+- Balancing: Adjusts seed population weights to match controls\par
+- Integerization: Converts fractional weights to whole households\par
+- Assignment: Places households into specific MAZs\par
+- Uses iterative proportional fitting (IPF) algorithm\par
+- Handles multiple geographic levels simultaneously\par
+\par
+\b Key Algorithms\b0\par
+\par
+\b Geographic Assignment\b0\par
+1. PUMA Assignment: Households stay in their original PUMA\par
+2. County Assignment: Based on PUMA-to-county crosswalk\par
+3. TAZ/MAZ Assignment: PopulationSim chooses based on controls\par
+\par
+\b Control Balancing\b0\par
+1. IPF (Iterative Proportional Fitting): Adjusts weights to match marginals\par
+2. Multi-level convergence: Ensures consistency across MAZ/TAZ/County\par
+3. Constraint handling: Respects geographic and demographic relationships\par
+\par
+\b Group Quarters Handling (Updated October 2025)\b0\par
+\b Important Approach Change:\b0 PopulationSim now uses person-level group quarters controls that align directly with Census data structure.\par
+\par
+1. Person-level controls: GQ controls count individuals, not households\par
+- pers_gq_university: University GQ persons (Census P5_008N)\par
+- pers_gq_noninstitutional: Military + other GQ persons (Census P5_009N+P5_011N+P5_012N)\par
+\par
+2. Selective institutional inclusion:\par
+- INCLUDED: University/college housing (dorms, student housing)\par
+- INCLUDED: Military barracks and base housing\par
+- INCLUDED: Other non-institutional group quarters (group homes, worker housing)\par
+- EXCLUDED: Nursing homes, prisons, mental health institutions\par
+\par
+3. Two-level structure:\par
+- Household level: hhgqtype (0=regular, 1=university, 2=noninstitutional)\par
+- Person level: gq_type (0=regular, 1=university, 2=noninstitutional)\par
+\par
+4. Direct Census alignment: Controls use Census person counts without household-level conversion\par
+\par
+5. Travel behavior: Non-institutional GQ residents participate in regular travel patterns\par
+\par
+\b Rationale:\b0 Person-level controls eliminate conversion assumptions and ensure direct data consistency with Census P5 series tables while maintaining travel modeling utility.\par
+\par
+\b Data Quality Measures\b0\par
+\par
+\b Validation Checks\b0\par
+- Control totals: Synthetic population matches marginal targets within tolerance\par
+- Geographic consistency: All households properly assigned to valid MAZs\par
+- Demographic realism: Age/income distributions match Census patterns\par
+- Household composition: Realistic household sizes and types\par
+\par
+\b Key Metrics\b0\par
+- Convergence: IPF algorithm convergence to target tolerances\par
+- Assignment rates: Percentage of households successfully assigned\par
+- Control fit: How closely synthetic matches target marginals\par
+- Geographic coverage: All MAZs receive appropriate population\par
+\par
+\b Technology Stack\b0\par
+\par
+\b Core Software\b0\par
+- PopulationSim: Synthetic population generation engine\par
+- ActivitySim: Framework for population synthesis and modeling\par
+- Python: Primary programming language\par
+- Pandas: Data manipulation and analysis\par
+\par
+\b Data Sources\b0\par
+- US Census Bureau: PUMS microdata and ACS marginal data\par
+- Census API: Automated data download\par
+- TM2 Model: Geographic zone definitions\par
+- MTC/ABAG: Regional planning agency data\par
+\par
+\b End of Document\b0\par
+}

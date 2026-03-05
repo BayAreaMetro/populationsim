@@ -1,4 +1,4 @@
-::
+:: 
 :: Batch script to run the population simulation for the bay area
 :: Pass YEAR as the argument to this batch script.
 ::
@@ -10,14 +10,15 @@ setlocal EnableDelayedExpansion
 :: should be TM1 or TM2
 set MODELTYPE=TM1
 
-:: for a forecast, copies marginals from         "%URBANSIMPATH%\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv" 
-:: for past/current year, copies marginals from  "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!""
-set PETRALEPATH=X:\petrale
-set URBANSIMPATH=L:\Application\Model_One\TransitRecovery\land_use_preprocessing
+:: for a forecast, copies marginals from         "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv"
+:: for past/current year, copies marginals from  "%TMPATH%\!YEAR!""
+set TMPATH=X:\travel-model-one-master\utilities\taz-data-baseyears
+set URBANSIMPATH=\\tsclient\C\Users\ywang\Box\Modeling and Surveys\Urban Modeling\Bay Area UrbanSim\PBA50\Final Blueprint runs\Final Blueprint (s24)\BAUS v2.25 - FINAL VERSION
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
-set BAUS_RUNNUM=census
-:: OUTPUT DIR will be hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=PBA50Plus_20230809
+:: Note: This is equivalent to PBA50Plus_Final_Blueprint_v65 but it includes interim year output
+set BAUS_RUNNUM=run182
+:: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
+set OUTPUT_SUFFIX=STIP2026_RTP2021FBP_20251113
 
 :: assume argument is year
 set YEARS=%1
@@ -38,7 +39,7 @@ if "%TEST_PUMA%" NEQ "" (
 
 :create_seed
 if not exist hh_gq\data\seed_households.csv (
-  python create_seed_population.py
+  python create_seed_population.py --model_type !MODELTYPE!
   if ERRORLEVEL 1 goto error
 )
 
@@ -57,24 +58,26 @@ for %%Y in (!YEARS!) do (
     echo FORECAST=!FORECAST!
     if !FORECAST!==0 (
       set RUN_NUM=census
-      copy /y "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"          hh_gq\data\taz_summaries.csv
-      copy /y "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"   hh_gq\data\county_marginals.csv
+      copy /y "%TMPATH%\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"          hh_gq\data\taz_summaries.csv
+      copy /y "%TMPATH%\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"   hh_gq\data\county_marginals.csv
 
       rem Verify that the file copy MUST succeed or we'll run populationsim with the wrong input
-      fc /b "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"         hh_gq\data\taz_summaries.csv > nul
+      fc /b "%TMPATH%\!YEAR!\TAZ1454 !YEAR! Popsim Vars.csv"         hh_gq\data\taz_summaries.csv > nul
       if errorlevel 1 goto error
-      fc /b "%PETRALEPATH%\applications\travel_model_lu_inputs\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"  hh_gq\data\county_marginals.csv > nul
+      fc /b "%TMPATH%\!YEAR!\TAZ1454 !YEAR! Popsim Vars County.csv"  hh_gq\data\county_marginals.csv > nul
       if errorlevel 1 goto error
     )
     if !FORECAST!==1 (
-      rem copy "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"
-      copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"      hh_gq\data\taz_summaries.csv
-      copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"   hh_gq\data\county_marginals.csv
+      rem copy "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv" "hh_gq\data\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"
+      copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv"     hh_gq\data\taz_summaries.csv
+      ::copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv" hh_gq\data\county_marginals.csv
+      copy /y "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv" hh_gq\data\regional_marginals.csv
 
       rem Verify that the file copy MUST succeed or we'll run populationsim with the wrong input
-      fc /b "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!.csv"     hh_gq\data\taz_summaries.csv > nul
+      fc /b "%URBANSIMPATH%\%BAUS_RUNNUM%_taz_summaries_!YEAR!_UBI.csv"       hh_gq\data\taz_summaries.csv > nul
       if errorlevel 1 goto error
-      fc /b  "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv" hh_gq\data\county_marginals.csv > nul
+      ::fc /b  "%URBANSIMPATH%\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"  hh_gq\data\county_marginals.csv > nul
+      fc /b  "%URBANSIMPATH%\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv"  hh_gq\data\regional_marginals.csv > nul
       if errorlevel 1 goto error
     )
   )
@@ -100,11 +103,11 @@ for %%Y in (!YEARS!) do (
   if ERRORLEVEL 1 goto error
 
   rem create the final output directory that populationsim will write to
-  set OUTPUT_DIR=hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
+  set OUTPUT_DIR=X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
   echo OUTPUT_DIR=[!OUTPUT_DIR!]
   if not exist !OUTPUT_DIR! ( mkdir !OUTPUT_DIR! )
 
-  :: tm2 version will require small changes to the config if using UrbanSim controls 
+  :: tm2 version will require small changes to the config if using UrbanSim controls
   rem Synthesize households and persons
   rem This will create the following in OUTPUT_DIR
   rem   - synthetic_[households,persons].csv
@@ -123,7 +126,7 @@ for %%Y in (!YEARS!) do (
   )
 
   rem Postprocess and recode
-  python postprocess_recode.py !TEST_PUMA_FLAG! --model_type !MODELTYPE! --directory !OUTPUT_DIR!
+  python postprocess_recode.py !TEST_PUMA_FLAG! --model_type !MODELTYPE! --directory !OUTPUT_DIR! --year !YEAR!
   if ERRORLEVEL 1 goto error
   rem Note: this creates OUTPUT_DIR\summary_melt.csv so copy validation.twb into place
   copy /y validation.twb !OUTPUT_DIR!
@@ -131,7 +134,8 @@ for %%Y in (!YEARS!) do (
   :: save input also
   if !MODELTYPE!==TM1 (
     move /y "hh_gq\data\taz_summaries.csv"       !OUTPUT_DIR!
-    move /y "hh_gq\data\county_marginals.csv"    !OUTPUT_DIR!
+    move /y "hh_gq\data\taz_summaries_hhgq.csv"  !OUTPUT_DIR!
+  ::  move /y "hh_gq\data\county_marginals.csv"    !OUTPUT_DIR!
     move /y "hh_gq\data\regional_marginals.csv"  !OUTPUT_DIR!
   )
   if !MODELTYPE!==TM2 (

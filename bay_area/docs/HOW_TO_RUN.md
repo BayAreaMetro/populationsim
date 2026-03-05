@@ -1,0 +1,259 @@
+# How to Run TM2 PopulationSim Pipeline
+
+## Quick Start
+
+### 1. Environment Setup
+```bash
+# Option 1: Use conda activate (preferred)
+conda activate popsim
+python --version  # Should show: Python 3.8.20
+
+# Option 2: Direct Python path (if conda activate fails)
+# Replace [USERNAME] with your actual username
+C:\Users\[USERNAME]\AppData\Local\anaconda3\envs\popsim\python.exe --version
+# Should show: Python 3.8.20
+
+# Navigate to bay_area directory
+cd /path/to/populationsim/bay_area
+
+# Check environment setup
+python setup_environment.py
+```
+
+**Note**: The environment should include dask (required for PopulationSim). If you get "No module named 'dask'" errors:
+```bash
+conda activate popsim
+conda install -c conda-forge dask
+```
+
+### 2. Run Full Pipeline
+```bash
+# Run complete pipeline (recommended)
+python tm2_pipeline.py full --force
+
+# Or run individual steps in order:
+python tm2_pipeline.py pums --force           # Download/process PUMS data
+python tm2_pipeline.py seed --force           # Create seed population
+python tm2_pipeline.py controls --force       # Generate control totals
+python tm2_pipeline.py populationsim --force  # Run IPF synthesis (longest step)
+python tm2_pipeline.py postprocess --force    # Format outputs for TM2
+python tm2_pipeline.py summary_analysis --force  # Generate summary reports
+python tm2_pipeline.py analysis --force       # Run detailed analysis
+python tm2_pipeline.py validate_income --force   # Validate income distributions
+```
+
+**All Available Commands**:
+| Command | Description | Typical Runtime |
+|---------|-------------|-----------------|
+| `status` | Show current pipeline status | Instant |
+| `pums` | Download/process PUMS data | 5-10 min |
+| `seed` | Create seed population | 2-5 min |
+| `controls` | Generate control totals | 10-15 min |
+| `populationsim` | Run IPF synthesis | 45-90 min |
+| `postprocess` | Format outputs for TM2 | 5-10 min |
+| `summary_analysis` | Generate summary reports | 15-20 min |
+| `analysis` | Run detailed analysis scripts | 10-15 min |
+| `validate_income` | Validate income distributions | 2-5 min |
+| `full` | Run complete pipeline | 2-3 hours |
+| `clean` | Remove all outputs (fresh start) | Instant |
+
+**Expected Runtime**: ~2-3 hours for full Bay Area synthesis
+
+### 3. Run Analysis and Validation
+```bash
+# Run comprehensive analysis suite (10 scripts)
+python run_all_summaries.py
+
+# Or run specific categories
+python run_all_summaries.py --category core
+python run_all_summaries.py --category validation
+python run_all_summaries.py --category visualization
+```
+
+**Outputs**: Charts and validation reports in `output_2023/charts/`
+
+### 4. Prerequisites: Crosswalk Files
+**IMPORTANT**: The pipeline now requires pre-generated geographic crosswalk files. These are created using the standalone crosswalk creator in the tm2py-utils repository:
+
+```bash
+# Navigate to tm2py-utils repository
+cd C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz
+
+# Generate crosswalk files (outputs to populationsim data directory)
+python standalone_tm2_crosswalk_creator.py
+
+# This creates:
+# - geo_cross_walk_tm2_maz.csv
+# - geo_cross_walk_tm2_block10.csv
+```
+
+The pipeline will look for these files in `output_2023/populationsim_working_dir/data/`. If they don't exist, the pipeline will fail with a file not found error.
+
+## File Paths You May Need to Change
+
+### Critical Path Configurations
+
+All file paths are centralized in `unified_tm2_config.py`. Here are the key sections you may need to modify:
+
+
+#### 1. External Data Paths
+**Location**: `unified_tm2_config.py` lines 85-100
+```python
+self.EXTERNAL_PATHS = {
+    # Census data locations
+    'network_census_cache': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls"),
+    'network_census_api': Path("M:/Data/Census/API/new_key"),
+    'pums_current': Path("M:/Data/Census/PUMS_2023_5Year_Crosswalked"),
+    'pums_cached': Path("M:/Data/Census/NewCachedTablesForPopulationSimControls/PUMS_2019-23")
+}
+```
+**What to change**: 
+- Replace `M:/Data/` paths with your network data locations  
+- If no M: drive access, the pipeline will use local fallback paths automatically
+
+**Note**: All tm2py-utils paths have been removed since crosswalk creation is now completely external. The pipeline only expects the output crosswalk files (geo_cross_walk_tm2_maz.csv and geo_cross_walk_tm2_block10.csv) to exist in the working directory.
+
+#### 2. GIS Reference Files
+**Location**: `unified_tm2_config.py` lines 110-120
+```python
+self.GIS_FILES = {
+    # Network locations (preferred)
+    'maz_taz_def_network': self.EXTERNAL_PATHS['network_gis'] / "blocks_mazs_tazs.csv",
+    'maz_taz_all_geog_network': self.EXTERNAL_PATHS['network_gis'] / "mazs_tazs_all_geog.csv",
+    # Local fallbacks
+    'maz_taz_def_local': self.EXTERNAL_PATHS['local_gis'] / "blocks_mazs_tazs.csv",
+    'maz_taz_all_geog_local': self.EXTERNAL_PATHS['local_gis'] / "mazs_tazs_all_geog.csv",
+}
+```
+**What to change**: Usually automatic fallback works, but verify your GIS files are available.
+
+#### 3. Census API Key
+**Location**: `unified_tm2_config.py` lines 115-125
+```python
+'census_api_key_network': self.EXTERNAL_PATHS['network_census_api'] / "api-key.txt",
+'census_api_key_local': self.EXTERNAL_PATHS['local_census'] / "api-key.txt"
+```
+**What to change**: Ensure you have a Census API key file in one of these locations.
+
+## Environment Variables (Alternative to Path Changes)
+
+Instead of editing `unified_tm2_config.py`, you can set environment variables:
+
+```bash
+# Windows PowerShell
+$env:POPSIM_PYTHON_EXE = "C:/your/path/to/python.exe"
+$env:NETWORK_DATA_PATH = "M:/Data"  # or your network path
+
+# Linux/Mac
+export POPSIM_PYTHON_EXE="/your/path/to/python"
+export NETWORK_DATA_PATH="/your/network/data/path"
+```
+
+**Important**: Make sure to run the crosswalk creator from tm2py-utils before running the PopulationSim pipeline.
+
+## Common Path Issues and Solutions
+
+### Issue 1: M: Drive Not Available
+**Symptoms**: "Path not found" errors for M: drive locations
+**Solution**: Pipeline automatically uses local fallback paths in `bay_area/local_data/`
+
+### Issue 2: Missing Crosswalk Files
+
+**Symptoms**: "FileNotFoundError" for geo_cross_walk_tm2_maz.csv or geo_cross_walk_tm2_block10.csv
+
+**Solution**:
+
+1. Navigate to tm2py-utils: `cd C:/GitHub/tm2py-utils/tm2py_utils/inputs/maz_taz`
+2. Run crosswalk creator: `python standalone_tm2_crosswalk_creator.py`  
+3. Verify files are created in `output_2023/populationsim_working_dir/data/`
+
+### Issue 3: Wrong Python Executable
+
+**Symptoms**: "Module not found" errors during pipeline execution
+
+**Solution**:
+
+1. Check: `which python` or `where python`
+2. Update `PYTHON_EXE` path in config or set `POPSIM_PYTHON_EXE` environment variable
+
+### Issue 4: Census API Key Missing
+
+**Symptoms**: Census download failures
+
+**Solution**:
+
+1. Get free API key from: <https://api.census.gov/data/key_signup.html>
+2. Save to file: `bay_area/local_data/census/api-key.txt`
+
+## Directory Structure Requirements
+
+The pipeline expects this structure (auto-created if missing):
+
+```text
+bay_area/
+├── output_2023/
+│   └── populationsim_working_dir/
+│       ├── data/           # Input data files
+│       ├── configs/        # PopulationSim config files  
+│       └── output/         # Synthesis results
+├── local_data/             # Local fallback data
+│   ├── gis/               # Local GIS files
+│   └── census/            # Local census cache
+├── hh_gq/                 # Household/GQ config templates
+└── scripts/               # Utility scripts
+```
+
+## Testing Your Setup
+
+Run the environment checker:
+
+```bash
+python setup_environment.py
+```
+
+This checks:
+
+- ✓ Python version and environment
+- ✓ Required packages installed
+- ✓ PopulationSim library accessible
+- ✓ External paths available
+- ✓ Fallback directories created
+
+## Troubleshooting Commands
+
+```bash
+# Check pipeline status
+python tm2_pipeline.py status
+
+# Clean outputs and restart
+python tm2_pipeline.py clean
+python tm2_pipeline.py full --force
+
+# Run single step for debugging
+python tm2_pipeline.py seed --force
+python tm2_pipeline.py controls --force
+
+# Check Python environment
+python -c "import populationsim; print(populationsim.__file__)"
+
+# Verify crosswalk files exist
+ls output_2023/populationsim_working_dir/data/geo_cross_walk_tm2_*.csv
+```
+
+## Performance Tips
+
+- **Full run**: ~2-3 hours for Bay Area (2.96M households, 7.56M persons)
+- **PopulationSim step**: ~45-90 min (longest step)
+- **Summary analysis**: ~15-20 min (10 analysis scripts)
+- **Convergence settings**: rel_tolerance=0.2, abs_tolerance=100 (optimized for speed/quality balance)
+- **Parallel processing**: Pipeline uses all available CPU cores
+- **Memory**: Recommend 16GB+ RAM for full Bay Area run
+
+## Getting Help
+
+1. **Check logs**: `output_2023/populationsim_working_dir/output/populationsim.log`
+2. **Environment issues**: Run `python setup_environment.py`
+3. **Path problems**: Check `unified_tm2_config.py` external paths
+4. **Data issues**: Verify input files in `output_2023/populationsim_working_dir/data/`
+
+

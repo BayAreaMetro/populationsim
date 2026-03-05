@@ -1,0 +1,19 @@
+COUNTY,households,county_name,share,dataset,includes_gq
+1,371859.0,San Francisco,0.1331169958564154,ACS_Controls_households_only,No
+2,269383.0,San Mateo,0.09643293747035503,ACS_Controls_households_only,No
+3,656068.0,Santa Clara,0.23485730138984598,ACS_Controls_households_only,No
+4,591669.0,Alameda,0.2118039359579019,ACS_Controls_households_only,No
+5,406978.0,Contra Costa,0.14568879263283185,ACS_Controls_households_only,No
+6,155892.0,Solano,0.05580576164096689,ACS_Controls_households_only,No
+7,49768.0,Napa,0.017815802897824393,ACS_Controls_households_only,No
+8,187700.0,Sonoma,0.06719229633341985,ACS_Controls_households_only,No
+9,104158.0,Marin,0.0372861758204387,ACS_Controls_households_only,No
+1,395670.0,San Francisco,0.13557046703917966,ACS_Controls_with_gq,Yes
+2,275352.0,San Mateo,0.09434528581942576,ACS_Controls_with_gq,Yes
+3,687199.0,Santa Clara,0.23545856238496024,ACS_Controls_with_gq,Yes
+4,634945.0,Alameda,0.21755450298024093,ACS_Controls_with_gq,Yes
+5,413706.0,Contra Costa,0.14175023539037798,ACS_Controls_with_gq,Yes
+6,158276.0,Solano,0.05423092789722041,ACS_Controls_with_gq,Yes
+7,52718.0,Napa,0.018063042134535023,ACS_Controls_with_gq,Yes
+8,193928.0,Sonoma,0.06644655781831837,ACS_Controls_with_gq,Yes
+9,106762.0,Marin,0.03658041853574165,ACS_Controls_with_gq,Yes

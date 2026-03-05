@@ -1,0 +1,136 @@
+TABLEAU PARAMETER SETUP
+========================
+
+Parameter Name: Select Measure
+Parameter Type: String
+Allowable values: List
+
+VALUES TO ADD (copy each line, paste into Tableau):
+---------------------------------------------------
+
+HH
+POP
+emp_total
+ret_loc
+ret_reg
+health
+ed_k12
+ed_high
+ed_oth
+eat
+hotel
+serv_bus
+serv_pers
+serv_soc
+prof
+fire
+info
+gov
+man_tech
+man_bio
+man_lgt
+man_hvy
+transp
+logis
+constr
+util
+natres
+ag
+art_rec
+lease
+
+
+DISPLAY NAMES (optional - set these as aliases):
+-------------------------------------------------
+
+HH → Households
+POP → Population
+emp_total → Total Employment
+ret_loc → Local Retail
+ret_reg → Regional Retail
+health → Healthcare
+ed_k12 → K-12 Education
+ed_high → Higher Education
+ed_oth → Other Education
+eat → Food Service
+hotel → Hotel/Lodging
+serv_bus → Business Services
+serv_pers → Personal Services
+serv_soc → Social Services
+prof → Professional Services
+fire → Finance/Insurance/Real Estate
+info → Information
+gov → Government
+man_tech → Tech Manufacturing
+man_bio → Bio Manufacturing
+man_lgt → Light Manufacturing
+man_hvy → Heavy Manufacturing
+transp → Transportation
+logis → Logistics/Warehousing
+constr → Construction
+util → Utilities
+natres → Natural Resources
+ag → Agriculture
+art_rec → Arts/Recreation
+lease → Leasing
+
+
+CALCULATED FIELD: Selected Measure
+-----------------------------------
+
+CASE [Parameters].[Select Measure]
+  WHEN "HH" THEN [maz_data_tableau.csv].[HH]
+  WHEN "POP" THEN [maz_data_tableau.csv].[POP]
+  WHEN "emp_total" THEN [maz_data_tableau.csv].[emp_total]
+  WHEN "ret_loc" THEN [maz_data_tableau.csv].[ret_loc]
+  WHEN "ret_reg" THEN [maz_data_tableau.csv].[ret_reg]
+  WHEN "health" THEN [maz_data_tableau.csv].[health]
+  WHEN "ed_k12" THEN [maz_data_tableau.csv].[ed_k12]
+  WHEN "ed_high" THEN [maz_data_tableau.csv].[ed_high]
+  WHEN "ed_oth" THEN [maz_data_tableau.csv].[ed_oth]
+  WHEN "eat" THEN [maz_data_tableau.csv].[eat]
+  WHEN "hotel" THEN [maz_data_tableau.csv].[hotel]
+  WHEN "serv_bus" THEN [maz_data_tableau.csv].[serv_bus]
+  WHEN "serv_pers" THEN [maz_data_tableau.csv].[serv_pers]
+  WHEN "serv_soc" THEN [maz_data_tableau.csv].[serv_soc]
+  WHEN "prof" THEN [maz_data_tableau.csv].[prof]
+  WHEN "fire" THEN [maz_data_tableau.csv].[fire]
+  WHEN "info" THEN [maz_data_tableau.csv].[info]
+  WHEN "gov" THEN [maz_data_tableau.csv].[gov]
+  WHEN "man_tech" THEN [maz_data_tableau.csv].[man_tech]
+  WHEN "man_bio" THEN [maz_data_tableau.csv].[man_bio]
+  WHEN "man_lgt" THEN [maz_data_tableau.csv].[man_lgt]
+  WHEN "man_hvy" THEN [maz_data_tableau.csv].[man_hvy]
+  WHEN "transp" THEN [maz_data_tableau.csv].[transp]
+  WHEN "logis" THEN [maz_data_tableau.csv].[logis]
+  WHEN "constr" THEN [maz_data_tableau.csv].[constr]
+  WHEN "util" THEN [maz_data_tableau.csv].[util]
+  WHEN "natres" THEN [maz_data_tableau.csv].[natres]
+  WHEN "ag" THEN [maz_data_tableau.csv].[ag]
+  WHEN "art_rec" THEN [maz_data_tableau.csv].[art_rec]
+  WHEN "lease" THEN [maz_data_tableau.csv].[lease]
+END
+
+
+QUICK SETUP STEPS:
+------------------
+
+1. Create Parameter:
+   - Right-click in Data pane → Create Parameter
+   - Name: Select Measure
+   - Data type: String
+   - Allowable values: List
+   - Click Add for each value above (HH, POP, emp_total, etc.)
+   - Set Current value: HH
+   - Click OK
+
+2. Create Calculated Field:
+   - Right-click in Data pane → Create Calculated Field
+   - Name: Selected Measure
+   - Paste the CASE statement above
+   - Click OK
+
+3. Use in visualization:
+   - Drag "Selected Measure" to Color shelf
+   - Right-click parameter "Select Measure" → Show Parameter
+   - Dropdown will appear at top-right of worksheet

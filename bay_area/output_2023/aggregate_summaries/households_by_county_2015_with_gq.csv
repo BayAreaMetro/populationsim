@@ -1,0 +1,10 @@
+COUNTY,households,county_name,share,dataset,includes_gq
+1,372490,San Francisco,0.13456877407626444,PopSim_2015_with_gq,Yes
+2,266914,San Mateo,0.09642752762165976,PopSim_2015_with_gq,Yes
+3,650515,Santa Clara,0.23501035213890617,PopSim_2015_with_gq,Yes
+4,585874,Alameda,0.2116576175015634,PopSim_2015_with_gq,Yes
+5,392477,Contra Costa,0.14178944063768165,PopSim_2015_with_gq,Yes
+6,147458,Solano,0.053271879212160866,PopSim_2015_with_gq,Yes
+7,51196,Napa,0.018495484328729453,PopSim_2015_with_gq,Yes
+8,194429,Sonoma,0.07024100559712748,PopSim_2015_with_gq,Yes
+9,106674,Marin,0.038537918885906824,PopSim_2015_with_gq,Yes

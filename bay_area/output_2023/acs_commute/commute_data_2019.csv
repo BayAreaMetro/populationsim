@@ -1,0 +1,10 @@
+year,county_name,county_full_name,state,county,total_workers,work_from_home,work_from_home_pct
+2019,Alameda,"Alameda County, California",06,001,812004.0,53235.0,6.556002187181344
+2019,Contra Costa,"Contra Costa County, California",06,013,559646.0,38974.0,6.964045128527677
+2019,Marin,"Marin County, California",06,041,128119.0,17884.0,13.958897587399216
+2019,Napa,"Napa County, California",06,055,67719.0,4241.0,6.2626441619043405
+2019,San Francisco,"San Francisco County, California",06,075,526022.0,39124.0,7.437711730688069
+2019,San Mateo,"San Mateo County, California",06,081,412818.0,25374.0,6.1465343080970305
+2019,Santa Clara,"Santa Clara County, California",06,085,995301.0,48468.0,4.869682638719342
+2019,Solano,"Solano County, California",06,095,215285.0,10488.0,4.871681724226026
+2019,Sonoma,"Sonoma County, California",06,097,251132.0,20384.0,8.116846917159105

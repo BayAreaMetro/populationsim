@@ -4,8 +4,15 @@ example_test_no_integerizing/
 example_mtc/
 .idea
 .ipynb_checkpoints
-
-
+input_2023/
+local_data/
+persons_2023_tm2.csv
+households_2023_tm2.csv
+seed_households.csv
+seed_persons.csv
+synthetic_households.csv
+synthetic_persons.csv
+pipeline.h5
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -28,7 +35,8 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-
+households.csv
+persons.csv
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -69,3 +77,5 @@ docs/_build/
 
 # vagrant
 .vagrant
+docs/images/Thumbs.db
+.Rproj.user

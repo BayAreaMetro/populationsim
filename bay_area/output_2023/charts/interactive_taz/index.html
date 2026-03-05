@@ -1,0 +1,287 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Interactive TAZ Analysis - Bay Area PopulationSim</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1 { color: #2E86AB; }
+            h2 { color: #A23B72; }
+            .dashboard-link { 
+                background-color: #F18F01; 
+                color: white; 
+                padding: 15px 30px; 
+                text-decoration: none; 
+                border-radius: 5px; 
+                font-size: 18px;
+                display: inline-block;
+                margin-bottom: 30px;
+            }
+            .dashboard-link:hover { background-color: #C73E1D; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .good { color: #2E8B57; font-weight: bold; }
+            .moderate { color: #FF8C00; font-weight: bold; }
+            .attention { color: #DC143C; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <h1>Interactive TAZ Analysis - Bay Area PopulationSim Results</h1>
+        
+        <a href="interactive_taz_dashboard.html" class="dashboard-link">[LINK] Open Interactive Dashboard</a>
+        
+        <h2>Performance Summary</h2>
+        <table>
+            <tr>
+                <th>Variable</th>
+                <th>R-squared</th>
+                <th>MAE</th>
+                <th>Perfect Match %</th>
+                <th>Interactive Chart</th>
+            </tr>
+    
+            <tr>
+                <td>Number of Households</td>
+                <td class="good">0.9992</td>
+                <td>0.24</td>
+                <td class="good">99.9%</td>
+                <td><a href="interactive_taz_numhh_gq.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Numhh</td>
+                <td class="good">0.9848</td>
+                <td>6.54</td>
+                <td class="good">60.7%</td>
+                <td><a href="interactive_taz_numhh.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Non-Institutional Group Quarters</td>
+                <td class="good">0.9511</td>
+                <td>3.98</td>
+                <td class="good">62.3%</td>
+                <td><a href="interactive_taz_hh_gq_noninstitutional.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Persons Age 65+</td>
+                <td class="good">0.9165</td>
+                <td>41.52</td>
+                <td class="attention">1.1%</td>
+                <td><a href="interactive_taz_pers_age_65_plus.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Persons Age 35-64</td>
+                <td class="good">0.8990</td>
+                <td>103.55</td>
+                <td class="attention">0.4%</td>
+                <td><a href="interactive_taz_pers_age_35_64.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>University Group Quarters</td>
+                <td class="good">0.8887</td>
+                <td>2.72</td>
+                <td class="good">95.8%</td>
+                <td><a href="interactive_taz_hh_gq_university.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Persons Age 0-19</td>
+                <td class="good">0.8820</td>
+                <td>63.38</td>
+                <td class="attention">1.0%</td>
+                <td><a href="interactive_taz_pers_age_00_19.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Persons Age 20-34</td>
+                <td class="good">0.8192</td>
+                <td>59.85</td>
+                <td class="attention">0.8%</td>
+                <td><a href="interactive_taz_pers_age_20_34.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Six+ Person Households</td>
+                <td class="moderate">0.6480</td>
+                <td>12.68</td>
+                <td class="good">34.6%</td>
+                <td><a href="interactive_taz_hh_size_6_plus.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households Income $60k-75k</td>
+                <td class="moderate">0.6442</td>
+                <td>13.96</td>
+                <td class="moderate">19.4%</td>
+                <td><a href="interactive_taz_inc_60k_75k.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households Income $45k-60k</td>
+                <td class="moderate">0.6433</td>
+                <td>13.32</td>
+                <td class="moderate">19.9%</td>
+                <td><a href="interactive_taz_inc_45k_60k.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households Income <$20k</td>
+                <td class="moderate">0.6179</td>
+                <td>18.98</td>
+                <td class="moderate">18.0%</td>
+                <td><a href="interactive_taz_inc_lt_20k.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households Income $75k-100k</td>
+                <td class="moderate">0.6070</td>
+                <td>21.54</td>
+                <td class="moderate">10.1%</td>
+                <td><a href="interactive_taz_inc_75k_100k.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households Income $20k-45k</td>
+                <td class="moderate">0.6031</td>
+                <td>21.67</td>
+                <td class="moderate">10.8%</td>
+                <td><a href="interactive_taz_inc_20k_45k.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Five-Person Households</td>
+                <td class="attention">0.5853</td>
+                <td>18.15</td>
+                <td class="moderate">19.6%</td>
+                <td><a href="interactive_taz_hh_size_5.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households with 0 Workers</td>
+                <td class="attention">0.5359</td>
+                <td>50.35</td>
+                <td class="attention">1.5%</td>
+                <td><a href="interactive_taz_hh_wrks_0.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households with 3+ Workers</td>
+                <td class="attention">0.5208</td>
+                <td>25.50</td>
+                <td class="attention">5.0%</td>
+                <td><a href="interactive_taz_hh_wrks_3_plus.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Single-Person Households</td>
+                <td class="attention">0.4801</td>
+                <td>69.78</td>
+                <td class="attention">2.6%</td>
+                <td><a href="interactive_taz_hh_size_1.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households with Children</td>
+                <td class="attention">0.4782</td>
+                <td>75.03</td>
+                <td class="attention">2.2%</td>
+                <td><a href="interactive_taz_hh_kids_yes.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Four-Person Households</td>
+                <td class="attention">0.4757</td>
+                <td>41.96</td>
+                <td class="moderate">5.3%</td>
+                <td><a href="interactive_taz_hh_size_4.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households Income $100k-150k</td>
+                <td class="attention">0.4617</td>
+                <td>39.03</td>
+                <td class="attention">4.1%</td>
+                <td><a href="interactive_taz_inc_100k_150k.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Three-Person Households</td>
+                <td class="attention">0.4223</td>
+                <td>45.13</td>
+                <td class="attention">3.7%</td>
+                <td><a href="interactive_taz_hh_size_3.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households Income $200k+</td>
+                <td class="attention">0.4115</td>
+                <td>96.98</td>
+                <td class="attention">3.9%</td>
+                <td><a href="interactive_taz_inc_200k_plus.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households Income $150k-200k</td>
+                <td class="attention">0.3666</td>
+                <td>33.85</td>
+                <td class="moderate">6.5%</td>
+                <td><a href="interactive_taz_inc_150k_200k.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households with 1 Worker</td>
+                <td class="attention">0.3181</td>
+                <td>99.67</td>
+                <td class="attention">0.9%</td>
+                <td><a href="interactive_taz_hh_wrks_1.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Two-Person Households</td>
+                <td class="attention">0.3112</td>
+                <td>87.24</td>
+                <td class="attention">1.2%</td>
+                <td><a href="interactive_taz_hh_size_2.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households with 2 Workers</td>
+                <td class="attention">0.2769</td>
+                <td>88.40</td>
+                <td class="attention">1.3%</td>
+                <td><a href="interactive_taz_hh_wrks_2.html">View Chart</a></td>
+            </tr>
+        
+            <tr>
+                <td>Households without Children</td>
+                <td class="attention">0.2648</td>
+                <td>190.73</td>
+                <td class="attention">0.5%</td>
+                <td><a href="interactive_taz_hh_kids_no.html">View Chart</a></td>
+            </tr>
+        
+        </table>
+        
+        <h2>About This Analysis</h2>
+        <p>This interactive analysis shows the performance of PopulationSim across 4,714 TAZ zones in the Bay Area. 
+        Each chart allows you to:</p>
+        <ul>
+            <li><strong>Zoom and Pan:</strong> Use mouse to explore different parts of the data</li>
+            <li><strong>Hover Information:</strong> See detailed TAZ-level information by hovering over points</li>
+            <li><strong>Performance Metrics:</strong> R-squared, MAE, and perfect match rates are displayed</li>
+        </ul>
+        
+        <h3>Interpretation Guide:</h3>
+        <ul>
+            <li><span class="good">Excellent Performance:</span> R² > 0.8, Perfect Match > 20%</li>
+            <li><span class="moderate">Good Performance:</span> R² > 0.6, Perfect Match > 5%</li>
+            <li><span class="attention">Needs Attention:</span> Lower R² or Perfect Match rates</li>
+        </ul>
+    </body>
+    </html>
+    

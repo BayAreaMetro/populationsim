@@ -1,0 +1,111 @@
+Comparing: C:\GitHub\populationsim\bay_area\example_2015_outputs\hh_persons_model\households.csv vs C:\GitHub\populationsim\bay_area\output_2023\populationsim_working_dir\output\households_2023_tm2.csv
+
+Column presence:
+  BLD: Both - Units in structure (1=Mobile, 2=Detached house, 3=Attached, 4-9=Apartments, 10=Boat/RV, -9=GQ)
+  HHID: Both
+  HHINCADJ: Both - Household income (2010 dollars)
+  HHT: Both - Household type (1=Married couple, 2-3=Other family, 4-7=Nonfamily, -9=GQ)
+  MAZ: Only in old
+  MAZ_NODE: Only in new
+  MAZ_ORIGINAL: Only in new
+  MAZ_SEQ: Only in new
+  MTCCountyID: Both - County ID (1=SF, 2=San Mateo, 3=Santa Clara, 4=Alameda, 5=Contra Costa, 6=Solano, 7=Napa, 8=Sonoma, 9=Marin)
+  NP: Both - Number of persons in household
+  NWRKRS_ESR: Both - Number of workers (0-20)
+  ORIG_MAZ: Only in old
+  ORIG_TAZ: Only in old
+  TAZ: Only in old
+  TAZ_NODE: Only in new
+  TAZ_ORIGINAL: Only in new
+  TAZ_SEQ: Only in new
+  TEN: Only in new - Tenure (1=Owned with mortgage, 2=Owned free and clear, 3=Rented, 4=Occupied without rent)
+  TYPE: Both - Unit type (1=Housing unit, 2=Institutional GQ, 3=Noninstitutional GQ)
+  VEH: Both - Number of vehicles (0-6, -9=GQ)
+
+=== BLD - Units in structure (1=Mobile, 2=Detached house, 3=Attached, 4-9=Apartments, 10=Boat/RV, -9=GQ) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  2                1417205   51.20%  1428721   48.29%    11516     0.81  One-family detached
+  3                 267916    9.68%   269204    9.10%     1288     0.48  One-family attached
+  9                 199853    7.22%   349580   11.82%   149727    74.92  50+ Apartments
+  5                 172253    6.22%   175088    5.92%     2835     1.65  3-4 Apartments
+  6                 167064    6.04%   160116    5.41%    -6948    -4.16  5-9 Apartments
+  8                 146292    5.29%   168451    5.69%    22159    15.15  20-49 Apartments
+  7                 142380    5.14%   149760    5.06%     7380     5.18  10-19 Apartments
+  4                  98803    3.57%    90280    3.05%    -8523    -8.63  2 Apartments
+  -9                 83728    3.02%   108954    3.68%    25226    30.13  N/A (GQ)
+  1                  70035    2.53%    55076    1.86%   -14959   -21.36  Mobile home/trailer
+  10                  2498    0.09%     3240    0.11%      742    29.70  Boat/RV/van
+
+=== HHINCADJ - Household income (2010 dollars) ===
+  Stat      Old         New         Diff        %Diff
+  mean       93584.54  125414.39   31829.85      34.01
+  median     66135.77   89930.00   23794.23      35.98
+  min       -21382.11       0.00   21382.11    -100.00
+  max      1517212.48 1652788.00  135575.52       8.94
+
+=== HHT - Household type (1=Married couple, 2-3=Other family, 4-7=Nonfamily, -9=GQ) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  1                1142602   41.28%  1368111   46.24%   225509    19.74  Married couple family
+  3                 503999   18.21%   320036   10.82%  -183963   -36.50  Other family, female householder
+  6                 372748   13.47%   372590   12.59%     -158    -0.04  Nonfamily, female alone
+  4                 302952   10.94%   354807   11.99%    51855    17.12  Nonfamily, male alone
+  2                 193224    6.98%   169278    5.72%   -23946   -12.39  Other family, male householder
+  5                 101317    3.66%   148924    5.03%    47607    46.99  Nonfamily, male not alone
+  -9                 83728    3.02%   108954    3.68%    25226    30.13  N/A (GQ)
+  7                  67457    2.44%   115770    3.91%    48313    71.62  Nonfamily, female not alone
+
+=== NP - Number of persons in household ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  2                 840401   30.36%   903194   30.53%    62793     7.47  
+  1                 759428   27.44%   836351   28.27%    76923    10.13  
+  3                 465128   16.80%   478951   16.19%    13823     2.97  
+  4                 307897   11.12%   429791   14.53%   121894    39.59  
+  5                 188394    6.81%   185286    6.26%    -3108    -1.65  
+  6                 111705    4.04%    93444    3.16%   -18261   -16.35  
+  7                  45273    1.64%     9935    0.34%   -35338   -78.06  
+  8                  24730    0.89%     6003    0.20%   -18727   -75.73  
+  9                  12363    0.45%     5485    0.19%    -6878   -55.63  
+  10                  7735    0.28%     4336    0.15%    -3399   -43.94  
+  11                  2317    0.08%     3616    0.12%     1299    56.06  
+  13                  1089    0.04%      435    0.01%     -654   -60.06  
+  12                  1017    0.04%      855    0.03%     -162   -15.93  
+  15                   375    0.01%        0    0.00%     -375  -100.00  
+  14                   137    0.00%      558    0.02%      421   307.30  
+  18                    38    0.00%        1    0.00%      -37   -97.37  
+  20                     0    0.00%       57    0.00%       57      nan  
+  16                     0    0.00%      172    0.01%      172      nan  
+
+=== NWRKRS_ESR - Number of workers (0-20) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  1                1046653   37.81%  1061565   35.88%    14912     1.42  
+  2                 813531   29.39%   924577   31.25%   111046    13.65  
+  0                 673873   24.34%   691798   23.38%    17925     2.66  
+  3                 174350    6.30%   208485    7.05%    34135    19.58  
+  4                  46024    1.66%    34984    1.18%   -11040   -23.99  
+  5                   9787    0.35%    21813    0.74%    12026   122.88  
+  6                   3047    0.11%    10206    0.34%     7159   234.95  
+  8                    492    0.02%     2004    0.07%     1512   307.32  
+  7                    219    0.01%     2834    0.10%     2615  1194.06  
+  10                    51    0.00%        1    0.00%      -50   -98.04  
+  9                      0    0.00%      203    0.01%      203      nan  
+
+=== TYPE - Unit type (1=Housing unit, 2=Institutional GQ, 3=Noninstitutional GQ) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  1                2684299   96.98%  2849516   96.32%   165217     6.15  Housing unit
+  3                  83728    3.02%   108954    3.68%    25226    30.13  Noninstitutional GQ
+
+=== VEH - Number of vehicles (0-6, -9=GQ) ===
+  Value           Old      %Old     New      %New     Diff     %Diff  Label
+  2                 951040   34.36%   972066   32.86%    21026     2.21  
+  1                 880707   31.82%   925441   31.28%    44734     5.08  
+  3                 371535   13.42%   418687   14.15%    47152    12.69  
+  0                 274665    9.92%   295827   10.00%    21162     7.70  
+  4                 148534    5.37%   158823    5.37%    10289     6.93  
+  -9                 83728    3.02%   108954    3.68%    25226    30.13  
+  5                  40291    1.46%    49819    1.68%     9528    23.65  
+  6                  17527    0.63%    28853    0.98%    11326    64.62  
+
+
+---
+
+Note: Only columns present in both files are compared. Columns missing in one file are listed above.

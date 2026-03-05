@@ -1,0 +1,744 @@
+
+#!/usr/bin/env python3
+
+"""
+USAGE:
+    python tm2_pipeline.py [command] [--force]
+
+If run with no arguments, the default action is to run the full pipeline:
+    python tm2_pipeline.py
+
+Available commands:
+    full         Run the entire pipeline (default)
+    status       Show status of all pipeline steps
+    clean        Remove all output files for a fresh start
+    pums, seed, controls, populationsim, postprocess, summary_analysis, analysis, validate_income
+                 Run individual pipeline steps
+
+Use --force to rerun steps even if outputs exist.
+Note: Crosswalk creation has been moved to tm2py-utils repository and should be run separately.
+"""
+"""
+TM2 Pipeline - Single workflow script for the entire Bay Area population synthesis
+Uses UnifiedTM2Config for single source of truth.
+"""
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
+import traceback
+from pathlib import Path
+
+import pandas as pd
+
+from tm2_config import TM2Config
+from utils.tm2_utils import TM2Utils
+
+
+class TM2Pipeline:
+    """Complete TM2 population synthesis pipeline with single source of truth"""
+    
+
+    def __init__(self, verbose=True):
+        self.config = TM2Config()
+        self.utils = TM2Utils(self.config)
+        self.utils.create_directories()
+        self.verbose = verbose
+        
+
+    def log(self, message, level="INFO"):
+        """Unified logging"""
+        timestamp = time.strftime("%H:%M:%S")
+        print(f"[{timestamp}] [{level}] {message}")
+        
+
+    def check_step_completion(self, step_name):
+        """Check if step has been completed successfully"""
+        step_files = self.config.get_step_files(step_name)
+        if not step_files:
+            return False
+        
+        existing = [f for f in step_files if f.exists()]
+        if len(existing) == len(step_files):
+            self.log(f"Step {step_name} already completed:")
+            for f in existing:
+                self.log(f"  ✓ {f.name}", "FOUND")
+            return True
+        elif existing:
+            self.log(
+                f"Step {step_name} partially completed "
+                f"({len(existing)}/{len(step_files)} files):"
+            )
+            for f in step_files:
+                status = "✓" if f.exists() else "✗"
+                self.log(f"  {status} {f.name}", "STATUS")
+        return False
+        
+
+    def run_command(self, command, step_name):
+        """Execute a command or list of commands and handle output with progress monitoring"""
+        # If command is a list of lists, run each sub-command in sequence
+        if isinstance(command, list) and command and isinstance(command[0], list):
+            for idx, sub_cmd in enumerate(command):
+                self.log(f"Running {step_name} (part {idx+1}/{len(command)}): {' '.join(sub_cmd)}")
+                if not self._run_single_command(sub_cmd, step_name):
+                    return False
+            return True
+        else:
+            return self._run_single_command(command, step_name)
+
+
+    def _run_single_command(self, command, step_name):
+        self.log(f"Running {step_name}: {' '.join(command)}")
+        start_time = time.time()
+        last_log_time = start_time
+        try:
+            if self.verbose:
+                process = subprocess.Popen(
+                    command,
+                    cwd=self.config.BASE_DIR,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+                line_count = 0
+                for line in process.stdout:
+                    print(f"  {line.rstrip()}")
+                    line_count += 1
+                    current_time = time.time()
+                    if current_time - last_log_time > 60:
+                        elapsed = current_time - start_time
+                        self.log(
+                            f"[PROGRESS] {step_name} still running... {elapsed:.0f}s elapsed, "
+                            f"{line_count} log lines processed"
+                        )
+                        last_log_time = current_time
+                process.wait()
+                returncode = process.returncode
+            else:
+                result = subprocess.run(
+                    command,
+                    cwd=self.config.BASE_DIR,
+                    capture_output=True,
+                    text=True,
+                    timeout=7200
+                )
+                returncode = result.returncode
+        except subprocess.TimeoutExpired:
+            self.log(f"Step {step_name} timed out after 2 hours", "ERROR")
+            return False
+        except Exception as e:
+            self.log(f"Step {step_name} failed with exception: {e}", "ERROR")
+            return False
+        duration = time.time() - start_time
+        if returncode == 0:
+            self.log(f"Step {step_name} completed successfully in {duration:.1f}s", "SUCCESS")
+            return True
+        else:
+            self.log(f"Step {step_name} failed with code {returncode} after {duration:.1f}s", "ERROR")
+            return False
+    
+
+    def check_pums_files_exist(self):
+        """Check if PUMS files exist (check both current and cached locations)"""
+        # Check current location first
+        households_current = self.config.PUMS_FILES['households_current']
+        persons_current = self.config.PUMS_FILES['persons_current']
+        
+        if households_current.exists() and persons_current.exists():
+            self.log(f"Found PUMS files in current location: {households_current.parent}")
+            return True
+            
+        # Check cached location
+        households_cached = self.config.PUMS_FILES['households_cached']
+        persons_cached = self.config.PUMS_FILES['persons_cached']
+        
+        if households_cached.exists() and persons_cached.exists():
+            self.log(f"Found PUMS files in cached location: {households_cached.parent}")
+            return True
+            
+        return False
+
+
+    def run_step(self, step_name, force=False):
+        """Run a specific pipeline step"""
+        
+        self.log(f"{'='*60}")
+        self.log(f"STEP {step_name.upper()}")
+        self.log(f"{'='*60}")
+        
+        # Skip completion check for 'analysis' step
+        if step_name != 'analysis':
+            if not force and self.check_step_completion(step_name):
+                self.log(f"Skipping {step_name} (already completed, use --force to rerun)")
+                return True
+        
+        # Get command for this step
+        command = self.config.get_command(step_name)
+        
+        # Check for unknown steps
+        if not command:
+            self.log(f"Unknown step: {step_name}", "ERROR")
+            return False
+        
+        # Special handling for PUMS download
+        if step_name == 'pums':
+            # Skip if files already exist and not forced
+            if not force and self.check_pums_files_exist():
+                self.log("Skipping PUMS download (files already exist, use --force to redownload)")
+                return True
+            # Skip if in offline mode
+            # offline_mode removed
+            self.log("Downloading PUMS data...")
+        
+        # Special handling for PopulationSim with log monitoring
+        elif step_name == 'populationsim':
+            # Prepare PopulationSim data directory first
+            if not self.prepare_populationsim_data():
+                self.log("Failed to prepare PopulationSim data", "ERROR")
+                return False
+            # Fix crosswalk before running PopulationSim
+            if not self.fix_crosswalk_multi_puma():
+                self.log(
+                    "Failed to fix crosswalk - this may cause NaN control aggregation issues",
+                    "ERROR"
+                )
+                return False
+            return self.run_populationsim_with_monitoring(command)
+        # Run TAZ controls rollup check after controls step
+        elif step_name == 'controls':
+            result = self.run_command(command, step_name)
+            if result:
+                # Check for county income summary output
+                # UnifiedTM2Config already imported at top
+                config = TM2Config()
+                output_file = config.POPSIM_OUTPUT_DIR / 'bay_area_income_acs_2023.csv'
+                if not output_file.exists():
+                    self.log(
+                        "County income summary not found, running get_census_income_data.py..."
+                    )
+                    income_script = str(self.config.BASE_DIR / 'analysis' / 'get_census_income_data.py')
+                    income_cmd = [sys.executable, income_script]
+                    income_result = self.run_command(income_cmd, 'get_census_income_data')
+                    if not income_result:
+                        self.log("County income summary creation failed!", "ERROR")
+                return result
+        # Special handling for analysis: run all scripts in ANALYSIS_FILES
+        elif step_name == 'analysis':
+            # Run the main analysis command first
+            result = self.run_command(command, step_name)
+            # Now run all scripts in main_scripts, validation_scripts, visualization_scripts
+            analysis_files = self.config.ANALYSIS_FILES
+            script_categories = ['main_scripts', 'validation_scripts', 'visualization_scripts']
+            for category in script_categories:
+                scripts = analysis_files.get(category, {})
+                for script_name, script_path in scripts.items():
+                    if script_path.exists():
+                        self.log(f"Running analysis script: {script_name} ({script_path})")
+                        script_cmd = [sys.executable, str(script_path)]
+                        script_result = self.run_command(script_cmd, script_name)
+                        if not script_result:
+                            self.log(f"Script failed: {script_name}", "ERROR")
+                    else:
+                        self.log(
+                            f"Script not found, skipping: {script_name} ({script_path})",
+                            "WARN"
+                        )
+            return result
+        else:
+            return self.run_command(command, step_name)
+    
+
+    def fix_county_codes(self):
+        """Fix county codes to use sequential 1-9 numbering expected by PopulationSim"""
+    # pandas and os already imported at top
+        
+        self.log("Converting county codes to sequential 1-9 numbering (matching working 2015 version)...")
+        
+        try:
+            data_dir = self.config.POPSIM_DATA_DIR
+            
+            # Get the FIPS-to-sequential mapping from config
+            fips_to_sequential = self.config.get_fips_to_sequential_mapping()
+            
+            self.log(f"FIPS to sequential mapping: {fips_to_sequential}")
+            
+            # Load and update crosswalk
+            crosswalk_path = self.config.CROSSWALK_FILES['main_crosswalk']
+            if not crosswalk_path.exists():
+                # Do not log or return error; pipeline will create crosswalk if missing
+                return True
+                
+            crosswalk_df = pd.read_csv(crosswalk_path)
+            self.log(f"Original crosswalk counties: {sorted(crosswalk_df['COUNTY'].unique())}")
+            
+            # Convert crosswalk county codes
+            crosswalk_df['COUNTY'] = crosswalk_df['COUNTY'].map(fips_to_sequential)
+            unmapped_crosswalk = crosswalk_df[crosswalk_df['COUNTY'].isna()]
+            if len(unmapped_crosswalk) > 0:
+                self.log(f"WARNING: {len(unmapped_crosswalk)} crosswalk records have unmapped counties", "WARN")
+                return False
+                
+            crosswalk_df.to_csv(crosswalk_path, index=False)
+            self.log(f"Updated crosswalk counties: {sorted(crosswalk_df['COUNTY'].unique())}")
+            
+            # Create PUMA to sequential county mapping
+            puma_county_map = crosswalk_df[['PUMA', 'COUNTY']].drop_duplicates().set_index('PUMA')['COUNTY'].to_dict()
+            self.log(f"PUMA to sequential county mapping: {puma_county_map}")
+            
+            # Update county marginals controls
+            county_controls_path = os.path.join(data_dir, "county_marginals.csv")
+            if os.path.exists(county_controls_path):
+                county_controls_df = pd.read_csv(county_controls_path)
+                self.log(f"Original control counties: {sorted(county_controls_df['COUNTY'].unique())}")
+                
+                county_controls_df['COUNTY'] = county_controls_df['COUNTY'].map(fips_to_sequential)
+                unmapped_controls = county_controls_df[county_controls_df['COUNTY'].isna()]
+                if len(unmapped_controls) > 0:
+                    self.log(f"WARNING: {len(unmapped_controls)} control records have unmapped counties", "WARN")
+                    return False
+                    
+                county_controls_df.to_csv(county_controls_path, index=False)
+                self.log(f"Updated control counties: {sorted(county_controls_df['COUNTY'].unique())}")
+            
+            # Fix households file
+            households_path = os.path.join(data_dir, "seed_households.csv")
+            if not os.path.exists(households_path):
+                self.log(f"Households file not found: {households_path}", "ERROR")
+                return False
+                
+            self.log("Updating households data...")
+            households_df = pd.read_csv(households_path)
+            
+            # Map PUMA to sequential county
+            households_df['COUNTY'] = households_df['PUMA'].map(puma_county_map)
+            
+            # Check for any unmapped PUMAs
+            unmapped = households_df[households_df['COUNTY'].isna()]
+            if len(unmapped) > 0:
+                self.log(f"ERROR: {len(unmapped)} households have unmapped PUMAs", "ERROR")
+                return False
+            
+            households_df.to_csv(households_path, index=False)
+            self.log(f"Updated {len(households_df)} household records with sequential county codes")
+            
+            # Fix persons file
+            persons_path = os.path.join(data_dir, "seed_persons.csv")
+            if not os.path.exists(persons_path):
+                self.log(f"Persons file not found: {persons_path}", "ERROR")
+                return False
+                
+            self.log("Updating persons data...")
+            persons_df = pd.read_csv(persons_path)
+            
+            # Map PUMA to sequential county
+            persons_df['COUNTY'] = persons_df['PUMA'].map(puma_county_map)
+            
+            # Check for any unmapped PUMAs
+            unmapped = persons_df[persons_df['COUNTY'].isna()]
+            if len(unmapped) > 0:
+                self.log(f"ERROR: {len(unmapped)} persons have unmapped PUMAs", "ERROR")
+                return False
+            
+            persons_df.to_csv(persons_path, index=False)
+            self.log(f"Updated {len(persons_df)} person records with sequential county codes")
+            
+            self.log("✓ Successfully converted all data to sequential 1-9 county numbering", "SUCCESS")
+            return True
+            
+        except Exception as e:
+            self.log(f"Error fixing county codes: {e}", "ERROR")
+            # traceback already imported at top
+            self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
+            return False
+    
+
+    def fix_crosswalk_multi_puma(self):
+        """Fix crosswalk to resolve TAZs assigned to multiple PUMAs (root cause of NaN control aggregation)"""
+    # pandas and os already imported at top
+        
+        self.log("Fixing crosswalk: resolving TAZs with multiple PUMA assignments...")
+        
+        try:
+            data_dir = self.config.POPSIM_DATA_DIR
+            crosswalk_file = os.path.join(data_dir, "geo_cross_walk_tm2_maz.csv")
+            
+            if not os.path.exists(crosswalk_file):
+                self.log(f"Crosswalk file not found: {crosswalk_file}", "ERROR")
+                return False
+            
+            # Load existing crosswalk
+            crosswalk = pd.read_csv(crosswalk_file)
+            self.log(f"Original crosswalk: {len(crosswalk):,} records")
+            
+            # Handle both old (MAZ, TAZ) and new (MAZ_NODE, TAZ_NODE) column naming
+            taz_col = 'TAZ_NODE' if 'TAZ_NODE' in crosswalk.columns else 'TAZ'
+            maz_col = 'MAZ_NODE' if 'MAZ_NODE' in crosswalk.columns else 'MAZ'
+            
+            self.log(f"Using columns: TAZ={taz_col}, MAZ={maz_col}")
+            
+            # Check if we have the required columns for multi-PUMA fixing
+            if taz_col not in crosswalk.columns or 'PUMA' not in crosswalk.columns:
+                self.log(f"Crosswalk missing required columns for multi-PUMA fixing")
+                self.log(f"Available columns: {list(crosswalk.columns)}")
+                self.log("Skipping multi-PUMA TAZ fix - may cause aggregation issues downstream")
+                return True
+            
+            # Identify TAZs with multiple PUMA assignments
+            taz_puma_counts = crosswalk.groupby(taz_col)['PUMA'].nunique()
+            multi_puma_tazs = taz_puma_counts[taz_puma_counts > 1].index.tolist()
+            
+            if len(multi_puma_tazs) == 0:
+                self.log("No multi-PUMA TAZs found - crosswalk is already clean!")
+                return True
+            
+            self.log(f"Found {len(multi_puma_tazs)} TAZs with multiple PUMA assignments")
+            
+            # Show examples
+            for taz in multi_puma_tazs[:3]:
+                taz_data = crosswalk[crosswalk[taz_col] == taz]
+                puma_counts = taz_data['PUMA'].value_counts()
+                self.log(f"  {taz_col} {taz}: {dict(puma_counts)}")
+            
+            # Fix assignments using majority rule (PUMA with most MAZs for each TAZ)
+            fixed_crosswalk = crosswalk.copy()
+            
+            for taz in multi_puma_tazs:
+                taz_data = crosswalk[crosswalk[taz_col] == taz]
+                
+                # Find PUMA with most MAZs for this TAZ
+                puma_counts = taz_data['PUMA'].value_counts()
+                majority_puma = puma_counts.index[0]
+                
+                # Update all MAZs in this TAZ to use the majority PUMA
+                mask = fixed_crosswalk[taz_col] == taz
+                fixed_crosswalk.loc[mask, 'PUMA'] = majority_puma
+            
+            # Verify the fix
+            taz_puma_counts_fixed = fixed_crosswalk.groupby(taz_col)['PUMA'].nunique()
+            remaining_multi_puma = taz_puma_counts_fixed[taz_puma_counts_fixed > 1]
+            
+            if len(remaining_multi_puma) > 0:
+                self.log(f"ERROR: {len(remaining_multi_puma)} TAZs still have multiple PUMAs!", "ERROR")
+                return False
+            
+            # Save the fixed crosswalk (backup original first)
+            backup_file = crosswalk_file + ".backup"
+            if not os.path.exists(backup_file):
+                crosswalk.to_csv(backup_file, index=False)
+                self.log(f"Backed up original crosswalk to: {backup_file}")
+            
+            fixed_crosswalk.to_csv(crosswalk_file, index=False)
+            self.log(f"✓ Fixed crosswalk saved: {len(fixed_crosswalk):,} records")
+            self.log(f"✓ All {fixed_crosswalk['TAZ_NODE'].nunique():,} TAZ_NODEs now have unique PUMA assignments")
+            self.log("✓ This should resolve the NaN control aggregation issue", "SUCCESS")
+            
+            return True
+            
+        except Exception as e:
+            self.log(f"Error fixing crosswalk: {e}", "ERROR")
+            # traceback already imported at top
+            self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
+            return False
+    
+
+    def prepare_populationsim_data(self):
+        """Prepare PopulationSim data directory with proper file structure and symbolic links"""
+
+        
+        self.log("Preparing PopulationSim data directory...")
+        
+        try:
+            # Target directory (where PopulationSim expects files)
+            target_dir = Path(self.config.POPSIM_DATA_DIR)
+            
+            # Files that PopulationSim needs
+            required_files = [
+                'seed_households.csv',
+                'seed_persons.csv', 
+                'geo_cross_walk_tm2_maz.csv',
+                'maz_marginals_hhgq.csv',
+                'taz_marginals_hhgq.csv',
+                'county_marginals.csv'
+            ]
+            
+            # Check if files are already in target location (unified config approach)
+            all_files_present = True
+            for filename in required_files:
+                target_file = target_dir / filename
+                if target_file.exists():
+                    self.log(f"✓ Found: {filename}")
+                else:
+                    all_files_present = False
+                    # Try to find in source directory (legacy approach)
+                    source_dir = Path(self.config.OUTPUT_DIR)
+                    source_file = source_dir / filename
+                    
+                    if source_file.exists():
+                        # Create symbolic link (Windows) 
+                        try:
+                            target_file.symlink_to(source_file)
+                            self.log(f"✓ Linked: {filename}")
+                        except OSError:
+                            # Fallback to copy if symlink fails
+                            # shutil already imported at top
+                            shutil.copy2(source_file, target_file)
+                            self.log(f"✓ Copied: {filename} (symlink failed)")
+                    else:
+                        self.log(
+                            f"ERROR: Required file not found: {filename} "
+                            f"(checked both {target_file} and {source_file})",
+                            "ERROR"
+                        )
+                        return False
+            
+            if all_files_present:
+                self.log("✓ All required files already in PopulationSim data directory", "SUCCESS")
+            
+            self.log("✓ PopulationSim data directory prepared successfully", "SUCCESS")
+            return True
+            
+        except Exception as e:
+            self.log(f"Error preparing PopulationSim data: {e}", "ERROR")
+            # traceback already imported at top
+            self.log(f"Traceback: {traceback.format_exc()}", "ERROR")
+            return False
+
+
+    def run_populationsim_with_monitoring(self, command):
+        """Run PopulationSim with enhanced progress monitoring"""
+    # threading, time, and Path already imported at top
+        
+        self.log("Starting PopulationSim with enhanced monitoring...")
+        
+        # Fix county codes in seed data before running PopulationSim
+        # Note: Both seed and control data are already using consistent FIPS codes
+        # so skipping the county fix for now to test if the original system works
+        # if not self.fix_county_codes():
+        #     self.log("Failed to fix county codes", "ERROR")
+        #     return False
+        
+        # DISABLED: Fast mode settings were causing data corruption (NaN values)
+        # Using regular settings.yaml for all runs to ensure data integrity
+    # fast_mode removed
+        
+        # Log file path
+        log_file = self.config.OUTPUT_DIR / "populationsim.log"
+        
+        # Start the process
+        process = subprocess.Popen(
+            command,
+            cwd=self.config.BASE_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
+        
+        # Monitor function
+        def monitor_progress():
+            last_size = 0
+            silent_time = 0
+            last_activity = time.time()
+            warning_sent = False
+            
+            while process.poll() is None:
+                time.sleep(30)  # Check every 30 seconds
+                
+                # Check log file activity
+                if log_file.exists():
+                    current_size = log_file.stat().st_size
+                    if current_size > last_size:
+                        last_activity = time.time()
+                        last_size = current_size
+                        silent_time = 0
+                        warning_sent = False
+                    else:
+                        silent_time = time.time() - last_activity
+                        
+                    if silent_time > 120 and not warning_sent:  # Silent for more than 2 minutes
+                        self.log(
+                            f"[MONITOR] PopulationSim silent for {silent_time:.0f}s - checking progress..."
+                        )
+                        try:
+                            # Show last few lines of log
+                            with open(log_file, 'r') as f:
+                                lines = f.readlines()
+                                if len(lines) >= 3:
+                                    self.log(f"[MONITOR] Recent log entries:")
+                                    for line in lines[-3:]:
+                                        self.log(f"[LOG]     {line.strip()}")
+                        except Exception:
+                            pass
+                            
+                    if silent_time > 600:  # Silent for more than 10 minutes
+                        if not warning_sent:
+                            self.log(
+                                f"[WARNING] PopulationSim has been silent for {silent_time:.0f}s - may be in integerization step",
+                                "WARN"
+                            )
+                            self.log(
+                                f"[INFO] Integerization can take 10-30 minutes for large datasets",
+                                "INFO"
+                            )
+                            warning_sent = True
+                            
+                    # Timeout logic removed
+        
+        # Start monitoring thread
+        monitor_thread = threading.Thread(target=monitor_progress, daemon=True)
+        monitor_thread.start()
+        
+        # Stream output
+        start_time = time.time()
+        for line in process.stdout:
+            print(f"  {line.rstrip()}")
+        
+        returncode = process.wait()
+        duration = time.time() - start_time
+        
+        if returncode == 0:
+            self.log(f"PopulationSim completed successfully in {duration:.1f}s", "SUCCESS")
+            return True
+        else:
+            self.log(f"PopulationSim failed with code {returncode} after {duration:.1f}s", "ERROR")
+            return False
+    
+
+    def run_full_pipeline(self, start_step=None, end_step=None, force=False):
+        """Run the complete pipeline or a subset"""
+        # Default pipeline steps, synced with config
+        steps = ['seed', 'controls', 'populationsim', 'postprocess', 'summary_analysis']
+
+        # If start_step is explicitly 'pums', include it
+        if start_step == 'pums':
+            steps = ['pums', 'seed', 'controls', 'populationsim', 'postprocess', 'summary_analysis']
+
+        # Determine step range
+        if start_step:
+            try:
+                start_idx = steps.index(start_step)
+                steps = steps[start_idx:]
+            except ValueError:
+                self.log(f"Invalid start step: {start_step}", "ERROR")
+                return False
+
+        if end_step:
+            try:
+                end_idx = steps.index(end_step) + 1
+                steps = steps[:end_idx]
+            except ValueError:
+                self.log(f"Invalid end step: {end_step}", "ERROR")
+                return False
+
+        self.log(f"Running pipeline steps: {' → '.join(steps)}")
+
+        # Run each step
+        overall_start = time.time()
+        for step in steps:
+            if not self.run_step(step, force):
+                self.log(f"Pipeline failed at step: {step}", "ERROR")
+                return False
+
+        # After all main steps, run analysis/summary scripts directly
+        self.run_analysis_scripts()
+
+        overall_duration = time.time() - overall_start
+        self.log(f"{'='*60}")
+        self.log(f"PIPELINE COMPLETED SUCCESSFULLY in {overall_duration:.1f}s", "SUCCESS")
+
+
+    def run_analysis_scripts(self):
+        """Run all analysis/summary scripts as defined in config.ANALYSIS_FILES, but skip missing or empty files."""
+        analysis_files = self.config.ANALYSIS_FILES
+        script_categories = ['main_scripts', 'validation_scripts', 'visualization_scripts']
+        for category in script_categories:
+            scripts = analysis_files.get(category, {})
+            for script_name, script_path in scripts.items():
+                if script_path.exists() and script_path.stat().st_size > 0:
+                    self.log(f"Running analysis script: {script_name} ({script_path})")
+                    script_cmd = [sys.executable, str(script_path)]
+                    script_result = self.run_command(script_cmd, script_name)
+                    if not script_result:
+                        self.log(f"Script failed: {script_name}", "ERROR")
+                elif script_path.exists() and script_path.stat().st_size == 0:
+                    self.log(f"Script is empty, skipping: {script_name} ({script_path})", "WARN")
+                else:
+                    self.log(f"Script not found, skipping: {script_name} ({script_path})", "WARN")
+        self.log(f"{'='*60}")
+        return True
+    
+
+    def status(self):
+        """Show status of all pipeline steps"""
+        self.log("Pipeline Status Check")
+        self.log("-" * 40)
+        
+        steps = ['pums', 'seed', 'controls', 'populationsim', 'postprocess', 'analysis']
+        for step in steps:
+            if self.check_step_completion(step):
+                self.log(f"{step.ljust(15)}: ✓ COMPLETE", "STATUS")
+            else:
+                self.log(f"{step.ljust(15)}: ✗ INCOMPLETE", "STATUS")
+    
+
+    def clean(self, step_name=None):
+        """Clean outputs for a specific step or all steps"""
+        if step_name:
+            steps = [step_name]
+        else:
+            steps = ['pums', 'seed', 'controls', 'populationsim']
+            
+        for step in steps:
+            step_files = self.config.get_step_files(step)
+            if step_files:
+                for f in step_files:
+                    if f.exists():
+                        f.unlink()
+                        self.log(f"Removed: {f.name}")
+                self.log(f"Cleaned step: {step}")
+
+    
+
+def main():
+    """Main CLI interface"""
+    # argparse already imported at top
+    
+    parser = argparse.ArgumentParser(description="TM2 Population Synthesis Pipeline")
+    parser.add_argument('command', nargs='?', default='full',
+                       choices=['status', 'pums', 'seed', 'controls', 'populationsim',
+                                'postprocess', 'summary_analysis', 'analysis', 'validate_income', 'full', 'clean'],
+                       help='Command to run')
+    parser.add_argument('--force', action='store_true',
+                       help='Force rerun even if outputs exist')
+
+    args = parser.parse_args()
+
+    # Create pipeline
+    pipeline = TM2Pipeline()
+
+    # Execute command
+    if args.command == 'status':
+        pipeline.status()
+    elif args.command == 'full':
+        success = pipeline.run_full_pipeline(force=args.force)
+        sys.exit(0 if success else 1)
+    elif args.command == 'clean':
+        step = getattr(args, 'step', None)
+        pipeline.clean(step)
+    else:
+        success = pipeline.run_step(args.command, args.force)
+        sys.exit(0 if success else 1)
+
+if __name__ == "__main__":
+    main()
+
+
+

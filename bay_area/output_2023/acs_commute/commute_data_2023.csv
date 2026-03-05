@@ -1,0 +1,10 @@
+year,county_name,county_full_name,state,county,total_workers,work_from_home,work_from_home_pct
+2023,Alameda,"Alameda County, California",06,001,826474.0,168282.0,20.361439077333348
+2023,Contra Costa,"Contra Costa County, California",06,013,560086.0,99371.0,17.742096749427766
+2023,Marin,"Marin County, California",06,041,121331.0,31875.0,26.271109609250725
+2023,Napa,"Napa County, California",06,055,67918.0,8760.0,12.89790629877205
+2023,San Francisco,"San Francisco County, California",06,075,460397.0,112342.0,24.40111469014785
+2023,San Mateo,"San Mateo County, California",06,081,377939.0,69928.0,18.502456745665306
+2023,Santa Clara,"Santa Clara County, California",06,085,981958.0,160686.0,16.363836335158936
+2023,Solano,"Solano County, California",06,095,207335.0,23047.0,11.11582704319097
+2023,Sonoma,"Sonoma County, California",06,097,244909.0,36897.0,15.06559579272301
