@@ -61,7 +61,7 @@ This population synthesizer creates realistic household and person records for t
   <div class="nav-card">
     <h3>📚 Reference</h3>
     <ul>
-      <li><a href="reference/TM1-TM2-COMPARISON.html">TM1 vs TM2 Comparison</a></li>
+      <li><a href="https://github.com/BayAreaMetro/populationsim/blob/tm2/bay_area/docs/TM1_TM2_DUAL_MODE_PLAN.md">TM1+TM2 Merge Plan</a></li>
       <li><a href="reference/TM2_FULL_REFERENCE.html">TM2 Full Reference</a></li>
     </ul>
   </div>

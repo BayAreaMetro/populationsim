@@ -1,11 +1,11 @@
 ---
 layout: default
-title: TM1 vs TM2 Comparison
+title: TM1+TM2 Merge Plan
 parent: Reference
 nav_order: 7
 ---
 
-# TM1 vs TM2 — Moved
+# TM1+TM2 Merge Plan — Moved
 
 > **This document is superseded.**  
 > The current, actively maintained reference is:
