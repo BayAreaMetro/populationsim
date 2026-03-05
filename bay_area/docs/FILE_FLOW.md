@@ -111,7 +111,7 @@ settings.yaml                                   → county_marginals.csv
 ### Step 5: PopulationSim Synthesis
 ```
 Seed + Controls + Config → PopulationSim → Synthetic Population
-seed_households.csv → run_populationsim_synthesis.py → synthetic_households.csv
+seed_households.csv → run_populationsim.py → synthetic_households.csv
 seed_persons.csv                                     → synthetic_persons.csv
 *_marginals.csv                                      → summary_*.csv
 settings.yaml

@@ -38,7 +38,7 @@ The synthesis and post-processing pipeline serves several critical functions:
 
 The system consists of three primary phases:
 
-1. **Synthesis Engine** (`run_populationsim_synthesis.py`): Core PopulationSim algorithm execution
+1. **Synthesis Engine** (`run_populationsim.py`): Core PopulationSim algorithm execution
 2. **Post-Processing** (`postprocess_recode.py`): Output formatting and geographic recoding
 3. **Validation** (`run_all_summaries.py`): Quality assurance and performance analysis
 
@@ -98,7 +98,7 @@ Subject to:
 
 ## Phase 1: Population Synthesis
 
-### Implementation: `run_populationsim_synthesis.py`
+### Implementation: `run_populationsim.py`
 
 The synthesis phase transforms control data and seed population into a balanced synthetic population through sophisticated optimization algorithms.
 

@@ -220,7 +220,7 @@ class TM2Utils:
             ] + self.config.get_test_puma_args(),
             'populationsim': [
                 "python",
-                str(self.config.BASE_DIR / "run_populationsim_synthesis.py"),
+                str(self.config.BASE_DIR / "run_populationsim.py"),
                 "--working_dir", str(self.config.POPSIM_WORKING_DIR),
                 "--output", str(self.config.POPSIM_OUTPUT_DIR)
             ] + self.config.get_test_puma_args(),

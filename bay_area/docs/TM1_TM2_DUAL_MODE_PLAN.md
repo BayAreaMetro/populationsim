@@ -16,21 +16,21 @@ This document covers both: the merge plan (Phase 0) and the TM1 porting work (Ph
 | G1 | `add_hhgq_combined_controls.py` — cherry-pick from `master` | ✅ done (commit `fd124cd`) |
 | G2 | `hh_gq/configs_TM1/` directory — cherry-pick from `master` | ✅ done (commit `fd124cd`) |
 | G3 | `geo_cross_walk_tm1.csv` — cherry-pick from `master` | ✅ done (commit `fd124cd`) |
-| G4 | PUMA vintage mismatch — [team decision required](#g4--puma-vintage-mismatch-seed-population) | ⏸ blocked |
+| G4 | PUMA vintage mismatch — [team decision required](#g4--puma-vintage-mismatch-seed-population) | ✅ decided: Option A (2017–2021 PUMS for TM1) |
 | G5 | `tm2_pipeline.py` has no `--model_type` argument | ☐ not started |
 | G6 | `run_all_summaries.py` hardcodes TM2 filenames | ☐ not started |
 | G8 | TM1 control generation lives in R (`travel-model-one`) — not portable | ☐ future phase |
-| G9 | `run_populationsim.py` renamed to `run_populationsim_synthesis.py` on `tm2` — BAT breaks at this call | ☐ must fix before merge |
+| G9 | `run_populationsim.py` renamed to `run_populationsim_synthesis.py` on `tm2` — BAT breaks at this call | ✅ fixed: renamed back to `run_populationsim.py` |
 | G10 | `create_seed_population.py` on `tm2` has no TM1/PUMA vintage support — TM1 BAT run produces wrong PUMA codes | ☐ must fix before merge |
 
 ## Implementation Checklist
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 0 | Merge `tm2` → `master` | ⏸ blocked — G9 and G10 must be fixed first |
+| 0 | Merge `tm2` → `master` | ⏸ blocked — G10 must be fixed first |
 | 1 | Git cherry-picks — configs, crosswalks *(already on `tm2`)* | ✅ complete |
 | 2 | Port `add_hhgq_combined_controls.py` *(already on `tm2`)* | ✅ complete |
-| 3 | PUMA vintage design decision (G4) | ⏸ blocked — team decision |
+| 3 | PUMA vintage design decision (G4) | ✅ decided: Option A — use 2017–2021 PUMS for TM1 |
 | 4 | Wire `--model_type` into `tm2_pipeline.py` | ⏸ blocked on Phase 3 |
 | 5 | Fix Python 3.x bugs in `master` | ☐ independent, do before merge |
 | 6 | End-to-end TM1 test run | ⏸ blocked on Phase 4 |
@@ -72,7 +72,7 @@ Step T1-B  add_hhgq_combined_controls.py      combines GQ + HH controls into taz
      ↓
 Step T1-C  create_seed_population.py          PUMS → seed_households.csv, seed_persons.csv
      ↓
-Step T1-D  run_populationsim_synthesis.py     PopulationSim library (TAZ geography)
+Step T1-D  run_populationsim.py               PopulationSim library (TAZ geography)
                pre-steps: prepare_populationsim_data(), fix_crosswalk_multi_puma()
      ↓
 Step T1-E  postprocess_recode.py --model_type TM1
@@ -93,7 +93,7 @@ Step T2-B  create_seed_population.py          PUMS → seed_households.csv, seed
 Step T2-C  create_baseyear_controls.py        Census API → MAZ / PUMA / county controls
                inline: add_hhgq_combined_controls equivalent
      ↓
-Step T2-D  run_populationsim_synthesis.py     PopulationSim library (MAZ geography)
+Step T2-D  run_populationsim.py               PopulationSim library (MAZ geography)
                pre-steps: prepare_populationsim_data(), fix_crosswalk_multi_puma()
      ↓
 Step T2-E  postprocess_recode.py --model_type TM2
@@ -970,8 +970,8 @@ G9 is a small rename (30 minutes). G10 is Phase 4e — it gates on the PUMA vint
 
 | Task | Command / action |
 |------|------------------|
-| 0a | Fix G9 on `tm2`: rename `run_populationsim_synthesis.py` → `run_populationsim.py` (or update BAT) |
-| 0b | Fix G10 on `tm2`: add `--model_type` to `create_seed_population.py` (Phase 4e, requires Phase 3 decision first) |
+| 0a | ✅ Fix G9: renamed `run_populationsim_synthesis.py` → `run_populationsim.py` (done) |
+| 0b | Fix G10: add `--model_type` to `create_seed_population.py` with 2017–2021 PUMS for TM1 (Phase 4e — see below) |
 | 0c | `git checkout master` |
 | 0d | `git merge tm2` |
 | 0e | Resolve conflict: `bay_area/run_populationsim.bat` — `git checkout master -- bay_area/run_populationsim.bat` |
@@ -1035,9 +1035,11 @@ Copy it to `hh_gq/data/taz_summaries.csv` to test.
 
 ---
 
-### Phase 3 — Design Decision: PUMA Vintage (G4)
+### ✅ Phase 3 — Design Decision: PUMA Vintage (G4) — **decided: Option A**
 
-**This is the critical team decision that gates Phase 4.**
+**Decision: Option A — download 2017–2021 PUMS for TM1; keep 2019–2023 PUMS for TM2.**
+
+This keeps the existing `geo_cross_walk_tm1.csv` (2000-vintage PUMA codes) valid and allows any base year (2015, 2020, 2023).
 
 The `tm2` branch `create_seed_population.py` uses 2019–2023 PUMS with **2020-vintage PUMA codes**. The TM1 crosswalk `geo_cross_walk_tm1.csv` uses **2000-vintage PUMA codes**. These two PUMA systems are incompatible — 2020 PUMA codes cannot be looked up in the 2000-vintage crosswalk.
 

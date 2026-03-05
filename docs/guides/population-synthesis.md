@@ -4,7 +4,7 @@ This step runs the PopulationSim library to generate the synthetic population fo
 
 ## What This Step Does
 
-- **`run_populationsim_synthesis.py`**:
+- **`run_populationsim.py`**:
   - Configures and launches the PopulationSim pipeline using ActivitySim’s pipeline and configuration system.
   - Tracks and logs detailed progress, including step-by-step timing and memory usage.
   - Handles long-running steps with heartbeat logging for monitoring.
@@ -55,7 +55,7 @@ This person-level approach eliminates household-level GQ conversion assumptions 
 From the `bay_area` directory, run:
 
 ```sh
-python run_populationsim_synthesis.py
+python run_populationsim.py
 ```
 
 This will execute the full PopulationSim synthesis pipeline and write outputs to the configured output directory.
