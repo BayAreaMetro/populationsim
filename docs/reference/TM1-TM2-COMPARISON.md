@@ -10,7 +10,7 @@ nav_order: 7
 > **This document is superseded.**  
 > The current, actively maintained reference is:
 >
-> **[TM1 + TM2 Dual-Mode Pipeline Plan](https://github.com/BayAreaMetro/populationsim/blob/tm2/bay_area/docs/TM1_TM2_DUAL_MODE_PLAN.md)**
+> **[TM1 + TM2 Syncing](https://github.com/BayAreaMetro/populationsim/blob/tm2/bay_area/docs/TM1_TM2_SYNCING.md)**
 >
 > That document covers the gap analysis, implementation checklist (with live checkmarks), step-by-step pipeline detail for both modes, PUMA vintage decision, and the Phase 7 roadmap for porting TM1 control generation from R to Python.
 
