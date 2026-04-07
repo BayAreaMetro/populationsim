@@ -12,4 +12,6 @@ needs.  PopulationSim is implemented in the
 
 ## Documentation
 
-https://activitysim.github.io/populationsim/
+- https://activitysim.github.io/populationsim/
+- San Francisco Bay Area (MTC/ABAG) version of populationsim (Travel Model One): https://github.com/BayAreaMetro/populationsim/blob/master/bay_area/Readme.md
+- San Francisco Bay Area (MTC/ABAG) version of populationsim (Travel Model Two, under development): https://bayareametro.github.io/populationsim/
