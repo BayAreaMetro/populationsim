@@ -18,7 +18,7 @@ set URBANSIMPATH=M:\urban_modeling\baus\PBA60\SB1087\PBA50Plus_Final_Blueprint_v
 :: Note: This is equivalent to PBA50Plus_Final_Blueprint_v65 but it includes interim year output
 set BAUS_RUNNUM=PBA50Plus_Final_Blueprint_v65_2045_T4
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=SB1087_2045_20261013
+set OUTPUT_SUFFIX=FBP_20261013
 
 :: assume argument is year
 set YEARS=%1
