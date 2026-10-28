@@ -13,12 +13,11 @@ set MODELTYPE=TM1
 :: for a forecast, copies marginals from         "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_xxx_summaries_!YEAR!.csv"
 :: for past/current year, copies marginals from  "%TMPATH%\!YEAR!""
 set TMPATH=X:\travel-model-one-master\utilities\taz-data-baseyears
-set URBANSIMPATH=M:\urban_modeling\baus\PBA60\SB1087\PBA50Plus_Final_Blueprint_v65_2045_T4
+set URBANSIMPATH=M:\urban_modeling\baus\PBA50Plus\PBA50Plus_FinalBlueprint\PBA50Plus_Final_Blueprint_v65
 :: used in OUTPUT_SUFFIX as well; use "census" for non-BAUS-based run
-:: Note: This is equivalent to PBA50Plus_Final_Blueprint_v65 but it includes interim year output
-set BAUS_RUNNUM=PBA50Plus_Final_Blueprint_v65_2045_T4
+set BAUS_RUNNUM=PBA50Plus_Final_Blueprint_v65
 :: OUTPUT DIR will be X:\populationsim_outputs\hh_gq\output_!OUTPUT_SUFFIX!_!YEAR!!PUMA_SUFFIX!_!BAUS_RUNNUM!
-set OUTPUT_SUFFIX=FBP_20261013
+set OUTPUT_SUFFIX=FBP_20261027TEST
 
 :: assume argument is year
 set YEARS=%1
@@ -76,7 +75,7 @@ for %%Y in (!YEARS!) do (
       rem Verify that the file copy MUST succeed or we'll run populationsim with the wrong input
       fc /b "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_taz1_summary_!YEAR!.csv"       hh_gq\data\taz_summaries.csv > nul
       if errorlevel 1 goto error
-      fc /b "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"  hh_gq\data\county_marginals.csv > nul
+      fc /b  "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_county_marginals_!YEAR!.csv"  hh_gq\data\county_marginals.csv > nul
       if errorlevel 1 goto error
       rem fc /b "%URBANSIMPATH%\travel_model_summaries\%BAUS_RUNNUM%_regional_marginals_!YEAR!.csv"  hh_gq\data\regional_marginals.csv > nul
       rem if errorlevel 1 goto error
@@ -137,7 +136,7 @@ for %%Y in (!YEARS!) do (
     move /y "hh_gq\data\taz_summaries.csv"       !OUTPUT_DIR!
     move /y "hh_gq\data\taz_summaries_hhgq.csv"  !OUTPUT_DIR!
     move /y "hh_gq\data\county_marginals.csv"    !OUTPUT_DIR!
-    rem move /y "hh_gq\data\regional_marginals.csv"  !OUTPUT_DIR!
+    move /y "hh_gq\data\regional_marginals.csv"  !OUTPUT_DIR!
   )
   if !MODELTYPE!==TM2 (
     move /y "hh_gq\data\maz_marginals.csv"        !OUTPUT_DIR!
